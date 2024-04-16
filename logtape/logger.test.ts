@@ -1,11 +1,9 @@
-import {
-  assert,
-  assertEquals,
-  assertFalse,
-  assertGreaterOrEqual,
-  assertLessOrEqual,
-  assertStrictEquals,
-} from "@std/assert";
+import { assert } from "@std/assert/assert";
+import { assertEquals } from "@std/assert/assert-equals";
+import { assertFalse } from "@std/assert/assert-false";
+import { assertGreaterOrEqual } from "@std/assert/assert-greater-or-equal";
+import { assertLessOrEqual } from "@std/assert/assert-less-or-equal";
+import { assertStrictEquals } from "@std/assert/assert-strict-equals";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import {

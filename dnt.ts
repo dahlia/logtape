@@ -1,0 +1,47 @@
+import { build, emptyDir } from "@deno/dnt";
+import metadata from "./deno.json" with { type: "json" };
+
+await emptyDir("./npm");
+
+await build({
+  package: {
+    name: "@logtape/logtape",
+    version: Deno.args[0] ?? metadata.version,
+    description: "Simple logging library for Deno/Node.js/Bun/browsers",
+    license: "MIT",
+    author: {
+      name: "Hong Minhee",
+      email: "hong@minhee.org",
+      url: "https://hongminhee.org/",
+    },
+    homepage: "https://github.com/dahlia/logtape",
+    repository: {
+      type: "git",
+      url: "git+https://github.com/dahlia/logtape.git",
+    },
+    bugs: {
+      url: "https://github.com/dahlia/logtape/issues",
+    },
+  },
+  outDir: "./npm",
+  entryPoints: ["./logtape/mod.ts"],
+  importMap: "./deno.json",
+  shims: {
+    deno: "dev",
+    custom: [
+      {
+        module: "node:stream/web",
+        globalNames: ["WritableStream"],
+      },
+    ],
+  },
+  typeCheck: "both",
+  declaration: "separate",
+  declarationMap: true,
+  async postBuild() {
+    await Deno.copyFile("LICENSE", "npm/LICENSE");
+    await Deno.copyFile("README.md", "npm/README.md");
+  },
+});
+
+// cSpell: ignore Minhee

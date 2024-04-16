@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals } from "@std/assert/assert-equals";
 import { fatal, info } from "./fixtures.ts";
 import { defaultConsoleFormatter, defaultTextFormatter } from "./formatter.ts";
 

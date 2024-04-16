@@ -1,9 +1,7 @@
-import {
-  assert,
-  assertFalse,
-  assertStrictEquals,
-  assertThrows,
-} from "@std/assert";
+import { assert } from "@std/assert/assert";
+import { assertFalse } from "@std/assert/assert-false";
+import { assertStrictEquals } from "@std/assert/assert-strict-equals";
+import { assertThrows } from "@std/assert/assert-throws";
 import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./record.ts";

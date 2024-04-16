@@ -1,4 +1,5 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals } from "@std/assert/assert-equals";
+import { assertThrows } from "@std/assert/assert-throws";
 import { ConfigError, configure, reset } from "./config.ts";
 import type { Filter } from "./filter.ts";
 import { LoggerImpl } from "./logger.ts";

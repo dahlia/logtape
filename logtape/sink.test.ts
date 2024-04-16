@@ -1,6 +1,6 @@
-import { assertThrows } from "@std/assert";
-import { delay } from "@std/async";
-import { assertSnapshot } from "@std/testing/snapshot";
+import { assertEquals } from "@std/assert/assert-equals";
+import { assertThrows } from "@std/assert/assert-throws";
+import { delay } from "@std/async/delay";
 import makeConsoleMock from "consolemock";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import { defaultConsoleFormatter } from "./formatter.ts";
@@ -11,12 +11,12 @@ interface ConsoleMock extends Console {
   history(): unknown[];
 }
 
-Deno.test("getStreamSink()", async (t) => {
+Deno.test("getStreamSink()", async () => {
   let buffer: string = "";
   const decoder = new TextDecoder();
   const sink = getStreamSink(
     new WritableStream({
-      write(chunk) {
+      write(chunk: Uint8Array) {
         buffer += decoder.decode(chunk);
         return Promise.resolve();
       },
@@ -28,10 +28,19 @@ Deno.test("getStreamSink()", async (t) => {
   sink(error);
   sink(fatal);
   await delay(100);
-  await assertSnapshot(t, buffer);
+  assertEquals(
+    buffer,
+    `\
+2023-11-14 22:13:20.000 +00:00 [DBG] Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [INF] Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [WRN] Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [ERR] Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [FTL] Hello, 123 & 456!
+`,
+  );
 });
 
-Deno.test("getConsoleSink()", async (t) => {
+Deno.test("getConsoleSink()", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
   const sink = getConsoleSink(defaultConsoleFormatter, mock);
@@ -40,7 +49,63 @@ Deno.test("getConsoleSink()", async (t) => {
   sink(warning);
   sink(error);
   sink(fatal);
-  await assertSnapshot(t, mock.history());
+  assertEquals(mock.history(), [
+    {
+      DEBUG: [
+        "%cDEBUG%c %cmy-app·junk %cHello, %o & %o!",
+        "background-color: gray; color: white;",
+        "background-color: default;",
+        "color: gray;",
+        "color: default;",
+        123,
+        456,
+      ],
+    },
+    {
+      INFO: [
+        "%cINFO%c %cmy-app·junk %cHello, %o & %o!",
+        "background-color: white; color: black;",
+        "background-color: default;",
+        "color: gray;",
+        "color: default;",
+        123,
+        456,
+      ],
+    },
+    {
+      WARN: [
+        "%cWARNING%c %cmy-app·junk %cHello, %o & %o!",
+        "background-color: orange;",
+        "background-color: default;",
+        "color: gray;",
+        "color: default;",
+        123,
+        456,
+      ],
+    },
+    {
+      ERROR: [
+        "%cERROR%c %cmy-app·junk %cHello, %o & %o!",
+        "background-color: red;",
+        "background-color: default;",
+        "color: gray;",
+        "color: default;",
+        123,
+        456,
+      ],
+    },
+    {
+      ERROR: [
+        "%cFATAL%c %cmy-app·junk %cHello, %o & %o!",
+        "background-color: maroon;",
+        "background-color: default;",
+        "color: gray;",
+        "color: default;",
+        123,
+        456,
+      ],
+    },
+  ]);
 
   assertThrows(
     () => sink({ ...info, level: "invalid" as LogLevel }),
