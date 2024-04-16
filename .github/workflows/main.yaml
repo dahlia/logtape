@@ -1,0 +1,46 @@
+name: main
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+      fail-fast: false
+    permissions:
+      contents: read
+      issues: read
+      checks: write
+      pull-requests: write
+    runs-on: ${{ matrix.os }}
+    steps:
+    - run: |
+        git config --global core.autocrlf false
+        git config --global core.eol lf
+    - uses: actions/checkout@v4
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.x
+    - run: deno task test --coverage=.cov --junit-path=.test-report.xml
+    - uses: EnricoMi/publish-unit-test-result-action@v2
+      if: runner.os == 'Linux' && always()
+      with:
+        check_name: "Test Results (Linux)"
+        files: .test-report.xml
+    - uses: EnricoMi/publish-unit-test-result-action/macos@v2
+      if: runner.os == 'macOS' && always()
+      with:
+        check_name: "Test Results (macOS)"
+        files: .test-report.xml
+    - uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      if: runner.os == 'Windows' && always()
+      with:
+        check_name: "Test Results (Windows)"
+        files: .test-report.xml
+    - run: deno coverage --lcov .cov > .cov.lcov
+    - uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: dahlia/logtape
+        file: .cov.lcov
+    - run: deno task check

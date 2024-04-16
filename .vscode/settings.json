@@ -20,10 +20,12 @@
     }
   },
   "cSpell.words": [
+    "Codecov",
     "consolemock",
     "deno",
     "hongminhee",
     "logtape",
-    "supercategory"
+    "supercategory",
+    "venv"
   ]
 }

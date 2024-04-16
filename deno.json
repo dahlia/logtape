@@ -8,9 +8,14 @@
     "@std/testing": "jsr:@std/testing@^0.222.1",
     "consolemock": "npm:consolemock@^1.1.0"
   },
+  "exclude": [
+    "*-venv/",
+    "coverage/",
+    "README.md"
+  ],
   "lock": false,
   "tasks": {
-    "check": "deno check **/*.ts && deno lint",
+    "check": "deno check **/*.ts && deno lint && deno fmt --check",
     "test": "deno test --allow-read=logtape/__snapshots__ --allow-write=logtape/__snapshots__",
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
     "hooks:install": "deno run --allow-read=deno.json,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
