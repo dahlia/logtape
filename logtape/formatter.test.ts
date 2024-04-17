@@ -5,11 +5,11 @@ import { defaultConsoleFormatter, defaultTextFormatter } from "./formatter.ts";
 Deno.test("defaultTextFormatter()", () => {
   assertEquals(
     defaultTextFormatter(info),
-    "2023-11-14 22:13:20.000 +00:00 [INF] Hello, 123 & 456!\n",
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
   assertEquals(
     defaultTextFormatter(fatal),
-    "2023-11-14 22:13:20.000 +00:00 [FTL] Hello, 123 & 456!\n",
+    "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!\n",
   );
 });
 

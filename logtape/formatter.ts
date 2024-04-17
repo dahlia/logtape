@@ -42,7 +42,7 @@ const inspect: (value: unknown) => string = eval(`(
  * The default text formatter.  This formatter formats log records as follows:
  *
  * ```
- * 2023-11-14 22:13:20.000 +00:00 [INF] Hello, world!
+ * 2023-11-14 22:13:20.000 +00:00 [INF] category·subcategory: Hello, world!
  * ```
  *
  * @param record The log record to format.
@@ -55,9 +55,10 @@ export function defaultTextFormatter(record: LogRecord): string {
     if (i % 2 === 0) msg += record.message[i];
     else msg += inspect(record.message[i]);
   }
+  const category = record.category.join("\xb7");
   return `${ts.toISOString().replace("T", " ").replace("Z", " +00:00")} [${
     levelAbbreviations[record.level]
-  }] ${msg}\n`;
+  }] ${category}: ${msg}\n`;
 }
 
 /**

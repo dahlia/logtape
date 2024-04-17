@@ -13,8 +13,7 @@
   "exclude": [
     "*-venv/",
     "coverage/",
-    "npm/",
-    "README.md"
+    "npm/"
   ],
   "lock": false,
   "tasks": {

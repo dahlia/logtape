@@ -8,6 +8,7 @@ await build({
     name: "@logtape/logtape",
     version: Deno.args[0] ?? metadata.version,
     description: "Simple logging library for Deno/Node.js/Bun/browsers",
+    keywords: ["logging", "log", "logger"],
     license: "MIT",
     author: {
       name: "Hong Minhee",
