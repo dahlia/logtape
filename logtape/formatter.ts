@@ -77,9 +77,9 @@ export type ConsoleFormatter = (record: LogRecord) => readonly unknown[];
 const logLevelStyles: Record<LogLevel, string> = {
   "debug": "background-color: gray; color: white;",
   "info": "background-color: white; color: black;",
-  "warning": "background-color: orange;",
-  "error": "background-color: red;",
-  "fatal": "background-color: maroon;",
+  "warning": "background-color: orange; color: black;",
+  "error": "background-color: red; color: white;",
+  "fatal": "background-color: maroon; color: white;",
 };
 
 /**
@@ -99,10 +99,17 @@ export function defaultConsoleFormatter(record: LogRecord): readonly unknown[] {
       values.push(record.message[i]);
     }
   }
+  const date = new Date(record.timestamp);
+  const time = `${date.getUTCHours().toString().padStart(2, "0")}:${
+    date.getUTCMinutes().toString().padStart(2, "0")
+  }:${date.getUTCSeconds().toString().padStart(2, "0")}.${
+    date.getUTCMilliseconds().toString().padStart(3, "0")
+  }`;
   return [
-    `%c${record.level.toUpperCase()}%c %c${
+    `%c${time} %c${levelAbbreviations[record.level]}%c %c${
       record.category.join("\xb7")
     } %c${msg}`,
+    "color: gray;",
     logLevelStyles[record.level],
     "background-color: default;",
     "color: gray;",

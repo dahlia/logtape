@@ -17,7 +17,8 @@ Deno.test("defaultConsoleFormatter()", () => {
   assertEquals(
     defaultConsoleFormatter(info),
     [
-      "%cINFO%c %cmy-app·junk %cHello, %o & %o!",
+      "%c22:13:20.000 %cINF%c %cmy-app·junk %cHello, %o & %o!",
+      "color: gray;",
       "background-color: white; color: black;",
       "background-color: default;",
       "color: gray;",

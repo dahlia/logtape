@@ -52,7 +52,8 @@ Deno.test("getConsoleSink()", () => {
   assertEquals(mock.history(), [
     {
       DEBUG: [
-        "%cDEBUG%c %cmy-app·junk %cHello, %o & %o!",
+        "%c22:13:20.000 %cDBG%c %cmy-app·junk %cHello, %o & %o!",
+        "color: gray;",
         "background-color: gray; color: white;",
         "background-color: default;",
         "color: gray;",
@@ -63,7 +64,8 @@ Deno.test("getConsoleSink()", () => {
     },
     {
       INFO: [
-        "%cINFO%c %cmy-app·junk %cHello, %o & %o!",
+        "%c22:13:20.000 %cINF%c %cmy-app·junk %cHello, %o & %o!",
+        "color: gray;",
         "background-color: white; color: black;",
         "background-color: default;",
         "color: gray;",
@@ -74,8 +76,9 @@ Deno.test("getConsoleSink()", () => {
     },
     {
       WARN: [
-        "%cWARNING%c %cmy-app·junk %cHello, %o & %o!",
-        "background-color: orange;",
+        "%c22:13:20.000 %cWRN%c %cmy-app·junk %cHello, %o & %o!",
+        "color: gray;",
+        "background-color: orange; color: black;",
         "background-color: default;",
         "color: gray;",
         "color: default;",
@@ -85,8 +88,9 @@ Deno.test("getConsoleSink()", () => {
     },
     {
       ERROR: [
-        "%cERROR%c %cmy-app·junk %cHello, %o & %o!",
-        "background-color: red;",
+        "%c22:13:20.000 %cERR%c %cmy-app·junk %cHello, %o & %o!",
+        "color: gray;",
+        "background-color: red; color: white;",
         "background-color: default;",
         "color: gray;",
         "color: default;",
@@ -96,8 +100,9 @@ Deno.test("getConsoleSink()", () => {
     },
     {
       ERROR: [
-        "%cFATAL%c %cmy-app·junk %cHello, %o & %o!",
-        "background-color: maroon;",
+        "%c22:13:20.000 %cFTL%c %cmy-app·junk %cHello, %o & %o!",
+        "color: gray;",
+        "background-color: maroon; color: white;",
         "background-color: default;",
         "color: gray;",
         "color: default;",
