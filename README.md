@@ -16,6 +16,9 @@ designed to be used for both applications and libraries.
 Currently, LogTape provides only few sinks, but you can easily add your own
 sinks.
 
+![](./screenshots/web-console.png)
+![](./screenshots/terminal-console.png)
+
 [GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
 [Codecov]: https://codecov.io/gh/dahlia/logtape
