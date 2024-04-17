@@ -18,6 +18,21 @@ import type { LogRecord } from "./record.ts";
 export type Sink = (record: LogRecord) => void;
 
 /**
+ * Options for the {@link getStreamSink} function.
+ */
+export interface StreamSinkOptions {
+  /**
+   * The text formatter to use.  Defaults to {@link defaultTextFormatter}.
+   */
+  formatter?: TextFormatter;
+
+  /**
+   * The text encoder to use.  Defaults to an instance of {@link TextEncoder}.
+   */
+  encoder?: { encode(text: string): Uint8Array };
+}
+
+/**
  * A factory that returns a sink that writes to a {@link WritableStream}.
  *
  * Note that the `stream` is of Web Streams API, which is different from
@@ -38,17 +53,15 @@ export type Sink = (record: LogRecord) => void;
  * ```
  *
  * @param stream The stream to write to.
- * @param formatter The text formatter to use.  Defaults to
- *                  {@link defaultTextFormatter}.
- * @param encoder The text encoder to use.  Defaults to an instance of
- *                {@link TextEncoder}.
+ * @param options The options for the sink.
  * @returns A sink that writes to the stream.
  */
 export function getStreamSink(
   stream: WritableStream,
-  formatter: TextFormatter = defaultTextFormatter,
-  encoder: { encode(text: string): Uint8Array } = new TextEncoder(),
+  options: StreamSinkOptions = {},
 ): Sink {
+  const formatter = options.formatter ?? defaultTextFormatter;
+  const encoder = options.encoder ?? new TextEncoder();
   const writer = stream.getWriter();
   return (record: LogRecord) => {
     const bytes = encoder.encode(formatter(record));
@@ -57,17 +70,29 @@ export function getStreamSink(
 }
 
 /**
+ * Options for the {@link getConsoleSink} function.
+ */
+export interface ConsoleSinkOptions {
+  /**
+   * The console formatter to use.  Defaults to {@link defaultConsoleFormatter}.
+   */
+  formatter?: ConsoleFormatter;
+
+  /**
+   * The console to log to.  Defaults to {@link console}.
+   */
+  console?: Console;
+}
+
+/**
  * A console sink factory that returns a sink that logs to the console.
  *
- * @param formatter A console formatter.  Defaults to
- *                  {@link defaultConsoleFormatter}.
- * @param console The console to log to.  Defaults to {@link console}.
+ * @param options The options for the sink.
  * @returns A sink that logs to the console.
  */
-export function getConsoleSink(
-  formatter: ConsoleFormatter = defaultConsoleFormatter,
-  console: Console = globalThis.console,
-): Sink {
+export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
+  const formatter = options.formatter ?? defaultConsoleFormatter;
+  const console = options.console ?? globalThis.console;
   return (record: LogRecord) => {
     const args = formatter(record);
     if (record.level === "debug") console.debug(...args);

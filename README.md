@@ -129,6 +129,23 @@ to loggers whose categories are `["my-app", "my-module"]` and `["my-app"]`.
 This behavior allows you to control the verbosity of log messages by setting
 the log level of loggers at different levels of the category hierarchy.
 
+Here's an example of setting log levels for different categories:
+
+~~~~ typescript
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+configure({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  filters: {},
+  loggers: [
+    { category: ["my-app"], level: "info", sinks: ["console"] },
+    { category: ["my-app", "my-module"], level: "debug", sinks: ["console"] },
+  ],
+})
+~~~~
+
 
 Sinks
 -----
@@ -156,6 +173,8 @@ configure({
 });
 ~~~~
 
+### Console sink
+
 Of course, you don't have to implement your own console sink because LogTape
 provides a console sink:
 
@@ -170,19 +189,38 @@ configure({
 });
 ~~~~
 
+See also [`getConsoleSink()`] function and [`ConsoleSinkOptions`] interface
+in the API reference for more details.
+
+[`getConsoleSink()`]: https://jsr.io/@logtape/logtape/doc/~/getConsoleSink
+[`ConsoleSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/ConsoleSinkOptions
+
+### Stream sink
+
 Another built-in sink is a stream sink.  It writes log messages to
 a [`WritableStream`].  Here's an example of a stream sink that writes log
 messages to the standard error:
 
 ~~~~ typescript
 // Deno:
-const stderrSink = getStreamSink(Deno.stderr.writable);
+configure({
+  sinks: {
+    stream: getStreamSink(Deno.stderr.writable),
+  },
+  // Omitted for brevity
+});
 ~~~~
 
 ~~~~ typescript
 // Node.js:
 import stream from "node:stream";
-const stderrSink = getStreamSink(stream.Writable.toWeb(process.stderr));
+
+configure({
+  sinks: {
+    stream: getStreamSink(stream.Writable.toWeb(process.stderr)),
+  },
+  // Omitted for brevity
+});
 ~~~~
 
 > [!NOTE]
@@ -192,6 +230,51 @@ const stderrSink = getStreamSink(stream.Writable.toWeb(process.stderr));
 > Node.js stream.  You can use [`Writable.toWeb()`] method to convert a Node.js
 > stream to a `WritableStream`.
 
+See also [`getStreamSink()`] function and [`StreamSinkOptions`] interface
+in the API reference for more details.
+
 [`WritableStream`]: https://developer.mozilla.org/en-US/docs/Web/API/WritableStream
 [`Writable`]: https://nodejs.org/api/stream.html#class-streamwritable
 [`Writable.toWeb()`]: https://nodejs.org/api/stream.html#streamwritabletowebstreamwritable
+[`getStreamSink()`]: https://jsr.io/@logtape/logtape/doc/~/getStreamSink
+[`StreamSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/StreamSinkOptions
+
+### Buffer sink
+
+For testing purposes, you may want to collect log messages in memory.  Although
+LogTape does not provide a built-in buffer sink, you can easily implement it:
+
+~~~~ typescript
+import { type LogRecord, configure } from "@logtape/logtape";
+
+const buffer: LogRecord[] = [];
+
+configure({
+  sinks: {
+    buffer: buffer.push.bind(buffer),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Text formatter
+
+A stream sink writes log messages in a plain text format.  You can customize
+the format by providing a text formatter.  The type of a text formatter is:
+
+~~~~ typescript
+export type TextFormatter = (record: LogRecord) => string;
+~~~~
+
+Here's an example of a text formatter that writes log messages in a JSON format:
+
+~~~~ typescript
+configure({
+  sinks: {
+    stream: getStreamSink(Deno.stderr.writable, {
+      formatter: JSON.stringify,
+    }),
+  },
+  // Omitted for brevity
+})
+~~~~

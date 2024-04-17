@@ -3,7 +3,6 @@ import { assertThrows } from "@std/assert/assert-throws";
 import { delay } from "@std/async/delay";
 import makeConsoleMock from "consolemock";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
-import { defaultConsoleFormatter } from "./formatter.ts";
 import type { LogLevel } from "./record.ts";
 import { getConsoleSink, getStreamSink } from "./sink.ts";
 
@@ -43,7 +42,7 @@ Deno.test("getStreamSink()", async () => {
 Deno.test("getConsoleSink()", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
-  const sink = getConsoleSink(defaultConsoleFormatter, mock);
+  const sink = getConsoleSink({ console: mock });
   sink(debug);
   sink(info);
   sink(warning);
