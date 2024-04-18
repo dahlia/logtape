@@ -241,65 +241,28 @@ in the API reference for more details.
 
 ### File sink
 
-LogTape provides a platform-independent file sink.  You can use it by providing
-a platform-specific file driver for Deno or Node.js.  Here's an example of
-a file sink that writes log messages to a file:
+> [!NOTE]
+> File sink is unavailable in the browser environment.
+
+LogTape provides a file sink as well.  Here's an example of a file sink that
+writes log messages to a file:
 
 ~~~~ typescript
-// Deno
-import { type FileSinkDriver, getFileSink } from "@logtape/logtape";
-
-const driver: FileSinkDriver<Deno.FsFile> = {
-  openSync(path: string) {
-    return Deno.openSync(path, { create: true, append: true });
-  },
-  writeSync(fd, chunk) {
-    fd.writeSync(chunk);
-  },
-  flushSync(fd) {
-    fd.syncSync();
-  },
-  closeSync(fd) {
-    fd.close();
-  },
-};
+import { getFileSink } from "@logtape/logtape";
 
 configure({
   sinks: {
-    file: getFileSink("my-app.log", driver),
+    file: getFileSink("my-app.log"),
   },
   // Omitted for brevity
 });
 ~~~~
 
-~~~~ typescript
-// Node.js or Bun
-import fs from "node:fs";
-import { type FileSinkDriver, getFileSink } from "@logtape/logtape";
-
-const driver: FileSinkDriver<number> = {
-  openSync(path: string) {
-    return fs.openSync(path, "a");
-  },
-  writeSync: fs.writeSync,
-  flushSync: fs.fsyncSync,
-  closeSync: fs.closeSync,
-};
-
-configure({
-  sinks: {
-    file: getFileSink("my-app.log", driver),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-See also [`getFileSink()`] function, [`FileSinkOptions`] interface, and
-[`FileSinkDriver`] interface in the API reference for more details.
+See also [`getFileSink()`] function and [`FileSinkOptions`] interface
+in the API reference for more details.
 
 [`getFileSink()`]: https://jsr.io/@logtape/logtape/doc/~/getFileSink
 [`FileSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/FileSinkOptions
-[`FileSinkDriver`]: https://jsr.io/@logtape/logtape/doc/~/FileSinkDriver
 
 ### Text formatter
 

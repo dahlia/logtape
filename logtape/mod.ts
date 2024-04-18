@@ -5,6 +5,7 @@ export {
   type LoggerConfig,
   reset,
 } from "./config.ts";
+export { getFileSink } from "./filesink.deno.ts";
 export {
   type Filter,
   type FilterLike,
@@ -24,8 +25,9 @@ export {
   type FileSinkDriver,
   type FileSinkOptions,
   getConsoleSink,
-  getFileSink,
   getStreamSink,
   type Sink,
   type StreamSinkOptions,
 } from "./sink.ts";
+
+// cSpell: ignore filesink

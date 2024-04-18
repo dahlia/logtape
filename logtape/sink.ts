@@ -144,6 +144,7 @@ export interface FileSinkDriver<TFile> {
 
 /**
  * Get a platform-independent file sink.
+ *
  * @typeParam TFile The type of the file descriptor.
  * @param path A path to the file to write to.
  * @param options The options for the sink and the file driver.

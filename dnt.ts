@@ -27,6 +27,9 @@ await build({
   outDir: "./npm",
   entryPoints: ["./logtape/mod.ts"],
   importMap: "./deno.json",
+  mappings: {
+    "./logtape/filesink.deno.ts": "./logtape/filesink.node.ts",
+  },
   shims: {
     deno: "dev",
     custom: [
@@ -45,4 +48,4 @@ await build({
   },
 });
 
-// cSpell: ignore Minhee
+// cSpell: ignore Minhee filesink
