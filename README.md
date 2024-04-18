@@ -3,6 +3,8 @@
 LogTape
 =======
 
+[![JSR][JSR badge]][JSR]
+[![npm][npm badge]][npm]
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 [![Codecov][Codecov badge]][Codecov]
 
@@ -19,6 +21,10 @@ sinks.
 ![](./screenshots/web-console.png)
 ![](./screenshots/terminal-console.png)
 
+[JSR]: https://jsr.io/@logtape/logtape
+[JSR badge]: https://jsr.io/badges/@logtape/logtape
+[npm]: https://www.npmjs.com/package/@logtape/logtape
+[npm badge]: https://img.shields.io/npm/v/@logtape/logtape?logo=npm
 [GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
 [Codecov]: https://codecov.io/gh/dahlia/logtape
