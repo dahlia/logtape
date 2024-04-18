@@ -13,8 +13,18 @@ export {
 export {
   type ConsoleFormatter,
   defaultConsoleFormatter,
+  defaultTextFormatter,
   type TextFormatter,
 } from "./formatter.ts";
 export { getLogger, type Logger } from "./logger.ts";
 export type { LogLevel, LogRecord } from "./record.ts";
-export { getConsoleSink, type Sink } from "./sink.ts";
+export {
+  type ConsoleSinkOptions,
+  type FileSinkDriver,
+  type FileSinkOptions,
+  getConsoleSink,
+  getFileSink,
+  getStreamSink,
+  type Sink,
+  type StreamSinkOptions,
+} from "./sink.ts";
