@@ -3,6 +3,7 @@ export {
   ConfigError,
   configure,
   type LoggerConfig,
+  reset,
 } from "./config.ts";
 export {
   type Filter,

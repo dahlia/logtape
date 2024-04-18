@@ -341,3 +341,19 @@ configure({
   // Omitted for brevity
 })
 ~~~~
+
+### Disposable sink
+
+A disposable sink is a sink that can be disposed of.  They are automatically
+disposed of when the configuration is reset or the program exits.  The type
+of a disposable sink is: `Sink & Disposable`.  You can create a disposable
+sink by defining a `[Symbol.dispose]` method:
+
+~~~~ typescript
+const disposableSink: Sink & Disposable = (record: LogRecord) => {
+  console.log(record.message);
+};
+disposableSink[Symbol.dispose] = () => {
+  console.log("Disposed!");
+};
+~~~~

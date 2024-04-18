@@ -7,13 +7,17 @@ import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
 Deno.test("configure()", async (t) => {
+  let disposed = 0;
+
   await t.step("test", () => {
     const a: Sink = () => {};
-    const b: Sink = () => {};
+    const b: Sink & Disposable = () => {};
+    b[Symbol.dispose] = () => ++disposed;
     const cLogs: LogRecord[] = [];
     const c: Sink = cLogs.push.bind(cLogs);
     const x: Filter = () => true;
-    const y: Filter = () => true;
+    const y: Filter & Disposable = () => true;
+    y[Symbol.dispose] = () => ++disposed;
     configure({
       sinks: { a, b, c },
       filters: { x, y },
@@ -69,6 +73,7 @@ Deno.test("configure()", async (t) => {
       ConfigError,
       "Already configured",
     );
+    assertEquals(disposed, 0);
 
     // No exception if reset is true:
     configure({
@@ -77,6 +82,7 @@ Deno.test("configure()", async (t) => {
       loggers: [{ category: "my-app" }],
       reset: true,
     });
+    assertEquals(disposed, 2);
   });
 
   await t.step("tear down", () => {

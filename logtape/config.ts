@@ -59,10 +59,21 @@ export interface LoggerConfig<
   level?: LogLevel | null;
 }
 
+/**
+ * Whether the loggers are configured.
+ */
 let configured = false;
 
 /**
+ * Disposables to dispose when resetting the configuration.
+ */
+const disposables: Set<Disposable> = new Set();
+
+/**
  * Configure the loggers with the specified configuration.
+ *
+ * Note that if the given sinks or filters are disposable, they will be
+ * disposed when the configuration is reset, or when the process exits.
  *
  * @example
  * ```typescript
@@ -105,8 +116,8 @@ export function configure<TSinkId extends string, TFilterId extends string>(
       "Already configured; if you want to reset, turn on the reset flag.",
     );
   }
+  reset();
   configured = true;
-  LoggerImpl.getLogger([]).resetDescendants();
 
   let metaConfigured = false;
 
@@ -140,6 +151,22 @@ export function configure<TSinkId extends string, TFilterId extends string>(
     }
   }
 
+  for (const sink of Object.values<Sink>(config.sinks)) {
+    if (Symbol.dispose in sink) disposables.add(sink as Disposable);
+  }
+
+  for (const filter of Object.values<FilterLike>(config.filters)) {
+    if (
+      filter != null && typeof filter !== "string" && Symbol.dispose in filter
+    ) disposables.add(filter as Disposable);
+  }
+
+  if ("process" in globalThis) { // @ts-ignore: It's fine to use process in Node
+    process.on("exit", dispose);
+  } else { // @ts-ignore: It's fine to addEventListener() on the browser/Deno
+    addEventListener("unload", dispose);
+  }
+
   const meta = LoggerImpl.getLogger(["logtape", "meta"]);
   if (!metaConfigured) {
     meta.sinks.push(getConsoleSink());
@@ -162,8 +189,17 @@ export function configure<TSinkId extends string, TFilterId extends string>(
  * Reset the configuration.  Mostly for testing purposes.
  */
 export function reset() {
+  dispose();
   LoggerImpl.getLogger([]).resetDescendants();
   configured = false;
+}
+
+/**
+ * Dispose of the disposables.
+ */
+export function dispose() {
+  for (const disposable of disposables) disposable[Symbol.dispose]();
+  disposables.clear();
 }
 
 /**

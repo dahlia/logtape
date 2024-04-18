@@ -45,6 +45,7 @@ Deno.test("getStreamSink()", async () => {
 2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
 `,
   );
+  sink[Symbol.dispose]();
 });
 
 Deno.test("getConsoleSink()", () => {
@@ -128,7 +129,7 @@ Deno.test("getConsoleSink()", () => {
 
 Deno.test("getFileSink()", () => {
   const path = Deno.makeTempFileSync();
-  let sink: Sink & { close(): void };
+  let sink: Sink & Disposable;
   if (isDeno) {
     const driver: FileSinkDriver<Deno.FsFile> = {
       openSync(path: string) {
@@ -161,7 +162,7 @@ Deno.test("getFileSink()", () => {
   sink(warning);
   sink(error);
   sink(fatal);
-  sink.close();
+  sink[Symbol.dispose]();
   assertEquals(
     Deno.readTextFileSync(path),
     `\

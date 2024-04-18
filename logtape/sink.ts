@@ -59,14 +59,16 @@ export interface StreamSinkOptions {
 export function getStreamSink(
   stream: WritableStream,
   options: StreamSinkOptions = {},
-): Sink {
+): Sink & Disposable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const writer = stream.getWriter();
-  return (record: LogRecord) => {
+  const sink: Sink & Disposable = (record: LogRecord) => {
     const bytes = encoder.encode(formatter(record));
     writer.ready.then(() => writer.write(bytes));
   };
+  sink[Symbol.dispose] = () => writer.close();
+  return sink;
 }
 
 /**
@@ -145,19 +147,20 @@ export interface FileSinkDriver<TFile> {
  * @typeParam TFile The type of the file descriptor.
  * @param path A path to the file to write to.
  * @param options The options for the sink and the file driver.
- * @returns A sink that writes to the file.
+ * @returns A sink that writes to the file.  The sink is also a disposable
+ *          object that closes the file when disposed.
  */
 export function getFileSink<TFile>(
   path: string,
   options: FileSinkOptions & FileSinkDriver<TFile>,
-): Sink & { close: () => void } {
+): Sink & Disposable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const fd = options.openSync(path);
-  const sink = (record: LogRecord) => {
+  const sink: Sink & Disposable = (record: LogRecord) => {
     options.writeSync(fd, encoder.encode(formatter(record)));
     options.flushSync(fd);
   };
-  sink.close = () => options.closeSync(fd);
+  sink[Symbol.dispose] = () => options.closeSync(fd);
   return sink;
 }
