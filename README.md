@@ -239,6 +239,68 @@ in the API reference for more details.
 [`getStreamSink()`]: https://jsr.io/@logtape/logtape/doc/~/getStreamSink
 [`StreamSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/StreamSinkOptions
 
+### File sink
+
+LogTape provides a platform-independent file sink.  You can use it by providing
+a platform-specific file driver for Deno or Node.js.  Here's an example of
+a file sink that writes log messages to a file:
+
+~~~~ typescript
+// Deno
+import { type FileSinkDriver, getFileSink } from "@logtape/logtape";
+
+const driver: FileSinkDriver<Deno.FsFile> = {
+  openSync(path: string) {
+    return Deno.openSync(path, { create: true, append: true });
+  },
+  writeSync(fd, chunk) {
+    fd.writeSync(chunk);
+  },
+  flushSync(fd) {
+    fd.syncSync();
+  },
+  closeSync(fd) {
+    fd.close();
+  },
+};
+
+configure({
+  sinks: {
+    file: getFileSink("my-app.log", driver),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+~~~~ typescript
+// Node.js or Bun
+import fs from "node:fs";
+import { type FileSinkDriver, getFileSink } from "@logtape/logtape";
+
+const driver: FileSinkDriver<number> = {
+  openSync(path: string) {
+    return fs.openSync(path, "a");
+  },
+  writeSync: fs.writeSync,
+  flushSync: fs.fsyncSync,
+  closeSync: fs.closeSync,
+};
+
+configure({
+  sinks: {
+    file: getFileSink("my-app.log", driver),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+See also [`getFileSink()`] function, [`FileSinkOptions`] interface, and
+[`FileSinkDriver`] interface in the API reference for more details.
+
+[`getFileSink()`]: https://jsr.io/@logtape/logtape/doc/~/getFileSink
+[`FileSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/FileSinkOptions
+[`FileSinkDriver`]: https://jsr.io/@logtape/logtape/doc/~/FileSinkDriver
+
 ### Buffer sink
 
 For testing purposes, you may want to collect log messages in memory.  Although
@@ -259,8 +321,9 @@ configure({
 
 ### Text formatter
 
-A stream sink writes log messages in a plain text format.  You can customize
-the format by providing a text formatter.  The type of a text formatter is:
+A stream sink and a file sink write log messages in a plain text format.
+You can customize the format by providing a text formatter.  The type of a
+text formatter is:
 
 ~~~~ typescript
 export type TextFormatter = (record: LogRecord) => string;

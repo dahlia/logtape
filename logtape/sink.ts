@@ -103,3 +103,61 @@ export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
     } else throw new TypeError(`Invalid log level: ${record.level}.`);
   };
 }
+
+/**
+ * Options for the {@link getFileSink} function.
+ */
+export type FileSinkOptions = StreamSinkOptions;
+
+/**
+ * A platform-specific file sink driver.
+ * @typeParam TFile The type of the file descriptor.
+ */
+export interface FileSinkDriver<TFile> {
+  /**
+   * Open a file for appending and return a file descriptor.
+   * @param path A path to the file to open.
+   */
+  openSync(path: string): TFile;
+
+  /**
+   * Write a chunk of data to the file.
+   * @param fd The file descriptor.
+   * @param chunk The data to write.
+   */
+  writeSync(fd: TFile, chunk: Uint8Array): void;
+
+  /**
+   * Flush the file to ensure that all data is written to the disk.
+   * @param fd The file descriptor.
+   */
+  flushSync(fd: TFile): void;
+
+  /**
+   * Close the file.
+   * @param fd The file descriptor.
+   */
+  closeSync(fd: TFile): void;
+}
+
+/**
+ * Get a platform-independent file sink.
+ * @typeParam TFile The type of the file descriptor.
+ * @param path A path to the file to write to.
+ * @param options The options for the sink and the file driver.
+ * @returns A sink that writes to the file.
+ */
+export function getFileSink<TFile>(
+  path: string,
+  options: FileSinkOptions & FileSinkDriver<TFile>,
+): Sink & { close: () => void } {
+  const formatter = options.formatter ?? defaultTextFormatter;
+  const encoder = options.encoder ?? new TextEncoder();
+  const fd = options.openSync(path);
+  const sink = (record: LogRecord) => {
+    options.writeSync(fd, encoder.encode(formatter(record)));
+    options.flushSync(fd);
+  };
+  sink.close = () => options.closeSync(fd);
+  return sink;
+}
