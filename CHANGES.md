@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.2.1
 -------------
 
-To be released.
+Released on April 20, 2024.
 
  -  Removed `FileSinkDriver` interface.
  -  Added `RotatingFileSinkOptions` interface.
