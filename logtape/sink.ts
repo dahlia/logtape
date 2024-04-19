@@ -171,3 +171,89 @@ export function getFileSink<TFile>(
   sink[Symbol.dispose] = () => options.closeSync(fd);
   return sink;
 }
+
+/**
+ * Options for the {@link getRotatingFileSink} function.
+ */
+export interface RotatingFileSinkOptions extends FileSinkOptions {
+  /**
+   * The maximum bytes of the file before it is rotated.  1 MiB by default.
+   */
+  maxSize?: number;
+
+  /**
+   * The maximum number of files to keep.  5 by default.
+   */
+  maxFiles?: number;
+}
+
+/**
+ * A platform-specific rotating file sink driver.
+ */
+export interface RotatingFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
+  /**
+   * Get the size of the file.
+   * @param path A path to the file.
+   * @returns The `size` of the file in bytes, in an object.
+   */
+  statSync(path: string): { size: number };
+
+  /**
+   * Rename a file.
+   * @param oldPath A path to the file to rename.
+   * @param newPath A path to be renamed to.
+   */
+  renameSync(oldPath: string, newPath: string): void;
+}
+
+/**
+ * Get a platform-independent rotating file sink.
+ *
+ * This sink writes log records to a file, and rotates the file when it reaches
+ * the `maxSize`.  The rotated files are named with the original file name
+ * followed by a dot and a number, starting from 1.  The number is incremented
+ * for each rotation, and the maximum number of files to keep is `maxFiles`.
+ *
+ * @param path A path to the file to write to.
+ * @param options The options for the sink and the file driver.
+ * @returns A sink that writes to the file.  The sink is also a disposable
+ *          object that closes the file when disposed.
+ */
+export function getRotatingFileSink<TFile>(
+  path: string,
+  options: RotatingFileSinkOptions & RotatingFileSinkDriver<TFile>,
+): Sink & Disposable {
+  const formatter = options.formatter ?? defaultTextFormatter;
+  const encoder = options.encoder ?? new TextEncoder();
+  const maxSize = options.maxSize ?? 1024 * 1024;
+  const maxFiles = options.maxFiles ?? 5;
+  let { size: offset } = options.statSync(path);
+  let fd = options.openSync(path);
+  function shouldRollover(bytes: Uint8Array): boolean {
+    return offset + bytes.length > maxSize;
+  }
+  function performRollover(): void {
+    options.closeSync(fd);
+    for (let i = maxFiles - 1; i > 0; i--) {
+      const oldPath = `${path}.${i}`;
+      const newPath = `${path}.${i + 1}`;
+      try {
+        options.renameSync(oldPath, newPath);
+      } catch (_) {
+        // Continue if the file does not exist.
+      }
+    }
+    options.renameSync(path, `${path}.1`);
+    offset = 0;
+    fd = options.openSync(path);
+  }
+  const sink: Sink & Disposable = (record: LogRecord) => {
+    const bytes = encoder.encode(formatter(record));
+    if (shouldRollover(bytes)) performRollover();
+    options.writeSync(fd, bytes);
+    options.flushSync(fd);
+    offset += bytes.length;
+  };
+  sink[Symbol.dispose] = () => options.closeSync(fd);
+  return sink;
+}

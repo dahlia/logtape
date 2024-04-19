@@ -22,6 +22,8 @@ To be released.
  -  The return type of `getStreamSink()` function became
     `Sink & AsyncDisposable` (was `Sink & Disposable`).
 
+ -  Added `getRotatingFileSink()` function.
+
 
 Version 0.1.0
 -------------
