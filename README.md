@@ -271,6 +271,37 @@ in the API reference for more details.
 [`getFileSink()`]: https://jsr.io/@logtape/logtape/doc/~/getFileSink
 [`FileSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/FileSinkOptions
 
+### Rotating file sink
+
+> [!NOTE]
+> File sink is unavailable in the browser environment.
+
+A rotating file sink is a file sink that rotates log files.  It creates a new
+log file when the current log file reaches a certain size.  Here's an example
+of a rotating file sink that writes log messages to a file:
+
+~~~~ typescript
+import { getRotatingFileSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    file: getRotatingFileSink("my-app.log", {
+      maxFileSize: 1024 * 1024,  // 1 MiB
+      maxFiles: 5,
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+Rotated log files are named with a suffix like *.1*, *.2*, *.3*, and so on.
+
+For more details, see [`getRotatingFileSink()`] function and
+[`RotatingFileSinkOptions`] interface in the API reference.
+
+[`getRotatingFileSink()`]: https://jsr.io/@logtape/logtape/doc/~/getRotatingFileSink
+[`RotatingFileSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/RotatingFileSinkOptions
+
 ### Text formatter
 
 A stream sink and a file sink write log messages in a plain text format.
