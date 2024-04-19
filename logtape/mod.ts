@@ -23,10 +23,10 @@ export { getLogger, type Logger } from "./logger.ts";
 export type { LogLevel, LogRecord } from "./record.ts";
 export {
   type ConsoleSinkOptions,
-  type FileSinkDriver,
   type FileSinkOptions,
   getConsoleSink,
   getStreamSink,
+  type RotatingFileSinkOptions,
   type Sink,
   type StreamSinkOptions,
 } from "./sink.ts";

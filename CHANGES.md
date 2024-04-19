@@ -9,6 +9,15 @@ Version 0.3.0
 To be released.
 
 
+Version 0.2.1
+-------------
+
+Released on April 20, 2024.
+
+ -  Removed `FileSinkDriver` interface.
+ -  Added `RotatingFileSinkOptions` interface.
+
+
 Version 0.2.0
 -------------
 
