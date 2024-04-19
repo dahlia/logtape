@@ -1,6 +1,5 @@
 import { assertEquals } from "@std/assert/assert-equals";
 import { assertThrows } from "@std/assert/assert-throws";
-import { delay } from "@std/async/delay";
 import makeConsoleMock from "consolemock";
 import fs from "node:fs";
 import { isDeno } from "which_runtime";
@@ -34,7 +33,7 @@ Deno.test("getStreamSink()", async () => {
   sink(warning);
   sink(error);
   sink(fatal);
-  await delay(100);
+  await sink[Symbol.asyncDispose]();
   assertEquals(
     buffer,
     `\
@@ -45,7 +44,6 @@ Deno.test("getStreamSink()", async () => {
 2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
 `,
   );
-  sink[Symbol.dispose]();
 });
 
 Deno.test("getConsoleSink()", () => {

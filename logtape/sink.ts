@@ -59,15 +59,21 @@ export interface StreamSinkOptions {
 export function getStreamSink(
   stream: WritableStream,
   options: StreamSinkOptions = {},
-): Sink & Disposable {
+): Sink & AsyncDisposable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const writer = stream.getWriter();
-  const sink: Sink & Disposable = (record: LogRecord) => {
+  let lastPromise = Promise.resolve();
+  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     const bytes = encoder.encode(formatter(record));
-    writer.ready.then(() => writer.write(bytes));
+    lastPromise = lastPromise
+      .then(() => writer.ready)
+      .then(() => writer.write(bytes));
   };
-  sink[Symbol.dispose] = () => writer.close();
+  sink[Symbol.asyncDispose] = async () => {
+    await lastPromise;
+    await writer.close();
+  };
   return sink;
 }
 

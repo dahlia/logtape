@@ -19,6 +19,9 @@ To be released.
      -  Configured sinks that implement `AsyncDisposable` are now disposed
         of asynchronously when the configuration is reset or the program exits.
 
+ -  The return type of `getStreamSink()` function became
+    `Sink & AsyncDisposable` (was `Sink & Disposable`).
+
 
 Version 0.1.0
 -------------
