@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert/assert-equals";
-import { assertThrows } from "@std/assert/assert-throws";
+import { assertRejects } from "@std/assert/assert-rejects";
 import { ConfigError, configure, reset } from "./config.ts";
 import type { Filter } from "./filter.ts";
 import { LoggerImpl } from "./logger.ts";
@@ -9,7 +9,7 @@ import type { Sink } from "./sink.ts";
 Deno.test("configure()", async (t) => {
   let disposed = 0;
 
-  await t.step("test", () => {
+  await t.step("test", async () => {
     const a: Sink = () => {};
     const b: Sink & Disposable = () => {};
     b[Symbol.dispose] = () => ++disposed;
@@ -18,7 +18,7 @@ Deno.test("configure()", async (t) => {
     const x: Filter = () => true;
     const y: Filter & Disposable = () => true;
     y[Symbol.dispose] = () => ++disposed;
-    configure({
+    await configure({
       sinks: { a, b, c },
       filters: { x, y },
       loggers: [
@@ -62,8 +62,8 @@ Deno.test("configure()", async (t) => {
     ]);
   });
 
-  await t.step("reconfigure", () => {
-    assertThrows(
+  await t.step("reconfigure", async () => {
+    await assertRejects(
       () =>
         configure({
           sinks: {},
@@ -76,7 +76,7 @@ Deno.test("configure()", async (t) => {
     assertEquals(disposed, 0);
 
     // No exception if reset is true:
-    configure({
+    await configure({
       sinks: {},
       filters: {},
       loggers: [{ category: "my-app" }],
@@ -85,12 +85,12 @@ Deno.test("configure()", async (t) => {
     assertEquals(disposed, 2);
   });
 
-  await t.step("tear down", () => {
-    reset();
+  await t.step("tear down", async () => {
+    await reset();
   });
 
-  await t.step("misconfiguration", () => {
-    assertThrows(
+  await t.step("misconfiguration", async () => {
+    await assertRejects(
       () =>
         configure({
           // deno-lint-ignore no-explicit-any
@@ -108,7 +108,7 @@ Deno.test("configure()", async (t) => {
       "Sink not found: invalid",
     );
 
-    assertThrows(
+    await assertRejects(
       () =>
         configure({
           sinks: {},
@@ -129,24 +129,27 @@ Deno.test("configure()", async (t) => {
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
-    await t.step("meta configuration: " + JSON.stringify(metaCategory), () => {
-      configure({
-        sinks: {},
-        filters: {},
-        loggers: [
-          {
-            category: metaCategory,
-            sinks: [],
-            filters: [],
-          },
-        ],
-      });
+    await t.step(
+      "meta configuration: " + JSON.stringify(metaCategory),
+      async () => {
+        await configure({
+          sinks: {},
+          filters: {},
+          loggers: [
+            {
+              category: metaCategory,
+              sinks: [],
+              filters: [],
+            },
+          ],
+        });
 
-      assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
-    });
+        assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
+      },
+    );
 
-    await t.step("tear down", () => {
-      reset();
+    await t.step("tear down", async () => {
+      await reset();
     });
   }
 });

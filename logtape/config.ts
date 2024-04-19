@@ -70,6 +70,11 @@ let configured = false;
 const disposables: Set<Disposable> = new Set();
 
 /**
+ * Async disposables to dispose when resetting the configuration.
+ */
+const asyncDisposables: Set<AsyncDisposable> = new Set();
+
+/**
  * Configure the loggers with the specified configuration.
  *
  * Note that if the given sinks or filters are disposable, they will be
@@ -77,7 +82,7 @@ const disposables: Set<Disposable> = new Set();
  *
  * @example
  * ```typescript
- * configure({
+ * await configure({
  *   sinks: {
  *     console: getConsoleSink(),
  *   },
@@ -108,15 +113,16 @@ const disposables: Set<Disposable> = new Set();
  *
  * @param config The configuration.
  */
-export function configure<TSinkId extends string, TFilterId extends string>(
-  config: Config<TSinkId, TFilterId>,
-) {
+export async function configure<
+  TSinkId extends string,
+  TFilterId extends string,
+>(config: Config<TSinkId, TFilterId>): Promise<void> {
   if (configured && !config.reset) {
     throw new ConfigError(
       "Already configured; if you want to reset, turn on the reset flag.",
     );
   }
-  reset();
+  await reset();
   configured = true;
 
   let metaConfigured = false;
@@ -135,7 +141,7 @@ export function configure<TSinkId extends string, TFilterId extends string>(
     for (const sinkId of cfg.sinks ?? []) {
       const sink = config.sinks[sinkId];
       if (!sink) {
-        reset();
+        await reset();
         throw new ConfigError(`Sink not found: ${sinkId}.`);
       }
       logger.sinks.push(sink);
@@ -144,7 +150,7 @@ export function configure<TSinkId extends string, TFilterId extends string>(
     for (const filterId of cfg.filters ?? []) {
       const filter = config.filters[filterId];
       if (filter === undefined) {
-        reset();
+        await reset();
         throw new ConfigError(`Filter not found: ${filterId}.`);
       }
       logger.filters.push(toFilter(filter));
@@ -152,13 +158,18 @@ export function configure<TSinkId extends string, TFilterId extends string>(
   }
 
   for (const sink of Object.values<Sink>(config.sinks)) {
+    if (Symbol.asyncDispose in sink) {
+      asyncDisposables.add(sink as AsyncDisposable);
+    }
     if (Symbol.dispose in sink) disposables.add(sink as Disposable);
   }
 
   for (const filter of Object.values<FilterLike>(config.filters)) {
-    if (
-      filter != null && typeof filter !== "string" && Symbol.dispose in filter
-    ) disposables.add(filter as Disposable);
+    if (filter == null || typeof filter === "string") continue;
+    if (Symbol.asyncDispose in filter) {
+      asyncDisposables.add(filter as AsyncDisposable);
+    }
+    if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
   if ("process" in globalThis) { // @ts-ignore: It's fine to use process in Node
@@ -188,8 +199,8 @@ export function configure<TSinkId extends string, TFilterId extends string>(
 /**
  * Reset the configuration.  Mostly for testing purposes.
  */
-export function reset() {
-  dispose();
+export async function reset(): Promise<void> {
+  await dispose();
   LoggerImpl.getLogger([]).resetDescendants();
   configured = false;
 }
@@ -197,9 +208,15 @@ export function reset() {
 /**
  * Dispose of the disposables.
  */
-export function dispose() {
+export async function dispose(): Promise<void> {
   for (const disposable of disposables) disposable[Symbol.dispose]();
   disposables.clear();
+  const promises: PromiseLike<void>[] = [];
+  for (const disposable of asyncDisposables) {
+    promises.push(disposable[Symbol.asyncDispose]());
+    asyncDisposables.delete(disposable);
+  }
+  await Promise.all(promises);
 }
 
 /**

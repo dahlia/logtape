@@ -63,7 +63,7 @@ the application to set up LogTape):
 ~~~~ typescript
 import { configure, getConsoleSink } from "@logtape/logtape";
 
-configure({
+await configure({
   sinks: { console: getConsoleSink() },
   filters: {},
   loggers: [
@@ -140,7 +140,7 @@ Here's an example of setting log levels for different categories:
 ~~~~ typescript
 import { configure, getConsoleSink } from "@logtape/logtape";
 
-configure({
+await configure({
   sinks: {
     console: getConsoleSink(),
   },
@@ -169,7 +169,7 @@ Here's a simple example of a sink that writes log messages to console:
 ~~~~ typescript
 import { configure } from "@logtape/logtape";
 
-configure({
+await configure({
   sinks: {
     console(record) {
       console.log(record.message);
@@ -187,7 +187,7 @@ provides a console sink:
 ~~~~ typescript
 import { configure, getConsoleSink } from "@logtape/logtape";
 
-configure({
+await configure({
   sinks: {
     console: getConsoleSink(),
   },
@@ -209,7 +209,7 @@ messages to the standard error:
 
 ~~~~ typescript
 // Deno:
-configure({
+await configure({
   sinks: {
     stream: getStreamSink(Deno.stderr.writable),
   },
@@ -221,7 +221,7 @@ configure({
 // Node.js:
 import stream from "node:stream";
 
-configure({
+await configure({
   sinks: {
     stream: getStreamSink(stream.Writable.toWeb(process.stderr)),
   },
@@ -256,7 +256,7 @@ writes log messages to a file:
 ~~~~ typescript
 import { getFileSink } from "@logtape/logtape";
 
-configure({
+await configure({
   sinks: {
     file: getFileSink("my-app.log"),
   },
@@ -283,7 +283,7 @@ export type TextFormatter = (record: LogRecord) => string;
 Here's an example of a text formatter that writes log messages in a JSON format:
 
 ~~~~ typescript
-configure({
+await configure({
   sinks: {
     stream: getStreamSink(Deno.stderr.writable, {
       formatter: JSON.stringify,
@@ -309,6 +309,40 @@ disposableSink[Symbol.dispose] = () => {
 };
 ~~~~
 
+A sync can be asynchronously disposed of as well.  The type of an asynchronous
+disposable sink is: `Sink & AsyncDisposable`.  You can create an asynchronous
+disposable sink by defining a `[Symbol.asyncDispose]` method:
+
+~~~~ typescript
+const asyncDisposableSink: Sink & AsyncDisposable = (record: LogRecord) => {
+  console.log(record.message);
+};
+asyncDisposableSink[Symbol.asyncDispose] = async () => {
+  console.log("Disposed!");
+};
+~~~~
+
+### Explicit disposal
+
+You can explicitly dispose of a sink by calling the `dispose()` method.  It is
+useful when you want to flush the buffer of a sink without blocking returning
+a response in edge functions.  Here's an example of using the `dispose()`
+with [`ctx.waitUntil()`] in Cloudflare Workers:
+
+~~~~ typescript
+import { configure, dispose } from "@logtape/logtape";
+
+export default {
+  async fetch(request, env, ctx) {
+    await configure({ /* ... */ });
+    // ...
+    ctx.waitUntil(dispose());
+  }
+}
+~~~~
+
+[`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
+
 
 Testing
 -------
@@ -326,16 +360,16 @@ the following code shows how to reset the configuration after a test
 import { configure, reset } from "@logtape/logtape";
 
 Deno.test("my test", async (t) => {
-  await t.step("set up", () => {
-    configure({ /* ... */ });
+  await t.step("set up", async () => {
+    await configure({ /* ... */ });
   });
 
   await t.step("run test", () => {
     // Run the test
   });
 
-  await t.step("tear down", () => {
-    reset();
+  await t.step("tear down", async () => {
+    await reset();
   });
 });
 ~~~~
@@ -350,7 +384,7 @@ import { type LogRecord, configure } from "@logtape/logtape";
 
 const buffer: LogRecord[] = [];
 
-configure({
+await configure({
   sinks: {
     buffer: buffer.push.bind(buffer),
   },

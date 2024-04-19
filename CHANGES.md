@@ -8,6 +8,17 @@ Version 0.2.0
 
 To be released.
 
+ -  Sinks now can be asynchronously disposed of.  This is useful for
+    sinks that need to flush their buffers before being closed.
+
+     -  Added `dispose()` function.
+     -  The return type of `configure()` function became `Promise<void>`
+        (was `void`).
+     -  The return type of `reset()` function became `Promise<void>`
+        (was `void`).
+     -  Configured sinks that implement `AsyncDisposable` are now disposed
+        of asynchronously when the configuration is reset or the program exits.
+
 
 Version 0.1.0
 -------------

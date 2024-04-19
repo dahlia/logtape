@@ -2,6 +2,7 @@ export {
   type Config,
   ConfigError,
   configure,
+  dispose,
   type LoggerConfig,
   reset,
 } from "./config.ts";
