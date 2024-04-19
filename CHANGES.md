@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.2.0
 -------------
 
-To be released.
+Released on April 20, 2024.
 
  -  Sinks now can be asynchronously disposed of.  This is useful for
     sinks that need to flush their buffers before being closed.
