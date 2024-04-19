@@ -10,17 +10,25 @@ Deno.test("configure()", async (t) => {
   let disposed = 0;
 
   await t.step("test", async () => {
-    const a: Sink = () => {};
+    const a: Sink & AsyncDisposable = () => {};
+    a[Symbol.asyncDispose] = () => {
+      ++disposed;
+      return Promise.resolve();
+    };
     const b: Sink & Disposable = () => {};
     b[Symbol.dispose] = () => ++disposed;
     const cLogs: LogRecord[] = [];
     const c: Sink = cLogs.push.bind(cLogs);
-    const x: Filter = () => true;
+    const x: Filter & AsyncDisposable = () => true;
+    x[Symbol.asyncDispose] = () => {
+      ++disposed;
+      return Promise.resolve();
+    };
     const y: Filter & Disposable = () => true;
     y[Symbol.dispose] = () => ++disposed;
     await configure({
       sinks: { a, b, c },
-      filters: { x, y },
+      filters: { x, y, debug: "debug" },
       loggers: [
         {
           category: "my-app",
@@ -35,6 +43,7 @@ Deno.test("configure()", async (t) => {
         {
           category: ["my-app", "bar"],
           sinks: ["c"],
+          filters: ["debug"],
           level: "info",
         },
       ],
@@ -82,7 +91,7 @@ Deno.test("configure()", async (t) => {
       loggers: [{ category: "my-app" }],
       reset: true,
     });
-    assertEquals(disposed, 2);
+    assertEquals(disposed, 4);
   });
 
   await t.step("tear down", async () => {
