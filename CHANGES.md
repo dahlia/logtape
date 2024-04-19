@@ -8,6 +8,9 @@ Version 0.2.1
 
 To be released.
 
+ -  Removed `FileSinkDriver` interface.
+ -  Added `RotatingFileSinkOptions` interface.
+
 
 Version 0.2.0
 -------------
