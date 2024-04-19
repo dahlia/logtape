@@ -295,6 +295,10 @@ await configure({
 
 ### Disposable sink
 
+> [!TIP]
+> If you are unfamiliar with the concept of disposables, see also the proposal
+> of *[ECMAScript Explicit Resource Management]*.
+
 A disposable sink is a sink that can be disposed of.  They are automatically
 disposed of when the configuration is reset or the program exits.  The type
 of a disposable sink is: `Sink & Disposable`.  You can create a disposable
@@ -322,9 +326,11 @@ asyncDisposableSink[Symbol.asyncDispose] = async () => {
 };
 ~~~~
 
+[ECMAScript Explicit Resource Management]: https://github.com/tc39/proposal-explicit-resource-management
+
 ### Explicit disposal
 
-You can explicitly dispose of a sink by calling the `dispose()` method.  It is
+You can explicitly dispose of a sink by calling the [`dispose()`] method.  It is
 useful when you want to flush the buffer of a sink without blocking returning
 a response in edge functions.  Here's an example of using the `dispose()`
 with [`ctx.waitUntil()`] in Cloudflare Workers:
@@ -341,6 +347,7 @@ export default {
 }
 ~~~~
 
+[`dispose()`]: https://jsr.io/@logtape/logtape/doc/~/dispose
 [`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
 
 
