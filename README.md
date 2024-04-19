@@ -12,9 +12,36 @@ LogTape
 > LogTape is still in the early stage of development.  The API is not stable
 > yet.  Please be careful when using it in production.
 
-LogTape is a simple logging library with zero dependencies for
-Deno/Node.js/Bun/browsers.  It is designed to be used for both applications
-and libraries.
+LogTape is a logging library for JavaScript and TypeScript.  It provides a
+simple and flexible logging system that is easy to use and easy to extend.
+The highlights of LogTape are:
+
+ -  *Zero dependencies*: LogTape has zero dependencies.  You can use LogTape
+    without worrying about the dependencies of LogTape.
+
+ -  *Library support*: LogTape is designed to be used in libraries as well
+    as applications.  You can use LogTape in libraries to provide logging
+    capabilities to users of the libraries.
+
+ -  *Runtime diversity*: LogTape supports Deno, Node.js, Bun, edge functions,
+    and browsers.  You can use LogTape in various environments without
+    changing the code.
+
+ -  *Structured logging*: LogTape supports structured logging.  You can log
+    messages with structured data.  LogTape provides a simple and flexible
+    way to log structured data.
+
+ -  *Hierarchical categories*: LogTape uses a hierarchical category system
+    to manage loggers.  You can control the verbosity of log messages by
+    setting the log level of loggers at different levels of the category
+    hierarchy.
+
+ -  *Template literals*: LogTape supports template literals for log messages.
+    You can use template literals to log messages with placeholders and
+    values.
+
+ -  *Dead simple sinks*: LogTape provides a simple and flexible way to add
+    sinks.  You can easily add your own sinks to LogTape.
 
 Currently, LogTape provides only few sinks, but [you can easily add your own
 sinks.](#sinks)
@@ -100,7 +127,8 @@ logger.error `This is an error message with ${value}.`;
 logger.fatal `This is a fatal message with ${value}.`;
 ~~~~
 
-You can also log messages with a function call:
+You can also log messages with a function call.  In this case, log messages
+are structured data:
 
 ~~~~ typescript
 logger.debug("This is a debug message with {value}.", { value });
