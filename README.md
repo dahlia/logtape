@@ -27,9 +27,7 @@ The highlights of LogTape are:
     and browsers.  You can use LogTape in various environments without
     changing the code.
 
- -  *Structured logging*: LogTape supports structured logging.  You can log
-    messages with structured data.  LogTape provides a simple and flexible
-    way to log structured data.
+ -  *Structured logging*: You can log messages with structured data.
 
  -  *Hierarchical categories*: LogTape uses a hierarchical category system
     to manage loggers.  You can control the verbosity of log messages by
@@ -40,8 +38,7 @@ The highlights of LogTape are:
     You can use template literals to log messages with placeholders and
     values.
 
- -  *Dead simple sinks*: LogTape provides a simple and flexible way to add
-    sinks.  You can easily add your own sinks to LogTape.
+ -  *Dead simple sinks*: You can easily add your own sinks to LogTape.
 
 Currently, LogTape provides only few sinks, but [you can easily add your own
 sinks.](#sinks)
