@@ -65,6 +65,13 @@ export interface LoggerConfig<
 let configured = false;
 
 /**
+ * Strong references to the loggers.
+ * This is to prevent the loggers from being garbage collected so that their
+ * sinks and filters are not removed.
+ */
+const strongRefs: Set<LoggerImpl> = new Set();
+
+/**
  * Disposables to dispose when resetting the configuration.
  */
 const disposables: Set<Disposable> = new Set();
@@ -155,6 +162,7 @@ export async function configure<
       }
       logger.filters.push(toFilter(filter));
     }
+    strongRefs.add(logger);
   }
 
   for (const sink of Object.values<Sink>(config.sinks)) {
@@ -202,6 +210,7 @@ export async function configure<
 export async function reset(): Promise<void> {
   await dispose();
   LoggerImpl.getLogger([]).resetDescendants();
+  strongRefs.clear();
   configured = false;
 }
 
