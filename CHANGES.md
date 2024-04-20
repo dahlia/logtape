@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.1.1
 -------------
 
-To be released.
+Released on April 21, 2024.
 
  -  Fixed a bug where the configured sinks and filters were reset after
     some inactivity.  This was caused by garbage collection of the
