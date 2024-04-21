@@ -1,5 +1,6 @@
 import type { Filter } from "./filter.ts";
-import type { LogLevel, LogRecord } from "./record.ts";
+import type { LogLevel } from "./level.ts";
+import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
 /**

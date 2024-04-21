@@ -4,7 +4,7 @@ import { assertStrictEquals } from "@std/assert/assert-strict-equals";
 import { assertThrows } from "@std/assert/assert-throws";
 import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
-import type { LogLevel } from "./record.ts";
+import type { LogLevel } from "./level.ts";
 
 Deno.test("getLevelFilter()", () => {
   const noneFilter = getLevelFilter(null);

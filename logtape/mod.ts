@@ -19,8 +19,9 @@ export {
   defaultTextFormatter,
   type TextFormatter,
 } from "./formatter.ts";
+export { type LogLevel } from "./level.ts";
 export { getLogger, type Logger } from "./logger.ts";
-export type { LogLevel, LogRecord } from "./record.ts";
+export type { LogRecord } from "./record.ts";
 export {
   type ConsoleSinkOptions,
   type FileSinkOptions,

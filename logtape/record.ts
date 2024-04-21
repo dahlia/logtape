@@ -1,7 +1,4 @@
-/**
- * The severity level of a {@link LogRecord}.
- */
-export type LogLevel = "debug" | "info" | "warning" | "error" | "fatal";
+import type { LogLevel } from "./level.ts";
 
 /**
  * A log record.

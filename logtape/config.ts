@@ -1,6 +1,6 @@
 import { type FilterLike, toFilter } from "./filter.ts";
+import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
-import type { LogLevel } from "./record.ts";
 import { getConsoleSink, type Sink } from "./sink.ts";
 
 /**

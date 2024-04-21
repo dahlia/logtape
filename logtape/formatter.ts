@@ -1,4 +1,5 @@
-import type { LogLevel, LogRecord } from "./record.ts";
+import type { LogLevel } from "./level.ts";
+import type { LogRecord } from "./record.ts";
 
 /**
  * A text formatter is a function that accepts a log record and returns

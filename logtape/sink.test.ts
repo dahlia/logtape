@@ -4,7 +4,7 @@ import makeConsoleMock from "consolemock";
 import fs from "node:fs";
 import { isDeno } from "which_runtime";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
-import type { LogLevel } from "./record.ts";
+import type { LogLevel } from "./level.ts";
 import {
   type FileSinkDriver,
   getConsoleSink,
