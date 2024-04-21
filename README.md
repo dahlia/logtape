@@ -293,13 +293,17 @@ await configure({
 See also [`getFileSink()`] function and [`FileSinkOptions`] interface
 in the API reference for more details.
 
+> [!NOTE]
+> On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
+> flag to use the file sink.
+
 [`getFileSink()`]: https://jsr.io/@logtape/logtape/doc/~/getFileSink
 [`FileSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/FileSinkOptions
 
 ### Rotating file sink
 
 > [!NOTE]
-> File sink is unavailable in the browser environment.
+> Rotating file sink is unavailable in the browser environment.
 
 A rotating file sink is a file sink that rotates log files.  It creates a new
 log file when the current log file reaches a certain size.  Here's an example
@@ -324,6 +328,10 @@ Rotated log files are named with a suffix like *.1*, *.2*, *.3*, and so on.
 For more details, see [`getRotatingFileSink()`] function and
 [`RotatingFileSinkOptions`] interface in the API reference.
 
+> [!NOTE]
+> On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
+> flag to use the rotating file sink.
+
 [`getRotatingFileSink()`]: https://jsr.io/@logtape/logtape/doc/~/getRotatingFileSink
 [`RotatingFileSinkOptions`]: https://jsr.io/@logtape/logtape/doc/~/RotatingFileSinkOptions
 
@@ -343,7 +351,9 @@ Here's an example of a text formatter that writes log messages in a JSON format:
 await configure({
   sinks: {
     stream: getStreamSink(Deno.stderr.writable, {
-      formatter: JSON.stringify,
+      formatter(log) {
+        return JSON.stringify(log) + "\n",
+      }
     }),
   },
   // Omitted for brevity
