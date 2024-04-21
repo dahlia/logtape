@@ -23,3 +23,23 @@ export function parseLogLevel(level: string): LogLevel {
       throw new TypeError(`Invalid log level: ${level}.`);
   }
 }
+
+/**
+ * Checks if a string is a valid log level.  This function can be used as
+ * as a type guard to narrow the type of a string to a {@link LogLevel}.
+ *
+ * @param level The log level as a string.  This is case-sensitive.
+ * @returns `true` if the string is a valid log level.
+ */
+export function isLogLevel(level: string): level is LogLevel {
+  switch (level) {
+    case "debug":
+    case "info":
+    case "warning":
+    case "error":
+    case "fatal":
+      return true;
+    default:
+      return false;
+  }
+}

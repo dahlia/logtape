@@ -19,7 +19,7 @@ export {
   defaultTextFormatter,
   type TextFormatter,
 } from "./formatter.ts";
-export { type LogLevel, parseLogLevel } from "./level.ts";
+export { isLogLevel, type LogLevel, parseLogLevel } from "./level.ts";
 export { getLogger, type Logger } from "./logger.ts";
 export type { LogRecord } from "./record.ts";
 export {
