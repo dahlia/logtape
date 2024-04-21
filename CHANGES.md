@@ -8,6 +8,8 @@ Version 0.3.0
 
 To be released.
 
+ -  Added `parseLogLevel()` function.
+
 
 Version 0.2.2
 -------------
