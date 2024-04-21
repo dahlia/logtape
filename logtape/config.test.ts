@@ -1,6 +1,13 @@
 import { assertEquals } from "@std/assert/assert-equals";
 import { assertRejects } from "@std/assert/assert-rejects";
-import { ConfigError, configure, reset } from "./config.ts";
+import { assertStrictEquals } from "jsr:@std/assert/assert-strict-equals";
+import {
+  type Config,
+  ConfigError,
+  configure,
+  getConfig,
+  reset,
+} from "./config.ts";
 import type { Filter } from "./filter.ts";
 import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
@@ -26,7 +33,7 @@ Deno.test("configure()", async (t) => {
     };
     const y: Filter & Disposable = () => true;
     y[Symbol.dispose] = () => ++disposed;
-    await configure({
+    const config: Config<string, string> = {
       sinks: { a, b, c },
       filters: { x, y, debug: "debug" },
       loggers: [
@@ -47,7 +54,8 @@ Deno.test("configure()", async (t) => {
           level: "info",
         },
       ],
-    });
+    };
+    await configure(config);
 
     const logger = LoggerImpl.getLogger("my-app");
     assertEquals(logger.sinks, [a]);
@@ -69,6 +77,7 @@ Deno.test("configure()", async (t) => {
         timestamp: cLogs[0].timestamp,
       },
     ]);
+    assertStrictEquals(getConfig(), config);
   });
 
   await t.step("reconfigure", async () => {
@@ -85,17 +94,20 @@ Deno.test("configure()", async (t) => {
     assertEquals(disposed, 0);
 
     // No exception if reset is true:
-    await configure({
+    const config = {
       sinks: {},
       filters: {},
       loggers: [{ category: "my-app" }],
       reset: true,
-    });
+    };
+    await configure(config);
     assertEquals(disposed, 4);
+    assertStrictEquals(getConfig(), config);
   });
 
   await t.step("tear down", async () => {
     await reset();
+    assertStrictEquals(getConfig(), null);
   });
 
   await t.step("misconfiguration", async () => {
@@ -116,6 +128,7 @@ Deno.test("configure()", async (t) => {
       ConfigError,
       "Sink not found: invalid",
     );
+    assertStrictEquals(getConfig(), null);
 
     await assertRejects(
       () =>
@@ -134,6 +147,7 @@ Deno.test("configure()", async (t) => {
       ConfigError,
       "Filter not found: invalid",
     );
+    assertStrictEquals(getConfig(), null);
   });
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
@@ -141,7 +155,7 @@ Deno.test("configure()", async (t) => {
     await t.step(
       "meta configuration: " + JSON.stringify(metaCategory),
       async () => {
-        await configure({
+        const config = {
           sinks: {},
           filters: {},
           loggers: [
@@ -151,14 +165,17 @@ Deno.test("configure()", async (t) => {
               filters: [],
             },
           ],
-        });
+        };
+        await configure(config);
 
         assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
+        assertStrictEquals(getConfig(), config);
       },
     );
 
     await t.step("tear down", async () => {
       await reset();
+      assertStrictEquals(getConfig(), null);
     });
   }
 });

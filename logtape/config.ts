@@ -60,9 +60,9 @@ export interface LoggerConfig<
 }
 
 /**
- * Whether the loggers are configured.
+ * The current configuration, if any.  Otherwise, `null`.
  */
-let configured = false;
+let currentConfig: Config<string, string> | null = null;
 
 /**
  * Strong references to the loggers.
@@ -124,13 +124,13 @@ export async function configure<
   TSinkId extends string,
   TFilterId extends string,
 >(config: Config<TSinkId, TFilterId>): Promise<void> {
-  if (configured && !config.reset) {
+  if (currentConfig != null && !config.reset) {
     throw new ConfigError(
       "Already configured; if you want to reset, turn on the reset flag.",
     );
   }
   await reset();
-  configured = true;
+  currentConfig = config;
 
   let metaConfigured = false;
 
@@ -205,13 +205,21 @@ export async function configure<
 }
 
 /**
+ * Get the current configuration, if any.  Otherwise, `null`.
+ * @returns The current configuration, if any.  Otherwise, `null`.
+ */
+export function getConfig(): Config<string, string> | null {
+  return currentConfig;
+}
+
+/**
  * Reset the configuration.  Mostly for testing purposes.
  */
 export async function reset(): Promise<void> {
   await dispose();
   LoggerImpl.getLogger([]).resetDescendants();
   strongRefs.clear();
-  configured = false;
+  currentConfig = null;
 }
 
 /**

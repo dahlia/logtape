@@ -10,6 +10,7 @@ To be released.
 
  -  Added `parseLogLevel()` function.
  -  Added `isLogLevel()` function.
+ -  Added `getConfig()` function.
 
 
 Version 0.2.2
