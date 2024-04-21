@@ -31,6 +31,7 @@ export {
   type RotatingFileSinkOptions,
   type Sink,
   type StreamSinkOptions,
+  withFilter,
 } from "./sink.ts";
 
 // cSpell: ignore filesink

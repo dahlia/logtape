@@ -1,3 +1,4 @@
+import { type FilterLike, toFilter } from "./filter.ts";
 import {
   type ConsoleFormatter,
   defaultConsoleFormatter,
@@ -16,6 +17,27 @@ import type { LogRecord } from "./record.ts";
  * @param record The log record to sink.
  */
 export type Sink = (record: LogRecord) => void;
+
+/**
+ * Turns a sink into a filtered sink.  The returned sink only logs records that
+ * pass the filter.
+ *
+ * @example Filter a console sink to only log records with the info level
+ * ```typescript
+ * const sink = withFilter(getConsoleSink(), "info");
+ * ```
+ *
+ * @param sink A sink to be filtered.
+ * @param filter A filter to apply to the sink.  It can be either a filter
+ *               function or a {@link LogLevel} string.
+ * @returns A sink that only logs records that pass the filter.
+ */
+export function withFilter(sink: Sink, filter: FilterLike): Sink {
+  const filterFunc = toFilter(filter);
+  return (record: LogRecord) => {
+    if (filterFunc(record)) sink(record);
+  };
+}
 
 /**
  * Options for the {@link getStreamSink} function.

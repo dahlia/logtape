@@ -11,6 +11,7 @@ To be released.
  -  Added `parseLogLevel()` function.
  -  Added `isLogLevel()` function.
  -  Added `getConfig()` function.
+ -  Added `withFilter()` function.
 
 
 Version 0.2.2

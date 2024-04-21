@@ -5,13 +5,26 @@ import fs from "node:fs";
 import { isDeno } from "which_runtime";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
+import type { LogRecord } from "./record.ts";
 import {
   type FileSinkDriver,
   getConsoleSink,
   getFileSink,
   getStreamSink,
   type Sink,
+  withFilter,
 } from "./sink.ts";
+
+Deno.test("withFilter()", () => {
+  const buffer: LogRecord[] = [];
+  const sink = withFilter(buffer.push.bind(buffer), "warning");
+  sink(debug);
+  sink(info);
+  sink(warning);
+  sink(error);
+  sink(fatal);
+  assertEquals(buffer, [warning, error, fatal]);
+});
 
 interface ConsoleMock extends Console {
   history(): unknown[];
