@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.3.0
 -------------
 
-To be released.
+Released on April 22, 2024.
 
  -  Added `parseLogLevel()` function.
  -  Added `isLogLevel()` function.
