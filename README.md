@@ -380,7 +380,7 @@ disposableSink[Symbol.dispose] = () => {
 };
 ~~~~
 
-A sync can be asynchronously disposed of as well.  The type of an asynchronous
+A sink can be asynchronously disposed of as well.  The type of an asynchronous
 disposable sink is: `Sink & AsyncDisposable`.  You can create an asynchronous
 disposable sink by defining a `[Symbol.asyncDispose]` method:
 
