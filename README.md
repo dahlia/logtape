@@ -146,6 +146,13 @@ logger.debug("Or you can use a function call: {value}.", () => {
 });
 ~~~~
 
+When using the function call, the way to log single curly braces `{`  is to
+double the brace `{{`:
+
+~~~~ typescript
+logger.debug("This logs {{single}} curly braces.");
+~~~~
+
 
 Categories
 ----------
