@@ -8,6 +8,8 @@ Version 0.4.0
 
 To be released.
 
+- Curly braces can now be escaped with double curly braces
+
 
 Version 0.3.0
 -------------
