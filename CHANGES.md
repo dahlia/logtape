@@ -8,6 +8,12 @@ Version 0.4.0
 
 To be released.
 
+ -  Curly braces can now be escaped with double curly braces.
+    [[#1], [#2] by Diyar Oktay]
+
+[#1]: https://github.com/dahlia/logtape/issues/1
+[#2]: https://github.com/dahlia/logtape/pull/2
+
 
 Version 0.3.0
 -------------

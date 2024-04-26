@@ -601,8 +601,6 @@ export class LoggerImpl implements Logger {
  */
 const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
 
-const MESSAGE_TEMPLATE_PATTERN = /\{([^}]*)\}/g;
-
 /**
  * Parse a message template into a message template array and a values array.
  * @param template The message template.
@@ -613,19 +611,34 @@ export function parseMessageTemplate(
   template: string,
   properties: Record<string, unknown>,
 ): readonly unknown[] {
-  let lastPos = 0;
   const message: unknown[] = [];
-  while (true) {
-    const match = MESSAGE_TEMPLATE_PATTERN.exec(template);
-    if (match == null) {
-      message.push(template.substring(lastPos));
-      break;
+  let part = "";
+  for (let i = 0; i < template.length; i++) {
+    const char = template.charAt(i);
+    const nextChar = template.charAt(i + 1);
+
+    if (char == "{" && nextChar == "{") {
+      // Escaped { character
+      part = part + char;
+      i++;
+    } else if (char == "}" && nextChar == "}") {
+      // Escaped } character
+      part = part + char;
+      i++;
+    } else if (char == "{") {
+      // Start of a placeholder
+      message.push(part);
+      part = "";
+    } else if (char == "}") {
+      // End of a placeholder
+      message.push(properties[part]);
+      part = "";
+    } else {
+      // Default case
+      part = part + char;
     }
-    message.push(template.substring(lastPos, match.index));
-    const key = match[1];
-    message.push(properties[key]);
-    lastPos = match.index + match[0].length;
   }
+  message.push(part);
   return message;
 }
 
