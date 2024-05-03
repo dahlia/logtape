@@ -352,7 +352,8 @@ text formatter is:
 export type TextFormatter = (record: LogRecord) => string;
 ~~~~
 
-Here's an example of a text formatter that writes log messages in a JSON format:
+Here's an example of a text formatter that writes log messages in a [JSON Lines]
+format:
 
 ~~~~ typescript
 await configure({
@@ -375,6 +376,7 @@ await configure({
 > tail -f log.jsonl | jq .
 > ~~~~
 
+[JSON Lines]: https://jsonlines.org/
 [`jq`]: https://jqlang.github.io/jq/
 
 ### Disposable sink
