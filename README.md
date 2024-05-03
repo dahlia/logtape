@@ -357,7 +357,7 @@ Here's an example of a text formatter that writes log messages in a JSON format:
 ~~~~ typescript
 await configure({
   sinks: {
-    stream: getStreamSink(Deno.stderr.writable, {
+    stream: getFileSink("log.jsonl", {
       formatter(log) {
         return JSON.stringify(log) + "\n",
       }
@@ -366,6 +366,16 @@ await configure({
   // Omitted for brevity
 })
 ~~~~
+
+> [!TIP]
+> If you want to monitor log messages formatted in JSON Lines in real-time
+> readably, you can utilize the `tail` and [`jq`] commands:
+>
+> ~~~~ sh
+> tail -f log.jsonl | jq .
+> ~~~~
+
+[`jq`]: https://jqlang.github.io/jq/
 
 ### Disposable sink
 
