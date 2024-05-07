@@ -8,6 +8,10 @@ Version 0.1.2
 
 To be released.
 
+ -  Fixed a bug where two or more versions of LogTape were imported in the same
+    runtime, the `Logger` instances would not be shared between them.  This was
+    caused by the `Logger` instances being stored in a module-level variable.
+
 
 Version 0.1.1
 -------------
