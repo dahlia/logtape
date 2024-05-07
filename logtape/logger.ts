@@ -357,9 +357,16 @@ export function getLogger(category: string | readonly string[] = []): Logger {
 }
 
 /**
- * The root logger.
+ * The symbol for the global root logger.
  */
-let rootLogger: LoggerImpl | null = null;
+const globalRootLoggerSymbol = Symbol.for("logtape.rootLogger");
+
+/**
+ * The global root logger registry.
+ */
+interface GlobalRootLoggerRegistry {
+  [globalRootLoggerSymbol]?: LoggerImpl;
+}
 
 /**
  * A logger implementation.  Do not use this directly; use {@link getLogger}
@@ -373,8 +380,13 @@ export class LoggerImpl implements Logger {
   readonly filters: Filter[];
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
+    let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
+      ? (globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] ?? null
+      : null;
     if (rootLogger == null) {
       rootLogger = new LoggerImpl(null, []);
+      (globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] =
+        rootLogger;
     }
     if (typeof category === "string") return rootLogger.getChild(category);
     if (category.length === 0) return rootLogger;

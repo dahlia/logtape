@@ -8,6 +8,10 @@ Version 0.3.1
 
 To be released.
 
+ -  Fixed a bug where two or more versions of LogTape were imported in the same
+    runtime, the `Logger` instances would not be shared between them.  This was
+    caused by the `Logger` instances being stored in a module-level variable.
+
 
 Version 0.3.0
 -------------
@@ -18,6 +22,16 @@ Released on April 22, 2024.
  -  Added `isLogLevel()` function.
  -  Added `getConfig()` function.
  -  Added `withFilter()` function.
+
+
+Version 0.2.3
+-------------
+
+Released on May 7, 2024.
+
+ -  Fixed a bug where two or more versions of LogTape were imported in the same
+    runtime, the `Logger` instances would not be shared between them.  This was
+    caused by the `Logger` instances being stored in a module-level variable.
 
 
 Version 0.2.2
@@ -61,6 +75,16 @@ Released on April 20, 2024.
     `Sink & AsyncDisposable` (was `Sink & Disposable`).
 
  -  Added `getRotatingFileSink()` function.
+
+
+Version 0.1.2
+-------------
+
+Released on May 7, 2024.
+
+ -  Fixed a bug where two or more versions of LogTape were imported in the same
+    runtime, the `Logger` instances would not be shared between them.  This was
+    caused by the `Logger` instances being stored in a module-level variable.
 
 
 Version 0.1.1
