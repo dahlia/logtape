@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.3.1
 -------------
 
-To be released.
+Released on May 7, 2024.
 
  -  Fixed a bug where two or more versions of LogTape were imported in the same
     runtime, the `Logger` instances would not be shared between them.  This was
