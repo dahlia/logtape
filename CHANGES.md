@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.4.0
 -------------
 
-To be released.
+Released on May 7, 2024.
 
  -  Curly braces can now be escaped with double curly braces.
     [[#1], [#2] by Diyar Oktay]

@@ -47,7 +47,7 @@ sinks.](#sinks)
 ![](./screenshots/terminal-console.png)
 
 [JSR]: https://jsr.io/@logtape/logtape
-[JSR badge]: https://jsr.io/badges/@logtape/logtape?v=0.2.1
+[JSR badge]: https://jsr.io/badges/@logtape/logtape
 [npm]: https://www.npmjs.com/package/@logtape/logtape
 [npm badge]: https://img.shields.io/npm/v/@logtape/logtape?logo=npm
 [GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
