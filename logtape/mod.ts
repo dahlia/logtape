@@ -7,7 +7,6 @@ export {
   type LoggerConfig,
   reset,
 } from "./config.ts";
-export { getFileSink, getRotatingFileSink } from "./filesink.deno.ts";
 export {
   type Filter,
   type FilterLike,
@@ -33,5 +32,9 @@ export {
   type StreamSinkOptions,
   withFilter,
 } from "./sink.ts";
+export const { getFileSink, getRotatingFileSink } =
+  await ("Deno" in globalThis
+    ? import("./filesink.deno.ts")
+    : import("./filesink.node.ts"));
 
 // cSpell: ignore filesink
