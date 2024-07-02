@@ -25,6 +25,7 @@
     "test": "deno test --allow-read --allow-write",
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
     "dnt": "deno run -A dnt.ts",
+    "test-all": "deno task test && deno task dnt && cd npm/ && bun run ./test_runner.js && cd ../",
     "hooks:install": "deno run --allow-read=deno.json,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
     "hooks:pre-commit": "deno task check",
     "hooks:pre-push": "deno task test"

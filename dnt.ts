@@ -29,6 +29,7 @@ await build({
   entryPoints: ["./logtape/mod.ts"],
   importMap: "./deno.json",
   mappings: {
+    "./logtape/filesink.jsr.ts": "./logtape/filesink.node.ts",
     "./logtape/filesink.deno.ts": "./logtape/filesink.node.ts",
   },
   shims: {

@@ -9,6 +9,15 @@ Version 0.5.0
 To be released.
 
 
+Version 0.4.1
+-------------
+
+Released on July 2, 2024.
+
+ -  Fix a bug where LogTape failed to load under Node.js when incoporated
+    in a project from JSR.  [[#3], [#4] by Kitson Kelly]
+
+
 Version 0.4.0
 -------------
 
@@ -19,6 +28,8 @@ Released on May 7, 2024.
 
 [#1]: https://github.com/dahlia/logtape/issues/1
 [#2]: https://github.com/dahlia/logtape/pull/2
+[#3]: https://github.com/dahlia/logtape/issues/3
+[#4]: https://github.com/dahlia/logtape/pull/4
 
 
 Version 0.3.1
