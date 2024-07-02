@@ -26,7 +26,6 @@ Deno.test("getFileSink()", () => {
 
 Deno.test("getRotatingFileSink()", () => {
   const path = Deno.makeTempFileSync();
-  console.debug({ path });
   const sink: Sink & Disposable = getRotatingFileSink(path, {
     maxSize: 150,
   });

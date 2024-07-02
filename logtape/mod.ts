@@ -7,7 +7,7 @@ export {
   type LoggerConfig,
   reset,
 } from "./config.ts";
-export { getFileSink, getRotatingFileSink } from "./filesink.deno.ts";
+export { getFileSink, getRotatingFileSink } from "./filesink.jsr.ts";
 export {
   type Filter,
   type FilterLike,

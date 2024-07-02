@@ -24,8 +24,8 @@ export const denoDriver: RotatingFileSinkDriver<Deno.FsFile> = {
   closeSync(fd) {
     fd.close();
   },
-  statSync: Deno.statSync,
-  renameSync: Deno.renameSync,
+  statSync: globalThis?.Deno.statSync,
+  renameSync: globalThis?.Deno.renameSync,
 };
 
 /**

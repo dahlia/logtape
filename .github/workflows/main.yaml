@@ -21,6 +21,9 @@ jobs:
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.x
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
     - run: deno task test --coverage=.cov --junit-path=.test-report.xml
     - uses: EnricoMi/publish-unit-test-result-action@v2
       if: runner.os == 'Linux' && always()
@@ -43,6 +46,9 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: dahlia/logtape
         file: .cov.lcov
+    - run: deno task dnt
+    - run: bun run ./test_runner.js
+      working-directory: ${{ github.workspace }}/npm/
     - run: deno task check
 
   publish:
