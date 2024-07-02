@@ -14,7 +14,7 @@ Version 0.4.1
 
 Released on July 2, 2024.
 
- -  Fix a bug where LogTape failed to load under Node.js when incoporated
+ -  Fixed a bug where LogTape failed to load under Node.js when incorporated
     in a project from JSR.  [[#3], [#4] by Kitson Kelly]
 
 
