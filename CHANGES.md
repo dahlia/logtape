@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.4.1
 -------------
 
-To be released.
+Released on July 2, 2024.
 
  -  Fix a bug where LogTape failed to load under Node.js when incoporated
     in a project from JSR.  [[#3], [#4] by Kitson Kelly]
