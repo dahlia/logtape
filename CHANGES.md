@@ -8,6 +8,9 @@ Version 0.4.2
 
 To be released.
 
+ -  The npm version of LogTape no more depends on `node:stream/web` module.
+    This should make it easier to use LogTape on edge functions.
+
 
 Version 0.4.1
 -------------
