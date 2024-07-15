@@ -31,6 +31,7 @@ await build({
   mappings: {
     "./logtape/filesink.jsr.ts": "./logtape/filesink.node.ts",
     "./logtape/filesink.deno.ts": "./logtape/filesink.node.ts",
+    "./logtape/fs.ts": "./logtape/fs.js",
   },
   shims: {
     deno: "dev",
@@ -42,6 +43,8 @@ await build({
     lib: ["ES2021", "DOM"],
   },
   async postBuild() {
+    await Deno.copyFile("logtape/fs.mjs", "npm/esm/fs.js");
+    await Deno.copyFile("logtape/fs.cjs", "npm/script/fs.js");
     await Deno.copyFile("LICENSE", "npm/LICENSE");
     await Deno.copyFile("README.md", "npm/README.md");
   },

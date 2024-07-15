@@ -8,8 +8,13 @@ Version 0.4.2
 
 To be released.
 
- -  The npm version of LogTape no more depends on `node:stream/web` module.
-    This should make it easier to use LogTape on edge functions.
+ -  LogTape now works well on edge functions.  [[#5]]
+
+     -  The npm version of LogTape no more depends on `node:stream/web` module.
+     -  LogTape now works well with JavaScript runtimes that do not support
+        `node:fs` module.
+
+[#5]: https://github.com/dahlia/logtape/issues/5
 
 
 Version 0.4.1
