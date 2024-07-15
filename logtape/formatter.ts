@@ -29,15 +29,20 @@ const levelAbbreviations: Record<LogLevel, string> = {
  * @param value The value to inspect.
  * @returns The string representation of the value.
  */
-const inspect: (value: unknown) => string = eval(`(
+const inspect: (value: unknown) => string =
+  // @ts-ignore: Deno global
   "Deno" in globalThis && "inspect" in globalThis.Deno &&
+    // @ts-ignore: Deno global
     typeof globalThis.Deno.inspect === "function"
+    // @ts-ignore: Deno global
     ? globalThis.Deno.inspect
+    // @ts-ignore: Node.js global
     : "util" in globalThis && "inspect" in globalThis.util &&
+        // @ts-ignore: Node.js global
         globalThis.util.inspect === "function"
+    // @ts-ignore: Node.js global
     ? globalThis.util.inspect
-    : JSON.stringify
-)`);
+    : JSON.stringify;
 
 /**
  * The default text formatter.  This formatter formats log records as follows:

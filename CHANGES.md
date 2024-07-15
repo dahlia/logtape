@@ -15,6 +15,7 @@ To be released.
         `node:fs` module.
      -  LogTape now works well with JavaScript runtimes that do not support
         `WeakRef` class.
+     -  Got rid of `eval()` from LogTape.
 
 [#5]: https://github.com/dahlia/logtape/issues/5
 
