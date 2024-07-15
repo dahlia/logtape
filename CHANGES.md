@@ -13,6 +13,8 @@ To be released.
      -  The npm version of LogTape no more depends on `node:stream/web` module.
      -  LogTape now works well with JavaScript runtimes that do not support
         `node:fs` module.
+     -  LogTape now works well with JavaScript runtimes that do not support
+        `WeakRef` class.
 
 [#5]: https://github.com/dahlia/logtape/issues/5
 
