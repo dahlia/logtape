@@ -374,7 +374,7 @@ interface GlobalRootLoggerRegistry {
  */
 export class LoggerImpl implements Logger {
   readonly parent: LoggerImpl | null;
-  readonly children: Record<string, WeakRef<LoggerImpl>>;
+  readonly children: Record<string, LoggerImpl | WeakRef<LoggerImpl>>;
   readonly category: readonly string[];
   readonly sinks: Sink[];
   readonly filters: Filter[];
@@ -408,10 +408,15 @@ export class LoggerImpl implements Logger {
       | readonly [string, ...readonly string[]],
   ): LoggerImpl {
     const name = typeof subcategory === "string" ? subcategory : subcategory[0];
-    let child: LoggerImpl | undefined = this.children[name]?.deref();
+    const childRef = this.children[name];
+    let child: LoggerImpl | undefined = childRef instanceof LoggerImpl
+      ? childRef
+      : childRef?.deref();
     if (child == null) {
       child = new LoggerImpl(this, [...this.category, name]);
-      this.children[name] = new WeakRef(child);
+      this.children[name] = "WeakRef" in globalThis
+        ? new WeakRef(child)
+        : child;
     }
     if (typeof subcategory === "string" || subcategory.length === 1) {
       return child;
@@ -435,7 +440,7 @@ export class LoggerImpl implements Logger {
    */
   resetDescendants(): void {
     for (const child of Object.values(this.children)) {
-      const logger = child.deref();
+      const logger = child instanceof LoggerImpl ? child : child.deref();
       if (logger != null) logger.resetDescendants();
     }
     this.reset();

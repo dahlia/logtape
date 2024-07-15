@@ -9,6 +9,23 @@ Version 0.5.0
 To be released.
 
 
+Version 0.4.2
+-------------
+
+Released on July 15, 2024.
+
+ -  LogTape now works well on edge functions.  [[#5]]
+
+     -  The npm version of LogTape no more depends on `node:stream/web` module.
+     -  LogTape now works well with JavaScript runtimes that do not support
+        `node:fs` module.
+     -  LogTape now works well with JavaScript runtimes that do not support
+        `WeakRef` class.
+     -  Got rid of `eval()` from LogTape.
+
+[#5]: https://github.com/dahlia/logtape/issues/5
+
+
 Version 0.4.1
 -------------
 
