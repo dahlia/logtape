@@ -8,10 +8,6 @@ LogTape
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 [![Codecov][Codecov badge]][Codecov]
 
-> [!NOTE]
-> LogTape is still in the early stage of development.  The API is not stable
-> yet.  Please be careful when using it in production.
-
 LogTape is a logging library for JavaScript and TypeScript.  It provides a
 simple and flexible logging system that is easy to use and easy to extend.
 The highlights of LogTape are:
