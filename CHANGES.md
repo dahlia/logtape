@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.4.2
 -------------
 
-To be released.
+Released on July 15, 2024.
 
  -  LogTape now works well on edge functions.  [[#5]]
 
