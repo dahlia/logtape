@@ -1,7 +1,18 @@
 {
   "name": "@logtape/logtape",
   "version": "0.5.0",
-  "exports": "./logtape/mod.ts",
+  "exports": {
+    ".": "./logtape/mod.ts",
+    "./config": "./logtape/config.ts",
+    "./filesink": "./logtape/filesink.jsr.ts",
+    "./filter": "./logtape/filter.ts",
+    "./formatter": "./logtape/formatter.ts",
+    "./fs": "./logtape/fs.ts",
+    "./level": "./logtape/level.ts",
+    "./logger": "./logtape/logger.ts",
+    "./record": "./logtape/record.ts",
+    "./sink": "./logtape/sink.ts"
+  },
   "imports": {
     "@deno/dnt": "jsr:@deno/dnt@^0.41.1",
     "@std/assert": "jsr:@std/assert@^0.222.1",

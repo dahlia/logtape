@@ -26,7 +26,18 @@ await build({
     },
   },
   outDir: "./npm",
-  entryPoints: ["./logtape/mod.ts"],
+  entryPoints: [
+    "./logtape/mod.ts",
+    { name: "./config",    path: "./logtape/config.ts"        },
+    { name: "./filesink",  path: "./logtape/filesink.node.ts" },
+    { name: "./filter",    path: "./logtape/filter.ts"        },
+    { name: "./formatter", path: "./logtape/formatter.ts"     },
+    { name: "./fs",        path: "./logtape/fs.js"            },
+    { name: "./level",     path: "./logtape/level.ts"         },
+    { name: "./logger",    path: "./logtape/logger.ts"        },
+    { name: "./record",    path: "./logtape/record.ts"        },
+    { name: "./sink",      path: "./logtape/sink.ts"          }
+  ],
   importMap: "./deno.json",
   mappings: {
     "./logtape/filesink.jsr.ts": "./logtape/filesink.node.ts",
