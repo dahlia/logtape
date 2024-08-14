@@ -513,9 +513,11 @@ export class LoggerImpl implements Logger {
   logLazily(
     level: LogLevel,
     callback: LogCallback,
+    properties: Record<string, unknown> | (() => Record<string, unknown>) = {},
+    bypassSinks?: Set<Sink>,
   ): void {
     let msg: unknown[] | undefined = undefined;
-    this.emit({
+    const record: LogRecord = {
       category: this.category,
       level,
       get message() {
@@ -526,21 +528,41 @@ export class LoggerImpl implements Logger {
       },
       timestamp: Date.now(),
       properties: {},
-    });
+    };
+
+    let cachedProps: Record<string, unknown> | undefined = undefined;
+    Object.assign(record, typeof properties === "function" ? {
+      get properties() {
+        if (cachedProps == null) cachedProps = properties();
+        return cachedProps;
+      },
+    } : { properties });
+    this.emit(record, bypassSinks);
   }
 
   logTemplate(
     level: LogLevel,
     messageTemplate: TemplateStringsArray,
     values: unknown[],
+    properties: Record<string, unknown> | (() => Record<string, unknown>) = {},
+    bypassSinks?: Set<Sink>,
   ): void {
-    this.emit({
+    const record: LogRecord = {
       category: this.category,
       level,
       message: renderMessage(messageTemplate, values),
       timestamp: Date.now(),
       properties: {},
-    });
+    };
+
+    let cachedProps: Record<string, unknown> | undefined = undefined;
+    Object.assign(record, typeof properties === "function" ? {
+      get properties() {
+        if (cachedProps == null) cachedProps = properties();
+        return cachedProps;
+      },
+    } : { properties });
+    this.emit(record, bypassSinks);
   }
 
   debug(
