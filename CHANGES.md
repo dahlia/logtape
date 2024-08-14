@@ -8,6 +8,11 @@ Version 0.5.0
 
 To be released.
 
+- Improve LogTape' extensibility.
+  - Add more file modules to the JSR and NPM exports field for easy external access.
+  - Add a `properties` parameter to the `logLazily` and `logTemplate` methods of the `LoggerImpl` class.
+
+[#6]: https://github.com/dahlia/logtape/pull/6
 
 Version 0.4.2
 -------------
