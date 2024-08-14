@@ -514,7 +514,6 @@ export class LoggerImpl implements Logger {
     level: LogLevel,
     callback: LogCallback,
     properties: Record<string, unknown> | (() => Record<string, unknown>) = {},
-    bypassSinks?: Set<Sink>,
   ): void {
     let msg: unknown[] | undefined = undefined;
     const record: LogRecord = {
@@ -531,13 +530,18 @@ export class LoggerImpl implements Logger {
     };
 
     let cachedProps: Record<string, unknown> | undefined = undefined;
-    Object.assign(record, typeof properties === "function" ? {
-      get properties() {
-        if (cachedProps == null) cachedProps = properties();
-        return cachedProps;
-      },
-    } : { properties });
-    this.emit(record, bypassSinks);
+    Object.assign(
+      record,
+      typeof properties === "function"
+        ? {
+          get properties() {
+            if (cachedProps == null) cachedProps = properties();
+            return cachedProps;
+          },
+        }
+        : { properties },
+    );
+    this.emit(record);
   }
 
   logTemplate(
@@ -545,7 +549,6 @@ export class LoggerImpl implements Logger {
     messageTemplate: TemplateStringsArray,
     values: unknown[],
     properties: Record<string, unknown> | (() => Record<string, unknown>) = {},
-    bypassSinks?: Set<Sink>,
   ): void {
     const record: LogRecord = {
       category: this.category,
@@ -556,13 +559,18 @@ export class LoggerImpl implements Logger {
     };
 
     let cachedProps: Record<string, unknown> | undefined = undefined;
-    Object.assign(record, typeof properties === "function" ? {
-      get properties() {
-        if (cachedProps == null) cachedProps = properties();
-        return cachedProps;
-      },
-    } : { properties });
-    this.emit(record, bypassSinks);
+    Object.assign(
+      record,
+      typeof properties === "function"
+        ? {
+          get properties() {
+            if (cachedProps == null) cachedProps = properties();
+            return cachedProps;
+          },
+        }
+        : { properties },
+    );
+    this.emit(record);
   }
 
   debug(
