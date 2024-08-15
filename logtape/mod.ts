@@ -21,7 +21,12 @@ export {
   type TextFormatter,
 } from "./formatter.ts";
 export { isLogLevel, type LogLevel, parseLogLevel } from "./level.ts";
-export { getLogger, type Logger } from "./logger.ts";
+export {
+  getLogger,
+  type Logger,
+  parseMessageTemplate,
+  renderMessage,
+} from "./logger.ts";
 export type { LogRecord } from "./record.ts";
 export {
   type ConsoleSinkOptions,
