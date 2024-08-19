@@ -51,6 +51,34 @@ export interface Logger {
   ): Logger;
 
   /**
+   * Get a logger with contextual properties.  This is useful for
+   * log multiple messages with the shared set of properties.
+   *
+   * ```typescript
+   * const logger = getLogger("category");
+   * const ctx = logger.with({ foo: 123, bar: "abc" });
+   * ctx.info("A message with {foo} and {bar}.");
+   * ctx.warn("Another message with {foo}, {bar}, and {baz}.", { baz: true });
+   * ```
+   *
+   * The above code is equivalent to:
+   *
+   * ```typescript
+   * const logger = getLogger("category");
+   * logger.info("A message with {foo} and {bar}.", { foo: 123, bar: "abc" });
+   * logger.warn(
+   *   "Another message with {foo}, {bar}, and {baz}.",
+   *   { foo: 123, bar: "abc", baz: true },
+   * );
+   * ```
+   *
+   * @param properties
+   * @returns
+   * @since 0.5.0
+   */
+  with(properties: Record<string, unknown>): Logger;
+
+  /**
    * Log a debug message.  Use this as a template string prefix.
    *
    * ```typescript
@@ -446,6 +474,10 @@ export class LoggerImpl implements Logger {
     this.reset();
   }
 
+  with(properties: Record<string, unknown>): Logger {
+    return new LoggerCtx(this, { ...properties });
+  }
+
   filter(record: LogRecord): boolean {
     for (const filter of this.filters) {
       if (!filter(record)) return false;
@@ -513,6 +545,7 @@ export class LoggerImpl implements Logger {
   logLazily(
     level: LogLevel,
     callback: LogCallback,
+    properties: Record<string, unknown> = {},
   ): void {
     let msg: unknown[] | undefined = undefined;
     this.emit({
@@ -525,7 +558,7 @@ export class LoggerImpl implements Logger {
         return msg;
       },
       timestamp: Date.now(),
-      properties: {},
+      properties,
     });
   }
 
@@ -533,14 +566,148 @@ export class LoggerImpl implements Logger {
     level: LogLevel,
     messageTemplate: TemplateStringsArray,
     values: unknown[],
+    properties: Record<string, unknown> = {},
   ): void {
     this.emit({
       category: this.category,
       level,
       message: renderMessage(messageTemplate, values),
       timestamp: Date.now(),
-      properties: {},
+      properties,
     });
+  }
+
+  debug(
+    message: TemplateStringsArray | string | LogCallback,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log("debug", message, (values[0] ?? {}) as Record<string, unknown>);
+    } else if (typeof message === "function") {
+      this.logLazily("debug", message);
+    } else {
+      this.logTemplate("debug", message, values);
+    }
+  }
+
+  info(
+    message: TemplateStringsArray | string | LogCallback,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log("info", message, (values[0] ?? {}) as Record<string, unknown>);
+    } else if (typeof message === "function") {
+      this.logLazily("info", message);
+    } else {
+      this.logTemplate("info", message, values);
+    }
+  }
+
+  warn(
+    message: TemplateStringsArray | string | LogCallback,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log(
+        "warning",
+        message,
+        (values[0] ?? {}) as Record<string, unknown>,
+      );
+    } else if (typeof message === "function") {
+      this.logLazily("warning", message);
+    } else {
+      this.logTemplate("warning", message, values);
+    }
+  }
+
+  error(
+    message: TemplateStringsArray | string | LogCallback,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log("error", message, (values[0] ?? {}) as Record<string, unknown>);
+    } else if (typeof message === "function") {
+      this.logLazily("error", message);
+    } else {
+      this.logTemplate("error", message, values);
+    }
+  }
+
+  fatal(
+    message: TemplateStringsArray | string | LogCallback,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log("fatal", message, (values[0] ?? {}) as Record<string, unknown>);
+    } else if (typeof message === "function") {
+      this.logLazily("fatal", message);
+    } else {
+      this.logTemplate("fatal", message, values);
+    }
+  }
+}
+
+/**
+ * A logger implementation with contextual properties.  Do not use this
+ * directly; use {@link Logger.with} instead.  This class is exported
+ * for testing purposes.
+ */
+export class LoggerCtx implements Logger {
+  logger: LoggerImpl;
+  properties: Record<string, unknown>;
+
+  constructor(logger: LoggerImpl, properties: Record<string, unknown>) {
+    this.logger = logger;
+    this.properties = properties;
+  }
+
+  get category(): readonly string[] {
+    return this.logger.category;
+  }
+
+  get parent(): Logger | null {
+    return this.logger.parent;
+  }
+
+  getChild(
+    subcategory: string | readonly [string] | readonly [string, ...string[]],
+  ): Logger {
+    return this.logger.getChild(subcategory).with(this.properties);
+  }
+
+  with(properties: Record<string, unknown>): Logger {
+    return new LoggerCtx(this.logger, { ...this.properties, ...properties });
+  }
+
+  log(
+    level: LogLevel,
+    message: string,
+    properties: Record<string, unknown> | (() => Record<string, unknown>),
+    bypassSinks?: Set<Sink>,
+  ): void {
+    this.logger.log(
+      level,
+      message,
+      typeof properties === "function"
+        ? () => ({
+          ...this.properties,
+          ...properties(),
+        })
+        : { ...this.properties, ...properties },
+      bypassSinks,
+    );
+  }
+
+  logLazily(level: LogLevel, callback: LogCallback): void {
+    this.logger.logLazily(level, callback, this.properties);
+  }
+
+  logTemplate(
+    level: LogLevel,
+    messageTemplate: TemplateStringsArray,
+    values: unknown[],
+  ): void {
+    this.logger.logTemplate(level, messageTemplate, values, this.properties);
   }
 
   debug(
