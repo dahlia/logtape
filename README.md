@@ -185,7 +185,7 @@ await configure({
 Contexts
 --------
 
-**Contexts are available since LogTape 0.5.0.**
+*Contexts are available since LogTape 0.5.0.*
 
 LogTape provides a context system to reuse the same properties across log
 messages.  A context is a key-value map.  You can set a context for a logger
