@@ -8,6 +8,13 @@ Version 0.5.0
 
 To be released.
 
+ -  LogTape now provides contexts for loggers.  [[#7], [#8]]
+
+     -  Added `Logger.with()` method.
+
+[#7]: https://github.com/dahlia/logtape/issues/7
+[#8]: https://github.com/dahlia/logtape/pull/8
+
 
 Version 0.4.2
 -------------
@@ -149,3 +156,5 @@ Version 0.1.0
 -------------
 
 Initial release.  Released on April 19, 2024.
+
+<!-- cSpell: ignore runtimes Kitson Diyar Oktay -->

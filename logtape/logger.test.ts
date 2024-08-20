@@ -8,6 +8,7 @@ import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import {
   getLogger,
+  LoggerCtx,
   LoggerImpl,
   parseMessageTemplate,
   renderMessage,
@@ -42,6 +43,23 @@ Deno.test("Logger.getChild()", () => {
   const fooBarBaz = foo.getChild(["bar", "baz"]);
   assertEquals(fooBarBaz.category, ["foo", "bar", "baz"]);
   assertEquals(fooBarBaz.parent, fooBar);
+
+  const fooCtx = foo.with({ a: 1, b: 2 });
+  const fooBarCtx = fooCtx.getChild("bar");
+  assertEquals(fooBarCtx.category, ["foo", "bar"]);
+  // @ts-ignore: internal attribute:
+  assertEquals(fooBarCtx.properties, { a: 1, b: 2 });
+});
+
+Deno.test("Logger.with()", () => {
+  const foo = getLogger("foo");
+  const ctx = foo.with({ a: 1, b: 2 });
+  assertEquals(ctx.parent, getLogger());
+  assertEquals(ctx.category, ["foo"]);
+  // @ts-ignore: internal attribute:
+  assertEquals(ctx.properties, { a: 1, b: 2 });
+  // @ts-ignore: internal attribute:
+  assertEquals(ctx.with({ c: 3 }).properties, { a: 1, b: 2, c: 3 });
 });
 
 Deno.test("LoggerImpl.filter()", async (t) => {
@@ -303,10 +321,136 @@ Deno.test("LoggerImpl.logTemplate()", async (t) => {
   });
 });
 
+Deno.test("LoggerCtx.log()", async (t) => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  await t.step("test", () => {
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+    const before = Date.now();
+    ctx.log("info", "Hello, {a} {b} {c}!", { c: 3 });
+    const after = Date.now();
+    assertEquals(logs, [
+      {
+        category: ["foo"],
+        level: "info",
+        message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
+        timestamp: logs[0].timestamp,
+        properties: { a: 1, b: 2, c: 3 },
+      },
+    ]);
+    assertGreaterOrEqual(logs[0].timestamp, before);
+    assertLessOrEqual(logs[0].timestamp, after);
+
+    logs.shift();
+    logger.filters.push(toFilter("error"));
+    let called = 0;
+    ctx.log("warning", "Hello, {a} {b} {c}!", () => {
+      called++;
+      return { c: 3 };
+    });
+    assertEquals(logs, []);
+    assertEquals(called, 0);
+
+    ctx.log("error", "Hello, {a} {b} {c}!", () => {
+      called++;
+      return { c: 3 };
+    });
+    assertEquals(logs, [
+      {
+        category: ["foo"],
+        level: "error",
+        message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
+        timestamp: logs[0].timestamp,
+        properties: { a: 1, b: 2, c: 3 },
+      },
+    ]);
+    assertEquals(called, 1);
+  });
+
+  await t.step("tear down", () => {
+    logger.resetDescendants();
+  });
+});
+
+Deno.test("LoggerCtx.logLazily()", async (t) => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  await t.step("test", () => {
+    let called = 0;
+    function calc() {
+      called++;
+      return 123;
+    }
+
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+    logger.filters.push(toFilter("error"));
+    logger.logLazily("warning", (l) => l`Hello, ${calc()}!`);
+    assertEquals(logs, []);
+    assertEquals(called, 0);
+
+    const before = Date.now();
+    ctx.logLazily("error", (l) => l`Hello, ${calc()}!`);
+    const after = Date.now();
+    assertEquals(logs, [
+      {
+        category: ["foo"],
+        level: "error",
+        message: ["Hello, ", 123, "!"],
+        timestamp: logs[0].timestamp,
+        properties: { a: 1, b: 2 },
+      },
+    ]);
+    assertGreaterOrEqual(logs[0].timestamp, before);
+    assertLessOrEqual(logs[0].timestamp, after);
+    assertEquals(called, 1);
+  });
+
+  await t.step("tear down", () => {
+    logger.resetDescendants();
+  });
+});
+
+Deno.test("LoggerCtx.logTemplate()", async (t) => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  await t.step("test", () => {
+    function info(tpl: TemplateStringsArray, ...values: unknown[]) {
+      ctx.logTemplate("info", tpl, values);
+    }
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+
+    const before = Date.now();
+    info`Hello, ${123}!`;
+    const after = Date.now();
+    assertEquals(logs, [
+      {
+        category: ["foo"],
+        level: "info",
+        message: ["Hello, ", 123, "!"],
+        timestamp: logs[0].timestamp,
+        properties: { a: 1, b: 2 },
+      },
+    ]);
+    assertGreaterOrEqual(logs[0].timestamp, before);
+    assertLessOrEqual(logs[0].timestamp, after);
+  });
+
+  await t.step("tear down", () => {
+    logger.resetDescendants();
+  });
+});
+
 const methods = ["debug", "info", "warn", "error", "fatal"] as const;
 for (const method of methods) {
   Deno.test(`Logger.${method}()`, async (t) => {
     const logger = LoggerImpl.getLogger("foo");
+    const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
 
     await t.step("template", () => {
       function tpl(tpl: TemplateStringsArray, ...values: unknown[]) {
@@ -315,9 +459,9 @@ for (const method of methods) {
 
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
-      const before = Date.now();
+      let before = Date.now();
       tpl`Hello, ${123}!`;
-      const after = Date.now();
+      let after = Date.now();
       assertEquals(logs, [
         {
           category: ["foo"],
@@ -325,6 +469,26 @@ for (const method of methods) {
           message: ["Hello, ", 123, "!"],
           timestamp: logs[0].timestamp,
           properties: {},
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+
+      function ctxTpl(tpl: TemplateStringsArray, ...values: unknown[]) {
+        ctx[method](tpl, ...values);
+      }
+
+      logs.shift();
+      before = Date.now();
+      ctxTpl`Hello, ${123}!`;
+      after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: method === "warn" ? "warning" : method,
+          message: ["Hello, ", 123, "!"],
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2 },
         },
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
@@ -338,9 +502,9 @@ for (const method of methods) {
     await t.step("lazy template", () => {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
-      const before = Date.now();
+      let before = Date.now();
       logger[method]((l) => l`Hello, ${123}!`);
-      const after = Date.now();
+      let after = Date.now();
       assertEquals(logs, [
         {
           category: ["foo"],
@@ -348,6 +512,22 @@ for (const method of methods) {
           message: ["Hello, ", 123, "!"],
           timestamp: logs[0].timestamp,
           properties: {},
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+
+      logs.shift();
+      before = Date.now();
+      ctx[method]((l) => l`Hello, ${123}!`);
+      after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: method === "warn" ? "warning" : method,
+          message: ["Hello, ", 123, "!"],
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2 },
         },
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
@@ -361,9 +541,9 @@ for (const method of methods) {
     await t.step("eager", () => {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
-      const before = Date.now();
+      let before = Date.now();
       logger[method]("Hello, {foo}!", { foo: 123 });
-      const after = Date.now();
+      let after = Date.now();
       assertEquals(logs, [
         {
           category: ["foo"],
@@ -387,6 +567,32 @@ for (const method of methods) {
           properties: {},
         },
       ]);
+
+      logs.shift();
+      before = Date.now();
+      ctx[method]("Hello, {a} {b} {c}!", { c: 3 });
+      after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: method === "warn" ? "warning" : method,
+          message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, c: 3 },
+        },
+      ]);
+
+      logs.shift();
+      ctx[method]("Hello, world!");
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: method === "warn" ? "warning" : method,
+          message: ["Hello, world!"],
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2 },
+        },
+      ]);
     });
 
     await t.step("tear down", () => {
@@ -396,12 +602,11 @@ for (const method of methods) {
     await t.step("lazy", () => {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
-      const before = Date.now();
-
+      let before = Date.now();
       logger[method]("Hello, {foo}!", () => {
         return { foo: 123 };
       });
-      const after = Date.now();
+      let after = Date.now();
       assertEquals(logs, [
         {
           category: ["foo"],
@@ -409,6 +614,24 @@ for (const method of methods) {
           message: ["Hello, ", 123, "!"],
           timestamp: logs[0].timestamp,
           properties: { foo: 123 },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+
+      logs.shift();
+      before = Date.now();
+      ctx[method]("Hello, {a} {b} {c}!", () => {
+        return { c: 3 };
+      });
+      after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: method === "warn" ? "warning" : method,
+          message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, c: 3 },
         },
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
