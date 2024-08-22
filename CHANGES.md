@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.4.3
 -------------
 
-To be released.
+Released on August 22, 2024.
 
  -  Fixed a bug where `getRotatingFileSink()` function had failed to create
     a new log file when there's no log file to rotate yet.  [[#9]]
