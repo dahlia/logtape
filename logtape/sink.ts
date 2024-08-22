@@ -249,7 +249,13 @@ export function getRotatingFileSink<TFile>(
   const encoder = options.encoder ?? new TextEncoder();
   const maxSize = options.maxSize ?? 1024 * 1024;
   const maxFiles = options.maxFiles ?? 5;
-  let { size: offset } = options.statSync(path);
+  let offset: number = 0;
+  try {
+    const stat = options.statSync(path);
+    offset = stat.size;
+  } catch {
+    // Continue as the offset is already 0.
+  }
   let fd = options.openSync(path);
   function shouldRollover(bytes: Uint8Array): boolean {
     return offset + bytes.length > maxSize;

@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert/assert-equals";
+import { join } from "@std/path/join";
 import { getFileSink, getRotatingFileSink } from "./filesink.deno.ts";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import type { Sink } from "./sink.ts";
@@ -89,6 +90,18 @@ Deno.test("getRotatingFileSink()", () => {
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
 `,
   );
+
+  const dirPath = Deno.makeTempDirSync();
+  const path2 = join(dirPath, "log");
+  const sink2: Sink & Disposable = getRotatingFileSink(path2, {
+    maxSize: 150,
+  });
+  sink2(debug);
+  assertEquals(
+    Deno.readTextFileSync(path2),
+    "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
+  );
+  sink2[Symbol.dispose]();
 });
 
 // cSpell: ignore filesink

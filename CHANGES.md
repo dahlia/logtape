@@ -8,6 +8,11 @@ Version 0.4.3
 
 To be released.
 
+ -  Fixed a bug where `getRotatingFileSink()` function had failed to create
+    a new log file when there's no log file to rotate yet.  [[#9]]
+
+[#9]: https://github.com/dahlia/logtape/issues/9
+
 
 Version 0.4.2
 -------------
