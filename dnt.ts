@@ -24,6 +24,9 @@ await build({
     bugs: {
       url: "https://github.com/dahlia/logtape/issues",
     },
+    funding: [
+      "https://github.com/sponsors/dahlia",
+    ],
   },
   outDir: "./npm",
   entryPoints: ["./logtape/mod.ts"],
