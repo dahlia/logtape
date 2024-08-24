@@ -1,0 +1,23 @@
+{
+  "name": "@logtape/otel",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "imports": {
+    "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
+    "@logtape/logtape": "jsr:@logtape/logtape@^0.4.3",
+    "@logtape/otel": "./mod.ts",
+    "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
+    "@opentelemetry/api-logs": "npm:@opentelemetry/api-logs@^0.52.1",
+    "@opentelemetry/exporter-logs-otlp-http": "npm:@opentelemetry/exporter-logs-otlp-http@^0.52.1",
+    "@opentelemetry/otlp-exporter-base": "npm:@opentelemetry/otlp-exporter-base@^0.52.1",
+    "@opentelemetry/resources": "npm:@opentelemetry/resources@^1.25.1",
+    "@opentelemetry/sdk-logs": "npm:@opentelemetry/sdk-logs@^0.52.1",
+    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.26.0"
+  },
+  "tasks": {
+    "dnt": "deno run -A dnt.ts"
+  }
+}
