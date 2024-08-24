@@ -405,6 +405,16 @@ await configure({
 [JSON Lines]: https://jsonlines.org/
 [`jq`]: https://jqlang.github.io/jq/
 
+### OpenTelemetry sink
+
+If you have an [OpenTelemetry] collector running, you can use the OpenTelemetry
+sink to send log messages to the collector using [@logtape/otel] package.
+
+For more details, see the documentation of [@logtape/otel].
+
+[OpenTelemetry]: https://opentelemetry.io/
+[@logtape/otel]: https://github.com/dahlia/logtape-otel
+
 ### Disposable sink
 
 > [!TIP]
@@ -595,3 +605,5 @@ await configure({
   // Omitted for brevity
 });
 ~~~~
+
+<!-- cSpell: ignore otel -->
