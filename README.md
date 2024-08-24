@@ -1,9 +1,19 @@
 @logtape/otel: LogTape OpenTelemetry Sink
 =========================================
 
+[![JSR][JSR badge]][JSR]
+[![npm][npm badge]][npm]
+[![GitHub Actions][GitHub Actions badge]][GitHub Actions]
+
 This package provides an OpenTelemetry sink for [LogTape]. It allows you to
 send your LogTape logs to OpenTelemetry-compatible backends.
 
+[JSR]: https://jsr.io/@logtape/otel
+[JSR badge]: https://jsr.io/badges/@logtape/otel
+[npm]: https://www.npmjs.com/package/@logtape/otel
+[npm badge]: https://img.shields.io/npm/v/@logtape/otel?logo=npm
+[GitHub Actions]: https://github.com/dahlia/logtape-otel/actions/workflows/main.yaml
+[GitHub Actions badge]: https://github.com/dahlia/logtape-otel/actions/workflows/main.yaml/badge.svg
 [LogTape]: https://github.com/dahlia/logtape
 
 
@@ -19,9 +29,6 @@ pnpm add @logtape/otel # for pnpm
 yarn add @logtape/otel # for Yarn
 bun add @logtape/otel  # for Bun
 ~~~~
-
-[JSR]: https://jsr.io/@logtape/otel
-[npm]: https://www.npmjs.com/package/@logtape/otel
 
 
 Usage
@@ -142,4 +149,4 @@ Changelog
 Version 0.1.0
 -------------
 
-Initial release. To be released.
+Released on August 24, 2024.  Initial release.
