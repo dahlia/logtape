@@ -55,22 +55,15 @@ sinks.](#sinks)
 Installation
 ------------
 
-### Deno
+LogTape is available on [JSR] and [npm].  You can install LogTape for various
+JavaScript runtimes and package managers:
 
 ~~~~ sh
-deno add @logtape/logtape
-~~~~
-
-### Node.js
-
-~~~~ sh
-npm add @logtape/logtape
-~~~~
-
-### Bun
-
-~~~~ sh
-bun add @logtape/logtape
+deno add @logtape/logtape  # for Deno
+npm  add @logtape/logtape  # for npm
+pnpm add @logtape/logtape  # for pnpm
+yarn add @logtape/logtape  # for Yarn
+bun  add @logtape/logtape  # for Bun
 ~~~~
 
 
