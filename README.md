@@ -5,7 +5,7 @@
 [![npm][npm badge]][npm]
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 
-This package provides an OpenTelemetry sink for [LogTape]. It allows you to
+This package provides an [OpenTelemetry] sink for [LogTape]. It allows you to
 send your LogTape logs to OpenTelemetry-compatible backends.
 
 [JSR]: https://jsr.io/@logtape/otel
@@ -14,6 +14,7 @@ send your LogTape logs to OpenTelemetry-compatible backends.
 [npm badge]: https://img.shields.io/npm/v/@logtape/otel?logo=npm
 [GitHub Actions]: https://github.com/dahlia/logtape-otel/actions/workflows/main.yaml
 [GitHub Actions badge]: https://github.com/dahlia/logtape-otel/actions/workflows/main.yaml/badge.svg
+[OpenTelemetry]: https://opentelemetry.io/
 [LogTape]: https://github.com/dahlia/logtape
 
 
