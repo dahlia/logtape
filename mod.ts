@@ -45,41 +45,41 @@ type ILoggerProvider = LoggerProviderBase & {
 /**
  * Options for creating an OpenTelemetry sink.
  */
-export type OpenTelemetrySinkOptions =
-  | {
-    /**
-     * The OpenTelemetry logger provider to use.
-     */
-    loggerProvider: ILoggerProvider;
+export interface OpenTelemetrySinkOptions {
+  /**
+   * The OpenTelemetry logger provider to use.
+   */
+  loggerProvider?: ILoggerProvider;
 
-    /**
-     * Whether to log diagnostics.  Diagnostic logs are logged to
-     * the `["logtape", "meta", "otel"]` category.
-     */
-    diagnostics?: boolean;
-  }
-  | {
-    /**
-     * The OpenTelemetry logger provider to use.
-     */
-    loggerProvider?: undefined;
+  /**
+   * The way to render the message in the log record.  If `"string"`,
+   * the message is rendered as a single string with the values are
+   * interpolated into the message.  If `"array"`, the message is
+   * rendered as an array of strings.  `"string"` by default.
+   * @since 0.2.0
+   */
+  messageType?: "string" | "array";
 
-    /**
-     * Whether to log diagnostics.  Diagnostic logs are logged to
-     * the `["logtape", "meta", "otel"]` category.
-     */
-    diagnostics?: boolean;
+  /**
+   * Whether to log diagnostics.  Diagnostic logs are logged to
+   * the `["logtape", "meta", "otel"]` category.
+   * Turned off by default.
+   */
+  diagnostics?: boolean;
 
-    /**
-     * The OpenTelemetry OTLP exporter configuration to use.
-     */
-    otlpExporterConfig?: OTLPExporterNodeConfigBase;
+  /**
+   * The OpenTelemetry OTLP exporter configuration to use.
+   * Ignored if `loggerProvider` is provided.
+   */
+  otlpExporterConfig?: OTLPExporterNodeConfigBase;
 
-    /**
-     * The service name to use.
-     */
-    serviceName?: string;
-  };
+  /**
+   * The service name to use.  If not provided, the service name is
+   * taken from the `OTEL_SERVICE_NAME` environment variable.
+   * Ignored if `loggerProvider` is provided.
+   */
+  serviceName?: string;
+}
 
 /**
  * Creates a sink that forwards log records to OpenTelemetry.
@@ -127,7 +127,11 @@ export function getOpenTelemetrySink(
       {
         severityNumber,
         severityText: level,
-        body,
+        body: options.messageType === "array"
+          ? body
+          : body.map((v) =>
+            v === undefined ? "undefined" : v === null ? "null" : v
+          ).join(""),
         attributes,
         timestamp: new Date(timestamp),
       } satisfies OTLogRecord,

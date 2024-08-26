@@ -110,7 +110,11 @@ await configure({
 });
 ~~~~
 
+For more information, see the documentation of the [`getOpenTelemetrySink()`]
+function and [`OpenTelemetrySinkOptions`] type.
+
 [`getOpenTelemetrySink()`]: https://jsr.io/@logtape/otel/doc/~/getOpenTelemetrySink
+[`OpenTelemetrySinkOptions`]: https://jsr.io/@logtape/otel/doc/~/OpenTelemetrySinkOptions
 [`LoggerProvider`]: https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_sdk_logs.LoggerProvider.html
 
 
@@ -151,6 +155,9 @@ Version 0.2.0
 -------------
 
 To be released.
+
+ -  The `OpenTelemetrySinkOptions` type is now an interface.
+ -  Added `OpenTelemetrySinkOptions.messageType` option.
 
 
 Version 0.1.0

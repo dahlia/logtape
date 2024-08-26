@@ -1,10 +1,14 @@
 import { configure, getConsoleSink, getLogger } from "@logtape/logtape";
 import { getOpenTelemetrySink } from "@logtape/otel";
+import "@std/dotenv/load";
 
 await configure({
   sinks: {
     console: getConsoleSink(),
-    otel: getOpenTelemetrySink({ diagnostics: true }),
+    otel: getOpenTelemetrySink({
+      messageType: "array",
+      diagnostics: true,
+    }),
   },
   filters: {},
   loggers: [

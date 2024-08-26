@@ -15,7 +15,8 @@
     "@opentelemetry/otlp-exporter-base": "npm:@opentelemetry/otlp-exporter-base@^0.52.1",
     "@opentelemetry/resources": "npm:@opentelemetry/resources@^1.25.1",
     "@opentelemetry/sdk-logs": "npm:@opentelemetry/sdk-logs@^0.52.1",
-    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.26.0"
+    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.26.0",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.1"
   },
   "tasks": {
     "dnt": "deno run -A dnt.ts"

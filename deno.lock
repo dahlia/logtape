@@ -9,6 +9,7 @@
       "jsr:@std/assert@^0.223.0": "jsr:@std/assert@0.223.0",
       "jsr:@std/assert@^0.226.0": "jsr:@std/assert@0.226.0",
       "jsr:@std/bytes@^0.223.0": "jsr:@std/bytes@0.223.0",
+      "jsr:@std/dotenv@^0.225.1": "jsr:@std/dotenv@0.225.1",
       "jsr:@std/fmt@1": "jsr:@std/fmt@1.0.0",
       "jsr:@std/fmt@^0.223": "jsr:@std/fmt@0.223.0",
       "jsr:@std/fs@1": "jsr:@std/fs@1.0.1",
@@ -28,7 +29,8 @@
       "npm:@opentelemetry/otlp-exporter-base@^0.52.1": "npm:@opentelemetry/otlp-exporter-base@0.52.1_@opentelemetry+api@1.9.0",
       "npm:@opentelemetry/resources@^1.25.1": "npm:@opentelemetry/resources@1.25.1_@opentelemetry+api@1.9.0",
       "npm:@opentelemetry/sdk-logs@^0.52.1": "npm:@opentelemetry/sdk-logs@0.52.1_@opentelemetry+api@1.9.0",
-      "npm:@opentelemetry/semantic-conventions@^1.26.0": "npm:@opentelemetry/semantic-conventions@1.26.0"
+      "npm:@opentelemetry/semantic-conventions@^1.26.0": "npm:@opentelemetry/semantic-conventions@1.26.0",
+      "npm:@types/node": "npm:@types/node@18.16.19"
     },
     "jsr": {
       "@david/code-block-writer@13.0.2": {
@@ -65,6 +67,9 @@
       },
       "@std/bytes@0.223.0": {
         "integrity": "84b75052cd8680942c397c2631318772b295019098f40aac5c36cead4cba51a8"
+      },
+      "@std/dotenv@0.225.1": {
+        "integrity": "138f31352843d76cfb6cda1b860e8aac6d02ce3b05e7e236a81bf285a9868d0c"
       },
       "@std/fmt@0.223.0": {
         "integrity": "6deb37794127dfc7d7bded2586b9fc6f5d50e62a8134846608baf71ffc1a5208"
@@ -262,6 +267,10 @@
         "integrity": "sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==",
         "dependencies": {}
       },
+      "@types/node@18.16.19": {
+        "integrity": "sha512-IXl7o+R9iti9eBW4Wg2hx1xQDig183jj7YLn8F7udNceyfkbn1ZxmzZXuak20gR40D7pIkIY1kYGx5VIGbaHKA==",
+        "dependencies": {}
+      },
       "@types/node@22.0.0": {
         "integrity": "sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==",
         "dependencies": {
@@ -304,6 +313,7 @@
     "dependencies": [
       "jsr:@deno/dnt@^0.41.3",
       "jsr:@logtape/logtape@^0.4.3",
+      "jsr:@std/dotenv@^0.225.1",
       "npm:@opentelemetry/api-logs@^0.52.1",
       "npm:@opentelemetry/api@^1.9.0",
       "npm:@opentelemetry/exporter-logs-otlp-http@^0.52.1",
