@@ -151,10 +151,9 @@ needed.
 Changelog
 ---------
 
-Version 0.2.0
--------------
+### Version 0.2.0
 
-To be released.
+Released on August 26, 2024.
 
  -  The `OpenTelemetrySinkOptions` type is now an interface.
  -  Added `OpenTelemetrySinkOptions.messageType` option.
@@ -163,7 +162,6 @@ To be released.
     `Deno.inspect()` in Deno by default.
 
 
-Version 0.1.0
--------------
+### Version 0.1.0
 
 Released on August 24, 2024.  Initial release.
