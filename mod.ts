@@ -43,6 +43,14 @@ type ILoggerProvider = LoggerProviderBase & {
 };
 
 /**
+ * The way to render the object in the log record.  If `"json"`,
+ * the object is rendered as a JSON string.  If `"inspect"`,
+ * the object is rendered using `util.inspect` in Node.js/Bun, or
+ * `Deno.inspect` in Deno.
+ */
+export type ObjectRenderer = "json" | "inspect";
+
+/**
  * Options for creating an OpenTelemetry sink.
  */
 export interface OpenTelemetrySinkOptions {
@@ -59,6 +67,14 @@ export interface OpenTelemetrySinkOptions {
    * @since 0.2.0
    */
   messageType?: "string" | "array";
+
+  /**
+   * The way to render the object in the log record.  If `"json"`,
+   * the object is rendered as a JSON string.  If `"inspect"`,
+   * the object is rendered using `util.inspect` in Node.js/Bun, or
+   * `Deno.inspect` in Deno.  `"inspect"` by default.
+   */
+  objectRenderer?: ObjectRenderer;
 
   /**
    * Whether to log diagnostics.  Diagnostic logs are logged to
@@ -110,6 +126,7 @@ export function getOpenTelemetrySink(
   } else {
     loggerProvider = options.loggerProvider;
   }
+  const objectRenderer = options.objectRenderer ?? "inspect";
   const logger = loggerProvider.getLogger(metadata.name, metadata.version);
   const sink = (record: LogRecord) => {
     const { category, level, message, timestamp, properties } = record;
@@ -120,9 +137,9 @@ export function getOpenTelemetrySink(
       return;
     }
     const severityNumber = mapLevelToSeverityNumber(level);
-    const attributes = convertToAttributes(properties);
+    const attributes = convertToAttributes(properties, objectRenderer);
     attributes["category"] = [...category];
-    const body = convertMessageToBody(message);
+    const body = convertMessageToBody(message, objectRenderer);
     logger.emit(
       {
         severityNumber,
@@ -163,6 +180,7 @@ function mapLevelToSeverityNumber(level: string): number {
 
 function convertToAttributes(
   properties: Record<string, unknown>,
+  objectRenderer: ObjectRenderer,
 ): Record<string, AnyValue> {
   const attributes: Record<string, AnyValue> = {};
   for (const [name, value] of Object.entries(properties)) {
@@ -173,14 +191,16 @@ function convertToAttributes(
       for (const v of value) {
         if (v == null) continue;
         if (t != null && typeof v !== t) {
-          attributes[key] = value.map(convertToString);
+          attributes[key] = value.map((v) =>
+            convertToString(v, objectRenderer)
+          );
           break;
         }
         t = typeof v;
       }
       attributes[key] = value;
     } else {
-      const encoded = convertToString(value);
+      const encoded = convertToString(value, objectRenderer);
       if (encoded == null) continue;
       attributes[key] = encoded;
     }
@@ -188,10 +208,15 @@ function convertToAttributes(
   return attributes;
 }
 
-function convertToString(value: unknown): string | null | undefined {
+function convertToString(
+  value: unknown,
+  objectRenderer: ObjectRenderer,
+): string | null | undefined {
   if (value === null || value === undefined || typeof value === "string") {
     return value;
-  } else if (typeof value === "number" || typeof value === "boolean") {
+  }
+  if (objectRenderer === "inspect") return inspect(value);
+  if (typeof value === "number" || typeof value === "boolean") {
     return value.toString();
   } else if (value instanceof Date) return value.toISOString();
   else return JSON.stringify(value);
@@ -199,6 +224,7 @@ function convertToString(value: unknown): string | null | undefined {
 
 function convertMessageToBody(
   message: readonly unknown[],
+  objectRenderer: ObjectRenderer,
 ): (string | null | undefined)[] {
   const body: (string | null | undefined)[] = [];
   for (let i = 0; i < message.length; i += 2) {
@@ -206,10 +232,33 @@ function convertMessageToBody(
     body.push(msg);
     if (message.length <= i + 1) break;
     const val = message[i + 1];
-    body.push(convertToString(val));
+    body.push(convertToString(val, objectRenderer));
   }
   return body;
 }
+
+/**
+ * A platform-specific inspect function.  In Deno, this is {@link Deno.inspect},
+ * and in Node.js/Bun it is {@link util.inspect}.  If neither is available, it
+ * falls back to {@link JSON.stringify}.
+ *
+ * @param value The value to inspect.
+ * @returns The string representation of the value.
+ */
+const inspect: (value: unknown) => string =
+  // @ts-ignore: Deno global
+  "Deno" in globalThis && "inspect" in globalThis.Deno &&
+    // @ts-ignore: Deno global
+    typeof globalThis.Deno.inspect === "function"
+    // @ts-ignore: Deno global
+    ? globalThis.Deno.inspect
+    // @ts-ignore: Node.js global
+    : "util" in globalThis && "inspect" in globalThis.util &&
+        // @ts-ignore: Node.js global
+        globalThis.util.inspect === "function"
+    // @ts-ignore: Node.js global
+    ? globalThis.util.inspect
+    : JSON.stringify;
 
 class DiagLoggerAdaptor implements DiagLogger {
   logger: Logger;

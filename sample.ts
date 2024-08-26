@@ -16,6 +16,12 @@ await configure({
   ],
 });
 
-getLogger(["test", "app"]).debug("hello {world}", { world: "debug" });
-getLogger(["test", "app"]).info("hello {world}", { world: "info" });
+getLogger(["test", "app"]).debug("hello {world} at {timestamp}", {
+  world: "debug",
+  timestamp: new Date(),
+});
+getLogger(["test", "app"]).info("hello {world} with {object}", {
+  world: "info",
+  object: new Uint8Array([1, 2, 3]),
+});
 getLogger(["test", "app"]).warn("hello {world}", { world: "warning" });

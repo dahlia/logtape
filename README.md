@@ -158,6 +158,9 @@ To be released.
 
  -  The `OpenTelemetrySinkOptions` type is now an interface.
  -  Added `OpenTelemetrySinkOptions.messageType` option.
+ -  Added `OpenTelemetrySinkOptions.objectRenderer` option.  Now non-scalar
+    values are rendered using `util.inspect()` in Node.js/Bun and
+    `Deno.inspect()` in Deno by default.
 
 
 Version 0.1.0
