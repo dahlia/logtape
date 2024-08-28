@@ -220,8 +220,8 @@ bun add @logtape/otel
 
 :::
 
-The quickest way to get started is to use the `getOpenTelemetrySink()` function
-without any arguments:
+The quickest way to get started is to use the [`getOpenTelemetrySink()`]
+function without any arguments:
 
 ~~~~ typescript
 import { configure } from "@logtape/logtape";
@@ -246,6 +246,7 @@ For more details, see the documentation of [@logtape/otel].
 
 [OpenTelemetry]: https://opentelemetry.io/
 [@logtape/otel]: https://github.com/dahlia/logtape-otel
+[`getOpenTelemetrySink()`]: https://jsr.io/@logtape/otel/doc/~/getOpenTelemetrySink
 
 
 Disposable sink

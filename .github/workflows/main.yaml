@@ -116,4 +116,5 @@ jobs:
       with:
         path: docs/.vitepress/dist
     - id: deployment
+      if: github.ref_type == 'tag'
       uses: actions/deploy-pages@v4
