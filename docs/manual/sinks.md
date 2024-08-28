@@ -123,9 +123,24 @@ Rotating file sink
 > [!NOTE]
 > Rotating file sink is unavailable in the browser environment.
 
-A rotating file sink is a file sink that rotates log files.  It creates a new
-log file when the current log file reaches a certain size.  Here's an example
-of a rotating file sink that writes log messages to a file:
+A rotating file sink is a file sink that rotates log files, which allows you
+to manage log files more effectively, especially in long-running applications
+or environments where log file size can grow significantly over time.
+
+It writes log records to a file, but unlike a standard file sink, it has
+the ability to *rotate* the log file when it reaches a certain size. This means:
+
+ 1. When the current log file reaches a specified maximum size, it is closed and
+    renamed.
+ 2. A new log file is created with the original name to continue logging.
+ 3. Old log files are kept up to a specified maximum number, with the oldest
+    being deleted when this limit is reached.
+
+This rotation process helps prevent any single log file from growing too large,
+which can cause issues with file handling, log analysis, and storage management.
+
+To use the rotating file sink, you can use the `getRotatingFileSink()` function.
+Here's an example of a rotating file sink that writes log messages to a file:
 
 ~~~~ typescript
 import { getRotatingFileSink } from "@logtape/logtape";
@@ -178,16 +193,7 @@ await configure({
 })
 ~~~~
 
-> [!TIP]
-> If you want to monitor log messages formatted in JSON Lines in real-time
-> readably, you can utilize the `tail` and [`jq`] commands:
->
-> ~~~~ sh
-> tail -f log.jsonl | jq .
-> ~~~~
-
 [JSON Lines]: https://jsonlines.org/
-[`jq`]: https://jqlang.github.io/jq/
 
 
 OpenTelemetry sink
@@ -307,3 +313,5 @@ export default {
 ~~~~
 
 [`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
+
+<!-- cSpell: ignore otel -->

@@ -27,6 +27,7 @@ features:
 - icon: 📚
   title: Library support
   details: LogTape is designed to be used in libraries as well as applications. You can use LogTape in libraries to provide logging capabilities to users of the libraries.
+  link: /manual/library
 - icon: 🔌
   title: Runtime diversity
   details: >-
@@ -38,7 +39,7 @@ features:
 - icon: 🗃️
   title: Structured logging
   details: You can log messages with structured data.
-  link: /manual/start#structured-logging
+  link: /manual/struct
 - icon: 🌲
   title: Hierarchical categories
   details: LogTape uses a hierarchical category system to manage loggers. You can control the verbosity of log messages by setting the log level of loggers at different levels of the category hierarchy.
@@ -49,3 +50,4 @@ features:
   link: /manual/start#how-to-log
 ---
 
+<!-- cSpell: ignore struct -->

@@ -61,12 +61,7 @@ logger.error("This is an error message with {value}.", { value });
 logger.fatal("This is a fatal message with {value}.", { value });
 ~~~~
 
-> [!TIP]
-> The way to log single curly braces `{`  is to double the brace:
->
-> ~~~~ typescript
-> logger.debug("This logs {{single}} curly braces.");
-> ~~~~
+For detailed information, see [*Structured logging*](./struct.md).
 
 
 ### Lazy evaluation

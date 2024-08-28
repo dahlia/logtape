@@ -1,6 +1,6 @@
-import { defineConfig } from "vitepress";
-import { jsrRef } from "markdown-it-jsr-ref";
 import { Presets, SingleBar } from "cli-progress";
+import { jsrRef } from "markdown-it-jsr-ref";
+import { defineConfig } from "vitepress";
 
 const progress = new SingleBar({}, Presets.shades_classic);
 let started = false;
@@ -26,9 +26,11 @@ const MANUAL = {
     { text: "Installation", link: "/manual/install" },
     { text: "Quick start", link: "/manual/start" },
     { text: "Categories", link: "/manual/categories" },
+    { text: "Structured logging", link: "/manual/struct" },
     { text: "Contexts", link: "/manual/contexts" },
     { text: "Sinks", link: "/manual/sinks" },
     { text: "Filters", link: "/manual/filters" },
+    { text: "Using in libraries", link: "/manual/library" },
     { text: "Testing", link: "/manual/testing" },
   ],
 };
