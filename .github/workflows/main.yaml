@@ -91,3 +91,29 @@ jobs:
       run: deno publish --dry-run --allow-dirty
     - if: github.event_name == 'push'
       run: deno publish --allow-dirty
+
+  publish-docs:
+    if: github.event_name == 'push'
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      pages: write
+      deployments: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+    - run: bun install
+      working-directory: ${{ github.workspace }}/docs/
+    - run: bun run build
+      working-directory: ${{ github.workspace }}/docs/
+    - uses: actions/upload-pages-artifact@v3
+      with:
+        path: docs/.vitepress/dist
+    - id: deployment
+      uses: actions/deploy-pages@v4
