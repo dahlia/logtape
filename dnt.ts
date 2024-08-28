@@ -16,7 +16,7 @@ await build({
       email: "hong@minhee.org",
       url: "https://hongminhee.org/",
     },
-    homepage: "https://github.com/dahlia/logtape",
+    homepage: "https://logtape.org/",
     repository: {
       type: "git",
       url: "git+https://github.com/dahlia/logtape.git",
