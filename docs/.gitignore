@@ -1,0 +1,4 @@
+.jsr-cache-otel.json
+.jsr-cache.json
+.vitepress/cache/
+node_modules/

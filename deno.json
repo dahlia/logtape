@@ -16,6 +16,7 @@
   "exclude": [
     "*-venv/",
     "coverage/",
+    "docs/",
     "npm/"
   ],
   "unstable": [
