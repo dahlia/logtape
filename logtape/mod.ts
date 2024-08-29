@@ -15,6 +15,7 @@ export {
   toFilter,
 } from "./filter.ts";
 export {
+  ansiColorFormatter,
   type ConsoleFormatter,
   defaultConsoleFormatter,
   defaultTextFormatter,

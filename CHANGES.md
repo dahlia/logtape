@@ -19,6 +19,8 @@ To be released.
         `ConsoleFormatter | TextFormatter | undefined`
         (was `ConsoleFormatter | undefined`).
 
+ -  Added `ansiColorFormatter()` function.
+
 [#7]: https://github.com/dahlia/logtape/issues/7
 [#8]: https://github.com/dahlia/logtape/pull/8
 

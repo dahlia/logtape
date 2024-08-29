@@ -23,25 +23,27 @@ const levelAbbreviations: Record<LogLevel, string> = {
 
 /**
  * A platform-specific inspect function.  In Deno, this is {@link Deno.inspect},
- * and in Node.js/Bun it is {@link util.inspect}.  If neither is available, it
+ * and in Node.js/Bun it is `util.inspect()`.  If neither is available, it
  * falls back to {@link JSON.stringify}.
  *
  * @param value The value to inspect.
+ * @param options The options for inspecting the value.
+ *                If `colors` is `true`, the output will be ANSI-colored.
  * @returns The string representation of the value.
  */
-const inspect: (value: unknown) => string =
+const inspect: (value: unknown, options?: { colors?: boolean }) => string =
   // @ts-ignore: Deno global
   "Deno" in globalThis && "inspect" in globalThis.Deno &&
     // @ts-ignore: Deno global
     typeof globalThis.Deno.inspect === "function"
     // @ts-ignore: Deno global
-    ? globalThis.Deno.inspect
+    ? globalThis.Deno.inspect.bind(globalThis.Deno)
     // @ts-ignore: Node.js global
     : "util" in globalThis && "inspect" in globalThis.util &&
         // @ts-ignore: Node.js global
         globalThis.util.inspect === "function"
     // @ts-ignore: Node.js global
-    ? globalThis.util.inspect
+    ? globalThis.util.inspect.bind(globalThis.util)
     : JSON.stringify;
 
 /**
@@ -66,6 +68,50 @@ export function defaultTextFormatter(record: LogRecord): string {
     levelAbbreviations[record.level]
   }] ${category}: ${msg}\n`;
 }
+
+const RESET = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+
+const levelColors: Record<LogLevel, string> = {
+  debug: "\x1b[34m", // Blue
+  info: "\x1b[32m", // Green
+  warning: "\x1b[33m", // Yellow
+  error: "\x1b[31m", // Red
+  fatal: "\x1b[35m", // Magenta
+};
+
+/**
+ * A text formatter that uses ANSI colors to format log records.
+ *
+ * ![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
+ *
+ * @param record The log record to format.
+ * @returns The formatted log record.
+ * @since 0.5.0
+ */
+export const ansiColorFormatter: TextFormatter = (
+  record: LogRecord,
+): string => {
+  const ts = new Date(record.timestamp);
+  const timeString = ts.toISOString().replace("T", " ").replace("Z", " +00");
+  const category = record.category.join("·");
+  const levelColor = levelColors[record.level];
+  const levelAbbr = levelAbbreviations[record.level];
+
+  let message = "";
+  for (let i = 0; i < record.message.length; i++) {
+    if (i % 2 === 0) {
+      message += record.message[i];
+    } else {
+      message += inspect(record.message[i], { colors: true });
+    }
+  }
+
+  return `${DIM}${timeString}${RESET} ` +
+    `${BOLD}${levelColor}${levelAbbr}${RESET} ` +
+    `${DIM}${category}:${RESET} ${message}\n`;
+};
 
 /**
  * A console formatter is a function that accepts a log record and returns

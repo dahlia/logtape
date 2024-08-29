@@ -193,6 +193,30 @@ await configure({
 })
 ~~~~
 
+Or you can colorize log messages in your terminal using
+the `ansiColorFormatter()`:
+
+~~~~ typescript
+import {
+  ansiColorFormatter,
+  configure,
+  getConsoleSink,
+} from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink({
+      formatter: ansiColorFormatter,
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+It would look like this:
+
+![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
+
 [JSON Lines]: https://jsonlines.org/
 
 
