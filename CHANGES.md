@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.5.0
 -------------
 
-To be released.
+Released on August 29, 2024.
 
  -  LogTape now provides contexts for loggers.  [[#7], [#8]]
 
