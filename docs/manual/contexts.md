@@ -25,4 +25,5 @@ const childCtx = parentCtx.getLogger(["my-module"]);
 childCtx.debug("This log message will have the context: {userId} {requestId}.");
 ~~~~
 
-Contexts are particularly useful when you want to do structured logging.
+Contexts are particularly useful when you want to do
+[structured logging](./struct.md).

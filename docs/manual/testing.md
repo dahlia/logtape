@@ -25,7 +25,7 @@ Deno.test("my test", async (t) => {
   });
 
   await t.step("tear down", async () => {
-    await reset();
+    await reset();  // [!code highlight]
   });
 });
 ~~~~
@@ -44,7 +44,7 @@ const buffer: LogRecord[] = [];
 
 await configure({
   sinks: {
-    buffer: buffer.push.bind(buffer),
+    buffer: buffer.push.bind(buffer),  // [!code highlight]
   },
   // Omitted for brevity
 });

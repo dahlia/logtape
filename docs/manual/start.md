@@ -5,21 +5,24 @@ Quick start
 Setting up
 ----------
 
-Set up LogTape in the entry point of your application (if you are composing
-a library, you should not set up LogTape in the library itself; it is up to
-the application to set up LogTape):
+Set up LogTape in the entry point of your application using `configure()`:
 
 ~~~~ typescript
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
   sinks: { console: getConsoleSink() },
-  filters: {},
   loggers: [
     { category: "my-app", level: "debug", sinks: ["console"] }
   ]
 });
 ~~~~
+
+> [!WARNING]
+> If you are composing a library, you should not set up LogTape in the library
+> itself.  It is up to the application to set up LogTape.
+>
+> See also [*Using in libraries*](./library.md).
 
 And then you can use LogTape in your application or library:
 
@@ -32,6 +35,8 @@ export function myFunc(value: number): void {
   logger.debug `Hello, ${value}!`;
 }
 ~~~~
+
+For detailed information, see [*Configuration*](./config.md).
 
 
 How to log

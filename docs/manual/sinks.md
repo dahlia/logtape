@@ -11,7 +11,7 @@ export type Sink = (record: LogRecord) => void;
 
 Here's a simple example of a sink that writes log messages to console:
 
-~~~~ typescript
+~~~~ typescript {5-7}
 import { configure } from "@logtape/logtape";
 
 await configure({
@@ -35,7 +35,7 @@ import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
   sinks: {
-    console: getConsoleSink(),
+    console: getConsoleSink(),  // [!code highlight]
   },
   // Omitted for brevity
 });
@@ -52,18 +52,18 @@ Another built-in sink is a stream sink.  It writes log messages to
 a [`WritableStream`].  Here's an example of a stream sink that writes log
 messages to the standard error:
 
-~~~~ typescript
-// Deno:
+::: code-group
+
+~~~~ typescript [Deno]
 await configure({
   sinks: {
-    stream: getStreamSink(Deno.stderr.writable),
+    stream: getStreamSink(Deno.stderr.writable),  // [!code highlight]
   },
   // Omitted for brevity
 });
 ~~~~
 
-~~~~ typescript
-// Node.js:
+~~~~ typescript {5} [Node.js]
 import stream from "node:stream";
 
 await configure({
@@ -73,6 +73,31 @@ await configure({
   // Omitted for brevity
 });
 ~~~~
+
+~~~~ typescript {1-13,17} [Bun]
+let writer: FileSink | undefined = undefined;
+const stdout = new WritableStream({
+  start() {
+    writer = Bun.stderr.writer();
+  },
+  write(chunk) {
+    writer?.write(chunk);
+  },
+  close() {
+    writer?.close();
+  },
+  abort() {},
+});
+
+await configure({
+  sinks: {
+    stream: getStreamSink(stdout),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+:::
 
 > [!NOTE]
 > Here we use `WritableStream` from the Web Streams API.  If you are using

@@ -17,7 +17,7 @@ the `~Config.loggers` object to assign filters to loggers.
 For example, the following filter discards log messages whose property `elapsed`
 is less than 100 milliseconds:
 
-~~~~ typescript
+~~~~ typescript {5-9}
 import { configure, type LogRecord } from "@logtape/logtape";
 
 await configure({
@@ -32,7 +32,7 @@ await configure({
       category: ["my-app", "database"],
       level: "debug",
       sinks: ["console"],
-      filters: ["tooSlow"],
+      filters: ["tooSlow"],  // [!code highlight]
     }
   ]
 });
@@ -52,7 +52,7 @@ import { getLevelFilter } from "@logtape/logtape";
 
 await configure({
   filters: {
-    infoOrHigher: getLevelFilter("info");
+    infoOrHigher: getLevelFilter("info");  // [!code highlight]
   },
   // Omitted for brevity
 });
@@ -65,7 +65,7 @@ Sink filter
 A sink filter is a filter that is applied to a specific [sink](./sinks.md).
 You can add a sink filter to a sink by decorating the sink with `withFilter()`:
 
-~~~~ typescript
+~~~~ typescript {5-8}
 import { getConsoleSink, withFilter } from "@logtape/logtape";
 
 await configure({

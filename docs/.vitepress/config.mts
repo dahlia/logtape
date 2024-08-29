@@ -25,7 +25,9 @@ const MANUAL = {
   items: [
     { text: "Installation", link: "/manual/install" },
     { text: "Quick start", link: "/manual/start" },
+    { text: "Configuration", link: "/manual/config" },
     { text: "Categories", link: "/manual/categories" },
+    { text: "Severity levels", link: "/manual/levels" },
     { text: "Structured logging", link: "/manual/struct" },
     { text: "Contexts", link: "/manual/contexts" },
     { text: "Sinks", link: "/manual/sinks" },
