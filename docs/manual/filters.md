@@ -10,6 +10,10 @@ passed to the sinks; otherwise, the log record is discarded.  The signature of
 export type Filter = (record: LogRecord) => boolean;
 ~~~~
 
+The `configure()` function takes a `~Config.filters` object that maps filter
+names to filter functions.  You can use the filter names in
+the `~Config.loggers` object to assign filters to loggers.
+
 For example, the following filter discards log messages whose property `elapsed`
 is less than 100 milliseconds:
 

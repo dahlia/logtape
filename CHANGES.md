@@ -21,6 +21,12 @@ To be released.
 
  -  Added `ansiColorFormatter()` function.
 
+ -  `configure()` function's `filters` option became optional.
+
+     -  The type of `Config.filters` became
+        `Record<string, FilterLike> | undefined`
+        (was `Record<string, FilterLike>`).
+
 [#7]: https://github.com/dahlia/logtape/issues/7
 [#8]: https://github.com/dahlia/logtape/pull/8
 

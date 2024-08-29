@@ -16,7 +16,7 @@ export interface Config<TSinkId extends string, TFilterId extends string> {
    * The filters to use.  The keys are the filter identifiers, and the values
    * are either {@link Filter}s or {@link LogLevel}s.
    */
-  filters: Record<TFilterId, FilterLike>;
+  filters?: Record<TFilterId, FilterLike>;
 
   /**
    * The loggers to configure.
@@ -155,7 +155,7 @@ export async function configure<
     }
     if (cfg.level !== undefined) logger.filters.push(toFilter(cfg.level));
     for (const filterId of cfg.filters ?? []) {
-      const filter = config.filters[filterId];
+      const filter = config.filters?.[filterId];
       if (filter === undefined) {
         await reset();
         throw new ConfigError(`Filter not found: ${filterId}.`);
@@ -172,7 +172,7 @@ export async function configure<
     if (Symbol.dispose in sink) disposables.add(sink as Disposable);
   }
 
-  for (const filter of Object.values<FilterLike>(config.filters)) {
+  for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
     if (filter == null || typeof filter === "string") continue;
     if (Symbol.asyncDispose in filter) {
       asyncDisposables.add(filter as AsyncDisposable);

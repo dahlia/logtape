@@ -85,7 +85,6 @@ Deno.test("configure()", async (t) => {
       () =>
         configure({
           sinks: {},
-          filters: {},
           loggers: [{ category: "my-app" }],
         }),
       ConfigError,
@@ -96,7 +95,6 @@ Deno.test("configure()", async (t) => {
     // No exception if reset is true:
     const config = {
       sinks: {},
-      filters: {},
       loggers: [{ category: "my-app" }],
       reset: true,
     };
@@ -116,7 +114,6 @@ Deno.test("configure()", async (t) => {
         configure({
           // deno-lint-ignore no-explicit-any
           sinks: {} as any,
-          filters: {},
           loggers: [
             {
               category: "my-app",
@@ -157,7 +154,6 @@ Deno.test("configure()", async (t) => {
       async () => {
         const config = {
           sinks: {},
-          filters: {},
           loggers: [
             {
               category: metaCategory,
