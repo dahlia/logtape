@@ -104,9 +104,10 @@ export function getStreamSink(
  */
 export interface ConsoleSinkOptions {
   /**
-   * The console formatter to use.  Defaults to {@link defaultConsoleFormatter}.
+   * The console formatter or text formatter to use.
+   * Defaults to {@link defaultConsoleFormatter}.
    */
-  formatter?: ConsoleFormatter;
+  formatter?: ConsoleFormatter | TextFormatter;
 
   /**
    * The console to log to.  Defaults to {@link console}.
@@ -125,12 +126,22 @@ export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
   const console = options.console ?? globalThis.console;
   return (record: LogRecord) => {
     const args = formatter(record);
-    if (record.level === "debug") console.debug(...args);
-    else if (record.level === "info") console.info(...args);
-    else if (record.level === "warning") console.warn(...args);
-    else if (record.level === "error" || record.level === "fatal") {
-      console.error(...args);
-    } else throw new TypeError(`Invalid log level: ${record.level}.`);
+    if (typeof args === "string") {
+      const msg = args.replace(/\r?\n$/, "");
+      if (record.level === "debug") console.debug(msg);
+      else if (record.level === "info") console.info(msg);
+      else if (record.level === "warning") console.warn(msg);
+      else if (record.level === "error" || record.level === "fatal") {
+        console.error(msg);
+      } else throw new TypeError(`Invalid log level: ${record.level}.`);
+    } else {
+      if (record.level === "debug") console.debug(...args);
+      else if (record.level === "info") console.info(...args);
+      else if (record.level === "warning") console.warn(...args);
+      else if (record.level === "error" || record.level === "fatal") {
+        console.error(...args);
+      } else throw new TypeError(`Invalid log level: ${record.level}.`);
+    }
   };
 }
 

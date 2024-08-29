@@ -4,6 +4,7 @@ import makeConsoleMock from "consolemock";
 import fs from "node:fs";
 import { isDeno } from "which_runtime";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
+import { defaultTextFormatter } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 import {
@@ -136,6 +137,45 @@ Deno.test("getConsoleSink()", () => {
     TypeError,
     "Invalid log level: invalid.",
   );
+
+  // @ts-ignore: consolemock is not typed
+  const mock2: ConsoleMock = makeConsoleMock();
+  const sink2 = getConsoleSink({
+    console: mock2,
+    formatter: defaultTextFormatter,
+  });
+  sink2(debug);
+  sink2(info);
+  sink2(warning);
+  sink2(error);
+  sink2(fatal);
+  assertEquals(mock2.history(), [
+    {
+      DEBUG: [
+        "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      INFO: [
+        "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      WARN: [
+        "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      ERROR: [
+        "2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      ERROR: [
+        "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+  ]);
 });
 
 Deno.test("getFileSink()", () => {

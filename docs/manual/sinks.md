@@ -169,7 +169,7 @@ For more details, see `getRotatingFileSink()` function and
 Text formatter
 --------------
 
-A stream sink and a file sink write log messages in a plain text format.
+The sinks introduced above write log messages in a plain text format.
 You can customize the format by providing a text formatter.  The type of a
 text formatter is:
 

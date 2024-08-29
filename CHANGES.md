@@ -12,6 +12,13 @@ To be released.
 
      -  Added `Logger.with()` method.
 
+ -  The console sink now can take a `TextFormatter` besides a `ConsoleFormatter`
+    for formatting log records.
+
+     -  The type of `ConsoleSinkOptions.formatter` became 
+        `ConsoleFormatter | TextFormatter | undefined`
+        (was `ConsoleFormatter | undefined`).
+
 [#7]: https://github.com/dahlia/logtape/issues/7
 [#8]: https://github.com/dahlia/logtape/pull/8
 
