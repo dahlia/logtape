@@ -14,7 +14,7 @@ the log level of loggers at different levels of the category hierarchy.
 
 Here's an example of setting log levels for different categories:
 
-~~~~ typescript
+~~~~ typescript{9-10}
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({

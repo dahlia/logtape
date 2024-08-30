@@ -15,26 +15,26 @@ The highlights of LogTape are:
  -  *Zero dependencies*: LogTape has zero dependencies.  You can use LogTape
     without worrying about the dependencies of LogTape.
 
- -  *Library support*: LogTape is designed to be used in libraries as well
+ -  *[Library support]*: LogTape is designed to be used in libraries as well
     as applications.  You can use LogTape in libraries to provide logging
     capabilities to users of the libraries.
 
- -  *Runtime diversity*: LogTape supports Deno, Node.js, Bun, edge functions,
+ -  *[Runtime diversity]*: LogTape supports Deno, Node.js, Bun, edge functions,
     and browsers.  You can use LogTape in various environments without
     changing the code.
 
- -  *Structured logging*: You can log messages with structured data.
+ -  *[Structured logging]*: You can log messages with structured data.
 
- -  *Hierarchical categories*: LogTape uses a hierarchical category system
+ -  *[Hierarchical categories]*: LogTape uses a hierarchical category system
     to manage loggers.  You can control the verbosity of log messages by
     setting the log level of loggers at different levels of the category
     hierarchy.
 
- -  *Template literals*: LogTape supports template literals for log messages.
+ -  *[Template literals]*: LogTape supports template literals for log messages.
     You can use template literals to log messages with placeholders and
     values.
 
- -  *Dead simple sinks*: You can easily add your own sinks to LogTape.
+ -  *[Dead simple sinks]*: You can easily add your own sinks to LogTape.
 
 ![](./screenshots/web-console.png)
 ![](./screenshots/terminal-console.png)
@@ -47,6 +47,12 @@ The highlights of LogTape are:
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
 [Codecov]: https://codecov.io/gh/dahlia/logtape
 [Codecov badge]: https://codecov.io/gh/dahlia/logtape/graph/badge.svg?token=yOejfcuX7r
+[Library support]: https://logtape.org/manual/library
+[Runtime diversity]: https://logtape.org/manual/install
+[Structured logging]: https://logtape.org/manual/struct
+[Hierarchical categories]: https://logtape.org/manual/categories
+[Template literals]: https://logtape.org/manual/start#how-to-log
+[Dead simple sinks]: https://logtape.org/manual/sinks
 
 
 Installation
@@ -62,6 +68,8 @@ pnpm add @logtape/logtape  # for pnpm
 yarn add @logtape/logtape  # for Yarn
 bun  add @logtape/logtape  # for Bun
 ~~~~
+
+See also the [installation manual][Runtime diversity] for more details.
 
 
 Docs

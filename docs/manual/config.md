@@ -139,7 +139,7 @@ Here's how you might do that:
 
 ::: code-group
 
-~~~~ typescript [Deno]
+~~~~ typescript{1,6,11-12} [Deno]
 const isDevelopment = Deno.env.get("DENO_DEPLOYMENT_ID") == null;
 
 await configure({
@@ -157,7 +157,7 @@ await configure({
 });
 ~~~~
 
-~~~~ typescript [Node]
+~~~~ typescript{1,6,11-12} [Node]
 const isDevelopment = process.env.NODE_ENV === "development";
 
 await configure({
@@ -179,9 +179,9 @@ await configure({
 
 ### Reconfiguration
 
-Remember that calling `configure()` will reset any existing configuration.
-If you need to change the configuration at runtime, you can call `configure()`
-again with the new settings.
+Remember that calling `configure()` with `reset: true` option will reset any
+existing configuration.  If you need to change the configuration at runtime,
+you can call `configure()` again with `reset: true` and the new settings:
 
 ~~~~ typescript
 // Initial configuration
@@ -189,9 +189,10 @@ await configure(initialConfig);
 
 // Later in your application...
 await configure({
-  ...existingConfig,
+  reset: true,
+  ...initialConfig,
   loggers: [
-    ...existingConfig.loggers,
+    ...initialConfig.loggers,
     {
       category: "new-feature",
       level: "debug",
@@ -223,7 +224,7 @@ Best practices
     your categories to make filtering and management easier.
  3. *Configure for different environments*: Have different configurations for
     development, testing, and production.
- 4. *Don't overuse filters*: While powerful, too many filters can make
-    your logging system complex and hard to maintain.
+ 4. *Don't overuse [filters](./filters.md)*: While powerful, too many filters can
+    make your logging system complex and hard to maintain.
  5. *Monitor performance*: Be mindful of the performance impact of your logging,
     especially in production environments.

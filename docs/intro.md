@@ -8,9 +8,9 @@ The highlights of LogTape are:
  -  *Zero dependencies*: LogTape has zero dependencies.  You can use LogTape
     without worrying about the dependencies of LogTape.
 
- -  *Library support*: LogTape is designed to be used in libraries as well
-    as applications.  You can use LogTape in libraries to provide logging
-    capabilities to users of the libraries.
+ -  [*Library support*](./manual/library.md): LogTape is designed to be used
+    in libraries as well as applications.  You can use LogTape in libraries
+    to provide logging capabilities to users of the libraries.
 
  -  [*Runtime diversity*](./manual/install.md): LogTape supports [Deno],
     [Node.js], [Bun], edge functions, and browsers.  You can use LogTape in
