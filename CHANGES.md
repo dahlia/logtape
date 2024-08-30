@@ -3,6 +3,12 @@
 LogTape changelog
 =================
 
+Version 0.5.1
+-------------
+
+To be released.
+
+
 Version 0.5.0
 -------------
 
@@ -15,7 +21,7 @@ Released on August 29, 2024.
  -  The console sink now can take a `TextFormatter` besides a `ConsoleFormatter`
     for formatting log records.
 
-     -  The type of `ConsoleSinkOptions.formatter` became 
+     -  The type of `ConsoleSinkOptions.formatter` became
         `ConsoleFormatter | TextFormatter | undefined`
         (was `ConsoleFormatter | undefined`).
 
