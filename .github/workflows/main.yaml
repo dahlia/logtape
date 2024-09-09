@@ -108,10 +108,21 @@ jobs:
     - uses: oven-sh/setup-bun@v2
       with:
         bun-version: latest
-    - run: bun install
-      working-directory: ${{ github.workspace }}/docs/
-    - run: bun run build
+    - run: |
+        set -ex
+        bun install
+        if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
+          EXTRA_NAV_TEXT=Unstable \
+          EXTRA_NAV_LINK="$UNSTABLE_DOCS_URL" \
+          bun run build
+        else
+          EXTRA_NAV_TEXT=Stable \
+          EXTRA_NAV_LINK="$STABLE_DOCS_URL" \
+          bun run build
+        fi
       env:
+        STABLE_DOCS_URL: ${{ vars.STABLE_DOCS_URL }}
+        UNSTABLE_DOCS_URL: ${{ vars.UNSTABLE_DOCS_URL }}
         PLAUSIBLE_DOMAIN: ${{ secrets.PLAUSIBLE_DOMAIN }}
       working-directory: ${{ github.workspace }}/docs/
     - uses: actions/upload-pages-artifact@v3
@@ -120,3 +131,15 @@ jobs:
     - id: deployment
       if: github.ref_type == 'tag'
       uses: actions/deploy-pages@v4
+    - if: github.ref_type == 'branch'
+      uses: nwtgck/actions-netlify@v3.0
+      with:
+        publish-dir: docs/.vitepress/dist
+        production-branch: main
+        github-token: ${{ github.token }}
+        enable-pull-request-comment: false
+        enable-commit-comment: false
+      env:
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      timeout-minutes: 1

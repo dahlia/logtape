@@ -20,6 +20,16 @@ const jsrRefPlugin = await jsrRef({
   },
 });
 
+let extraNav: { text: string; link: string }[] = [];
+if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
+  extraNav = [
+    {
+      text: process.env.EXTRA_NAV_TEXT,
+      link: process.env.EXTRA_NAV_LINK,
+    },
+  ];
+}
+
 let plausibleScript: [string, Record<string, string>][] = [];
 if (process.env.PLAUSIBLE_DOMAIN) {
   plausibleScript = [
@@ -63,7 +73,8 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "What is LogTape?", link: "/intro" },
       MANUAL,
-      { text: "API references", link: "https://jsr.io/@logtape/logtape" },
+      { text: "API reference", link: "https://jsr.io/@logtape/logtape" },
+      ...extraNav,
     ],
 
     sidebar: [
