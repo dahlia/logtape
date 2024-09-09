@@ -95,4 +95,17 @@ export default defineConfig({
       md.use(jsrRefPlugin);
     },
   },
+
+  async transformHead(context) {
+    return [
+      [
+        "meta",
+        { property: "og:title", content: context.title },
+      ],
+      [
+        "meta",
+        { property: "og:description", content: context.description },
+      ],
+    ];
+  },
 });
