@@ -111,6 +111,8 @@ jobs:
     - run: bun install
       working-directory: ${{ github.workspace }}/docs/
     - run: bun run build
+      env:
+        PLAUSIBLE_DOMAIN: ${{ secrets.PLAUSIBLE_DOMAIN }}
       working-directory: ${{ github.workspace }}/docs/
     - uses: actions/upload-pages-artifact@v3
       with:

@@ -20,6 +20,20 @@ const jsrRefPlugin = await jsrRef({
   },
 });
 
+let plausibleScript: [string, Record<string, string>][] = [];
+if (process.env.PLAUSIBLE_DOMAIN) {
+  plausibleScript = [
+    [
+      "script",
+      {
+        defer: "defer",
+        "data-domain": process.env.PLAUSIBLE_DOMAIN,
+        src: "https://plausible.io/js/script.outbound-links.js",
+      },
+    ],
+  ];
+}
+
 const MANUAL = {
   text: "Manual",
   items: [
@@ -75,6 +89,7 @@ export default defineConfig({
       provider: "local",
     },
   },
+  head: plausibleScript,
   markdown: {
     config(md) {
       md.use(jsrRefPlugin);
