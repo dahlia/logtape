@@ -88,6 +88,10 @@ export default defineConfig({
     search: {
       provider: "local",
     },
+
+    editLink: {
+      pattern: "https://github.com/dahlia/logtape/edit/main/docs/:path",
+    },
   },
   head: plausibleScript,
   markdown: {
