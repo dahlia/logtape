@@ -16,7 +16,7 @@ Built-in text formatters
 
 LogTape provides two built-in text formatters:
 
- -  `defaultTextFormatter()` formats a log record into a string with a simple
+ -  `defaultTextFormatter` formats a log record into a string with a simple
     format.  It renders the timestamp, the log level, the message,
     and the prettified values embedded in the message.
 
@@ -26,7 +26,7 @@ LogTape provides two built-in text formatters:
     2023-11-14 22:13:20.000 +00:00 [INF] category·subcategory: Hello, world!
     ~~~~
 
- -  `ansiColorFormatter()` formats a log record into a string with a simple
+ -  `ansiColorFormatter` formats a log record into a string with a simple
     format and ANSI colors.  It renders the timestamp, the log level,
     the message, and the prettified values embedded in the message.
 

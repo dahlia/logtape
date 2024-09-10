@@ -200,7 +200,7 @@ The sinks introduced above write log messages in a plain text format.
 You can customize the format by providing a text formatter.
 
 Here's an example of colorizing log messages in your terminal using
-the `ansiColorFormatter()`:
+the `ansiColorFormatter`:
 
 ~~~~ typescript
 import {
