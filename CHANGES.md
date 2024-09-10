@@ -8,6 +8,19 @@ Version 0.6.0
 
 To be released.
 
+ -  Built-in text formatters now can be customized with a `TextFormatterOptions`
+    object.  [[#13]]
+
+     -  Added `TextFormatterOptions` interface.
+     -  Added `FormattedValues` interface.
+     -  Added `getTextFormatter()` function.
+     -  Added `AnsiColor` type.
+     -  Added `AnsiStyle` type.
+     -  Added `AnsiColorFormatterOptions` interface.
+     -  Added `getAnsiColorFormatter()` function.
+
+[#13]: https://github.com/dahlia/logtape/issues/13
+
 
 Version 0.5.1
 -------------

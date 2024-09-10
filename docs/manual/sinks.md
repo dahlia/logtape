@@ -194,31 +194,12 @@ For more details, see `getRotatingFileSink()` function and
 Text formatter
 --------------
 
+*The main article of this section is [Text formatters](./formatters.md).*
+
 The sinks introduced above write log messages in a plain text format.
-You can customize the format by providing a text formatter.  The type of a
-text formatter is:
+You can customize the format by providing a text formatter.
 
-~~~~ typescript
-export type TextFormatter = (record: LogRecord) => string;
-~~~~
-
-Here's an example of a text formatter that writes log messages in a [JSON Lines]
-format:
-
-~~~~ typescript
-await configure({
-  sinks: {
-    stream: getFileSink("log.jsonl", {
-      formatter(log) {
-        return JSON.stringify(log) + "\n",
-      }
-    }),
-  },
-  // Omitted for brevity
-})
-~~~~
-
-Or you can colorize log messages in your terminal using
+Here's an example of colorizing log messages in your terminal using
 the `ansiColorFormatter()`:
 
 ~~~~ typescript

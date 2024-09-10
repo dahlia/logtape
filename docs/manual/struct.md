@@ -89,7 +89,7 @@ Configuring sinks for structured logging
 ----------------------------------------
 
 To make the most of structured logging, you'll want to use sinks that can handle structured data.  For example, you can output logs in [JSON Lines] format by
-providing a [text formatter](./sinks.md#text-formatter) to a file sink:
+providing a [text formatter](./formatters.md) to a file sink:
 
 ~~~~ typescript
 import { configure, getFileSink } from "@logtape/logtape";

@@ -5,7 +5,10 @@ import { defineConfig } from "vitepress";
 const progress = new SingleBar({}, Presets.shades_classic);
 let started = false;
 
-const jsrRefVersion = process.env.CI === "true" ? "stable" : "unstable";
+const jsrRefVersion =
+  process.env.CI === "true" && process.env.GITHUB_REF_TYPE === "tag"
+    ? "stable"
+    : "unstable";
 
 const jsrRefPlugin = await jsrRef({
   package: "@logtape/logtape",
@@ -56,6 +59,7 @@ const MANUAL = {
     { text: "Contexts", link: "/manual/contexts" },
     { text: "Sinks", link: "/manual/sinks" },
     { text: "Filters", link: "/manual/filters" },
+    { text: "Text formatters", link: "/manual/formatters" },
     { text: "Using in libraries", link: "/manual/library" },
     { text: "Testing", link: "/manual/testing" },
   ],

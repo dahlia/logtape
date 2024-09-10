@@ -15,11 +15,18 @@ export {
   toFilter,
 } from "./filter.ts";
 export {
+  type AnsiColor,
   ansiColorFormatter,
+  type AnsiColorFormatterOptions,
+  type AnsiStyle,
   type ConsoleFormatter,
   defaultConsoleFormatter,
   defaultTextFormatter,
+  type FormattedValues,
+  getAnsiColorFormatter,
+  getTextFormatter,
   type TextFormatter,
+  type TextFormatterOptions,
 } from "./formatter.ts";
 export { isLogLevel, type LogLevel, parseLogLevel } from "./level.ts";
 export { getLogger, type Logger } from "./logger.ts";
