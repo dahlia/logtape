@@ -1,3 +1,4 @@
+import util from "node:util";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 
@@ -33,18 +34,21 @@ const levelAbbreviations: Record<LogLevel, string> = {
  */
 const inspect: (value: unknown, options?: { colors?: boolean }) => string =
   // @ts-ignore: Deno global
+  // dnt-shim-ignore
   "Deno" in globalThis && "inspect" in globalThis.Deno &&
     // @ts-ignore: Deno global
+    // dnt-shim-ignore
     typeof globalThis.Deno.inspect === "function"
     // @ts-ignore: Deno global
+    // dnt-shim-ignore
     ? globalThis.Deno.inspect.bind(globalThis.Deno)
     // @ts-ignore: Node.js global
-    : "util" in globalThis && "inspect" in globalThis.util &&
-        // @ts-ignore: Node.js global
-        globalThis.util.inspect === "function"
+    // dnt-shim-ignore
+    : "inspect" in util && typeof util.inspect === "function"
     // @ts-ignore: Node.js global
-    ? globalThis.util.inspect.bind(globalThis.util)
-    : JSON.stringify;
+    // dnt-shim-ignore
+    ? util.inspect.bind(util)
+    : (v) => JSON.stringify(v);
 
 /**
  * The default text formatter.  This formatter formats log records as follows:

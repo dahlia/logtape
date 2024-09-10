@@ -9,6 +9,19 @@ Version 0.6.0
 To be released.
 
 
+Version 0.5.1
+-------------
+
+Released on September 10, 2024.
+
+ -  Fixed a bug of `defaultTextFormatter()` function where it rendered embedded
+    values in the message as JSON instead of `util.inspect()` on Node.js and
+    Bun.
+
+ -  Fixed a bug of `ansiColorFormatter()` function where it failed to colorize
+    embedded values in the message on Node.js and Bun.
+
+
 Version 0.5.0
 -------------
 
@@ -21,7 +34,7 @@ Released on August 29, 2024.
  -  The console sink now can take a `TextFormatter` besides a `ConsoleFormatter`
     for formatting log records.
 
-     -  The type of `ConsoleSinkOptions.formatter` became 
+     -  The type of `ConsoleSinkOptions.formatter` became
         `ConsoleFormatter | TextFormatter | undefined`
         (was `ConsoleFormatter | undefined`).
 
