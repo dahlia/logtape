@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.5.1
 -------------
 
-To be released.
+Released on September 10, 2024.
 
  -  Fixed a bug of `defaultTextFormatter()` function where it rendered embedded
     values in the message as JSON instead of `util.inspect()` on Node.js and
