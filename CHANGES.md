@@ -8,6 +8,13 @@ Version 0.5.1
 
 To be released.
 
+ -  Fixed a bug of `defaultTextFormatter()` function where it rendered embedded
+    values in the message as JSON instead of `util.inspect()` on Node.js and
+    Bun.
+
+ -  Fixed a bug of `ansiColorFormatter()` function where it failed to colorize
+    embedded values in the message on Node.js and Bun.
+
 
 Version 0.5.0
 -------------
