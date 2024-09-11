@@ -16,23 +16,29 @@ Built-in text formatters
 
 LogTape provides two built-in text formatters:
 
- -  `defaultTextFormatter` formats a log record into a string with a simple
-    format.  It renders the timestamp, the log level, the message,
-    and the prettified values embedded in the message.
+### Default text formatter
 
-    It formats log records like this:
+`defaultTextFormatter` formats a log record into a string with a simple
+format.  It renders the timestamp, the log level, the message,
+and the prettified values embedded in the message.
 
-    ~~~~
-    2023-11-14 22:13:20.000 +00:00 [INF] category·subcategory: Hello, world!
-    ~~~~
+It formats log records like this:
 
- -  `ansiColorFormatter` formats a log record into a string with a simple
-    format and ANSI colors.  It renders the timestamp, the log level,
-    the message, and the prettified values embedded in the message.
+~~~~
+2023-11-14 22:13:20.000 +00:00 [INF] category·subcategory: Hello, world!
+~~~~
 
-    It formats log records like this:
+### ANSI color formatter
 
-    ![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
+*This API is available since LogTape 0.5.0.*
+
+`ansiColorFormatter` formats a log record into a string with a simple
+format and ANSI colors.  It renders the timestamp, the log level,
+the message, and the prettified values embedded in the message.
+
+It formats log records like this:
+
+![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
 
 
 Configuring text formatters
@@ -49,73 +55,103 @@ from scratch.
 You can customize the default text formatter by calling
 the `getTextFormatter()` function with a `TextFormatterOptions` object.
 Customizable options include:
-    
- -  `~TextFormatterOptions.timestamp`: The timestamp format.  This can be one of
-    the following:
 
-     -  `"date-time-timezone"`: The date and time with the full timezone offset
-        (e.g., `"2023-11-14 22:13:20.000 +00:00"`).
-     -  `"date-time-tz"`: The date and time with the short timezone offset
-        (e.g., `"2023-11-14 22:13:20.000 +00"`).
-     -  `"date-time"`: The date and time without the timezone offset
-        (e.g., `"2023-11-14 22:13:20.000"`).
-     -  `"time-timezone"`: The time with the full timezone offset but without
-        the date (e.g., `"22:13:20.000 +00:00"`).
-     -  `"time-tz"`: The time with the short timezone offset but without
-        the date (e.g., `"22:13:20.000 +00"`).
-     -  `"time"`: The time without the date or timezone offset
-        (e.g., `"22:13:20.000"`).
-     -  `"date"`: The date without the time or timezone offset
-        (e.g., `"2023-11-14"`).
-     -  `"rfc3339"`: The date and time in RFC 3339 format
-        (e.g., `"2023-11-14T22:13:20.000Z"`).
+#### `~TextFormatterOptions.timestamp`
 
- -  `~TextFormatterOptions.level`: The log level format.  This can be one of
-    the following:
+The timestamp format.  This can be one of the following:
 
-     -  `"ABBR"`: The log level abbreviation in uppercase (e.g., `"INF"`).
-     -  `"FULL"`: The full log level name in uppercase (e.g., `"INFO"`).
-     -  `"L"`: The first letter of the log level in uppercase (e.g., `"I"`).
-     -  `"abbr"`: The log level abbreviation in lowercase (e.g., `"inf"`).
-     -  `"full"`: The full log level name in lowercase (e.g., `"info"`).
-     -  `"l"`: The first letter of the log level in lowercase (e.g., `"i"`).
+ -  `"date-time-timezone"`: The date and time with the full timezone offset
+    (e.g., `2023-11-14 22:13:20.000 +00:00`).
+ -  `"date-time-tz"`: The date and time with the short timezone offset
+    (e.g., `2023-11-14 22:13:20.000 +00`).
+ -  `"date-time"`: The date and time without the timezone offset
+    (e.g., `2023-11-14 22:13:20.000`).
+ -  `"time-timezone"`: The time with the full timezone offset but without
+    the date (e.g., `22:13:20.000 +00:00`).
+ -  `"time-tz"`: The time with the short timezone offset but without
+    the date (e.g., `22:13:20.000 +00`).
+ -  `"time"`: The time without the date or timezone offset
+    (e.g., `22:13:20.000`).
+ -  `"date"`: The date without the time or timezone offset
+    (e.g., `2023-11-14`).
+ -  `"rfc3339"`: The date and time in RFC 3339 format
+    (e.g., `2023-11-14T22:13:20.000Z`).
 
- -  `~TextFormatterOptions.category`: The separator between the category names.
+#### `~TextFormatterOptions.level`
 
- -  `~TextFormatterOptions.value`: The format of the embedded values.
+The log level format.  This can be one of the following:
 
- -  `~TextFormatterOptions.format`: How those formatted parts are concatenated.
+ -  `"ABBR"`: The log level abbreviation in uppercase (e.g., `INF`).
+ -  `"FULL"`: The full log level name in uppercase (e.g., `INFO`).
+ -  `"L"`: The first letter of the log level in uppercase (e.g., `I`).
+ -  `"abbr"`: The log level abbreviation in lowercase (e.g., `inf`).
+ -  `"full"`: The full log level name in lowercase (e.g., `info`).
+ -  `"l"`: The first letter of the log level in lowercase (e.g., `i`).
+
+#### `~TextFormatterOptions.category`
+
+The separator between the category names.
+
+#### `~TextFormatterOptions.value`
+
+The format of the embedded values.
+
+#### `~TextFormatterOptions.format`
+
+How those formatted parts are concatenated.
 
 ### ANSI color formatter
 
-You can customize the `ansiColorFormatter()` by calling
+You can customize the `ansiColorFormatter` by calling
 the `getAnsiColorFormatter()` function with an `AnsiColorFormatterOptions`
 object.  Customizable options include:
 
- -  `~AnsiColorFormatterOptions.timestamp`: The timestamp format.  The available
-    options are the same as the `timestamp` option of the default text formatter.
+#### `~AnsiColorFormatterOptions.timestamp`
 
- -  `~AnsiColorFormatterOptions.timestampStyle`: The text style of
-    the timestamp.
+The timestamp format.  The available options are the same as the
+[`timestamp`](#textformatteroptions-timestamp) option of the default text
+formatter.
 
- -  `~AnsiColorFormatterOptions.timestampColor`: The color of the timestamp.
+#### `~AnsiColorFormatterOptions.timestampStyle`
 
- -  `~TextFormatterOptions.level`: The log level format.  The available options
-    are the same as the `level` option of the default text formatter.
+The text style of the timestamp.
 
- -  `~AnsiColorFormatterOptions.levelStyle`: The text style of the log level.
+#### `~AnsiColorFormatterOptions.timestampColor`
 
- -  `~AnsiColorFormatterOptions.levelColors`: The colors of the log levels.
+The color of the timestamp.
 
- -  `~TextFormatterOptions.category`: The separator between the category names.
+#### `~TextFormatterOptions.level`
 
- -  `~AnsiColorFormatterOptions.categoryStyle`: The text style of the category.
+The log level format.  The available options are the same as the
+[`level`](#textformatteroptions-level) option of the default text formatter.
 
- -  `~AnsiColorFormatterOptions.categoryColor`: The color of the category.
+#### `~AnsiColorFormatterOptions.levelStyle`
 
- -  `~TextFormatterOptions.value`: The format of the embedded values.
+The text style of the log level.
 
- -  `~TextFormatterOptions.format`: How those formatted parts are concatenated.
+#### `~AnsiColorFormatterOptions.levelColors`
+
+The colors of the log levels.
+
+#### `~TextFormatterOptions.category`
+
+The separator between the category names.
+
+#### `~AnsiColorFormatterOptions.categoryStyle`
+
+The text style of the category.
+
+#### `~AnsiColorFormatterOptions.categoryColor`
+
+The color of the category.
+
+#### `~TextFormatterOptions.value`
+
+The format of the embedded values.
+
+#### `~TextFormatterOptions.format`
+
+How those formatted parts are concatenated.
 
 #### Text styles
 
