@@ -152,20 +152,27 @@ export interface TextFormatterOptions {
    * The default separator is `"·"`.
    *
    * If this is a function, it will be called with the category array and
-   * should return a string, which will be used as the category string.
+   * should return a string, which will be used for rendering the category.
    */
   category?: string | ((category: readonly string[]) => string);
 
   /**
+   * The format of the embedded values.
+   *
    * A function that renders a value to a string.  This function is used to
-   * render the values in the log record.  The default is `util.inspect` in
-   * Node.js/Bun and `Deno.inspect` in Deno.
+   * render the values in the log record.  The default is [`util.inspect()`] in
+   * Node.js/Bun and [`Deno.inspect()`] in Deno.
+   *
+   * [`util.inspect()`]: https://nodejs.org/api/util.html#utilinspectobject-options
+   * [`Deno.inspect()`]: https://docs.deno.com/api/deno/~/Deno.inspect
    * @param value The value to render.
    * @returns The string representation of the value.
    */
   value?: (value: unknown) => string;
 
   /**
+   * How those formatted parts are concatenated.
+   *
    * A function that formats the log record.  This function is called with the
    * formatted values and should return a string.  Note that the formatted
    * *should not* include a newline character at the end.

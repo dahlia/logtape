@@ -77,6 +77,11 @@ The timestamp format.  This can be one of the following:
  -  `"rfc3339"`: The date and time in RFC 3339 format
     (e.g., `2023-11-14T22:13:20.000Z`).
 
+Alternatively, this can be a function that accepts a timestamp and returns
+a string.
+
+The default is `"date-time-timezone"`.
+
 #### `~TextFormatterOptions.level`
 
 The log level format.  This can be one of the following:
@@ -88,17 +93,47 @@ The log level format.  This can be one of the following:
  -  `"full"`: The full log level name in lowercase (e.g., `info`).
  -  `"l"`: The first letter of the log level in lowercase (e.g., `i`).
 
+Alternatively, this can be a function that accepts a log level and returns
+a string.
+
+The default is `"ABBR"`.
+
 #### `~TextFormatterOptions.category`
 
 The separator between the category names.
+
+For example, if the separator is `"·"`, the category `["a", "b", "c"]` will be
+formatted as `"a·b·c"`.
+
+The default separator is `"·"`.
+
+If this is a function, it will be called with the category array and should
+return a string, which will be used for rendering the category.
 
 #### `~TextFormatterOptions.value`
 
 The format of the embedded values.
 
+A function that renders a value to a string.  This function is used to
+render the values in the log record.  The default is [`util.inspect()`] in
+Node.js/Bun and [`Deno.inspect()`] in Deno.
+
+[`util.inspect()`]: https://nodejs.org/api/util.html#utilinspectobject-options
+[`Deno.inspect()`]: https://docs.deno.com/api/deno/~/Deno.inspect
+
 #### `~TextFormatterOptions.format`
 
 How those formatted parts are concatenated.
+
+A function that formats the log record.  This function is called with the
+formatted values and should return a string.  Note that the formatted
+*should not* include a newline character at the end.
+
+By default, this is a function that formats the log record as follows:
+
+~~~~
+2023-11-14 22:13:20.000 +00:00 [INF] category·subcategory: Hello, world!
+~~~~
 
 ### ANSI color formatter
 
@@ -112,46 +147,62 @@ The timestamp format.  The available options are the same as the
 [`timestamp`](#textformatteroptions-timestamp) option of the default text
 formatter.
 
+The default is `"date-time-tz"`.
+
 #### `~AnsiColorFormatterOptions.timestampStyle`
 
-The text style of the timestamp.
+The ANSI style for the timestamp.  `"dim"` is used by default.
 
 #### `~AnsiColorFormatterOptions.timestampColor`
 
-The color of the timestamp.
+The ANSI color for the timestamp.  No color is used by default.
 
 #### `~TextFormatterOptions.level`
 
 The log level format.  The available options are the same as the
 [`level`](#textformatteroptions-level) option of the default text formatter.
 
+The default is `"ABBR"`.
+
 #### `~AnsiColorFormatterOptions.levelStyle`
 
-The text style of the log level.
+The ANSI style for the log level.  `"bold"` is used by default.
 
 #### `~AnsiColorFormatterOptions.levelColors`
 
-The colors of the log levels.
+The ANSI colors for the log levels.  The default colors are as follows:
+
+ -  `"debug"`: `"blue"`
+ -  `"info"`: `"green"`
+ -  `"warning"`: `"yellow"`
+ -  `"error"`: `"red"`
+ -  `"fatal"`: `"magenta"`
 
 #### `~TextFormatterOptions.category`
 
-The separator between the category names.
+The separator between the category names.  Behaves the same as the
+[`category`](#textformatteroptions-category) option of the default text
+formatter.
+
+The default separator is `"·"`.
 
 #### `~AnsiColorFormatterOptions.categoryStyle`
 
-The text style of the category.
+The ANSI style for the category.  `"dim"` is used by default.
 
 #### `~AnsiColorFormatterOptions.categoryColor`
 
-The color of the category.
+The ANSI color for the category.  No color is used by default.
 
 #### `~TextFormatterOptions.value`
 
-The format of the embedded values.
+The format of the embedded values.  Behaves the same as the
+[`value`](#textformatteroptions-value) option of the default text formatter.
 
 #### `~TextFormatterOptions.format`
 
-How those formatted parts are concatenated.
+How those formatted parts are concatenated.  Behaves the same as the
+[`format`](#textformatteroptions-format) option of the default text formatter.
 
 #### Text styles
 
