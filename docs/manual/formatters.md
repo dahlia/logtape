@@ -241,7 +241,9 @@ Fully customized text formatter
 A text formatter is just a function that takes a log record and returns
 a string.  The type of a text formatter is `TextFormatter`:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
 export type TextFormatter = (record: LogRecord) => string;
 ~~~~
 
@@ -250,7 +252,9 @@ a function that takes a log record and returns a string.  For example,
 the following function is a text formatter that formats log records into
 [JSON Lines]:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
 function jsonLinesFormatter(record: LogRecord): string {
   return JSON.stringify(record) + "\n";
 }

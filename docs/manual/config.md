@@ -19,7 +19,7 @@ At its core, configuring LogTape involves three main components:
 
 Here's a simple configuration to get you started:
 
-~~~~ typescript
+~~~~ typescript twoslash
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
@@ -53,7 +53,8 @@ Crafting your configuration
 [Sinks](./sinks.md) determine where your logs end up. You can have multiple
 sinks for different purposes:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
 import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
 
 await configure({
@@ -71,7 +72,10 @@ await configure({
 [Filters](./filters.md) allow you to fine-tune which logs are processed. They
 can be based on log levels, content, or custom logic:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure } from "@logtape/logtape";
+// ---cut-before---
 await configure({
   // ... sinks configuration
   filters: {
@@ -82,7 +86,9 @@ await configure({
       return record.level === "error" || record.level === "fatal";
     },
     containsUserData(record) {
-      return record.message.some(part => part.includes("user"));
+      return record.message.some(
+        part => typeof part === "string" && part.includes("user")
+      );
     },
   },
   // ... loggers configuration
@@ -94,7 +100,10 @@ await configure({
 Loggers are where you bring everything together.  You can set up different
 loggers for different parts of your application:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure } from "@logtape/logtape";
+// ---cut-before---
 await configure({
   // ... sinks and filters configuration
   loggers: [
@@ -139,7 +148,9 @@ Here's how you might do that:
 
 ::: code-group
 
-~~~~ typescript{1,6,11-12} [Deno]
+~~~~ typescript{1,6,11-12} twoslash [Deno]
+import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+// ---cut-before---
 const isDevelopment = Deno.env.get("DENO_DEPLOYMENT_ID") == null;
 
 await configure({
@@ -157,7 +168,11 @@ await configure({
 });
 ~~~~
 
-~~~~ typescript{1,6,11-12} [Node]
+~~~~ typescript{1,6,11-12} twoslash [Node.js]
+import "@types/node";
+import process from "node:process";
+import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+// ---cut-before---
 const isDevelopment = process.env.NODE_ENV === "development";
 
 await configure({
@@ -183,7 +198,10 @@ Remember that calling `configure()` with `reset: true` option will reset any
 existing configuration.  If you need to change the configuration at runtime,
 you can call `configure()` again with `reset: true` and the new settings:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { type Config, configure } from "@logtape/logtape";
+const initialConfig = {} as unknown as Config<string, string>;
+// ---cut-before---
 // Initial configuration
 await configure(initialConfig);
 
@@ -204,7 +222,10 @@ await configure({
 
 Or you can explicitly call `reset()` to clear the existing configuration:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { type Config } from "@logtape/logtape";
+const initialConfig = {} as unknown as Config<string, string>;
+// ---cut-before---
 import { configure, reset } from "@logtape/logtape";
 
 await configure(initialConfig);

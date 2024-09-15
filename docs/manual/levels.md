@@ -1,7 +1,11 @@
 Severity levels
 ===============
 
-When you're logging events in your application, not all messages are created equal. Some might be routine information, while others could be critical errors that need immediate attention. That's where severity levels come in. LogTape provides five severity levels to help you categorize your log messages effectively.
+When you're logging events in your application, not all messages are created
+equal. Some might be routine information, while others could be critical errors
+that need immediate attention. That's where severity levels come in.
+LogTape provides five severity levels to help you categorize your log messages
+effectively.
 
 
 Five severity levels
@@ -25,9 +29,14 @@ Let's break down when you might use each of these:
 
 ### Debug
 
-Use this level for detailed information that's mostly useful when diagnosing problems. Debug logs are typically not shown in production environments.
+Use this level for detailed information that's mostly useful when diagnosing
+problems. Debug logs are typically not shown in production environments.
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const elapsedMs = 0 as number;
+// ---cut-before---
 logger.debug("Database query took {elapsedMs}ms to execute.", { elapsedMs });
 ~~~~
 
@@ -35,7 +44,11 @@ logger.debug("Database query took {elapsedMs}ms to execute.", { elapsedMs });
 
 This level is for general information about the application's operation.
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const username = "" as string;
+// ---cut-before---
 logger.info("User {username} logged in successfully.", { username });
 ~~~~
 
@@ -45,7 +58,10 @@ Use this when something unexpected happened, but the application can continue
 functioning. This level is often used for events that are close to causing
 errors.
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
 logger.warn("API rate limit is close to exceeding, 95% of limit reached.");
 ~~~~
 
@@ -55,7 +71,11 @@ This level indicates a significant problem that prevented a specific operation
 from being completed. Use this for errors that need attention but don't
 necessarily cause the application to stop.
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const err = new Error();
+// ---cut-before---
 logger.error(
   "Failed to save user data to database.",
   { userId: "12345", error: err },
@@ -67,7 +87,11 @@ logger.error(
 Use this for critical errors that cause the application to abort. Fatal errors
 are typically unrecoverable and require immediate attention.
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const error = new Error();
+// ---cut-before---
 logger.fatal("Unrecoverable error: Database connection lost.", { error });
 ~~~~
 
@@ -88,9 +112,13 @@ When deciding which level to use, consider:
 Configuring severity levels
 ---------------------------
 
-You can control which severity levels are logged in different parts of your application. For example:
+You can control which severity levels are logged in different parts of your
+application. For example:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure } from "@logtape/logtape";
+// ---cut-before---
 await configure({
   // ... other configuration ...
   loggers: [
@@ -121,4 +149,6 @@ Best practices
  4. *Consider performance*: Remember that logging, especially at lower levels,
     can impact performance in high-volume scenarios.
 
-By using severity levels effectively, you can create logs that are informative, actionable, and easy to navigate. This will make debugging and monitoring your application much more manageable.
+By using severity levels effectively, you can create logs that are informative,
+actionable, and easy to navigate. This will make debugging and monitoring your
+application much more manageable.

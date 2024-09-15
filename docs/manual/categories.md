@@ -14,7 +14,7 @@ the log level of loggers at different levels of the category hierarchy.
 
 Here's an example of setting log levels for different categories:
 
-~~~~ typescript{9-10}
+~~~~ typescript{9-10} twoslash
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
@@ -35,7 +35,9 @@ Child loggers
 
 You can get a child logger from a parent logger by calling `~Logger.getChild()`:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+// ---cut-before---
 const logger = getLogger(["my-app"]);
 const childLogger = logger.getChild("my-module");
 // equivalent: const childLogger = getLogger(["my-app", "my-module"]);
@@ -43,7 +45,9 @@ const childLogger = logger.getChild("my-module");
 
 The `~Logger.getChild()` method can take an array of strings as well:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+// ---cut-before---
 const logger = getLogger(["my-app"]);
 const childLogger = logger.getChild(["my-module", "foo"]);
 // equivalent: const childLogger = getLogger(["my-app", "my-module", "foo"]);
@@ -75,7 +79,17 @@ to an empty array.
 > if there's an issue with your main sink, you can still receive meta logs about
 > the issue:
 >
-> ~~~~ typescript
+> ~~~~ typescript twoslash
+> // @noErrors: 2307
+> import { type Sink } from "@logtape/logtape";
+> /**
+>  * A hypothetical function to get your main sink.
+>  * @returns The main sink.
+>  */
+> function getYourMainSink(): Sink {
+>   return 0 as unknown as Sink;
+> }
+> // ---cut-before---
 > import { configure, getConsoleSink } from "@logtape/logtape";
 > import { getYourMainSink } from "./your-main-sink.ts";
 >

@@ -24,9 +24,10 @@ include additional context and metadata with your log messages.
 Including structured data in log messages
 -----------------------------------------
 
-You can pass an object as the second argument to any log method.  The properties of this object will be included as structured data in the log record.
+You can pass an object as the second argument to any log method.  The properties
+of this object will be included as structured data in the log record:
 
-~~~~ typescript
+~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 
 const logger = getLogger(["my-app"]);
@@ -44,7 +45,10 @@ the `userId`, `username`, and `loginTime` as structured fields.
 You can use placeholders in your log messages.  The values for these
 placeholders will be included as structured data.
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
 logger.info("User {username} (ID: {userId}) logged in at {loginTime}", {
   userId: 123456,
   username: "johndoe",
@@ -58,7 +62,10 @@ message while still maintaining it as separate fields in the log record.
 > [!TIP]
 > The way to log single curly braces `{`  is to double the brace:
 >
-> ~~~~ typescript
+> ~~~~ typescript twoslash
+> import { getLogger } from "@logtape/logtape";
+> const logger = getLogger();
+> // ---cut-before---
 > logger.debug("This logs {{single}} curly braces.");
 > ~~~~
 
@@ -75,7 +82,16 @@ If computing the structured data is expensive and you want to avoid unnecessary
 computation when the log level is not enabled, you can use a function to provide
 the structured data:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const startTime = performance.now();
+/**
+ * A hypothetical function that computes a value, which is expensive.
+ * @returns The computed value.
+ */
+function expensiveComputation(): unknown { return 0; }
+// ---cut-before---
 logger.debug("Expensive operation completed", () => ({
   result: expensiveComputation(),
   duration: performance.now() - startTime
@@ -88,10 +104,12 @@ The function will only be called if the debug log level is enabled.
 Configuring sinks for structured logging
 ----------------------------------------
 
-To make the most of structured logging, you'll want to use sinks that can handle structured data.  For example, you can output logs in [JSON Lines] format by
+To make the most of structured logging, you'll want to use sinks that can handle
+structured data.  For example, you can output logs in [JSON Lines] format by
 providing a [text formatter](./formatters.md) to a file sink:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
 import { configure, getFileSink } from "@logtape/logtape";
 
 await configure({
@@ -124,7 +142,7 @@ Filtering based on structured data
 
 You can create filters that use the structured data in your log records:
 
-```typescript
+~~~~ typescript twoslash
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
@@ -143,7 +161,7 @@ await configure({
     }
   ]
 });
-```
+~~~~
 
 This filter will only allow logs with a `"high"` priority or error level to pass through.
 

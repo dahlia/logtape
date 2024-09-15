@@ -6,7 +6,9 @@ and returns a boolean value.  If the filter returns `true`, the log record is
 passed to the sinks; otherwise, the log record is discarded.  The signature of
 `Filter` is:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
 export type Filter = (record: LogRecord) => boolean;
 ~~~~
 
@@ -17,14 +19,17 @@ the `~Config.loggers` object to assign filters to loggers.
 For example, the following filter discards log messages whose property `elapsed`
 is less than 100 milliseconds:
 
-~~~~ typescript {5-9}
+~~~~ typescript{5-9} twoslash
+// @noErrors: 2345
 import { configure, type LogRecord } from "@logtape/logtape";
 
 await configure({
   // Omitted for brevity
   filters: {
     tooSlow(record: LogRecord) {
-      return "elapsed" in record.properties && record.properties.elapsed >= 100;
+      return "elapsed" in record.properties
+        && typeof record.properties.elapsed === "number"
+        && record.properties.elapsed >= 100;
     },
   },
   loggers: [
@@ -47,12 +52,13 @@ filter log messages by their log levels.  The level filter factory takes
 a `LogLevel` string and returns a level filter.  For example, the following
 level filter discards log messages whose log level is less than `info`:
 
-~~~~ typescript
-import { getLevelFilter } from "@logtape/logtape";
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getLevelFilter } from "@logtape/logtape";
 
 await configure({
   filters: {
-    infoOrHigher: getLevelFilter("info");  // [!code highlight]
+    infoOrHigher: getLevelFilter("info"),  // [!code highlight]
   },
   // Omitted for brevity
 });
@@ -65,14 +71,17 @@ Sink filter
 A sink filter is a filter that is applied to a specific [sink](./sinks.md).
 You can add a sink filter to a sink by decorating the sink with `withFilter()`:
 
-~~~~ typescript {5-8}
-import { getConsoleSink, withFilter } from "@logtape/logtape";
+~~~~ typescript{5-8} twoslash
+// @noErrors: 2345
+import { configure, getConsoleSink, withFilter } from "@logtape/logtape";
 
 await configure({
   sinks: {
     filteredConsole: withFilter(
       getConsoleSink(),
-      log => "elapsed" in log.properties && log.properties.elapsed >= 100,
+      log => "elapsed" in log.properties &&
+        typeof log.properties.elapsed === "number" &&
+        log.properties.elapsed >= 100,
     ),
   },
   // Omitted for brevity

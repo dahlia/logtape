@@ -112,10 +112,14 @@ jobs:
         set -ex
         bun install
         if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
+          bun add -D "@logtape/logtape@$GITHUB_REF_NAME"
+          bun add -D @logtape/otel@latest
           EXTRA_NAV_TEXT=Unstable \
           EXTRA_NAV_LINK="$UNSTABLE_DOCS_URL" \
           bun run build
         else
+          bun add -D @logtape/logtape@dev
+          bun add -D @logtape/otel@dev
           EXTRA_NAV_TEXT=Stable \
           EXTRA_NAV_LINK="$STABLE_DOCS_URL" \
           bun run build

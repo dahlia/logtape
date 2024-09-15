@@ -1,6 +1,7 @@
 import { Presets, SingleBar } from "cli-progress";
 import { jsrRef } from "markdown-it-jsr-ref";
 import { defineConfig } from "vitepress";
+import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
 
 const progress = new SingleBar({}, Presets.shades_classic);
 let started = false;
@@ -110,6 +111,21 @@ export default defineConfig({
   },
   head: plausibleScript,
   markdown: {
+    codeTransformers: [
+      transformerTwoslash({
+        twoslashOptions: {
+          compilerOptions: {
+            lib: ["dom", "dom.iterable", "esnext"],
+            types: [
+              "dom",
+              "dom.iterable",
+              "esnext",
+              "@teidesu/deno-types/full",
+            ],
+          },
+        },
+      }),
+    ],
     config(md) {
       md.use(jsrRefPlugin);
     },

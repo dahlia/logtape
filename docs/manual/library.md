@@ -19,7 +19,7 @@ this seamlessly.
  1. *Use namespaced categories*: Start your log categories with your library
     name to avoid conflicts.
 
-    ~~~~ typescript
+    ~~~~ typescript twoslash
     import { getLogger } from "@logtape/logtape";
 
     const logger = getLogger(["my-awesome-lib", "database"]);
@@ -36,7 +36,13 @@ this seamlessly.
  4. *Provide context*: Use [structured logging](./struct.md) to provide
     relevant context with each log message.
 
-    ~~~~ typescript
+    ~~~~ typescript twoslash
+    import { getLogger } from "@logtape/logtape";
+    const logger = getLogger(["my-awesome-lib", "database"]);
+    const dbHost: string = "";
+    const dbPort: number = 0;
+    const dbUser: string = "";
+    // ---cut-before---
     logger.info("Database connection established", {
       host: dbHost,
       port: dbPort,
@@ -48,7 +54,7 @@ this seamlessly.
 
 Here's an example of how you might use LogTape in a library:
 
-```typescript
+~~~~ typescript twoslash
 // my-awesome-lib/database.ts
 import { getLogger } from "@logtape/logtape";
 
@@ -87,7 +93,7 @@ export class Database {
     // Query logic here
   }
 }
-```
+~~~~
 
 
 For application developers
@@ -112,7 +118,8 @@ you have full control over how logs from that library are handled.
 Here's how you might configure logging for the example library we created
 above:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2307
 import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
 import { Database } from "my-awesome-lib";
 
