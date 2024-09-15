@@ -5,13 +5,16 @@ A sink is a destination of log messages.  LogTape currently provides a few
 sinks: console and stream.  However, you can easily add your own sinks.
 The signature of a `Sink` is:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
 export type Sink = (record: LogRecord) => void;
 ~~~~
 
 Here's a simple example of a sink that writes log messages to console:
 
-~~~~ typescript {5-7}
+~~~~ typescript{5-7} twoslash
+// @noErrors: 2345
 import { configure } from "@logtape/logtape";
 
 await configure({
@@ -30,7 +33,8 @@ Console sink
 Of course, you don't have to implement your own console sink because LogTape
 provides a console sink:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
@@ -54,7 +58,10 @@ messages to the standard error:
 
 ::: code-group
 
-~~~~ typescript [Deno]
+~~~~ typescript twoslash [Deno]
+// @noErrors: 2345
+import { configure, getStreamSink } from "@logtape/logtape";
+// ---cut-before---
 await configure({
   sinks: {
     stream: getStreamSink(Deno.stderr.writable),  // [!code highlight]
@@ -63,7 +70,11 @@ await configure({
 });
 ~~~~
 
-~~~~ typescript {5} [Node.js]
+~~~~ typescript{5} twoslash [Node.js]
+// @noErrors: 2345
+import "@types/node";
+import { configure, getStreamSink } from "@logtape/logtape";
+// ---cut-before---
 import stream from "node:stream";
 
 await configure({
@@ -74,7 +85,12 @@ await configure({
 });
 ~~~~
 
-~~~~ typescript {1-13,17} [Bun]
+~~~~ typescript{1-13,17} twoslash [Bun]
+// @noErrors: 2339 2345
+import "@types/bun";
+import { FileSink } from "bun";
+import { configure, getStreamSink } from "@logtape/logtape";
+// ---cut-before---
 let writer: FileSink | undefined = undefined;
 const stdout = new WritableStream({
   start() {
@@ -123,8 +139,9 @@ File sink
 LogTape provides a file sink as well.  Here's an example of a file sink that
 writes log messages to a file:
 
-~~~~ typescript
-import { getFileSink } from "@logtape/logtape";
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getFileSink } from "@logtape/logtape";
 
 await configure({
   sinks: {
@@ -167,13 +184,14 @@ which can cause issues with file handling, log analysis, and storage management.
 To use the rotating file sink, you can use the `getRotatingFileSink()` function.
 Here's an example of a rotating file sink that writes log messages to a file:
 
-~~~~ typescript
-import { getRotatingFileSink } from "@logtape/logtape";
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getRotatingFileSink } from "@logtape/logtape";
 
 await configure({
   sinks: {
     file: getRotatingFileSink("my-app.log", {
-      maxFileSize: 1024 * 1024,  // 1 MiB
+      maxSize: 0x400 * 0x400,  // 1 MiB
       maxFiles: 5,
     }),
   },
@@ -198,30 +216,36 @@ The sinks introduced above write log messages in a plain text format.
 You can customize the format by providing a text formatter.  The type of a
 text formatter is:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
 export type TextFormatter = (record: LogRecord) => string;
 ~~~~
 
 Here's an example of a text formatter that writes log messages in a [JSON Lines]
 format:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getFileSink } from "@logtape/logtape";
+// ---cut-before---
 await configure({
   sinks: {
     stream: getFileSink("log.jsonl", {
       formatter(log) {
-        return JSON.stringify(log) + "\n",
+        return JSON.stringify(log) + "\n";
       }
     }),
   },
   // Omitted for brevity
-})
+});
 ~~~~
 
 Or you can colorize log messages in your terminal using
 the `ansiColorFormatter()`:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
 import {
   ansiColorFormatter,
   configure,
@@ -278,7 +302,7 @@ bun add @logtape/otel
 The quickest way to get started is to use the [`getOpenTelemetrySink()`]
 function without any arguments:
 
-~~~~ typescript
+~~~~ typescript twoslash
 import { configure } from "@logtape/logtape";
 import { getOpenTelemetrySink } from "@logtape/otel";
 
@@ -316,7 +340,9 @@ disposed of when the configuration is reset or the program exits.  The type
 of a disposable sink is: `Sink & Disposable`.  You can create a disposable
 sink by defining a `[Symbol.dispose]` method:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord, Sink } from "@logtape/logtape";
+// ---cut-before---
 const disposableSink: Sink & Disposable = (record: LogRecord) => {
   console.log(record.message);
 };
@@ -329,7 +355,9 @@ A sink can be asynchronously disposed of as well.  The type of an asynchronous
 disposable sink is: `Sink & AsyncDisposable`.  You can create an asynchronous
 disposable sink by defining a `[Symbol.asyncDispose]` method:
 
-~~~~ typescript
+~~~~ typescript twoslash
+import type { LogRecord, Sink } from "@logtape/logtape";
+// ---cut-before---
 const asyncDisposableSink: Sink & AsyncDisposable = (record: LogRecord) => {
   console.log(record.message);
 };
@@ -349,7 +377,10 @@ useful when you want to flush the buffer of a sink without blocking returning
 a response in edge functions.  Here's an example of using the `dispose()`
 with [`ctx.waitUntil()`] in Cloudflare Workers:
 
-~~~~ typescript
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { type ExportedHandler, Response } from "@cloudflare/workers-types";
+// ---cut-before---
 import { configure, dispose } from "@logtape/logtape";
 
 export default {
@@ -357,8 +388,9 @@ export default {
     await configure({ /* ... */ });
     // ...
     ctx.waitUntil(dispose());
+    return new Response("...");
   }
-}
+} satisfies ExportedHandler;
 ~~~~
 
 [`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
