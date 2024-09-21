@@ -8,6 +8,11 @@ Version 0.5.2
 
 To be released.
 
+ -  Fixed a build error due to top-level `await` on [Vite].  [[#14]]
+
+[Vite]: https://vitejs.dev/
+[#14]: https://github.com/dahlia/logtape/issues/14
+
 
 Version 0.5.1
 -------------
