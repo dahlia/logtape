@@ -33,6 +33,17 @@ To be released.
 [#16]: https://github.com/dahlia/logtape/issues/16
 
 
+Version 0.5.2
+-------------
+
+Released on September 23, 2024.
+
+ -  Fixed a build error due to top-level `await` on [Vite].  [[#14]]
+
+[Vite]: https://vitejs.dev/
+[#14]: https://github.com/dahlia/logtape/issues/14
+
+
 Version 0.5.1
 -------------
 
