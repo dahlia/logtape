@@ -69,6 +69,28 @@ message while still maintaining it as separate fields in the log record.
 > logger.debug("This logs {{single}} curly braces.");
 > ~~~~
 
+> [!TIP]
+> Placeholders can have leading and trailing spaces.  For example,
+> `{ username }` will match the property `"username"` *unless* there is
+> a property named `" username "` with exact spaces.  In that case,
+> the exact property will be prioritized:
+>
+> ~~~~ typescript twoslash
+> import { getLogger } from "@logtape/logtape";
+> const logger = getLogger();
+> // ---cut-before---
+> logger.info(
+>   "User { username } logged in.",
+>   { username: "johndoe" },
+> );
+> // -> User johndoe logged in.
+> logger.info(
+>   "User { username } logged in.",
+>   { " username ": "janedoe", username: "johndoe" },
+> );
+> // -> User janedoe logged in.
+> ~~~~
+
 > [!NOTE]
 > Currently, template literals do not support structured data.  You must use
 > method calls with an object argument to include structured data in your log
@@ -186,4 +208,4 @@ Best practices
  5. *Consider performance*: If you're logging high-volume data, be aware of
     the performance impact of generating and processing structured logs.
 
-<!-- cSpell: ignore johndoe -->
+<!-- cSpell: ignore johndoe janedoe -->

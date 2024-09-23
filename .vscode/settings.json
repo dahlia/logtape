@@ -28,6 +28,8 @@
     "runtimes",
     "strikethrough",
     "supercategory",
+    "twoslash",
+    "typeof",
     "venv"
   ]
 }

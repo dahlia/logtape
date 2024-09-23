@@ -659,6 +659,18 @@ Deno.test("parseMessageTemplate()", () => {
     ["Hello, ", 123, "!"],
   );
   assertEquals(
+    parseMessageTemplate("Hello, { foo\t}!", { " foo\t": 123, foo: 456 }),
+    ["Hello, ", 123, "!"],
+  );
+  assertEquals(
+    parseMessageTemplate("Hello, { foo\t}!", { foo: 456 }),
+    ["Hello, ", 456, "!"],
+  );
+  assertEquals(
+    parseMessageTemplate("Hello, { foo\t}!", { " foo": 456 }),
+    ["Hello, ", undefined, "!"],
+  );
+  assertEquals(
     parseMessageTemplate("Hello, {{foo}}!", { foo: 123 }),
     ["Hello, {foo}!"],
   );

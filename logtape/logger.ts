@@ -409,7 +409,8 @@ export class LoggerImpl implements Logger {
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
     let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
-      ? (globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] ?? null
+      ? ((globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] ??
+        null)
       : null;
     if (rootLogger == null) {
       rootLogger = new LoggerImpl(null, []);
@@ -433,7 +434,7 @@ export class LoggerImpl implements Logger {
     subcategory:
       | string
       | readonly [string]
-      | readonly [string, ...readonly string[]],
+      | readonly [string, ...(readonly string[])],
   ): LoggerImpl {
     const name = typeof subcategory === "string" ? subcategory : subcategory[0];
     const childRef = this.children[name];
@@ -450,7 +451,7 @@ export class LoggerImpl implements Logger {
       return child;
     }
     return child.getChild(
-      subcategory.slice(1) as [string, ...readonly string[]],
+      subcategory.slice(1) as [string, ...(readonly string[])],
     );
   }
 
@@ -801,21 +802,27 @@ export function parseMessageTemplate(
     const char = template.charAt(i);
     const nextChar = template.charAt(i + 1);
 
-    if (char == "{" && nextChar == "{") {
+    if (char === "{" && nextChar === "{") {
       // Escaped { character
       part = part + char;
       i++;
-    } else if (char == "}" && nextChar == "}") {
+    } else if (char === "}" && nextChar === "}") {
       // Escaped } character
       part = part + char;
       i++;
-    } else if (char == "{") {
+    } else if (char === "{") {
       // Start of a placeholder
       message.push(part);
       part = "";
-    } else if (char == "}") {
+    } else if (char === "}") {
       // End of a placeholder
-      message.push(properties[part]);
+      let prop: unknown;
+      if (part.match(/^\s|\s$/)) {
+        prop = part in properties ? properties[part] : properties[part.trim()];
+      } else {
+        prop = properties[part];
+      }
+      message.push(prop);
       part = "";
     } else {
       // Default case

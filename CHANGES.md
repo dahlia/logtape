@@ -8,6 +8,10 @@ Version 0.6.0
 
 To be released.
 
+ -  Placeholders in message templates now forgive leading and trailing spaces.
+    However, if a property with exactly the same name exists, it will be
+    prioritized over space-trimmed properties.  [[#16]]
+
  -  Built-in text formatters now can be customized with a `TextFormatterOptions`
     object.  [[#13]]
 
@@ -20,6 +24,7 @@ To be released.
      -  Added `getAnsiColorFormatter()` function.
 
 [#13]: https://github.com/dahlia/logtape/issues/13
+[#16]: https://github.com/dahlia/logtape/issues/16
 
 
 Version 0.5.1
