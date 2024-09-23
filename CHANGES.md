@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.5.2
 -------------
 
-To be released.
+Released on September 23, 2024.
 
  -  Fixed a build error due to top-level `await` on [Vite].  [[#14]]
 
