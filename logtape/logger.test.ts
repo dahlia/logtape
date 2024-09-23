@@ -115,6 +115,8 @@ Deno.test("LoggerImpl.getSinks()", async (t) => {
     assertEquals([...fooBar.getSinks()], [sinkA, sinkB]);
     assertEquals([...fooBaz.getSinks()], [sinkA, sinkC]);
     assertEquals([...fooBarQux.getSinks()], [sinkA, sinkB, sinkD]);
+    fooBarQux.parentSinks = "override";
+    assertEquals([...fooBarQux.getSinks()], [sinkD]);
   });
 
   await t.step("tear down", () => {

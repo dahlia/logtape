@@ -48,6 +48,17 @@ export interface LoggerConfig<
   sinks?: TSinkId[];
 
   /**
+   * Whether to inherit the parent's sinks.  If `inherit`, the parent's sinks
+   * are used along with the specified sinks.  If `override`, the parent's
+   * sinks are not used, and only the specified sinks are used.
+   *
+   * The default is `inherit`.
+   * @default `"inherit"
+   * @since 0.6.0
+   */
+  parentSinks?: "inherit" | "override";
+
+  /**
    * The filter identifiers to use.
    */
   filters?: TFilterId[];
@@ -153,6 +164,7 @@ export async function configure<
       }
       logger.sinks.push(sink);
     }
+    logger.parentSinks = cfg.parentSinks ?? "inherit";
     if (cfg.level !== undefined) logger.filters.push(toFilter(cfg.level));
     for (const filterId of cfg.filters ?? []) {
       const filter = config.filters?.[filterId];

@@ -8,6 +8,11 @@ Version 0.6.0
 
 To be released.
 
+ -  Loggers now can override sinks of their ascendants.  Still, they inherit
+    the sinks of their ascendants by default.  [[#15]]
+
+     -  Added `LoggerConfig.parentSinks` property.
+
  -  Placeholders in message templates now forgive leading and trailing spaces.
     However, if a property with exactly the same name exists, it will be
     prioritized over space-trimmed properties.  [[#16]]
@@ -24,6 +29,7 @@ To be released.
      -  Added `getAnsiColorFormatter()` function.
 
 [#13]: https://github.com/dahlia/logtape/issues/13
+[#15]: https://github.com/dahlia/logtape/issues/15
 [#16]: https://github.com/dahlia/logtape/issues/16
 
 

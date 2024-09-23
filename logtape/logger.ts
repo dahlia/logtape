@@ -405,6 +405,7 @@ export class LoggerImpl implements Logger {
   readonly children: Record<string, LoggerImpl | WeakRef<LoggerImpl>>;
   readonly category: readonly string[];
   readonly sinks: Sink[];
+  parentSinks: "inherit" | "override" = "inherit";
   readonly filters: Filter[];
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
@@ -460,6 +461,7 @@ export class LoggerImpl implements Logger {
    */
   reset(): void {
     while (this.sinks.length > 0) this.sinks.shift();
+    this.parentSinks = "inherit";
     while (this.filters.length > 0) this.filters.shift();
   }
 
@@ -488,7 +490,7 @@ export class LoggerImpl implements Logger {
   }
 
   *getSinks(): Iterable<Sink> {
-    if (this.parent != null) {
+    if (this.parent != null && this.parentSinks === "inherit") {
       for (const sink of this.parent.getSinks()) yield sink;
     }
     for (const sink of this.sinks) yield sink;

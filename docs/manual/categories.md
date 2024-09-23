@@ -15,18 +15,92 @@ the log level of loggers at different levels of the category hierarchy.
 Here's an example of setting log levels for different categories:
 
 ~~~~ typescript{9-10} twoslash
-import { configure, getConsoleSink } from "@logtape/logtape";
+import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
 
 await configure({
   sinks: {
     console: getConsoleSink(),
+    file: getFileSink("app.log"),
   },
-  filters: {},
   loggers: [
-    { category: ["my-app"], level: "info", sinks: ["console"] },
+    { category: ["my-app"], level: "info", sinks: ["file"] },
     { category: ["my-app", "my-module"], level: "debug", sinks: ["console"] },
   ],
 })
+~~~~
+
+
+Sink inheritance and overriding
+-------------------------------
+
+When you configure a logger, you can specify multiple sinks for the logger.
+The logger inherits the sinks from its parent loggers.  If a logger has multiple
+sinks, the logger sends log messages to all of its sinks.
+
+For example, the following configuration sets up two sinks, `a` and `b`, and
+configures two loggers.  The logger `["my-app"]` sends log messages to sink `a`,
+and the logger `["my-app", "my-module"]` sends log messages to sink both `a` and
+`b`:
+
+~~~~ typescript twoslash
+import { type LogRecord, configure, getLogger } from "@logtape/logtape";
+
+const a: LogRecord[] = [];
+const b: LogRecord[] = [];
+
+await configure({
+  sinks: {
+    a: a.push.bind(a),
+    b: b.push.bind(b),
+  },
+  loggers: [
+    { category: ["my-app"], sinks: ["a"] },
+    { category: ["my-app", "my-module"], sinks: ["b"] },
+  ],
+});
+
+getLogger(["my-app"]).info("foo");
+// a = [{ message: "foo", ... }]
+// b = []
+
+getLogger(["my-app", "my-module"]).info("bar");
+// a = [{ message: "foo", ... }, { message: "bar", ... }]
+// b = [                         { message: "bar", ... }]
+~~~~
+
+
+You can override the sinks inherited from the parent loggers by specifying
+`parentSinks: "override"` in the logger configuration.  This is useful when you
+want to replace the inherited sinks with a different set of sinks:
+
+~~~~ typescript twoslash
+import { type LogRecord, configure, getLogger } from "@logtape/logtape";
+
+const a: LogRecord[] = [];
+const b: LogRecord[] = [];
+
+await configure({
+  sinks: {
+    a: a.push.bind(a),
+    b: b.push.bind(b),
+  },
+  loggers: [
+    { category: ["my-app"], sinks: ["a"] },
+    {
+      category: ["my-app", "my-module"],
+      sinks: ["b"],
+      parentSinks: "override", // [!code highlight]
+    },
+  ],
+});
+
+getLogger(["my-app"]).info("foo");
+// a = [{ message: "foo", ... }]
+// b = []
+
+getLogger(["my-app", "my-module"]).info("bar");
+// a = [{ message: "foo", ... }]
+// b = [{ message: "bar", ... }]
 ~~~~
 
 

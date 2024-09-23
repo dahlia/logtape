@@ -131,6 +131,10 @@ await configure({
 For severity levels,
 see [*Configuring severity levels*](./levels.md#configuring-severity-levels).
 
+> [!NOTE]
+> By default, loggers inherit the sinks of their ascendants.  You can override
+> them by specifying the `parentSinks: "override"` option in the logger.
+
 ### Disposal of resources
 
 If sinks or filters implement the `Disposal` or `AsyncDisposal` interface,

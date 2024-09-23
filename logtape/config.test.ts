@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert/assert-equals";
 import { assertRejects } from "@std/assert/assert-rejects";
-import { assertStrictEquals } from "jsr:@std/assert/assert-strict-equals";
+import { assertStrictEquals } from "@std/assert/assert-strict-equals";
 import {
   type Config,
   ConfigError,
@@ -17,12 +17,14 @@ Deno.test("configure()", async (t) => {
   let disposed = 0;
 
   await t.step("test", async () => {
-    const a: Sink & AsyncDisposable = () => {};
+    const aLogs: LogRecord[] = [];
+    const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
       ++disposed;
       return Promise.resolve();
     };
-    const b: Sink & Disposable = () => {};
+    const bLogs: LogRecord[] = [];
+    const b: Sink & Disposable = (record) => bLogs.push(record);
     b[Symbol.dispose] = () => ++disposed;
     const cLogs: LogRecord[] = [];
     const c: Sink = cLogs.push.bind(cLogs);
@@ -45,6 +47,7 @@ Deno.test("configure()", async (t) => {
         {
           category: ["my-app", "foo"],
           sinks: ["b"],
+          parentSinks: "override",
           filters: ["y"],
         },
         {
@@ -66,8 +69,40 @@ Deno.test("configure()", async (t) => {
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
     assertEquals(bar.sinks, [c]);
     bar.debug("ignored");
+    assertEquals(aLogs, []);
+    assertEquals(bLogs, []);
+    assertEquals(cLogs, []);
+    foo.warn("logged");
+    assertEquals(aLogs, []);
+    assertEquals(bLogs, [
+      {
+        level: "warning",
+        category: ["my-app", "foo"],
+        message: ["logged"],
+        properties: {},
+        timestamp: bLogs[0].timestamp,
+      },
+    ]);
     assertEquals(cLogs, []);
     bar.info("logged");
+    assertEquals(aLogs, [
+      {
+        level: "info",
+        category: ["my-app", "bar"],
+        message: ["logged"],
+        properties: {},
+        timestamp: cLogs[0].timestamp,
+      },
+    ]);
+    assertEquals(bLogs, [
+      {
+        level: "warning",
+        category: ["my-app", "foo"],
+        message: ["logged"],
+        properties: {},
+        timestamp: bLogs[0].timestamp,
+      },
+    ]);
     assertEquals(cLogs, [
       {
         level: "info",
