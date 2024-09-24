@@ -1,6 +1,6 @@
 {
   "name": "@logtape/logtape",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "license": "MIT",
   "exports": "./logtape/mod.ts",
   "imports": {
