@@ -1,6 +1,6 @@
 {
   "name": "@logtape/logtape",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "license": "MIT",
   "exports": "./logtape/mod.ts",
   "imports": {
@@ -13,8 +13,15 @@
     "consolemock": "npm:consolemock@^1.1.0",
     "which_runtime": "https://deno.land/x/which_runtime@0.2.0/mod.ts"
   },
-  "exclude": ["*-venv/", "coverage/", "docs/", "npm/"],
-  "unstable": ["fs"],
+  "exclude": [
+    "*-venv/",
+    "coverage/",
+    "docs/",
+    "npm/"
+  ],
+  "unstable": [
+    "fs"
+  ],
   "lock": false,
   "tasks": {
     "check": "deno check **/*.ts && deno lint && deno fmt --check",
