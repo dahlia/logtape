@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.6.2
 -------------
 
-To be released.
+Released on September 24, 2024.
 
  -  Fixed a build warning due to importing `node:util` module on [Next.js].
     [[#11]]
