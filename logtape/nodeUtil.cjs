@@ -7,7 +7,8 @@ if (
   "Bun" in globalThis
 ) {
   try {
-    util = require(["node", "util"].join(":"));
+    // Intentionally confuse static analysis of bundlers:
+    util = require(`${["node", "util"].join(":")}`);
   } catch (_) {
     util = null;
   }
