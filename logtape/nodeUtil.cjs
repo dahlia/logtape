@@ -1,4 +1,4 @@
-let fs = null;
+let util = null;
 if (
   "process" in globalThis && "versions" in globalThis.process &&
     "node" in globalThis.process.versions &&
@@ -7,10 +7,10 @@ if (
   "Bun" in globalThis
 ) {
   try {
-    fs = require(["node", "fs"].join(":"));
+    util = require(["node", "util"].join(":"));
   } catch (_) {
-    fs = null;
+    util = null;
   }
 }
 
-module.exports = fs;
+module.exports = util;
