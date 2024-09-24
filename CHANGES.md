@@ -8,13 +8,16 @@ Version 0.6.2
 
 To be released.
 
+ -  Fixed a build warning due to importing `node:util` module on [Next.js].
+    [[#11]]
+
 
 Version 0.6.1
 -------------
 
 Released on September 24, 2024.
 
- -  Fixed a build error due to importing `node:fs` module on [Vite].  [[#18]]
+ -  Fixed a build error due to importing `node:util` module on [Vite].  [[#18]]
 
 
 Version 0.6.0
@@ -50,12 +53,24 @@ Released on September 24, 2024.
 [#17]: https://github.com/dahlia/logtape/issues/17
 
 
+Version 0.5.4
+-------------
+
+Released on September 24, 2024.
+
+ -  Fixed a build warning due to importing `node:util` module on [Next.js].
+    [[#11]]
+
+[Next.js]: https://nextjs.org/
+[#11]: https://github.com/dahlia/logtape/issues/11
+
+
 Version 0.5.3
 -------------
 
 Released on September 24, 2024.
 
- -  Fixed a build error due to importing `node:fs` module on [Vite].  [[#18]]
+ -  Fixed a build error due to importing `node:util` module on [Vite].  [[#18]]
 
 [#18]: https://github.com/dahlia/logtape/issues/18
 
