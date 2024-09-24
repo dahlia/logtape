@@ -8,6 +8,8 @@ Version 0.6.1
 
 To be released.
 
+ -  Fixed a build error due to importing `node:fs` module on [Vite].  [[#18]]
+
 
 Version 0.6.0
 -------------
@@ -40,6 +42,16 @@ Released on September 24, 2024.
 [#15]: https://github.com/dahlia/logtape/issues/15
 [#16]: https://github.com/dahlia/logtape/issues/16
 [#17]: https://github.com/dahlia/logtape/issues/17
+
+
+Version 0.5.3
+-------------
+
+Released on September 24, 2024.
+
+ -  Fixed a build error due to importing `node:fs` module on [Vite].  [[#18]]
+
+[#18]: https://github.com/dahlia/logtape/issues/18
 
 
 Version 0.5.2
