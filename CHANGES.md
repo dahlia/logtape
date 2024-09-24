@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.6.0
 -------------
 
-To be released.
+Released on September 24, 2024.
 
  -  Loggers now can override sinks of their ascendants.  Still, they inherit
     the sinks of their ascendants by default.  [[#15]]
