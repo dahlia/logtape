@@ -4,6 +4,7 @@ export const info: LogRecord = {
   level: "info",
   category: ["my-app", "junk"],
   message: ["Hello, ", 123, " & ", 456, "!"],
+  rawMessage: "Hello, {a} & {b}!",
   timestamp: 1700000000000,
   properties: {},
 };

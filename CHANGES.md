@@ -17,6 +17,8 @@ To be released.
     However, if a property with exactly the same name exists, it will be
     prioritized over space-trimmed properties.  [[#16]]
 
+ -  Added `LogRecord.rawMessage` property.  [[#17]]
+
  -  Built-in text formatters now can be customized with a `TextFormatterOptions`
     object.  [[#13]]
 
@@ -31,6 +33,7 @@ To be released.
 [#13]: https://github.com/dahlia/logtape/issues/13
 [#15]: https://github.com/dahlia/logtape/issues/15
 [#16]: https://github.com/dahlia/logtape/issues/16
+[#17]: https://github.com/dahlia/logtape/issues/17
 
 
 Version 0.5.2

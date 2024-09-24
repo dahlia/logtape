@@ -128,6 +128,7 @@ export interface Logger {
    * ```
    *
    * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
    */
   debug(callback: LogCallback): void;
 
@@ -182,6 +183,7 @@ export interface Logger {
    * ```
    *
    * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
    */
   info(callback: LogCallback): void;
 
@@ -236,6 +238,7 @@ export interface Logger {
    * ```
    *
    * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
    */
   warn(callback: LogCallback): void;
 
@@ -290,6 +293,7 @@ export interface Logger {
    * ```
    *
    * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
    */
   error(callback: LogCallback): void;
 
@@ -344,6 +348,7 @@ export interface Logger {
    * ```
    *
    * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
    */
   fatal(callback: LogCallback): void;
 }
@@ -517,7 +522,7 @@ export class LoggerImpl implements Logger {
 
   log(
     level: LogLevel,
-    message: string,
+    rawMessage: string,
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
@@ -528,8 +533,9 @@ export class LoggerImpl implements Logger {
         level,
         timestamp: Date.now(),
         get message() {
-          return parseMessageTemplate(message, this.properties);
+          return parseMessageTemplate(rawMessage, this.properties);
         },
+        rawMessage,
         get properties() {
           if (cachedProps == null) cachedProps = properties();
           return cachedProps;
@@ -539,7 +545,8 @@ export class LoggerImpl implements Logger {
         category: this.category,
         level,
         timestamp: Date.now(),
-        message: parseMessageTemplate(message, properties),
+        message: parseMessageTemplate(rawMessage, properties),
+        rawMessage,
         properties,
       };
     this.emit(record, bypassSinks);
@@ -550,15 +557,26 @@ export class LoggerImpl implements Logger {
     callback: LogCallback,
     properties: Record<string, unknown> = {},
   ): void {
+    let rawMessage: TemplateStringsArray | undefined = undefined;
     let msg: unknown[] | undefined = undefined;
+    function realizeMessage(): [unknown[], TemplateStringsArray] {
+      if (msg == null || rawMessage == null) {
+        msg = callback((tpl, ...values) => {
+          rawMessage = tpl;
+          return renderMessage(tpl, values);
+        });
+        if (rawMessage == null) throw new TypeError("No log record was made.");
+      }
+      return [msg, rawMessage];
+    }
     this.emit({
       category: this.category,
       level,
       get message() {
-        if (msg == null) {
-          msg = callback((tpl, ...values) => renderMessage(tpl, values));
-        }
-        return msg;
+        return realizeMessage()[0];
+      },
+      get rawMessage() {
+        return realizeMessage()[1];
       },
       timestamp: Date.now(),
       properties,
@@ -575,6 +593,7 @@ export class LoggerImpl implements Logger {
       category: this.category,
       level,
       message: renderMessage(messageTemplate, values),
+      rawMessage: messageTemplate,
       timestamp: Date.now(),
       properties,
     });
