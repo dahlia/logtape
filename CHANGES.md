@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.6.1
 -------------
 
-To be released.
+Released on September 24, 2024.
 
  -  Fixed a build error due to importing `node:fs` module on [Vite].  [[#18]]
 
