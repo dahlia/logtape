@@ -1,5 +1,5 @@
-import util from "node:util";
 import type { LogLevel } from "./level.ts";
+import util from "./nodeUtil.ts";
 import type { LogRecord } from "./record.ts";
 
 /**
@@ -44,7 +44,7 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string =
     ? globalThis.Deno.inspect.bind(globalThis.Deno)
     // @ts-ignore: Node.js global
     // dnt-shim-ignore
-    : "inspect" in util && typeof util.inspect === "function"
+    : util != null && "inspect" in util && typeof util.inspect === "function"
     // @ts-ignore: Node.js global
     // dnt-shim-ignore
     ? util.inspect.bind(util)

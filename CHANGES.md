@@ -8,6 +8,10 @@ Version 0.5.3
 
 To be released.
 
+ -  Fixed a build error due to importing `node:fs` module on [Vite].  [[#18]]
+
+[#18]: https://github.com/dahlia/logtape/issues/18
+
 
 Version 0.5.2
 -------------
