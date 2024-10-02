@@ -8,8 +8,9 @@ if (
 ) {
   try {
     // Intentionally confuse static analysis of bundlers:
-    util = require(`${["node", "util"].join(":")}`);
-  } catch (_) {
+    const $require = [require];
+    util = $require[0](`${["node", "util"].join(":")}`);
+  } catch {
     util = null;
   }
 }

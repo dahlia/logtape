@@ -9,6 +9,15 @@ Version 0.7.0
 To be released.
 
 
+Version 0.6.3
+-------------
+
+Released on October 3, 2024.
+
+ -  Fixed a build error due to importing `node:fs` and `node:util` modules on
+    Next.js' client rendering.
+
+
 Version 0.6.2
 -------------
 

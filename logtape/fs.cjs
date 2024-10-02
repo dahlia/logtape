@@ -8,8 +8,9 @@ if (
 ) {
   try {
     // Intentionally confuse static analysis of bundlers:
-    fs = require(`${["node", "fs"].join(":")}`);
-  } catch (_) {
+    const $require = [require];
+    fs = $require[0](`${["node", "fs"].join(":")}`);
+  } catch {
     fs = null;
   }
 }
