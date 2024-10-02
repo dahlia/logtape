@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.6.3
 -------------
 
-To be released.
+Released on October 3, 2024.
 
  -  Fixed a build error due to importing `node:fs` and `node:util` modules on
     Next.js' client rendering.
