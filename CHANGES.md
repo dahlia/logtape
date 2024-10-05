@@ -8,6 +8,11 @@ Version 0.6.4
 
 To be released.
 
+ -  Fixed a build warning due to importing `node:fs` and `node:util` modules on
+    Next.js' client rendering.  [[#19]]
+
+[#19]: https://github.com/dahlia/logtape/issues/19
+
 
 Version 0.6.3
 -------------
