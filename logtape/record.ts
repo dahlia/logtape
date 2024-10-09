@@ -1,3 +1,4 @@
+import type { CategoryList } from "./category.ts";
 import type { LogLevel } from "./level.ts";
 
 /**
@@ -7,7 +8,7 @@ export interface LogRecord {
   /**
    * The category of the logger that produced the log record.
    */
-  readonly category: readonly string[];
+  readonly category: CategoryList;
 
   /**
    * The log level.

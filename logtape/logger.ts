@@ -1,3 +1,4 @@
+import type { Category, CategoryList } from "./category.ts";
 import type { Filter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -20,7 +21,7 @@ export interface Logger {
   /**
    * The category of the logger.  It is an array of strings.
    */
-  readonly category: readonly string[];
+  readonly category: CategoryList;
 
   /**
    * The logger with the supercategory of the current logger.  If the current
@@ -46,9 +47,7 @@ export interface Logger {
    * @param subcategory The subcategory.
    * @returns The child logger.
    */
-  getChild(
-    subcategory: string | readonly [string] | readonly [string, ...string[]],
-  ): Logger;
+  getChild(subcategory: Category): Logger;
 
   /**
    * Get a logger with contextual properties.  This is useful for
@@ -385,7 +384,7 @@ export type LogTemplatePrefix = (
  *                 with a single element.
  * @returns The logger.
  */
-export function getLogger(category: string | readonly string[] = []): Logger {
+export function getLogger(category: Category = []): Logger {
   return LoggerImpl.getLogger(category);
 }
 
@@ -408,12 +407,12 @@ interface GlobalRootLoggerRegistry {
 export class LoggerImpl implements Logger {
   readonly parent: LoggerImpl | null;
   readonly children: Record<string, LoggerImpl | WeakRef<LoggerImpl>>;
-  readonly category: readonly string[];
+  readonly category: CategoryList;
   readonly sinks: Sink[];
   parentSinks: "inherit" | "override" = "inherit";
   readonly filters: Filter[];
 
-  static getLogger(category: string | readonly string[] = []): LoggerImpl {
+  static getLogger(category: Category = []): LoggerImpl {
     let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
       ? ((globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] ??
         null)
@@ -425,10 +424,10 @@ export class LoggerImpl implements Logger {
     }
     if (typeof category === "string") return rootLogger.getChild(category);
     if (category.length === 0) return rootLogger;
-    return rootLogger.getChild(category as readonly [string, ...string[]]);
+    return rootLogger.getChild(category);
   }
 
-  private constructor(parent: LoggerImpl | null, category: readonly string[]) {
+  constructor(parent: LoggerImpl | null, category: CategoryList) {
     this.parent = parent;
     this.children = {};
     this.category = category;
@@ -437,10 +436,7 @@ export class LoggerImpl implements Logger {
   }
 
   getChild(
-    subcategory:
-      | string
-      | readonly [string]
-      | readonly [string, ...(readonly string[])],
+    subcategory: Category,
   ): LoggerImpl {
     const name = typeof subcategory === "string" ? subcategory : subcategory[0];
     const childRef = this.children[name];
@@ -456,9 +452,7 @@ export class LoggerImpl implements Logger {
     if (typeof subcategory === "string" || subcategory.length === 1) {
       return child;
     }
-    return child.getChild(
-      subcategory.slice(1) as [string, ...(readonly string[])],
-    );
+    return child.getChild(subcategory.slice(1));
   }
 
   /**
@@ -683,7 +677,7 @@ export class LoggerCtx implements Logger {
     this.properties = properties;
   }
 
-  get category(): readonly string[] {
+  get category(): CategoryList {
     return this.logger.category;
   }
 
@@ -692,7 +686,7 @@ export class LoggerCtx implements Logger {
   }
 
   getChild(
-    subcategory: string | readonly [string] | readonly [string, ...string[]],
+    subcategory: Category,
   ): Logger {
     return this.logger.getChild(subcategory).with(this.properties);
   }
