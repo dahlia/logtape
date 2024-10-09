@@ -37,6 +37,10 @@ Deno.test("getLogger()", () => {
     getLogger(["foo", "bar"]),
     getLogger().getChild("foo").getChild("bar"),
   );
+  assertStrictEquals(
+    getLogger(["foo", ["bar", ["baz", ["qux"]]]]),
+    getLogger().getChild("foo").getChild("bar").getChild("baz").getChild("qux"),
+  );
 });
 
 Deno.test("Logger.getChild()", () => {
