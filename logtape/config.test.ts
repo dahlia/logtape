@@ -8,7 +8,7 @@ import {
   getConfig,
   reset,
 } from "./config.ts";
-import type { Filter } from "./filter.ts";
+import type { Filter, FilterLike } from "./filter.ts";
 import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
@@ -35,9 +35,19 @@ Deno.test("configure()", async (t) => {
     };
     const y: Filter & Disposable = () => true;
     y[Symbol.dispose] = () => ++disposed;
-    const config: Config<string, string> = {
-      sinks: { a, b, c },
-      filters: { x, y, debug: "debug" },
+    const sinks = { a, b, c };
+    const filters: Record<string, FilterLike> = {
+      x,
+      y,
+      debug: "debug",
+      warning: "warning",
+    };
+    const config: Config<
+      keyof typeof sinks,
+      keyof typeof filters
+    > = {
+      sinks,
+      filters,
       loggers: [
         {
           category: "my-app",
