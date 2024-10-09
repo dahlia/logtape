@@ -165,7 +165,9 @@ export async function configure<
       logger.sinks.push(sink);
     }
     logger.parentSinks = cfg.parentSinks ?? "inherit";
-    if (cfg.level !== undefined) logger.filters.push(toFilter(cfg.level));
+    logger.filters.push(
+      toFilter(cfg.level === undefined ? "debug" : cfg.level),
+    );
     for (const filterId of cfg.filters ?? []) {
       const filter = config.filters?.[filterId];
       if (filter === undefined) {
