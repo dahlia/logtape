@@ -8,7 +8,7 @@ import {
   getConfig,
   reset,
 } from "./config.ts";
-import type { Filter, FilterLike } from "./filter.ts";
+import { type Filter, type FilterLike, toFilter } from "./filter.ts";
 import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
@@ -28,6 +28,8 @@ Deno.test("configure()", async (t) => {
     b[Symbol.dispose] = () => ++disposed;
     const cLogs: LogRecord[] = [];
     const c: Sink = cLogs.push.bind(cLogs);
+    const dLogs: LogRecord[] = [];
+    const d: Sink = dLogs.push.bind(dLogs);
     const x: Filter & AsyncDisposable = () => true;
     x[Symbol.asyncDispose] = () => {
       ++disposed;
@@ -35,7 +37,7 @@ Deno.test("configure()", async (t) => {
     };
     const y: Filter & Disposable = () => true;
     y[Symbol.dispose] = () => ++disposed;
-    const sinks = { a, b, c };
+    const sinks = { a, b, c, d };
     const filters: Record<string, FilterLike> = {
       x,
       y,
@@ -66,16 +68,27 @@ Deno.test("configure()", async (t) => {
           filters: ["debug"],
           level: "info",
         },
+        {
+          category: ["my-app", "test"],
+          sinks: ["d"],
+          level: "debug",
+          filters: ["warning"],
+        },
+        {
+          category: ["my-app", "test", "no_level"],
+        },
       ],
     };
     await configure(config);
+    const getFiltersExpectedString = (filters: Filter[]) =>
+      [...filters, toFilter("debug")].toString();
 
     const logger = LoggerImpl.getLogger("my-app");
     assertEquals(logger.sinks, [a]);
-    assertEquals(logger.filters, [x]);
+    assertEquals(logger.filters.toString(), getFiltersExpectedString([x]));
     const foo = LoggerImpl.getLogger(["my-app", "foo"]);
     assertEquals(foo.sinks, [b]);
-    assertEquals(foo.filters, [y]);
+    assertEquals(foo.filters.toString(), getFiltersExpectedString([y]));
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
     assertEquals(bar.sinks, [c]);
     bar.debug("ignored");
@@ -126,6 +139,17 @@ Deno.test("configure()", async (t) => {
         timestamp: cLogs[0].timestamp,
       },
     ]);
+    const test = LoggerImpl.getLogger(["my-app", "test", "no_level"]);
+    assertEquals(test.filters.toString(), getFiltersExpectedString([]));
+    test.debug("logged");
+    assertEquals(dLogs, [{
+      level: "debug",
+      category: ["my-app", "test", "no_level"],
+      message: ["logged"],
+      rawMessage: "logged",
+      properties: {},
+      timestamp: dLogs[0].timestamp,
+    }]);
     assertStrictEquals(getConfig(), config);
   });
 
