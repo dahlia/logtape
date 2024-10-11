@@ -427,7 +427,7 @@ export class LoggerImpl implements Logger {
     return rootLogger.getChild(category);
   }
 
-  constructor(parent: LoggerImpl | null, category: CategoryList) {
+  private constructor(parent: LoggerImpl | null, category: CategoryList) {
     this.parent = parent;
     this.children = {};
     this.category = category;
