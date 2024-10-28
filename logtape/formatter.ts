@@ -1,3 +1,4 @@
+import type { CategoryList } from "./category.ts";
 import type { LogLevel } from "./level.ts";
 import util from "./nodeUtil.ts";
 import type { LogRecord } from "./record.ts";
@@ -154,7 +155,7 @@ export interface TextFormatterOptions {
    * If this is a function, it will be called with the category array and
    * should return a string, which will be used for rendering the category.
    */
-  category?: string | ((category: readonly string[]) => string);
+  category?: string | ((category: CategoryList) => string);
 
   /**
    * The format of the embedded values.
