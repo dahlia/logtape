@@ -9,6 +9,18 @@ Version 0.7.0
 To be released.
 
 
+Version 0.6.4
+-------------
+
+Released on October 28, 2024.
+
+ -  Fixed a build warning due to importing `node:fs` and `node:util` modules on
+    Next.js' client rendering.  [[#19]]
+ -  Made it to work on Deno 2.0.0 or higher.
+
+[#19]: https://github.com/dahlia/logtape/issues/19
+
+
 Version 0.6.3
 -------------
 

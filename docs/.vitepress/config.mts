@@ -1,10 +1,6 @@
-import { Presets, SingleBar } from "cli-progress";
 import { jsrRef } from "markdown-it-jsr-ref";
 import { defineConfig } from "vitepress";
 import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
-
-const progress = new SingleBar({}, Presets.shades_classic);
-let started = false;
 
 const jsrRefVersion =
   process.env.CI === "true" && process.env.GITHUB_REF_TYPE === "tag"
@@ -15,13 +11,6 @@ const jsrRefPlugin = await jsrRef({
   package: "@logtape/logtape",
   version: jsrRefVersion,
   cachePath: ".jsr-cache.json",
-  progress: (complete: number, total: number) => {
-    if (started) progress.update(complete);
-    else {
-      started = true;
-      progress.start(total, complete);
-    }
-  },
 });
 
 let extraNav: { text: string; link: string }[] = [];

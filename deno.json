@@ -15,6 +15,7 @@
   },
   "exclude": [
     "*-venv/",
+    ".github/",
     "coverage/",
     "docs/",
     "npm/"
