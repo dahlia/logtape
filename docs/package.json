@@ -3,7 +3,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",
-    "@logtape/logtape": "^0.6.3",
+    "@logtape/logtape": "^0.7.0-dev.106",
     "@logtape/otel": "^0.2.0",
     "@shikijs/vitepress-twoslash": "^1.17.6",
     "@teidesu/deno-types": "^1.46.3",
