@@ -1,3 +1,4 @@
+import type { ContextLocalStorage } from "./context.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
@@ -22,6 +23,12 @@ export interface Config<TSinkId extends string, TFilterId extends string> {
    * The loggers to configure.
    */
   loggers: LoggerConfig<TSinkId, TFilterId>[];
+
+  /**
+   * The context-local storage to use for implicit contexts.
+   * @since 0.7.0
+   */
+  contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
 
   /**
    * Whether to reset the configuration before applying this one.
@@ -177,6 +184,8 @@ export async function configure<
     strongRefs.add(logger);
   }
 
+  LoggerImpl.getLogger().contextLocalStorage = config.contextLocalStorage;
+
   for (const sink of Object.values<Sink>(config.sinks)) {
     if (Symbol.asyncDispose in sink) {
       asyncDisposables.add(sink as AsyncDisposable);
@@ -230,7 +239,9 @@ export function getConfig(): Config<string, string> | null {
  */
 export async function reset(): Promise<void> {
   await dispose();
-  LoggerImpl.getLogger([]).resetDescendants();
+  const rootLogger = LoggerImpl.getLogger([]);
+  rootLogger.resetDescendants();
+  delete rootLogger.contextLocalStorage;
   strongRefs.clear();
   currentConfig = null;
 }

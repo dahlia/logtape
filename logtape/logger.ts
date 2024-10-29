@@ -1,3 +1,4 @@
+import type { ContextLocalStorage } from "./context.ts";
 import type { Filter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -412,6 +413,7 @@ export class LoggerImpl implements Logger {
   readonly sinks: Sink[];
   parentSinks: "inherit" | "override" = "inherit";
   readonly filters: Filter[];
+  contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
     let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
@@ -526,6 +528,8 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
+    const implicitContext =
+      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
     let cachedProps: Record<string, unknown> | undefined = undefined;
     const record: LogRecord = typeof properties === "function"
       ? {
@@ -537,7 +541,12 @@ export class LoggerImpl implements Logger {
         },
         rawMessage,
         get properties() {
-          if (cachedProps == null) cachedProps = properties();
+          if (cachedProps == null) {
+            cachedProps = {
+              ...implicitContext,
+              ...properties(),
+            };
+          }
           return cachedProps;
         },
       }
@@ -545,9 +554,12 @@ export class LoggerImpl implements Logger {
         category: this.category,
         level,
         timestamp: Date.now(),
-        message: parseMessageTemplate(rawMessage, properties),
+        message: parseMessageTemplate(rawMessage, {
+          ...implicitContext,
+          ...properties,
+        }),
         rawMessage,
-        properties,
+        properties: { ...implicitContext, ...properties },
       };
     this.emit(record, bypassSinks);
   }
@@ -557,6 +569,8 @@ export class LoggerImpl implements Logger {
     callback: LogCallback,
     properties: Record<string, unknown> = {},
   ): void {
+    const implicitContext =
+      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
     let rawMessage: TemplateStringsArray | undefined = undefined;
     let msg: unknown[] | undefined = undefined;
     function realizeMessage(): [unknown[], TemplateStringsArray] {
@@ -579,7 +593,7 @@ export class LoggerImpl implements Logger {
         return realizeMessage()[1];
       },
       timestamp: Date.now(),
-      properties,
+      properties: { ...implicitContext, ...properties },
     });
   }
 
@@ -589,13 +603,15 @@ export class LoggerImpl implements Logger {
     values: unknown[],
     properties: Record<string, unknown> = {},
   ): void {
+    const implicitContext =
+      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
     this.emit({
       category: this.category,
       level,
       message: renderMessage(messageTemplate, values),
       rawMessage: messageTemplate,
       timestamp: Date.now(),
-      properties,
+      properties: { ...implicitContext, ...properties },
     });
   }
 

@@ -8,6 +8,12 @@ Version 0.7.0
 
 To be released.
 
+ -  Introduced implicit contexts.
+
+     -  Added `withContext()` function.
+     -  Added `Config.contextLocalStorage` option.
+     -  Added `ContextLocalStorage` interface.
+
 
 Version 0.6.4
 -------------

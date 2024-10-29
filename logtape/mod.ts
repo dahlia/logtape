@@ -7,6 +7,7 @@ export {
   type LoggerConfig,
   reset,
 } from "./config.ts";
+export { type ContextLocalStorage, withContext } from "./context.ts";
 export { getFileSink, getRotatingFileSink } from "./filesink.jsr.ts";
 export {
   type Filter,
