@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.7.0
 -------------
 
-To be released.
+Released on October 29, 2024.
 
  -  Introduced implicit contexts.
 
