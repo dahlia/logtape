@@ -1,5 +1,4 @@
 import { assertEquals } from "@std/assert/assert-equals";
-import { assertThrows } from "@std/assert/assert-throws";
 import { delay } from "@std/async/delay";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { configure, reset } from "./config.ts";
@@ -131,21 +130,57 @@ Deno.test("withContext()", async (t) => {
     await reset();
   });
 
+  const metaBuffer: LogRecord[] = [];
+
   await t.step("set up", async () => {
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),
+        metaBuffer: metaBuffer.push.bind(metaBuffer),
       },
       loggers: [
         { category: "my-app", sinks: ["buffer"], level: "debug" },
-        { category: ["logtape", "meta"], sinks: [], level: "warning" },
+        {
+          category: ["logtape", "meta"],
+          sinks: ["metaBuffer"],
+          level: "warning",
+        },
       ],
       reset: true,
     });
   });
 
   await t.step("without settings", () => {
-    assertThrows(() => withContext({}, () => {}), TypeError);
+    while (buffer.length > 0) buffer.pop();
+    const rv = withContext({ foo: 1 }, () => {
+      getLogger("my-app").debug("hello", { bar: 2 });
+      return 123;
+    });
+    assertEquals(rv, 123);
+    assertEquals(buffer, [
+      {
+        category: ["my-app"],
+        level: "debug",
+        message: ["hello"],
+        rawMessage: "hello",
+        properties: { bar: 2 },
+        timestamp: buffer[0].timestamp,
+      },
+    ]);
+    assertEquals(metaBuffer, [
+      {
+        category: ["logtape", "meta"],
+        level: "warning",
+        message: [
+          "Context-local storage is not configured.  " +
+          "Specify contextLocalStorage option in the configure() function.",
+        ],
+        properties: {},
+        rawMessage: "Context-local storage is not configured.  " +
+          "Specify contextLocalStorage option in the configure() function.",
+        timestamp: metaBuffer[0].timestamp,
+      },
+    ]);
   });
 
   await t.step("tear down", async () => {

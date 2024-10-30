@@ -26,6 +26,10 @@ export interface ContextLocalStorage<T> {
 /**
  * Runs a callback with the given implicit context.  Every single log record
  * in the callback will have the given context.
+ *
+ * If no `contextLocalStorage` is configured, this function does nothing and
+ * just returns the return value of the callback.  It also logs a warning to
+ * the `["logtape", "meta"]` logger in this case.
  * @param context The context to inject.
  * @param callback The callback to run.
  * @returns The return value of the callback.
@@ -37,10 +41,11 @@ export function withContext<T>(
 ): T {
   const rootLogger = LoggerImpl.getLogger();
   if (rootLogger.contextLocalStorage == null) {
-    throw new TypeError(
+    LoggerImpl.getLogger(["logtape", "meta"]).warn(
       "Context-local storage is not configured.  " +
         "Specify contextLocalStorage option in the configure() function.",
     );
+    return callback();
   }
   const parentContext = rootLogger.contextLocalStorage.getStore() ?? {};
   return rootLogger.contextLocalStorage.run(

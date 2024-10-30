@@ -9,6 +9,16 @@ Version 0.8.0
 To be released.
 
 
+Version 0.7.1
+-------------
+
+Released on October 30, 2024.
+
+ -  The `withContext()` function no more throws an error
+    even if no `contextLocalStorage` is configured.  Instead,  it will log
+    a warning message to the `["logtape", "meta"]` logger.
+
+
 Version 0.7.0
 -------------
 

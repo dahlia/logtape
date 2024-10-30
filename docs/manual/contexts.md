@@ -55,8 +55,8 @@ across multiple log messages made by different loggers in different modules.
 > [!CAUTION]
 > In order to use implicit context, your JavaScript runtime must support
 > context-local states (like Node.js's [`node:async_hooks`] module).  If your
-> JavaScript runtime doesn't support context-local states, LogTape will throw
-> an error when you try to use implicit contexts.
+> JavaScript runtime doesn't support context-local states, LogTape will silently
+> ignore implicit contexts and log messages will not have implicit contexts.
 >
 > As of October 2024, Node.js, Deno, and Bun support implicit contexts.
 > Web browsers don't support implicit contexts yet.
