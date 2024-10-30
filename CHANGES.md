@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.7.1
 -------------
 
-To be released.
+Released on October 30, 2024.
 
  -  The `withContext()` function no more throws an error
     even if no `contextLocalStorage` is configured.  Instead,  it will log
