@@ -8,6 +8,10 @@ Version 0.7.1
 
 To be released.
 
+ -  The `withContext()` function no more throws an error
+    even if no `contextLocalStorage` is configured.  Instead,  it will log
+    a warning message to the `["logtape", "meta"]` logger.
+
 
 Version 0.7.0
 -------------
