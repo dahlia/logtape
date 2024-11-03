@@ -489,10 +489,10 @@ export class LoggerImpl implements Logger {
   }
 
   filter(record: LogRecord): boolean {
-    for (const filter of this.filters) {
-      if (!filter(record)) return false;
-    }
     if (this.filters.length < 1) return this.parent?.filter(record) ?? true;
+    else {
+      return this.filters.map((filter) => filter(record)).some((result) => result);
+    }
     return true;
   }
 
