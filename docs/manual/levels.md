@@ -118,7 +118,7 @@ You can control which severity levels are logged in different parts of your
 application. For example:
 
 ~~~~ typescript{6,11} twoslash
-// @noErrors: 2345 2353
+// @noErrors: 2345
 import { configure } from "@logtape/logtape";
 // ---cut-before---
 await configure({
@@ -164,7 +164,7 @@ If you want make child loggers inherit the severity level from their parent
 logger, you can use the `~LoggerConfig.filters` option instead:
 
 ~~~~ typescript{4,9,13} twoslash
-// @noErrors: 2345 2353
+// @noErrors: 2345
 import { configure } from "@logtape/logtape";
 // ---cut-before---
 await configure({

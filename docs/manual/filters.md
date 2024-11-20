@@ -137,7 +137,7 @@ Sink filter
 A sink filter is a filter that is applied to a specific [sink](./sinks.md).
 You can add a sink filter to a sink by decorating the sink with `withFilter()`:
 
-~~~~ typescript{5-8} twoslash
+~~~~ typescript{7-9} twoslash
 // @noErrors: 2345
 import { configure, getConsoleSink, withFilter } from "@logtape/logtape";
 

@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.8.0
 -------------
 
-To be released.
+Released on November 20, 2024.
 
  -  Renewed the API to configure the lowest severity level of loggers.  [[#26]]
 
