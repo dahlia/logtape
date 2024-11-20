@@ -3,6 +3,12 @@
 LogTape changelog
 =================
 
+Version 0.8.1
+-------------
+
+To be released.
+
+
 Version 0.8.0
 -------------
 
