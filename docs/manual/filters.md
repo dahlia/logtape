@@ -35,13 +35,61 @@ await configure({
   loggers: [
     {
       category: ["my-app", "database"],
-      level: "debug",
       sinks: ["console"],
       filters: ["tooSlow"],  // [!code highlight]
     }
   ]
 });
 ~~~~
+
+
+Inheritance
+-----------
+
+Child loggers inherit filters from their parent loggers.  Even if a child logger
+has its own filters, the child logger filters out log messages that are filtered
+out by its parent logger filters plus its own filters.
+
+For example, the following example sets two filters, `hasUserInfo` and
+`tooSlow`, and assigns the `hasUserInfo` filter to the parent logger and
+the `tooSlow` filter to the child logger:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, type LogRecord } from "@logtape/logtape";
+// ---cut-before---
+await configure({
+  // Omitted for brevity
+  filters: {
+    hasUserInfo(record: LogRecord) {
+      return "userInfo" in record.properties;
+    },
+    tooSlow(record: LogRecord) {
+      return "elapsed" in record.properties
+        && typeof record.properties.elapsed === "number"
+        && record.properties.elapsed >= 100;
+    },
+  },
+  loggers: [
+    {
+      category: ["my-app"],
+      sinks: ["console"],
+      filters: ["hasUserInfo"],  // [!code highlight]
+    },
+    {
+      category: ["my-app", "database"],
+      sinks: [],
+      filters: ["tooSlow"],  // [!code highlight]
+    }
+  ]
+});
+~~~~
+
+In this example, any log messages under the `["my-app"]` category including
+the `["my-app", "database"]` category are passed to the console sink only if
+they have the `userInfo` property.  In addition, the log messages under the
+`["my-app", "database"]` category are passed to the console sink only if they
+have the `elapsed` with a value greater than or equal to 100 milliseconds.
 
 
 Level filter
@@ -58,7 +106,25 @@ import { configure, getLevelFilter } from "@logtape/logtape";
 
 await configure({
   filters: {
-    infoOrHigher: getLevelFilter("info"),  // [!code highlight]
+    infoAndAbove: getLevelFilter("info"),  // [!code highlight]
+  },
+  // Omitted for brevity
+});
+~~~~
+
+The `~Config.filters` takes a map of filter names to `FilterLike`, instead of
+just `Filter`, where `FilterLike` is either a `Filter` function or a severity
+level string.  The severity level string will be resolved to a `Filter` that
+filters log records with the specified severity level and above.  Hence, you
+can simplify the above example as follows:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure } from "@logtape/logtape";
+// ---cut-before---
+await configure({
+  filters: {
+    infoAndAbove: "info",  // [!code highlight]
   },
   // Omitted for brevity
 });

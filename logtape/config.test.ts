@@ -54,7 +54,8 @@ Deno.test("configure()", async (t) => {
           category: ["my-app", "bar"],
           sinks: ["c"],
           filters: ["debug"],
-          level: "info",
+          level: "info", // deprecated
+          lowestLevel: "info",
         },
       ],
     };
@@ -63,11 +64,14 @@ Deno.test("configure()", async (t) => {
     const logger = LoggerImpl.getLogger("my-app");
     assertEquals(logger.sinks, [a]);
     assertEquals(logger.filters, [x]);
+    assertEquals(logger.lowestLevel, "debug");
     const foo = LoggerImpl.getLogger(["my-app", "foo"]);
     assertEquals(foo.sinks, [b]);
     assertEquals(foo.filters, [y]);
+    assertEquals(foo.lowestLevel, "debug");
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
     assertEquals(bar.sinks, [c]);
+    assertEquals(bar.lowestLevel, "info");
     bar.debug("ignored");
     assertEquals(aLogs, []);
     assertEquals(bLogs, []);

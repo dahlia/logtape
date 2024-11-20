@@ -29,7 +29,7 @@ await configure({
   loggers: [
     {
       category: "my-app",
-      level: "info",
+      lowestLevel: "info",
       sinks: ["console"],
     },
   ],
@@ -109,18 +109,18 @@ await configure({
   loggers: [
     {
       category: "my-app",
-      level: "info",
+      lowestLevel: "info",
       sinks: ["console", "file"],
     },
     {
       category: ["my-app", "database"],
-      level: "debug",
+      lowestLevel: "debug",
       sinks: ["file"],
       filters: ["noDebug"],
     },
     {
       category: ["my-app", "user-service"],
-      level: "info",
+      lowestLevel: "info",
       sinks: ["console", "file"],
       filters: ["containsUserData"],
     },

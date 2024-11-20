@@ -10,7 +10,8 @@ with the category `["my-app", "my-module", "my-submodule"]`, it is dispatched
 to loggers whose categories are `["my-app", "my-module"]` and `["my-app"]`.
 
 This behavior allows you to control the verbosity of log messages by setting
-the log level of loggers at different levels of the category hierarchy.
+the `~LoggerConfig.lowestLevel` of loggers at different levels of the category
+hierarchy.
 
 Here's an example of setting log levels for different categories:
 
@@ -20,11 +21,11 @@ import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
 await configure({
   sinks: {
     console: getConsoleSink(),
-    file: getFileSink("app.log"),
+    file:    getFileSink("app.log"),
   },
   loggers: [
-    { category: ["my-app"], level: "info", sinks: ["file"] },
-    { category: ["my-app", "my-module"], level: "debug", sinks: ["console"] },
+    { category: ["my-app"],              lowestLevel: "info",  sinks: ["file"] },
+    { category: ["my-app", "my-module"], lowestLevel: "debug", sinks: ["console"] },
   ],
 })
 ~~~~

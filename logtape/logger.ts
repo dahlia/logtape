@@ -1,6 +1,6 @@
 import type { ContextLocalStorage } from "./context.ts";
 import type { Filter } from "./filter.ts";
-import type { LogLevel } from "./level.ts";
+import { compareLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
@@ -413,6 +413,7 @@ export class LoggerImpl implements Logger {
   readonly sinks: Sink[];
   parentSinks: "inherit" | "override" = "inherit";
   readonly filters: Filter[];
+  lowestLevel: LogLevel | null = "debug";
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
@@ -470,6 +471,7 @@ export class LoggerImpl implements Logger {
     while (this.sinks.length > 0) this.sinks.shift();
     this.parentSinks = "inherit";
     while (this.filters.length > 0) this.filters.shift();
+    this.lowestLevel = "debug";
   }
 
   /**
@@ -504,7 +506,13 @@ export class LoggerImpl implements Logger {
   }
 
   emit(record: LogRecord, bypassSinks?: Set<Sink>): void {
-    if (!this.filter(record)) return;
+    if (
+      this.lowestLevel === null ||
+      compareLogLevel(record.level, this.lowestLevel) < 0 ||
+      !this.filter(record)
+    ) {
+      return;
+    }
     for (const sink of this.getSinks()) {
       if (bypassSinks?.has(sink)) continue;
       try {

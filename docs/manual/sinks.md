@@ -288,7 +288,7 @@ await configure({
   },
   filters: {},
   loggers: [
-    { category: [], sinks: ["otel"], level: "debug" },
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
   ],
 });
 ~~~~

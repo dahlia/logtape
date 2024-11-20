@@ -112,23 +112,33 @@ When deciding which level to use, consider:
 Configuring severity levels
 ---------------------------
 
+*This API is available since LogTape 0.8.0.*
+
 You can control which severity levels are logged in different parts of your
 application. For example:
 
-~~~~ typescript twoslash
-// @noErrors: 2345
+~~~~ typescript{6,11} twoslash
+// @noErrors: 2345 2353
 import { configure } from "@logtape/logtape";
 // ---cut-before---
 await configure({
+// ---cut-start---
+  sinks: {
+    console(record) { },
+    file(record) { },
+  },
+// ---cut-end---
   // ... other configuration ...
   loggers: [
     {
       category: ["app"],
-      level: "info",  // This will log info and above
+      lowestLevel: "info",  // This will log info and above
+      sinks: ["console"],
     },
     {
       category: ["app", "database"],
-      level: "debug",  // This will log everything for database operations
+      lowestLevel: "debug",  // This will log everything for database operations
+      sinks: ["file"],
     }
   ]
 });
@@ -136,6 +146,89 @@ await configure({
 
 This configuration will log all levels from `"info"` up for most of the app,
 but will include `"debug"` logs for database operations.
+
+> [!NOTE]
+> The `~LoggerConfig.lowestLevel` is applied to the logger itself, not to its
+> sinks.  In other words, the `~LoggerConfig.lowestLevel` property determines
+> which log records are emitted by the logger.  For example, if the parent
+> logger has a `~LoggerConfig.lowestLevel` of `"debug"` with a sink `"console"`,
+> and the child logger has a `~LoggerConfig.lowestLevel` of `"info"`,
+> the child logger still won't emit `"debug"` records to the `"console"` sink.
+
+The `~LoggerConfig.lowestLevel` property does not inherit from parent loggers,
+but it is `"debug"` by default for all loggers.  If you want to make child
+loggers inherit the severity level from their parent logger, you can use the
+`~LoggerConfig.filters` option instead.
+
+If you want make child loggers inherit the severity level from their parent
+logger, you can use the `~LoggerConfig.filters` option instead:
+
+~~~~ typescript{4,9,13} twoslash
+// @noErrors: 2345 2353
+import { configure } from "@logtape/logtape";
+// ---cut-before---
+await configure({
+  // ... other configuration ...
+  filters: {
+    infoAndAbove: "info",
+  },
+  loggers: [
+    {
+      category: ["app"],
+      filters: ["infoAndAbove"],  // This will log info and above
+    },
+    {
+      category: ["app", "database"],
+      // This also logs info and above, because it inherits from the parent logger
+    }
+  ]
+});
+~~~~
+
+In this example, the database logger will inherit the `aboveAndInfo` filter from
+the parent logger, so it will log all levels from `"info"` up.
+
+> [!TIP]
+> The `~LoggerConfig.filters` option takes a map of filter names to
+> `FilterLike`, where `FilterLike` is either a `Filter` function or a severity
+> level string.  The severity level string will be resolved to a `Filter` that
+> filters log records with the specified severity level and above.
+>
+> See also the [*Level filter* section](./filters.md#level-filter).
+
+
+Comparing two severity levels
+-----------------------------
+
+*This API is available since LogTape 0.8.0.*
+
+You can compare two severity levels to see which one is more severe by using
+the `compareLogLevel()` function.  Since this function returns a number where
+negative means the first argument is less severe, zero means they are equal,
+and positive means the first argument is more severe, you can use it with
+[`Array.sort()`] or [`Array.toSorted()`] to sort severity levels:
+
+~~~~ typescript twoslash
+// @noErrors: 2724
+import { type LogLevel, compareLogLevel } from "@logtape/logtape";
+
+const levels: LogLevel[] = ["info", "debug", "error", "warning", "fatal"];
+levels.sort(compareLogLevel);
+for (const level of levels) console.log(level);
+~~~~
+
+The above code will output:
+
+~~~~
+debug
+info
+warning
+error
+fatal
+~~~~
+
+[`Array.sort()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
+[`Array.toSorted()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSorted
 
 
 Best practices

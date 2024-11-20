@@ -134,12 +134,12 @@ await configure({
   loggers: [
     {
       category: ["my-awesome-lib"],
-      level: "info",
+      lowestLevel: "info",
       sinks: ["console", "file"]
     },
     {
       category: ["my-awesome-lib", "database"],
-      level: "debug",
+      lowestLevel: "debug",
       sinks: ["file"],
       filters: ["excludeDebug"]
     }

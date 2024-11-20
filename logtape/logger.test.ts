@@ -134,17 +134,17 @@ Deno.test("LoggerImpl.emit()", async (t) => {
   const fooBar = foo.getChild("bar");
   const fooBarBaz = fooBar.getChild("baz");
 
-  await t.step("test", () => {
-    const rootRecords: LogRecord[] = [];
-    root.sinks.push(rootRecords.push.bind(rootRecords));
-    root.filters.push(toFilter("warning"));
-    const fooRecords: LogRecord[] = [];
-    foo.sinks.push(fooRecords.push.bind(fooRecords));
-    foo.filters.push(toFilter("info"));
-    const fooBarRecords: LogRecord[] = [];
-    fooBar.sinks.push(fooBarRecords.push.bind(fooBarRecords));
-    fooBar.filters.push(toFilter("error"));
+  const rootRecords: LogRecord[] = [];
+  root.sinks.push(rootRecords.push.bind(rootRecords));
+  root.filters.push(toFilter("warning"));
+  const fooRecords: LogRecord[] = [];
+  foo.sinks.push(fooRecords.push.bind(fooRecords));
+  foo.filters.push(toFilter("info"));
+  const fooBarRecords: LogRecord[] = [];
+  fooBar.sinks.push(fooBarRecords.push.bind(fooBarRecords));
+  fooBar.filters.push(toFilter("error"));
 
+  await t.step("filter and sink", () => {
     root.emit(info);
     assertEquals(rootRecords, []);
     assertEquals(fooRecords, []);
@@ -171,33 +171,71 @@ Deno.test("LoggerImpl.emit()", async (t) => {
     assertEquals(rootRecords, [warning, info, error]);
     assertEquals(fooRecords, [info, error]);
     assertEquals(fooBarRecords, [error]);
+  });
 
-    const errorSink: Sink = () => {
-      throw new Error("This is an error");
-    };
-    fooBarBaz.sinks.push(errorSink);
+  while (rootRecords.length > 0) rootRecords.pop();
+  while (fooRecords.length > 0) fooRecords.pop();
+  while (fooBarRecords.length > 0) fooBarRecords.pop();
+
+  const errorSink: Sink = () => {
+    throw new Error("This is an error");
+  };
+  fooBarBaz.sinks.push(errorSink);
+
+  await t.step("error handling", () => {
     fooBarBaz.emit(error);
-    assertEquals(rootRecords.length, 5);
-    assertEquals(rootRecords.slice(0, 4), [warning, info, error, error]);
-    assertEquals(fooRecords, [info, error, error]);
-    assertEquals(fooBarRecords, [error, error]);
-    assertEquals(rootRecords[4].category, ["logtape", "meta"]);
-    assertEquals(rootRecords[4].level, "fatal");
-    assertEquals(rootRecords[4].message, [
+    assertEquals(rootRecords.length, 2);
+    assertEquals(rootRecords[0], error);
+    assertEquals(fooRecords, [error]);
+    assertEquals(fooBarRecords, [error]);
+    assertEquals(rootRecords[1].category, ["logtape", "meta"]);
+    assertEquals(rootRecords[1].level, "fatal");
+    assertEquals(rootRecords[1].message, [
       "Failed to emit a log record to sink ",
       errorSink,
       ": ",
-      rootRecords[4].properties.error,
+      rootRecords[1].properties.error,
       "",
     ]);
-    assertEquals(rootRecords[4].properties, {
+    assertEquals(rootRecords[1].properties, {
       record: error,
       sink: errorSink,
-      error: rootRecords[4].properties.error,
+      error: rootRecords[1].properties.error,
     });
 
     root.sinks.push(errorSink);
     fooBarBaz.emit(error);
+  });
+
+  while (rootRecords.length > 0) rootRecords.pop();
+  while (fooRecords.length > 0) fooRecords.pop();
+  while (fooBarRecords.length > 0) fooBarRecords.pop();
+  while (root.filters.length > 0) root.filters.pop();
+  while (foo.filters.length > 0) foo.filters.pop();
+  while (fooBar.filters.length > 0) fooBar.filters.pop();
+  root.sinks.pop();
+
+  root.lowestLevel = "debug";
+  foo.lowestLevel = "error";
+  fooBar.lowestLevel = "info";
+
+  await t.step("lowestLevel", () => {
+    fooBar.emit(debug);
+    assertEquals(rootRecords, []);
+    assertEquals(fooRecords, []);
+    assertEquals(fooBarRecords, []);
+
+    foo.emit(debug);
+    assertEquals(rootRecords, []);
+    assertEquals(fooRecords, []);
+
+    root.emit(debug);
+    assertEquals(rootRecords, [debug]);
+
+    fooBar.emit(info);
+    assertEquals(rootRecords, [debug, info]);
+    assertEquals(fooRecords, [info]);
+    assertEquals(fooBarRecords, [info]);
   });
 
   await t.step("tear down", () => {

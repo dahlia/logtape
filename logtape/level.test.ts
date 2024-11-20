@@ -2,7 +2,12 @@ import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/assert-equals";
 import { assertFalse } from "@std/assert/assert-false";
 import { assertThrows } from "@std/assert/assert-throws";
-import { isLogLevel, parseLogLevel } from "./level.ts";
+import {
+  compareLogLevel,
+  isLogLevel,
+  type LogLevel,
+  parseLogLevel,
+} from "./level.ts";
 
 Deno.test("parseLogLevel()", () => {
   assertEquals(parseLogLevel("debug"), "debug");
@@ -30,4 +35,10 @@ Deno.test("isLogLevel()", () => {
   assert(isLogLevel("fatal"));
   assertFalse(isLogLevel("DEBUG"));
   assertFalse(isLogLevel("invalid"));
+});
+
+Deno.test("compareLogLevel()", () => {
+  const levels: LogLevel[] = ["info", "debug", "error", "warning", "fatal"];
+  levels.sort(compareLogLevel);
+  assertEquals(levels, ["debug", "info", "warning", "error", "fatal"]);
 });

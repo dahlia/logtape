@@ -1,7 +1,9 @@
+const logLevels = ["debug", "info", "warning", "error", "fatal"] as const;
+
 /**
  * The severity level of a {@link LogRecord}.
  */
-export type LogLevel = "debug" | "info" | "warning" | "error" | "fatal";
+export type LogLevel = typeof logLevels[number];
 
 /**
  * Parses a log level from a string.
@@ -42,4 +44,24 @@ export function isLogLevel(level: string): level is LogLevel {
     default:
       return false;
   }
+}
+
+/**
+ * Compares two log levels.
+ * @param a The first log level.
+ * @param b The second log level.
+ * @returns A negative number if `a` is less than `b`, a positive number if `a`
+ *          is greater than `b`, or zero if they are equal.
+ * @since 0.8.0
+ */
+export function compareLogLevel(a: LogLevel, b: LogLevel): number {
+  const aIndex = logLevels.indexOf(a);
+  if (aIndex < 0) {
+    throw new TypeError(`Invalid log level: ${JSON.stringify(a)}.`);
+  }
+  const bIndex = logLevels.indexOf(b);
+  if (bIndex < 0) {
+    throw new TypeError(`Invalid log level: ${JSON.stringify(b)}.`);
+  }
+  return aIndex - bIndex;
 }

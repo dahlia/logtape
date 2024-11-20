@@ -13,7 +13,7 @@ import { configure, getConsoleSink } from "@logtape/logtape";
 await configure({
   sinks: { console: getConsoleSink() },
   loggers: [
-    { category: "my-app", level: "debug", sinks: ["console"] }
+    { category: "my-app", lowestLevel: "debug", sinks: ["console"] }
   ]
 });
 ~~~~

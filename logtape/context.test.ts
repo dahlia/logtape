@@ -15,8 +15,8 @@ Deno.test("withContext()", async (t) => {
         buffer: buffer.push.bind(buffer),
       },
       loggers: [
-        { category: "my-app", sinks: ["buffer"], level: "debug" },
-        { category: ["logtape", "meta"], sinks: [], level: "warning" },
+        { category: "my-app", sinks: ["buffer"], lowestLevel: "debug" },
+        { category: ["logtape", "meta"], sinks: [], lowestLevel: "warning" },
       ],
       contextLocalStorage: new AsyncLocalStorage(),
       reset: true,
@@ -139,11 +139,11 @@ Deno.test("withContext()", async (t) => {
         metaBuffer: metaBuffer.push.bind(metaBuffer),
       },
       loggers: [
-        { category: "my-app", sinks: ["buffer"], level: "debug" },
+        { category: "my-app", sinks: ["buffer"], lowestLevel: "debug" },
         {
           category: ["logtape", "meta"],
           sinks: ["metaBuffer"],
-          level: "warning",
+          lowestLevel: "warning",
         },
       ],
       reset: true,

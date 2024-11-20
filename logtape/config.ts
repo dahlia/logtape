@@ -73,8 +73,17 @@ export interface LoggerConfig<
   /**
    * The log level to filter by.  If `null`, the logger will reject all
    * records.
+   * @deprecated Use `filters` instead for backward compatibility, or use
+   *             `lowestLevel` for less-misleading behavior.
    */
   level?: LogLevel | null;
+
+  /**
+   * The lowest log level to accept.  If `null`, the logger will reject all
+   * records.
+   * @since 0.8.0
+   */
+  lowestLevel?: LogLevel | null;
 }
 
 /**
@@ -151,6 +160,7 @@ export async function configure<
   currentConfig = config;
 
   let metaConfigured = false;
+  let levelUsed = false;
 
   for (const cfg of config.loggers) {
     if (
@@ -172,7 +182,13 @@ export async function configure<
       logger.sinks.push(sink);
     }
     logger.parentSinks = cfg.parentSinks ?? "inherit";
-    if (cfg.level !== undefined) logger.filters.push(toFilter(cfg.level));
+    if (cfg.lowestLevel !== undefined) {
+      logger.lowestLevel = cfg.lowestLevel;
+    }
+    if (cfg.level !== undefined) {
+      levelUsed = true;
+      logger.filters.push(toFilter(cfg.level));
+    }
     for (const filterId of cfg.filters ?? []) {
       const filter = config.filters?.[filterId];
       if (filter === undefined) {
@@ -221,9 +237,18 @@ export async function configure<
       "It's recommended to configure the meta logger with a separate sink " +
       "so that you can easily notice if logging itself fails or is " +
       "misconfigured.  To turn off this message, configure the meta logger " +
-      "with higher log levels than {dismissLevel}.",
+      "with higher log levels than {dismissLevel}.  See also " +
+      "<https://logtape.org/manual/categories#meta-logger>.",
     { metaLoggerCategory: ["logtape", "meta"], dismissLevel: "info" },
   );
+
+  if (levelUsed) {
+    meta.warn(
+      "The level option is deprecated in favor of lowestLevel option.  " +
+        "Please update your configuration.  See also " +
+        "<https://logtape.org/manual/levels#configuring-severity-levels>.",
+    );
+  }
 }
 
 /**

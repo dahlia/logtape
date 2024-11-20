@@ -8,6 +8,16 @@ Version 0.8.0
 
 To be released.
 
+ -  Renewed the API to configure the lowest severity level of loggers.  [[#26]]
+
+     -  Added `LoggerConfig.lowestLevel` property.
+     -  Deprecated `LoggerConfig.level` property in favor of
+        `LoggerConfig.lowestLevel`.
+
+ -  Added `compareLogLevel()` function.
+
+[#26]: https://github.com/dahlia/logtape/issues/26
+
 
 Version 0.7.1
 -------------

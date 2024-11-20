@@ -29,7 +29,12 @@ export {
   type TextFormatter,
   type TextFormatterOptions,
 } from "./formatter.ts";
-export { isLogLevel, type LogLevel, parseLogLevel } from "./level.ts";
+export {
+  compareLogLevel,
+  isLogLevel,
+  type LogLevel,
+  parseLogLevel,
+} from "./level.ts";
 export { getLogger, type Logger } from "./logger.ts";
 export type { LogRecord } from "./record.ts";
 export {
