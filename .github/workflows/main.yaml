@@ -1,0 +1,43 @@
+name: main
+on: [push, pull_request]
+
+jobs:
+  publish:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v2.x
+    - if: github.ref_type == 'branch'
+      run: |
+        jq \
+          --arg build "$GITHUB_RUN_NUMBER" \
+          --arg commit "${GITHUB_SHA::8}" \
+          '.version = .version + "-dev." + $build + "+" + $commit' \
+          deno.json > deno.json.tmp
+        mv deno.json.tmp deno.json
+    - if: github.ref_type == 'tag'
+      run: |
+        set -ex
+        [[ "$(jq -r .version deno.json)" = "$GITHUB_REF_NAME" ]]
+    - run: 'deno task dnt "$(jq -r .version deno.json)"'
+    - if: github.event_name == 'push'
+      run: |
+        set -ex
+        npm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
+        if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
+          npm publish --provenance --access public
+        else
+          npm publish --provenance --access public --tag dev
+        fi
+      env:
+        NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+      working-directory: ${{ github.workspace }}/npm/
+    - if: github.event_name == 'pull_request'
+      run: deno publish --dry-run --allow-dirty
+    - if: github.event_name == 'push'
+      run: deno publish --allow-dirty

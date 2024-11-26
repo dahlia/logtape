@@ -1,0 +1,19 @@
+{
+  "name": "@logtape/sentry",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "imports": {
+    "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
+    "@logtape/logtape": "jsr:@logtape/logtape@^0.8.0",
+    "@logtape/sentry": "./mod.ts",
+    "@sentry/core": "npm:@sentry/core@^8.40.0",
+    "@sentry/types": "npm:@sentry/types@^8.40.0",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.2"
+  },
+  "tasks": {
+    "dnt": "deno run -A dnt.ts"
+  }
+}
