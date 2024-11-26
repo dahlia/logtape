@@ -1,5 +1,8 @@
 {
-  "dependencies": {},
+  "dependencies": {
+    "@logtape/sentry": "^0.1.0",
+    "@sentry/node": "^8.40.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",

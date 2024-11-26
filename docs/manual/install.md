@@ -7,7 +7,7 @@ JavaScript runtimes and package managers:
 :::code-group
 
 ~~~~ sh [Deno]
-deno add @logtape/logtape
+deno add jsr:@logtape/logtape
 ~~~~
 
 ~~~~ sh [npm]
@@ -61,7 +61,7 @@ bun add @logtape/logtape@dev
 > to specify the specific version number of the unstable release:
 >
 > ~~~~ sh
-> deno add @logtape/logtape@1.2.3-dev.4  # Replace 1.2.3-dev.4 with the actual version number
+> deno add jsr:@logtape/logtape@1.2.3-dev.4  # Replace 1.2.3-dev.4 with the actual version number
 > ~~~~
 
 [JSR]: https://jsr.io/@logtape/logtape

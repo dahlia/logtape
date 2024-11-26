@@ -254,7 +254,7 @@ sink to send log messages to the collector using [@logtape/otel] package:
 ::: code-group
 
 ~~~~ sh [Deno]
-deno add @logtape/otel
+deno add jsr:@logtape/otel
 ~~~~
 
 ~~~~ sh [npm]
@@ -302,6 +302,89 @@ For more details, see the documentation of [@logtape/otel].
 [OpenTelemetry]: https://opentelemetry.io/
 [@logtape/otel]: https://github.com/dahlia/logtape-otel
 [`getOpenTelemetrySink()`]: https://jsr.io/@logtape/otel/doc/~/getOpenTelemetrySink
+
+
+Sentry sink
+-----------
+
+If you are using [Sentry] for error monitoring, you can use the Sentry sink to
+send log messages to Sentry using [@logtape/sentry] package:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/sentry
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/sentry
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/sentry
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/sentry
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/sentry
+~~~~
+
+:::
+
+The quickest way to get started is to use the [`getSentrySink()`] function
+without any arguments:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+await configure({
+  sinks: {
+    sentry: getSentrySink(),
+  },
+  filters: {},
+  loggers: [
+    { category: [], sinks: ["sentry"], level: "debug" },
+  ],
+});
+~~~~
+
+The log records will show up in the breadcrumbs of the Sentry issues:
+
+![LogTape records show up in the breadcrumbs of a Sentry issue.](https://raw.githubusercontent.com/dahlia/logtape-sentry/refs/heads/main/screenshot.png)
+
+If you want to explicitly configure the Sentry client, you can pass
+the [`Client`] instance to the [`getSentrySink()`] function:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+import { init } from "@sentry/node";
+
+const client = init({
+  dsn: process.env.SENTRY_DSN,
+});
+
+await configure({
+  sinks: {
+    sentry: getSentrySink(client),
+  },
+  filters: {},
+  loggers: [
+    { category: [], sinks: ["sentry"], level: "debug" },
+  ],
+});
+~~~~
+
+For more details, see the documentation of [@logtape/sentry].
+
+[Sentry]: https://sentry.io/
+[@logtape/sentry]: https://github.com/dahlia/logtape-sentry
+[`getSentrySink()`]: https://jsr.io/@logtape/sentry/doc/~/getSentrySink
+[`Client`]: https://getsentry.github.io/sentry-javascript/interfaces/_sentry_types.Client.html
 
 
 Disposable sink
