@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.8.1
 -------------
 
-To be released.
+Released on February 1, 2025.
 
  -  Fixed a bug where when a child logger is configured with a lower
     `lowestLevel` than its parent logger, a log record with a severity level
