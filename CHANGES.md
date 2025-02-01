@@ -8,6 +8,11 @@ Version 0.8.1
 
 To be released.
 
+ -  Fixed a bug where when a child logger is configured with a lower
+    `lowestLevel` than its parent logger, a log record with a severity level
+    lower than the parent logger's `lowestLevel` and higher than the child
+    logger's `lowestLevel` would not be filtered out by the parent logger.
+
 
 Version 0.8.0
 -------------
