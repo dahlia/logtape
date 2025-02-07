@@ -217,10 +217,155 @@ export async function configure<
     if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
-  if ("process" in globalThis && !("Deno" in globalThis)) { // @ts-ignore: It's fine to use process in Node
+  if ("process" in globalThis && !("Deno" in globalThis)) {
+    // @ts-ignore: It's fine to use process in Node
     // deno-lint-ignore no-process-globals
     process.on("exit", dispose);
-  } else { // @ts-ignore: It's fine to addEventListener() on the browser/Deno
+  } else {
+    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
+    addEventListener("unload", dispose);
+  }
+
+  const meta = LoggerImpl.getLogger(["logtape", "meta"]);
+  if (!metaConfigured) {
+    meta.sinks.push(getConsoleSink());
+  }
+
+  meta.info(
+    "LogTape loggers are configured.  Note that LogTape itself uses the meta " +
+      "logger, which has category {metaLoggerCategory}.  The meta logger " +
+      "purposes to log internal errors such as sink exceptions.  If you " +
+      "are seeing this message, the meta logger is somehow configured.  " +
+      "It's recommended to configure the meta logger with a separate sink " +
+      "so that you can easily notice if logging itself fails or is " +
+      "misconfigured.  To turn off this message, configure the meta logger " +
+      "with higher log levels than {dismissLevel}.  See also " +
+      "<https://logtape.org/manual/categories#meta-logger>.",
+    { metaLoggerCategory: ["logtape", "meta"], dismissLevel: "info" },
+  );
+
+  if (levelUsed) {
+    meta.warn(
+      "The level option is deprecated in favor of lowestLevel option.  " +
+        "Please update your configuration.  See also " +
+        "<https://logtape.org/manual/levels#configuring-severity-levels>.",
+    );
+  }
+}
+
+/**
+ * Configure sync loggers with the specified configuration.
+ *
+ * Note that if the given sinks or filters are disposable, they will be
+ * disposed when the configuration is reset, or when the process exits.
+ *
+ * Also note that passing async sinks or filters will throw. If
+ * neccessary use {@link resetSync} or {@link disposeSync}.
+ *
+ * @example
+ * ```typescript
+ * await configure({
+ *   sinks: {
+ *     console: getConsoleSink(),
+ *   },
+ *   loggers: [
+ *     {
+ *       category: "my-app",
+ *       sinks: ["console"],
+ *       level: "info",
+ *     },
+ *     {
+ *       category: "logtape",
+ *       sinks: ["console"],
+ *       level: "error",
+ *     },
+ *   ],
+ * });
+ * ```
+ *
+ * @param config The configuration.
+ */
+export function configureSync<TSinkId extends string, TFilterId extends string>(
+  config: Config<TSinkId, TFilterId>,
+): void {
+  if (currentConfig != null && !config.reset) {
+    throw new ConfigError(
+      "Already configured; if you want to reset, turn on the reset flag.",
+    );
+  }
+  resetSync();
+  currentConfig = config;
+
+  let metaConfigured = false;
+  let levelUsed = false;
+
+  for (const cfg of config.loggers) {
+    if (
+      cfg.category.length === 0 ||
+      (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
+      (cfg.category.length === 2 &&
+        cfg.category[0] === "logtape" &&
+        cfg.category[1] === "meta")
+    ) {
+      metaConfigured = true;
+    }
+    const logger = LoggerImpl.getLogger(cfg.category);
+    for (const sinkId of cfg.sinks ?? []) {
+      const sink = config.sinks[sinkId];
+      if (!sink) {
+        resetSync();
+        throw new ConfigError(`Sink not found: ${sinkId}.`);
+      }
+      logger.sinks.push(sink);
+    }
+    logger.parentSinks = cfg.parentSinks ?? "inherit";
+    if (cfg.lowestLevel !== undefined) {
+      logger.lowestLevel = cfg.lowestLevel;
+    }
+    if (cfg.level !== undefined) {
+      levelUsed = true;
+      logger.filters.push(toFilter(cfg.level));
+    }
+    for (const filterId of cfg.filters ?? []) {
+      const filter = config.filters?.[filterId];
+      if (filter === undefined) {
+        resetSync();
+        throw new ConfigError(`Filter not found: ${filterId}.`);
+      }
+      logger.filters.push(toFilter(filter));
+    }
+    strongRefs.add(logger);
+  }
+
+  LoggerImpl.getLogger().contextLocalStorage = config.contextLocalStorage;
+
+  for (const sink of Object.values<Sink>(config.sinks)) {
+    if (Symbol.asyncDispose in sink) {
+      resetSync();
+      throw new ConfigError(
+        "Async disposables cannot be used with configureSync.",
+      );
+    }
+    if (Symbol.dispose in sink) disposables.add(sink as Disposable);
+  }
+
+  for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
+    if (filter == null || typeof filter === "string") continue;
+    if (Symbol.asyncDispose in filter) {
+      resetSync();
+      throw new ConfigError(
+        "Async disposables cannot be used with configureSync.",
+      );
+    }
+    if (Symbol.dispose in filter) disposables.add(filter as Disposable);
+  }
+
+  if ("process" in globalThis && !("Deno" in globalThis)) {
+    // @ts-ignore: It's fine to use process in Node
+    // deno-lint-ignore no-process-globals
+    process.on("exit", dispose);
+  } else {
+    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
     addEventListener("unload", dispose);
   }
 
@@ -272,6 +417,19 @@ export async function reset(): Promise<void> {
 }
 
 /**
+ * Reset the configuration.  Mostly for testing purposes. Will not clear async sinks, only use
+ * with sync sinks.
+ */
+export function resetSync(): void {
+  disposeSync();
+  const rootLogger = LoggerImpl.getLogger([]);
+  rootLogger.resetDescendants();
+  delete rootLogger.contextLocalStorage;
+  strongRefs.clear();
+  currentConfig = null;
+}
+
+/**
  * Dispose of the disposables.
  */
 export async function dispose(): Promise<void> {
@@ -283,6 +441,14 @@ export async function dispose(): Promise<void> {
     asyncDisposables.delete(disposable);
   }
   await Promise.all(promises);
+}
+
+/**
+ * Dispose of the sync disposables. Async disposables will be untouched, use `dispose` if you have async sinks.
+ */
+export function disposeSync(): void {
+  for (const disposable of disposables) disposable[Symbol.dispose]();
+  disposables.clear();
 }
 
 /**
