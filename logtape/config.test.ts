@@ -224,7 +224,7 @@ Deno.test("configure()", async (t) => {
 Deno.test("configureSync()", async (t) => {
   let disposed = 0;
 
-  await t.step("test", async () => {
+  await t.step("test", () => {
     const bLogs: LogRecord[] = [];
     const b: Sink & Disposable = (record) => bLogs.push(record);
     b[Symbol.dispose] = () => ++disposed;
@@ -299,7 +299,7 @@ Deno.test("configureSync()", async (t) => {
     assertStrictEquals(getConfig(), config);
   });
 
-  await t.step("reconfigure", async () => {
+  await t.step("reconfigure", () => {
     assert.throws(
       () =>
         configureSync({
@@ -322,12 +322,12 @@ Deno.test("configureSync()", async (t) => {
     assertStrictEquals(getConfig(), config);
   });
 
-  await t.step("tear down", async () => {
+  await t.step("tear down", () => {
     resetSync();
     assertStrictEquals(getConfig(), null);
   });
 
-  await t.step("misconfiguration", async () => {
+  await t.step("misconfiguration", () => {
     assert.throws(
       () =>
         configureSync({
@@ -368,33 +368,30 @@ Deno.test("configureSync()", async (t) => {
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
-    await t.step(
-      "meta configuration: " + JSON.stringify(metaCategory),
-      async () => {
-        const config = {
-          sinks: {},
-          loggers: [
-            {
-              category: metaCategory,
-              sinks: [],
-              filters: [],
-            },
-          ],
-        };
-        configureSync(config);
+    await t.step("meta configuration: " + JSON.stringify(metaCategory), () => {
+      const config = {
+        sinks: {},
+        loggers: [
+          {
+            category: metaCategory,
+            sinks: [],
+            filters: [],
+          },
+        ],
+      };
+      configureSync(config);
 
-        assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
-        assertStrictEquals(getConfig(), config);
-      },
-    );
+      assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
+      assertStrictEquals(getConfig(), config);
+    });
 
-    await t.step("tear down", async () => {
+    await t.step("tear down", () => {
       resetSync();
       assertStrictEquals(getConfig(), null);
     });
   }
 
-  await t.step("no async", async () => {
+  await t.step("no async", () => {
     const aLogs: LogRecord[] = [];
     const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
