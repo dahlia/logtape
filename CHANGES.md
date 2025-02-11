@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.7.2
 -------------
 
-To be released.
+Released on February 11, 2025.
 
  -  Fixed a bug of text formatters where they truncated string and array values
     in the formatted message.  [[#30]]
