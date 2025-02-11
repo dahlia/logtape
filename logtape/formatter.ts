@@ -39,15 +39,25 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string =
     // @ts-ignore: Deno global
     // dnt-shim-ignore
     typeof globalThis.Deno.inspect === "function"
-    // @ts-ignore: Deno global
-    // dnt-shim-ignore
-    ? globalThis.Deno.inspect.bind(globalThis.Deno)
+    ? (v, opts) =>
+      // @ts-ignore: Deno global
+      // dnt-shim-ignore
+      globalThis.Deno.inspect(v, {
+        strAbbreviateSize: Infinity,
+        iterableLimit: Infinity,
+        ...opts,
+      })
     // @ts-ignore: Node.js global
     // dnt-shim-ignore
     : util != null && "inspect" in util && typeof util.inspect === "function"
-    // @ts-ignore: Node.js global
-    // dnt-shim-ignore
-    ? util.inspect.bind(util)
+    ? (v, opts) =>
+      // @ts-ignore: Node.js global
+      // dnt-shim-ignore
+      util.inspect(v, {
+        maxArrayLength: Infinity,
+        maxStringLength: Infinity,
+        ...opts,
+      })
     : (v) => JSON.stringify(v);
 
 /**

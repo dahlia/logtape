@@ -8,6 +8,9 @@ Version 0.8.2
 
 To be released.
 
+ -  Fixed a bug of text formatters where they truncated string and array values
+    in the formatted message.  [[#30]]
+
 
 Version 0.8.1
 -------------
@@ -36,6 +39,15 @@ Released on November 20, 2024.
 [#26]: https://github.com/dahlia/logtape/issues/26
 
 
+Version 0.7.2
+-------------
+
+Released on February 11, 2025.
+
+ -  Fixed a bug of text formatters where they truncated string and array values
+    in the formatted message.  [[#30]]
+
+
 Version 0.7.1
 -------------
 
@@ -56,6 +68,17 @@ Released on October 29, 2024.
      -  Added `withContext()` function.
      -  Added `Config.contextLocalStorage` option.
      -  Added `ContextLocalStorage` interface.
+
+
+Version 0.6.5
+-------------
+
+Released on February 11, 2025.
+
+ -  Fixed a bug of text formatters where they truncated string and array values
+    in the formatted message.  [[#30]]
+
+[#30]: https://github.com/dahlia/logtape/issues/30
 
 
 Version 0.6.4
