@@ -8,6 +8,11 @@ Version 0.6.5
 
 To be released.
 
+ -  Fixed a bug of text formatters where they truncated string and array values
+    in the formatted message.  [[#30]]
+
+[#30]: https://github.com/dahlia/logtape/issues/30
+
 
 Version 0.6.4
 -------------
