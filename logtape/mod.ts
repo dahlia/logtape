@@ -2,10 +2,13 @@ export {
   type Config,
   ConfigError,
   configure,
+  configureSync,
   dispose,
+  disposeSync,
   getConfig,
   type LoggerConfig,
   reset,
+  resetSync,
 } from "./config.ts";
 export { type ContextLocalStorage, withContext } from "./context.ts";
 export { getFileSink, getRotatingFileSink } from "./filesink.jsr.ts";
