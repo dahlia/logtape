@@ -109,6 +109,58 @@ const disposables: Set<Disposable> = new Set();
 const asyncDisposables: Set<AsyncDisposable> = new Set();
 
 /**
+ * Shared logic between configure/configureSync. Registers dispose to be called
+ * when the parent application exits, and logs warning messages to the meta logger.
+ */
+const finalizeConfigure = (metaConfigured: boolean, levelUsed: boolean) => {
+  if ("process" in globalThis && !("Deno" in globalThis)) {
+    // @ts-ignore: It's fine to use process in Node
+    // deno-lint-ignore no-process-globals
+    process.on("exit", dispose);
+  } else {
+    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
+    addEventListener("unload", dispose);
+  }
+  const meta = LoggerImpl.getLogger(["logtape", "meta"]);
+  if (!metaConfigured) {
+    meta.sinks.push(getConsoleSink());
+  }
+
+  meta.info(
+    "LogTape loggers are configured.  Note that LogTape itself uses the meta " +
+      "logger, which has category {metaLoggerCategory}.  The meta logger " +
+      "purposes to log internal errors such as sink exceptions.  If you " +
+      "are seeing this message, the meta logger is somehow configured.  " +
+      "It's recommended to configure the meta logger with a separate sink " +
+      "so that you can easily notice if logging itself fails or is " +
+      "misconfigured.  To turn off this message, configure the meta logger " +
+      "with higher log levels than {dismissLevel}.  See also " +
+      "<https://logtape.org/manual/categories#meta-logger>.",
+    { metaLoggerCategory: ["logtape", "meta"], dismissLevel: "info" },
+  );
+
+  if (levelUsed) {
+    meta.warn(
+      "The level option is deprecated in favor of lowestLevel option.  " +
+        "Please update your configuration.  See also " +
+        "<https://logtape.org/manual/levels#configuring-severity-levels>.",
+    );
+  }
+};
+
+/**
+ * Check if a config is for the meta logger.
+ */
+const isLoggerConfigMeta = <TSinkId extends string, TFilterId extends string>(
+  cfg: LoggerConfig<TSinkId, TFilterId>,
+): boolean =>
+  cfg.category.length === 0 ||
+  (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
+  (cfg.category.length === 2 &&
+    cfg.category[0] === "logtape" &&
+    cfg.category[1] === "meta");
+
+/**
  * Configure the loggers with the specified configuration.
  *
  * Note that if the given sinks or filters are disposable, they will be
@@ -163,13 +215,7 @@ export async function configure<
   let levelUsed = false;
 
   for (const cfg of config.loggers) {
-    if (
-      cfg.category.length === 0 ||
-      (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
-      (cfg.category.length === 2 &&
-        cfg.category[0] === "logtape" &&
-        cfg.category[1] === "meta")
-    ) {
+    if (isLoggerConfigMeta(cfg)) {
       metaConfigured = true;
     }
     const logger = LoggerImpl.getLogger(cfg.category);
@@ -217,40 +263,7 @@ export async function configure<
     if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
-  if ("process" in globalThis && !("Deno" in globalThis)) {
-    // @ts-ignore: It's fine to use process in Node
-    // deno-lint-ignore no-process-globals
-    process.on("exit", dispose);
-  } else {
-    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
-    addEventListener("unload", dispose);
-  }
-
-  const meta = LoggerImpl.getLogger(["logtape", "meta"]);
-  if (!metaConfigured) {
-    meta.sinks.push(getConsoleSink());
-  }
-
-  meta.info(
-    "LogTape loggers are configured.  Note that LogTape itself uses the meta " +
-      "logger, which has category {metaLoggerCategory}.  The meta logger " +
-      "purposes to log internal errors such as sink exceptions.  If you " +
-      "are seeing this message, the meta logger is somehow configured.  " +
-      "It's recommended to configure the meta logger with a separate sink " +
-      "so that you can easily notice if logging itself fails or is " +
-      "misconfigured.  To turn off this message, configure the meta logger " +
-      "with higher log levels than {dismissLevel}.  See also " +
-      "<https://logtape.org/manual/categories#meta-logger>.",
-    { metaLoggerCategory: ["logtape", "meta"], dismissLevel: "info" },
-  );
-
-  if (levelUsed) {
-    meta.warn(
-      "The level option is deprecated in favor of lowestLevel option.  " +
-        "Please update your configuration.  See also " +
-        "<https://logtape.org/manual/levels#configuring-severity-levels>.",
-    );
-  }
+  finalizeConfigure(metaConfigured, levelUsed);
 }
 
 /**
@@ -300,13 +313,7 @@ export function configureSync<TSinkId extends string, TFilterId extends string>(
   let levelUsed = false;
 
   for (const cfg of config.loggers) {
-    if (
-      cfg.category.length === 0 ||
-      (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
-      (cfg.category.length === 2 &&
-        cfg.category[0] === "logtape" &&
-        cfg.category[1] === "meta")
-    ) {
+    if (isLoggerConfigMeta(cfg)) {
       metaConfigured = true;
     }
     const logger = LoggerImpl.getLogger(cfg.category);
@@ -360,40 +367,7 @@ export function configureSync<TSinkId extends string, TFilterId extends string>(
     if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
-  if ("process" in globalThis && !("Deno" in globalThis)) {
-    // @ts-ignore: It's fine to use process in Node
-    // deno-lint-ignore no-process-globals
-    process.on("exit", dispose);
-  } else {
-    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
-    addEventListener("unload", dispose);
-  }
-
-  const meta = LoggerImpl.getLogger(["logtape", "meta"]);
-  if (!metaConfigured) {
-    meta.sinks.push(getConsoleSink());
-  }
-
-  meta.info(
-    "LogTape loggers are configured.  Note that LogTape itself uses the meta " +
-      "logger, which has category {metaLoggerCategory}.  The meta logger " +
-      "purposes to log internal errors such as sink exceptions.  If you " +
-      "are seeing this message, the meta logger is somehow configured.  " +
-      "It's recommended to configure the meta logger with a separate sink " +
-      "so that you can easily notice if logging itself fails or is " +
-      "misconfigured.  To turn off this message, configure the meta logger " +
-      "with higher log levels than {dismissLevel}.  See also " +
-      "<https://logtape.org/manual/categories#meta-logger>.",
-    { metaLoggerCategory: ["logtape", "meta"], dismissLevel: "info" },
-  );
-
-  if (levelUsed) {
-    meta.warn(
-      "The level option is deprecated in favor of lowestLevel option.  " +
-        "Please update your configuration.  See also " +
-        "<https://logtape.org/manual/levels#configuring-severity-levels>.",
-    );
-  }
+  finalizeConfigure(metaConfigured, levelUsed);
 }
 
 /**
