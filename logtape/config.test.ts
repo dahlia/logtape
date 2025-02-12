@@ -391,7 +391,7 @@ Deno.test("configureSync()", async (t) => {
     });
   }
 
-  await t.step("no async", () => {
+  await t.step("no async sinks", () => {
     const aLogs: LogRecord[] = [];
     const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
@@ -403,6 +403,35 @@ Deno.test("configureSync()", async (t) => {
         {
           category: "my-app",
           sinks: ["a"],
+        },
+      ],
+    };
+
+    assert.throws(
+      () => configureSync(config),
+      ConfigError,
+      "Async disposables cannot be used with configureSync",
+    );
+    assertStrictEquals(getConfig(), null);
+  });
+
+  await t.step("no async filters", () => {
+    const aLogs: LogRecord[] = [];
+    const a: Sink & Disposable = (record) => aLogs.push(record);
+    a[Symbol.dispose] = () => ++disposed;
+    const x: Filter & AsyncDisposable = () => true;
+    x[Symbol.asyncDispose] = () => {
+      ++disposed;
+      return Promise.resolve();
+    };
+    const config: Config<string, string> = {
+      sinks: { a },
+      filters: { x },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["a"],
+          filters: ["x"],
         },
       ],
     };
