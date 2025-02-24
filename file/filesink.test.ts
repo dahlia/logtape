@@ -1,8 +1,59 @@
+import { isDeno } from "@david/which-runtime";
+import type { Sink } from "@logtape/logtape";
 import { assertEquals } from "@std/assert/assert-equals";
 import { join } from "@std/path/join";
+import fs from "node:fs";
+import { debug, error, fatal, info, warning } from "../logtape/fixtures.ts";
+import { type FileSinkDriver, getBaseFileSink } from "./filesink.base.ts";
 import { getFileSink, getRotatingFileSink } from "./filesink.deno.ts";
-import { debug, error, fatal, info, warning } from "./fixtures.ts";
-import type { Sink } from "./sink.ts";
+
+Deno.test("getBaseFileSink()", () => {
+  const path = Deno.makeTempFileSync();
+  let sink: Sink & Disposable;
+  if (isDeno) {
+    const driver: FileSinkDriver<Deno.FsFile> = {
+      openSync(path: string) {
+        return Deno.openSync(path, { create: true, append: true });
+      },
+      writeSync(fd, chunk) {
+        fd.writeSync(chunk);
+      },
+      flushSync(fd) {
+        fd.syncSync();
+      },
+      closeSync(fd) {
+        fd.close();
+      },
+    };
+    sink = getBaseFileSink(path, driver);
+  } else {
+    const driver: FileSinkDriver<number> = {
+      openSync(path: string) {
+        return fs.openSync(path, "a");
+      },
+      writeSync: fs.writeSync,
+      flushSync: fs.fsyncSync,
+      closeSync: fs.closeSync,
+    };
+    sink = getBaseFileSink(path, driver);
+  }
+  sink(debug);
+  sink(info);
+  sink(warning);
+  sink(error);
+  sink(fatal);
+  sink[Symbol.dispose]();
+  assertEquals(
+    Deno.readTextFileSync(path),
+    `\
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
+`,
+  );
+});
 
 Deno.test("getFileSink()", () => {
   const path = Deno.makeTempFileSync();

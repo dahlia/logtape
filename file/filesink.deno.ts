@@ -1,12 +1,11 @@
-import { webDriver } from "./filesink.web.ts";
+import type { Sink } from "@logtape/logtape";
 import {
   type FileSinkOptions,
-  getFileSink as getBaseFileSink,
-  getRotatingFileSink as getBaseRotatingFileSink,
+  getBaseFileSink,
+  getBaseRotatingFileSink,
   type RotatingFileSinkDriver,
   type RotatingFileSinkOptions,
-  type Sink,
-} from "./sink.ts";
+} from "./filesink.base.ts";
 
 /**
  * A Deno-specific file sink driver.
@@ -42,9 +41,6 @@ export function getFileSink(
   path: string,
   options: FileSinkOptions = {},
 ): Sink & Disposable {
-  if ("document" in globalThis) {
-    return getBaseFileSink(path, { ...options, ...webDriver });
-  }
   return getBaseFileSink(path, { ...options, ...denoDriver });
 }
 
@@ -67,9 +63,6 @@ export function getRotatingFileSink(
   path: string,
   options: RotatingFileSinkOptions = {},
 ): Sink & Disposable {
-  if ("document" in globalThis) {
-    return getBaseRotatingFileSink(path, { ...options, ...webDriver });
-  }
   return getBaseRotatingFileSink(path, { ...options, ...denoDriver });
 }
 

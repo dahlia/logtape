@@ -13,7 +13,7 @@
     "editor.defaultFormatter": "denoland.vscode-deno",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit"
+      "source.sortImports": "always"
     }
   },
   "[json]": {
@@ -28,13 +28,14 @@
     "editor.defaultFormatter": "denoland.vscode-deno",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit"
+      "source.sortImports": "always"
     }
   },
   "cSpell.words": [
     "Codecov",
     "consolemock",
     "deno",
+    "filesink",
     "hongminhee",
     "logtape",
     "runtimes",

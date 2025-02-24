@@ -40,15 +40,18 @@ jobs:
       with:
         check_name: "Test Results (Windows)"
         files: .test-report.xml
+    - if: '!cancelled()'
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: .test-report.xml
     - run: deno coverage --lcov .cov > .cov.lcov
     - uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: dahlia/logtape
         file: .cov.lcov
-    - run: deno task dnt
-    - run: bun run ./test_runner.js
-      working-directory: ${{ github.workspace }}/npm/
+    - run: deno task test-all:bun
     - run: deno task check
 
   publish:
@@ -64,33 +67,39 @@ jobs:
         deno-version: v2.x
     - if: github.ref_type == 'branch'
       run: |
-        jq \
+        v="$(jq \
+          --raw-output \
           --arg build "$GITHUB_RUN_NUMBER" \
           --arg commit "${GITHUB_SHA::8}" \
-          '.version = .version + "-dev." + $build + "+" + $commit' \
-          deno.json > deno.json.tmp
-        mv deno.json.tmp deno.json
+          '.version + "-dev." + $build + "+" + $commit' \
+          logtape/deno.json)"
+        deno run --allow-read --allow-write scripts/update_versions.ts "$v"
+        deno task check:versions
     - if: github.ref_type == 'tag'
       run: |
         set -ex
-        [[ "$(jq -r .version deno.json)" = "$GITHUB_REF_NAME" ]]
-    - run: 'deno task dnt "$(jq -r .version deno.json)"'
+        [[ "$(jq -r .version logtape/deno.json)" = "$GITHUB_REF_NAME" ]]
+        deno task check:versions
+    - run: deno task dnt-all
     - if: github.event_name == 'push'
       run: |
         set -ex
         npm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
-        if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-          npm publish --provenance --access public
-        else
-          npm publish --provenance --access public --tag dev
-        fi
+        for npm in */npm/; do
+          pushd "$npm"
+          if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
+            npm publish --provenance --access public
+          else
+            npm publish --provenance --access public --tag dev
+          fi
+          popd
+        done
       env:
         NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
-      working-directory: ${{ github.workspace }}/npm/
     - if: github.event_name == 'pull_request'
-      run: deno publish --dry-run --allow-dirty
+      run: deno task publish --dry-run --allow-dirty
     - if: github.event_name == 'push'
-      run: deno publish --allow-dirty
+      run: deno task publish --allow-dirty
 
   publish-docs:
     if: github.event_name == 'push'
@@ -113,12 +122,14 @@ jobs:
         bun install
         if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
           bun add -D "@logtape/logtape@$GITHUB_REF_NAME"
+          bun add -D "@logtape/file@$GITHUB_REF_NAME"
           bun add -D @logtape/otel@latest
           EXTRA_NAV_TEXT=Unstable \
           EXTRA_NAV_LINK="$UNSTABLE_DOCS_URL" \
           bun run build
         else
           bun add -D @logtape/logtape@dev
+          bun add -D @logtape/file@dev
           bun add -D @logtape/otel@dev
           EXTRA_NAV_TEXT=Stable \
           EXTRA_NAV_LINK="$STABLE_DOCS_URL" \

@@ -11,7 +11,6 @@ export {
   resetSync,
 } from "./config.ts";
 export { type ContextLocalStorage, withContext } from "./context.ts";
-export { getFileSink, getRotatingFileSink } from "./filesink.jsr.ts";
 export {
   type Filter,
   type FilterLike,
@@ -42,10 +41,8 @@ export { getLogger, type Logger } from "./logger.ts";
 export type { LogRecord } from "./record.ts";
 export {
   type ConsoleSinkOptions,
-  type FileSinkOptions,
   getConsoleSink,
   getStreamSink,
-  type RotatingFileSinkOptions,
   type Sink,
   type StreamSinkOptions,
   withFilter,

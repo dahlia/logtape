@@ -55,7 +55,8 @@ sinks for different purposes:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
-import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
   sinks: {
@@ -153,7 +154,8 @@ Here's how you might do that:
 ::: code-group
 
 ~~~~ typescript{1,6,11-12} twoslash [Deno]
-import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure, getConsoleSink } from "@logtape/logtape";
 // ---cut-before---
 const isDevelopment = Deno.env.get("DENO_DEPLOYMENT_ID") == null;
 
@@ -175,7 +177,8 @@ await configure({
 ~~~~ typescript{1,6,11-12} twoslash [Node.js]
 import "@types/node";
 import process from "node:process";
-import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure, getConsoleSink } from "@logtape/logtape";
 // ---cut-before---
 const isDevelopment = process.env.NODE_ENV === "development";
 

@@ -8,6 +8,14 @@ Version 0.9.0
 
 To be released.
 
+ -  Moved file sinks and rotating file sinks to separate packages.
+    [[#19], [#27], [#28]]
+
+     -  Moved `getFileSink()` function to `@logtape/file` package.
+     -  Moved `FileSinkOptions` interface to `@logtape/file` package.
+     -  Moved `getRotatingFileSink()` function to `@logtape/file` package.
+     -  Moved `RotatingFileSinkOptions` interface to `@logtape/file` package.
+
  -  Added synchronous versions of configuration functions.
     [[#12], [#29] by Murph Murphy]
 
@@ -18,6 +26,9 @@ To be released.
  -  Added `ConsoleSinkOptions.levelMap` option.
 
 [#12]: https://github.com/dahlia/logtape/issues/12
+[#19]: https://github.com/dahlia/logtape/issues/19
+[#27]: https://github.com/dahlia/logtape/issues/27
+[#28]: https://github.com/dahlia/logtape/issues/28
 [#29]: https://github.com/dahlia/logtape/pull/29
 
 

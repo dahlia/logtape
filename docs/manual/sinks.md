@@ -136,12 +136,38 @@ File sink
 > [!NOTE]
 > File sink is unavailable in the browser environment.
 
-LogTape provides a file sink as well.  Here's an example of a file sink that
-writes log messages to a file:
+LogTape provides a file sink through a separate package *@logtape/file*:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/file
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/file
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/file
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/file
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/file
+~~~~
+
+:::
+
+Here's an example of a file sink that writes log messages to a file:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
-import { configure, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
 
 await configure({
   sinks: {
@@ -181,12 +207,39 @@ the ability to *rotate* the log file when it reaches a certain size. This means:
 This rotation process helps prevent any single log file from growing too large,
 which can cause issues with file handling, log analysis, and storage management.
 
-To use the rotating file sink, you can use the `getRotatingFileSink()` function.
+To use the rotating file sink, you can use the `getRotatingFileSink()` function,
+which is provided by the *@logtape/file* package:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/file
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/file
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/file
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/file
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/file
+~~~~
+
+:::
+
 Here's an example of a rotating file sink that writes log messages to a file:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
-import { configure, getRotatingFileSink } from "@logtape/logtape";
+import { getRotatingFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
 
 await configure({
   sinks: {

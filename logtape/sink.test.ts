@@ -1,20 +1,11 @@
 import { assertEquals } from "@std/assert/assert-equals";
 import { assertThrows } from "@std/assert/assert-throws";
 import makeConsoleMock from "consolemock";
-import fs from "node:fs";
-import { isDeno } from "which_runtime";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
-import {
-  type FileSinkDriver,
-  getConsoleSink,
-  getFileSink,
-  getStreamSink,
-  type Sink,
-  withFilter,
-} from "./sink.ts";
+import { getConsoleSink, getStreamSink, withFilter } from "./sink.ts";
 
 Deno.test("withFilter()", () => {
   const buffer: LogRecord[] = [];
@@ -222,52 +213,4 @@ Deno.test("getConsoleSink()", () => {
       ],
     },
   ]);
-});
-
-Deno.test("getFileSink()", () => {
-  const path = Deno.makeTempFileSync();
-  let sink: Sink & Disposable;
-  if (isDeno) {
-    const driver: FileSinkDriver<Deno.FsFile> = {
-      openSync(path: string) {
-        return Deno.openSync(path, { create: true, append: true });
-      },
-      writeSync(fd, chunk) {
-        fd.writeSync(chunk);
-      },
-      flushSync(fd) {
-        fd.syncSync();
-      },
-      closeSync(fd) {
-        fd.close();
-      },
-    };
-    sink = getFileSink(path, driver);
-  } else {
-    const driver: FileSinkDriver<number> = {
-      openSync(path: string) {
-        return fs.openSync(path, "a");
-      },
-      writeSync: fs.writeSync,
-      flushSync: fs.fsyncSync,
-      closeSync: fs.closeSync,
-    };
-    sink = getFileSink(path, driver);
-  }
-  sink(debug);
-  sink(info);
-  sink(warning);
-  sink(error);
-  sink(fatal);
-  sink[Symbol.dispose]();
-  assertEquals(
-    Deno.readTextFileSync(path),
-    `\
-2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
-2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
-2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
-2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
-2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
-`,
-  );
 });

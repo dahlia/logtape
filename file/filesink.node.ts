@@ -1,34 +1,26 @@
-// @ts-ignore: a trick to avoid module resolution error on non-Node.js environ
-import fsMod from "./fs.ts";
-import type fsType from "node:fs";
-import { webDriver } from "./filesink.web.ts";
+import type { Sink } from "@logtape/logtape";
+import fs from "node:fs";
 import {
   type FileSinkOptions,
-  getFileSink as getBaseFileSink,
-  getRotatingFileSink as getBaseRotatingFileSink,
+  getBaseFileSink,
+  getBaseRotatingFileSink,
   type RotatingFileSinkDriver,
   type RotatingFileSinkOptions,
-  type Sink,
-} from "./sink.ts";
-
-// @ts-ignore: a trick to avoid module resolution error on non-Node.js environ
-const fs = fsMod as (typeof fsType | null);
+} from "./filesink.base.ts";
 
 /**
  * A Node.js-specific file sink driver.
  */
-export const nodeDriver: RotatingFileSinkDriver<number | void> = fs == null
-  ? webDriver
-  : {
-    openSync(path: string) {
-      return fs.openSync(path, "a");
-    },
-    writeSync: fs.writeSync,
-    flushSync: fs.fsyncSync,
-    closeSync: fs.closeSync,
-    statSync: fs.statSync,
-    renameSync: fs.renameSync,
-  };
+export const nodeDriver: RotatingFileSinkDriver<number | void> = {
+  openSync(path: string) {
+    return fs.openSync(path, "a");
+  },
+  writeSync: fs.writeSync,
+  flushSync: fs.fsyncSync,
+  closeSync: fs.closeSync,
+  statSync: fs.statSync,
+  renameSync: fs.renameSync,
+};
 
 /**
  * Get a file sink.
@@ -44,9 +36,6 @@ export function getFileSink(
   path: string,
   options: FileSinkOptions = {},
 ): Sink & Disposable {
-  if ("document" in globalThis) {
-    return getBaseFileSink(path, { ...options, ...webDriver });
-  }
   return getBaseFileSink(path, { ...options, ...nodeDriver });
 }
 
@@ -69,9 +58,6 @@ export function getRotatingFileSink(
   path: string,
   options: RotatingFileSinkOptions = {},
 ): Sink & Disposable {
-  if ("document" in globalThis) {
-    return getBaseRotatingFileSink(path, { ...options, ...webDriver });
-  }
   return getBaseRotatingFileSink(path, { ...options, ...nodeDriver });
 }
 

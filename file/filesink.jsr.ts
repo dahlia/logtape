@@ -1,6 +1,11 @@
-import type { FileSinkOptions, RotatingFileSinkOptions, Sink } from "./sink.ts";
+import type { Sink } from "@logtape/logtape";
+import type {
+  FileSinkOptions,
+  RotatingFileSinkOptions,
+} from "./filesink.base.ts";
 
 const filesink: Omit<typeof import("./filesink.deno.ts"), "denoDriver"> =
+  // dnt-shim-ignore
   await ("Deno" in globalThis
     ? import("./filesink.deno.ts")
     : import("./filesink.node.ts"));

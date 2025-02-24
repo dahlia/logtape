@@ -1,0 +1,62 @@
+{
+  "workspace": [
+    "./logtape",
+    "./file"
+  ],
+  "imports": {
+    "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",
+    "@deno/dnt": "jsr:@deno/dnt@^0.41.1",
+    "@std/assert": "jsr:@std/assert@^0.222.1",
+    "@std/async": "jsr:@std/async@^0.222.1",
+    "@std/fs": "jsr:@std/fs@^0.223.0",
+    "@std/path": "jsr:@std/path@^1.0.2",
+    "@std/testing": "jsr:@std/testing@^0.222.1",
+    "consolemock": "npm:consolemock@^1.1.0"
+  },
+  "unstable": [
+    "fs"
+  ],
+  "lock": false,
+  "exclude": [
+    ".github/",
+    "docs/"
+  ],
+  "tasks": {
+    "check": {
+      "command": "deno check **/*.ts && deno lint && deno fmt --check",
+      "dependencies": [
+        "check:versions"
+      ]
+    },
+    "check:versions": "deno run --allow-read scripts/check_versions.ts",
+    "test": "deno test --allow-read --allow-write",
+    "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
+    "dnt-all": "deno task --recursive dnt",
+    "test-all:bun": "deno task --recursive test:bun",
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test-all:bun"
+      ]
+    },
+    "publish": {
+      "command": "deno publish",
+      "dependencies": [
+        "check",
+        "test"
+      ]
+    },
+    "hooks:install": "deno run --allow-read=deno.json,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
+    "hooks:pre-commit": {
+      "dependencies": [
+        "check"
+      ]
+    },
+    "hooks:pre-push": {
+      "dependencies": [
+        "check",
+        "test"
+      ]
+    }
+  }
+}

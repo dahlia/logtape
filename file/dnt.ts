@@ -1,15 +1,25 @@
 import { build, emptyDir } from "@deno/dnt";
+import workspace from "../deno.json" with { type: "json" };
 import metadata from "./deno.json" with { type: "json" };
 
 await emptyDir("./npm");
+
+const imports = {
+  "@logtape/logtape": "../logtape/mod.ts",
+  ...workspace.imports,
+};
+
+await Deno.writeTextFile(
+  ".dnt-import-map.json",
+  JSON.stringify({ imports }, undefined, 2),
+);
 
 await build({
   package: {
     name: metadata.name,
     version: Deno.args[0] ?? metadata.version,
-    description: "Simple logging library with zero dependencies for " +
-      "Deno/Node.js/Bun/browsers",
-    keywords: ["logging", "log", "logger"],
+    description: "File sink and rotating file sink for LogTape",
+    keywords: ["logging", "log", "logger", "file", "sink", "rotating"],
     license: "MIT",
     author: {
       name: "Hong Minhee",
@@ -20,7 +30,7 @@ await build({
     repository: {
       type: "git",
       url: "git+https://github.com/dahlia/logtape.git",
-      directory: "logtape/",
+      directory: "file/",
     },
     bugs: {
       url: "https://github.com/dahlia/logtape/issues",
@@ -31,7 +41,11 @@ await build({
   },
   outDir: "./npm",
   entryPoints: ["./mod.ts"],
-  importMap: "../deno.json",
+  importMap: "./.dnt-import-map.json",
+  mappings: {
+    "./filesink.jsr.ts": "./filesink.node.ts",
+    "./filesink.deno.ts": "./filesink.node.ts",
+  },
   shims: {
     deno: "dev",
   },
@@ -42,12 +56,6 @@ await build({
     lib: ["ES2021", "DOM"],
   },
   async postBuild() {
-    await Deno.writeTextFile(
-      "npm/esm/nodeUtil.js",
-      'import util from "./nodeUtil.cjs";\nexport default util;\n',
-    );
-    await Deno.copyFile("nodeUtil.cjs", "npm/esm/nodeUtil.cjs");
-    await Deno.copyFile("nodeUtil.cjs", "npm/script/nodeUtil.js");
     await Deno.copyFile("../LICENSE", "npm/LICENSE");
     await Deno.copyFile("README.md", "npm/README.md");
   },

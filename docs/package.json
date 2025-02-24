@@ -1,13 +1,12 @@
 {
-  "dependencies": {
-    "@logtape/sentry": "^0.1.0",
-    "@sentry/node": "^8.40.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",
-    "@logtape/logtape": "0.9.0-dev.127",
+    "@logtape/file": "0.9.0-dev.132",
+    "@logtape/logtape": "0.9.0-dev.132",
     "@logtape/otel": "^0.2.0",
+    "@logtape/sentry": "^0.1.0",
+    "@sentry/node": "^8.40.0",
     "@shikijs/vitepress-twoslash": "^1.17.6",
     "@teidesu/deno-types": "^1.46.3",
     "@types/bun": "^1.1.9",

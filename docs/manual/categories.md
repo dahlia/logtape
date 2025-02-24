@@ -16,7 +16,8 @@ hierarchy.
 Here's an example of setting log levels for different categories:
 
 ~~~~ typescript{9-10} twoslash
-import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
   sinks: {

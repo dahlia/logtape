@@ -120,7 +120,8 @@ above:
 
 ~~~~ typescript twoslash
 // @noErrors: 2307
-import { configure, getConsoleSink, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure, getConsoleSink } from "@logtape/logtape";
 import { Database } from "my-awesome-lib";
 
 await configure({

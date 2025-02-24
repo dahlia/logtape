@@ -132,7 +132,8 @@ providing a [text formatter](./formatters.md) to a file sink:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
-import { configure, getFileSink } from "@logtape/logtape";
+import { getFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
 
 await configure({
   sinks: {

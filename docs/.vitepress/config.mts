@@ -1,16 +1,22 @@
+import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
 import { jsrRef } from "markdown-it-jsr-ref";
 import { defineConfig } from "vitepress";
-import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
 
 const jsrRefVersion =
   process.env.CI === "true" && process.env.GITHUB_REF_TYPE === "tag"
     ? "stable"
     : "unstable";
 
-const jsrRefPlugin = await jsrRef({
+const jsrRef_logtape = await jsrRef({
   package: "@logtape/logtape",
   version: jsrRefVersion,
   cachePath: ".jsr-cache.json",
+});
+
+const jsrRef_file = await jsrRef({
+  package: "@logtape/file",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache.file.json",
 });
 
 let extraNav: { text: string; link: string }[] = [];
@@ -116,7 +122,8 @@ export default defineConfig({
       }),
     ],
     config(md) {
-      md.use(jsrRefPlugin);
+      md.use(jsrRef_logtape);
+      md.use(jsrRef_file);
     },
   },
 

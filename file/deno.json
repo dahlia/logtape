@@ -1,10 +1,12 @@
 {
-  "name": "@logtape/logtape",
+  "name": "@logtape/file",
   "version": "0.9.0",
   "license": "MIT",
   "exports": "./mod.ts",
   "exclude": [
-    "npm/"
+    "coverage/",
+    "npm/",
+    ".dnt-import-map.json"
   ],
   "tasks": {
     "dnt": "deno run -A dnt.ts",
