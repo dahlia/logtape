@@ -5,6 +5,7 @@ import {
   defaultTextFormatter,
   type TextFormatter,
 } from "./formatter.ts";
+import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 
 /**
@@ -99,6 +100,8 @@ export function getStreamSink(
   return sink;
 }
 
+type ConsoleMethod = "debug" | "info" | "log" | "warn" | "error";
+
 /**
  * Options for the {@link getConsoleSink} function.
  */
@@ -108,6 +111,22 @@ export interface ConsoleSinkOptions {
    * Defaults to {@link defaultConsoleFormatter}.
    */
   formatter?: ConsoleFormatter | TextFormatter;
+
+  /**
+   * The mapping from log levels to console methods.  Defaults to:
+   *
+   * ```typescript
+   * {
+   *   debug: "debug",
+   *   info: "info",
+   *   warning: "warn",
+   *   error: "error",
+   *   fatal: "error",
+   * }
+   * ```
+   * @since 0.9.0
+   */
+  levelMap?: Record<LogLevel, ConsoleMethod>;
 
   /**
    * The console to log to.  Defaults to {@link console}.
@@ -123,24 +142,26 @@ export interface ConsoleSinkOptions {
  */
 export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
   const formatter = options.formatter ?? defaultConsoleFormatter;
+  const levelMap: Record<LogLevel, ConsoleMethod> = {
+    debug: "debug",
+    info: "info",
+    warning: "warn",
+    error: "error",
+    fatal: "error",
+    ...(options.levelMap ?? {}),
+  };
   const console = options.console ?? globalThis.console;
   return (record: LogRecord) => {
     const args = formatter(record);
+    const method = levelMap[record.level];
+    if (method === undefined) {
+      throw new TypeError(`Invalid log level: ${record.level}.`);
+    }
     if (typeof args === "string") {
       const msg = args.replace(/\r?\n$/, "");
-      if (record.level === "debug") console.debug(msg);
-      else if (record.level === "info") console.info(msg);
-      else if (record.level === "warning") console.warn(msg);
-      else if (record.level === "error" || record.level === "fatal") {
-        console.error(msg);
-      } else throw new TypeError(`Invalid log level: ${record.level}.`);
+      console[method](msg);
     } else {
-      if (record.level === "debug") console.debug(...args);
-      else if (record.level === "info") console.info(...args);
-      else if (record.level === "warning") console.warn(...args);
-      else if (record.level === "error" || record.level === "fatal") {
-        console.error(...args);
-      } else throw new TypeError(`Invalid log level: ${record.level}.`);
+      console[method](...args);
     }
   };
 }

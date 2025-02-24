@@ -15,6 +15,8 @@ To be released.
      -  Added `disposeSync()` function.
      -  Added `resetSync()` function.
 
+ -  Added `ConsoleSinkOptions.levelMap` option.
+
 [#12]: https://github.com/dahlia/logtape/issues/12
 [#29]: https://github.com/dahlia/logtape/pull/29
 

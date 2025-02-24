@@ -176,6 +176,52 @@ Deno.test("getConsoleSink()", () => {
       ],
     },
   ]);
+
+  // @ts-ignore: consolemock is not typed
+  const mock3: ConsoleMock = makeConsoleMock();
+  const sink3 = getConsoleSink({
+    console: mock3,
+    levelMap: {
+      debug: "log",
+      info: "log",
+      warning: "log",
+      error: "log",
+      fatal: "log",
+    },
+    formatter: defaultTextFormatter,
+  });
+  sink3(debug);
+  sink3(info);
+  sink3(warning);
+  sink3(error);
+  sink3(fatal);
+  assertEquals(mock3.history(), [
+    {
+      LOG: [
+        "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      LOG: [
+        "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      LOG: [
+        "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      LOG: [
+        "2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+    {
+      LOG: [
+        "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
+  ]);
 });
 
 Deno.test("getFileSink()", () => {
