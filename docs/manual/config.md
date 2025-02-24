@@ -95,7 +95,7 @@ await configure({
 });
 ~~~~
 
-### Configuring Loggers
+### Configuring loggers
 
 Loggers are where you bring everything together.  You can set up different
 loggers for different parts of your application:
@@ -238,6 +238,56 @@ await configure(initialConfig);
 
 reset();
 ~~~~
+
+
+Synchronous configuration
+-------------------------
+
+*This API is available since LogTape 0.9.0.*
+
+If you prefer to configure LogTape synchronously, you can use
+the `configureSync()` function instead:
+
+~~~~ typescript twoslash
+import { configureSync, getConsoleSink } from "@logtape/logtape";
+
+configureSync({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "info",
+      sinks: ["console"],
+    },
+  ],
+});
+~~~~
+
+> [!CAUTION]
+> However, be aware that synchronous configuration has some limitations:
+> You cannot use sinks or filters that require asynchronous disposal, i.e.,
+> those that implement the `AsyncDisposal` interface.  For example, among
+> the built-in sinks, [stream sinks](./sinks.md#stream-sink) requires
+> asynchronous disposal.
+>
+> That said, you still can use sinks or filters that require synchronous
+> disposal, i.e., those that implement the `Disposal` interface.
+
+Likewise, you can use `resetSync()` to reset the configuration synchronously:
+
+~~~~ typescript twoslash
+import { resetSync } from "@logtape/logtape";
+
+resetSync();
+~~~~
+
+> [!CAUTION]
+> The `configure()`–`reset()` and `configureSync()`–`resetSync()` APIs have
+> to be paired and should not be mixed.  If you use `configure()` to set up
+> LogTape, you should use `reset()` to reset it.  If you use `configureSync()`,
+> you should use `resetSync()`.
 
 
 Best practices
