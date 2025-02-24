@@ -18,7 +18,7 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: denoland/setup-deno@v1
+    - uses: denoland/setup-deno@v2
       with:
         deno-version: v2.x
     - uses: oven-sh/setup-bun@v2
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: denoland/setup-deno@v1
+    - uses: denoland/setup-deno@v2
       with:
         deno-version: v2.x
     - if: github.ref_type == 'branch'

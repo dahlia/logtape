@@ -302,7 +302,7 @@ function configureInternal<
 
   if ("process" in globalThis && !("Deno" in globalThis)) {
     // @ts-ignore: It's fine to use process in Node
-    // deno-lint-ignore no-process-globals
+    // deno-lint-ignore no-process-global
     process.on("exit", allowAsync ? dispose : disposeSync);
   } else {
     // @ts-ignore: It's fine to addEventListener() on the browser/Deno
