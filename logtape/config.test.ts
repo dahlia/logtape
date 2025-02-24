@@ -12,7 +12,7 @@ import {
   resetSync,
 } from "./config.ts";
 import type { Filter } from "./filter.ts";
-import { LoggerImpl } from "./logger.ts";
+import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
@@ -147,6 +147,44 @@ Deno.test("configure()", async (t) => {
     await configure(config);
     assertEquals(disposed, 4);
     assertStrictEquals(getConfig(), config);
+  });
+
+  await t.step("tear down", async () => {
+    await reset();
+    assertStrictEquals(getConfig(), null);
+  });
+
+  await t.step("lowestLevel", async () => {
+    const a: LogRecord[] = [];
+    const b: LogRecord[] = [];
+    const c: LogRecord[] = [];
+    await configure({
+      sinks: {
+        a: a.push.bind(a),
+        b: b.push.bind(b),
+        c: c.push.bind(c),
+      },
+      loggers: [
+        { category: "foo", sinks: ["a"], lowestLevel: "info" },
+        { category: ["foo", "bar"], sinks: ["b"], lowestLevel: "warning" },
+        { category: ["foo", "baz"], sinks: ["c"], lowestLevel: "debug" },
+        { category: ["logtape", "meta"], sinks: [] },
+      ],
+    });
+
+    getLogger(["foo", "bar"]).warn("test");
+    assertEquals(a.length, 1);
+    assertEquals(b.length, 1);
+
+    while (a.length > 0) a.pop();
+    while (b.length > 0) b.pop();
+
+    getLogger(["foo", "baz"]).debug("test");
+    assertEquals(a.length, 0);
+    assertEquals(c.length, 1);
+
+    while (a.length > 0) a.pop();
+    while (c.length > 0) c.pop();
   });
 
   await t.step("tear down", async () => {

@@ -8,6 +8,7 @@ import {
   getAnsiColorFormatter,
   getTextFormatter,
 } from "./formatter.ts";
+import type { LogRecord } from "./record.ts";
 
 Deno.test("getTextFormatter()", () => {
   assertEquals(
@@ -132,6 +133,42 @@ Deno.test("getTextFormatter()", () => {
       record: info,
     },
   );
+
+  const longArray = new Array(150).fill(0);
+  const longStringAndArray: LogRecord = {
+    level: "info",
+    category: ["my-app", "junk"],
+    message: ["Hello, ", "a".repeat(15000), " & ", longArray, "!"],
+    rawMessage: "Hello, {a} & {b}!",
+    timestamp: 1700000000000,
+    properties: {},
+  };
+  let longArrayStr = "[\n";
+  for (let i = 0; i < Math.floor(longArray.length / 12); i++) {
+    longArrayStr += "  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n";
+  }
+  for (let i = 0; i < longArray.length % 12; i++) {
+    if (i < 1) longArrayStr += "  0";
+    else longArrayStr += ", 0";
+    if (i === longArray.length % 12 - 1) longArrayStr += "\n";
+  }
+  longArrayStr += "]";
+  // dnt-shim-ignore
+  if ("Deno" in globalThis) {
+    assertEquals(
+      getTextFormatter()(longStringAndArray),
+      `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, "${
+        "a".repeat(15000)
+      }" & ${longArrayStr}!\n`,
+    );
+  } else {
+    assertEquals(
+      getTextFormatter()(longStringAndArray),
+      `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, '${
+        "a".repeat(15000)
+      }' & ${longArrayStr}!\n`,
+    );
+  }
 });
 
 Deno.test("defaultTextFormatter()", () => {

@@ -114,13 +114,13 @@ Deno.test("LoggerImpl.getSinks()", async (t) => {
     fooBaz.sinks.push(sinkC);
     const sinkD: Sink = () => {};
     fooBarQux.sinks.push(sinkD);
-    assertEquals([...root.getSinks()], []);
-    assertEquals([...foo.getSinks()], [sinkA]);
-    assertEquals([...fooBar.getSinks()], [sinkA, sinkB]);
-    assertEquals([...fooBaz.getSinks()], [sinkA, sinkC]);
-    assertEquals([...fooBarQux.getSinks()], [sinkA, sinkB, sinkD]);
+    assertEquals([...root.getSinks("debug")], []);
+    assertEquals([...foo.getSinks("debug")], [sinkA]);
+    assertEquals([...fooBar.getSinks("debug")], [sinkA, sinkB]);
+    assertEquals([...fooBaz.getSinks("debug")], [sinkA, sinkC]);
+    assertEquals([...fooBarQux.getSinks("debug")], [sinkA, sinkB, sinkD]);
     fooBarQux.parentSinks = "override";
-    assertEquals([...fooBarQux.getSinks()], [sinkD]);
+    assertEquals([...fooBarQux.getSinks("debug")], [sinkD]);
   });
 
   await t.step("tear down", () => {
@@ -133,6 +133,7 @@ Deno.test("LoggerImpl.emit()", async (t) => {
   const foo = root.getChild("foo");
   const fooBar = foo.getChild("bar");
   const fooBarBaz = fooBar.getChild("baz");
+  const fooQux = foo.getChild("qux");
 
   const rootRecords: LogRecord[] = [];
   root.sinks.push(rootRecords.push.bind(rootRecords));
@@ -143,6 +144,8 @@ Deno.test("LoggerImpl.emit()", async (t) => {
   const fooBarRecords: LogRecord[] = [];
   fooBar.sinks.push(fooBarRecords.push.bind(fooBarRecords));
   fooBar.filters.push(toFilter("error"));
+  const fooQuxRecords: LogRecord[] = [];
+  fooQux.sinks.push(fooQuxRecords.push.bind(fooQuxRecords));
 
   await t.step("filter and sink", () => {
     root.emit(info);
@@ -220,22 +223,30 @@ Deno.test("LoggerImpl.emit()", async (t) => {
   fooBar.lowestLevel = "info";
 
   await t.step("lowestLevel", () => {
-    fooBar.emit(debug);
+    fooBar.emit({ ...debug, category: ["foo", "bar"] });
     assertEquals(rootRecords, []);
     assertEquals(fooRecords, []);
     assertEquals(fooBarRecords, []);
 
-    foo.emit(debug);
+    const debugRecord = { ...debug, category: ["foo", "qux"] };
+    fooQux.emit(debugRecord);
+    assertEquals(rootRecords, []);
+    assertEquals(fooRecords, []);
+    assertEquals(fooQuxRecords, [debugRecord]);
+
+    foo.emit({ ...debug, category: ["foo"] });
     assertEquals(rootRecords, []);
     assertEquals(fooRecords, []);
 
-    root.emit(debug);
-    assertEquals(rootRecords, [debug]);
+    const debugRecord2 = { ...debug, category: [] };
+    root.emit(debugRecord2);
+    assertEquals(rootRecords, [debugRecord2]);
 
-    fooBar.emit(info);
-    assertEquals(rootRecords, [debug, info]);
-    assertEquals(fooRecords, [info]);
-    assertEquals(fooBarRecords, [info]);
+    const infoRecord = { ...info, category: ["foo", "bar"] };
+    fooBar.emit(infoRecord);
+    assertEquals(rootRecords, [debugRecord2]);
+    assertEquals(fooRecords, []);
+    assertEquals(fooBarRecords, [infoRecord]);
   });
 
   await t.step("tear down", () => {

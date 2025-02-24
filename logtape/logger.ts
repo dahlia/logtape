@@ -498,9 +498,14 @@ export class LoggerImpl implements Logger {
     return true;
   }
 
-  *getSinks(): Iterable<Sink> {
+  *getSinks(level: LogLevel): Iterable<Sink> {
+    if (
+      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
+    ) {
+      return;
+    }
     if (this.parent != null && this.parentSinks === "inherit") {
-      for (const sink of this.parent.getSinks()) yield sink;
+      for (const sink of this.parent.getSinks(level)) yield sink;
     }
     for (const sink of this.sinks) yield sink;
   }
@@ -513,7 +518,7 @@ export class LoggerImpl implements Logger {
     ) {
       return;
     }
-    for (const sink of this.getSinks()) {
+    for (const sink of this.getSinks(record.level)) {
       if (bypassSinks?.has(sink)) continue;
       try {
         sink(record);
