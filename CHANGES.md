@@ -8,6 +8,16 @@ Version 0.9.0
 
 To be released.
 
+ -  Added synchronous versions of configuration functions.
+    [[#12], [#29] by Murph Murphy]
+
+     -  Added `configureSync()` function.
+     -  Added `disposeSync()` function.
+     -  Added `resetSync()` function.
+
+[#12]: https://github.com/dahlia/logtape/issues/12
+[#29]: https://github.com/dahlia/logtape/pull/29
+
 
 Version 0.8.2
 -------------
@@ -384,4 +394,4 @@ Version 0.1.0
 
 Initial release.  Released on April 19, 2024.
 
-<!-- cSpell: ignore runtimes Kitson Diyar Oktay -->
+<!-- cSpell: ignore Murph runtimes Kitson Diyar Oktay -->

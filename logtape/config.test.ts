@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert/assert-equals";
 import { assertRejects } from "@std/assert/assert-rejects";
 import { assertStrictEquals } from "@std/assert/assert-strict-equals";
-import assert from "node:assert/strict";
+import { assertThrows } from "@std/assert/assert-throws";
 import {
   type Config,
   ConfigError,
@@ -259,6 +259,7 @@ Deno.test("configure()", async (t) => {
     });
   }
 });
+
 Deno.test("configureSync()", async (t) => {
   let disposed = 0;
 
@@ -338,7 +339,7 @@ Deno.test("configureSync()", async (t) => {
   });
 
   await t.step("reconfigure", () => {
-    assert.throws(
+    assertThrows(
       () =>
         configureSync({
           sinks: {},
@@ -366,7 +367,7 @@ Deno.test("configureSync()", async (t) => {
   });
 
   await t.step("misconfiguration", () => {
-    assert.throws(
+    assertThrows(
       () =>
         configureSync({
           // deno-lint-ignore no-explicit-any
@@ -384,7 +385,7 @@ Deno.test("configureSync()", async (t) => {
     );
     assertStrictEquals(getConfig(), null);
 
-    assert.throws(
+    assertThrows(
       () =>
         configureSync({
           sinks: {},
@@ -445,10 +446,10 @@ Deno.test("configureSync()", async (t) => {
       ],
     };
 
-    assert.throws(
+    assertThrows(
       () => configureSync(config),
       ConfigError,
-      "Async disposables cannot be used with configureSync",
+      "Async disposables cannot be used with configureSync()",
     );
     assertStrictEquals(getConfig(), null);
   });
@@ -474,11 +475,38 @@ Deno.test("configureSync()", async (t) => {
       ],
     };
 
-    assert.throws(
+    assertThrows(
       () => configureSync(config),
       ConfigError,
-      "Async disposables cannot be used with configureSync",
+      "Async disposables cannot be used with configureSync()",
     );
     assertStrictEquals(getConfig(), null);
+  });
+
+  await t.step("cannot reset async disposables", async () => {
+    const aLogs: LogRecord[] = [];
+    const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
+    a[Symbol.asyncDispose] = () => {
+      ++disposed;
+      return Promise.resolve();
+    };
+    await configure({
+      sinks: { a },
+      loggers: [{ category: "my-app", sinks: ["a"] }],
+    });
+    assertThrows(
+      () =>
+        configureSync({
+          sinks: {
+            a(record) {
+              aLogs.push(record);
+            },
+          },
+          loggers: [{ category: "my-app", sinks: ["a"] }],
+          reset: true,
+        }),
+      ConfigError,
+      "Previously configured async disposables are still active",
+    );
   });
 });
