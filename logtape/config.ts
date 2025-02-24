@@ -109,6 +109,19 @@ const disposables: Set<Disposable> = new Set();
 const asyncDisposables: Set<AsyncDisposable> = new Set();
 
 /**
+ * Check if a config is for the meta logger.
+ */
+function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
+  cfg: LoggerConfig<TSinkId, TFilterId>,
+): boolean {
+  return cfg.category.length === 0 ||
+    (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
+    (cfg.category.length === 2 &&
+      cfg.category[0] === "logtape" &&
+      cfg.category[1] === "meta");
+}
+
+/**
  * Configure the loggers with the specified configuration.
  *
  * Note that if the given sinks or filters are disposable, they will be
@@ -157,26 +170,87 @@ export async function configure<
     );
   }
   await reset();
+  try {
+    configureInternal(config, true);
+  } catch (e) {
+    if (e instanceof ConfigError) await reset();
+    throw e;
+  }
+}
+
+/**
+ * Configure sync loggers with the specified configuration.
+ *
+ * Note that if the given sinks or filters are disposable, they will be
+ * disposed when the configuration is reset, or when the process exits.
+ *
+ * Also note that passing async sinks or filters will throw. If
+ * necessary use {@link resetSync} or {@link disposeSync}.
+ *
+ * @example
+ * ```typescript
+ * configureSync({
+ *   sinks: {
+ *     console: getConsoleSink(),
+ *   },
+ *   loggers: [
+ *     {
+ *       category: "my-app",
+ *       sinks: ["console"],
+ *       level: "info",
+ *     },
+ *     {
+ *       category: "logtape",
+ *       sinks: ["console"],
+ *       level: "error",
+ *     },
+ *   ],
+ * });
+ * ```
+ *
+ * @param config The configuration.
+ * @since 0.9.0
+ */
+export function configureSync<TSinkId extends string, TFilterId extends string>(
+  config: Config<TSinkId, TFilterId>,
+): void {
+  if (currentConfig != null && !config.reset) {
+    throw new ConfigError(
+      "Already configured; if you want to reset, turn on the reset flag.",
+    );
+  }
+  if (asyncDisposables.size > 0) {
+    throw new ConfigError(
+      "Previously configured async disposables are still active. " +
+        "Use configure() instead or explicitly dispose them using dispose().",
+    );
+  }
+  resetSync();
+  try {
+    configureInternal(config, false);
+  } catch (e) {
+    if (e instanceof ConfigError) resetSync();
+    throw e;
+  }
+}
+
+function configureInternal<
+  TSinkId extends string,
+  TFilterId extends string,
+>(config: Config<TSinkId, TFilterId>, allowAsync: boolean): void {
   currentConfig = config;
 
   let metaConfigured = false;
   let levelUsed = false;
 
   for (const cfg of config.loggers) {
-    if (
-      cfg.category.length === 0 ||
-      (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
-      (cfg.category.length === 2 &&
-        cfg.category[0] === "logtape" &&
-        cfg.category[1] === "meta")
-    ) {
+    if (isLoggerConfigMeta(cfg)) {
       metaConfigured = true;
     }
     const logger = LoggerImpl.getLogger(cfg.category);
     for (const sinkId of cfg.sinks ?? []) {
       const sink = config.sinks[sinkId];
       if (!sink) {
-        await reset();
         throw new ConfigError(`Sink not found: ${sinkId}.`);
       }
       logger.sinks.push(sink);
@@ -192,7 +266,6 @@ export async function configure<
     for (const filterId of cfg.filters ?? []) {
       const filter = config.filters?.[filterId];
       if (filter === undefined) {
-        await reset();
         throw new ConfigError(`Filter not found: ${filterId}.`);
       }
       logger.filters.push(toFilter(filter));
@@ -204,7 +277,12 @@ export async function configure<
 
   for (const sink of Object.values<Sink>(config.sinks)) {
     if (Symbol.asyncDispose in sink) {
-      asyncDisposables.add(sink as AsyncDisposable);
+      if (allowAsync) asyncDisposables.add(sink as AsyncDisposable);
+      else {
+        throw new ConfigError(
+          "Async disposables cannot be used with configureSync().",
+        );
+      }
     }
     if (Symbol.dispose in sink) disposables.add(sink as Disposable);
   }
@@ -212,18 +290,24 @@ export async function configure<
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
     if (filter == null || typeof filter === "string") continue;
     if (Symbol.asyncDispose in filter) {
-      asyncDisposables.add(filter as AsyncDisposable);
+      if (allowAsync) asyncDisposables.add(filter as AsyncDisposable);
+      else {
+        throw new ConfigError(
+          "Async disposables cannot be used with configureSync().",
+        );
+      }
     }
     if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
-  if ("process" in globalThis && !("Deno" in globalThis)) { // @ts-ignore: It's fine to use process in Node
+  if ("process" in globalThis && !("Deno" in globalThis)) {
+    // @ts-ignore: It's fine to use process in Node
     // deno-lint-ignore no-process-globals
-    process.on("exit", dispose);
-  } else { // @ts-ignore: It's fine to addEventListener() on the browser/Deno
-    addEventListener("unload", dispose);
+    process.on("exit", allowAsync ? dispose : disposeSync);
+  } else {
+    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
+    addEventListener("unload", allowAsync ? dispose : disposeSync);
   }
-
   const meta = LoggerImpl.getLogger(["logtape", "meta"]);
   if (!metaConfigured) {
     meta.sinks.push(getConsoleSink());
@@ -264,6 +348,20 @@ export function getConfig(): Config<string, string> | null {
  */
 export async function reset(): Promise<void> {
   await dispose();
+  resetInternal();
+}
+
+/**
+ * Reset the configuration.  Mostly for testing purposes. Will not clear async
+ * sinks, only use with sync sinks. Use {@link reset} if you have async sinks.
+ * @since 0.9.0
+ */
+export function resetSync(): void {
+  disposeSync();
+  resetInternal();
+}
+
+function resetInternal(): void {
   const rootLogger = LoggerImpl.getLogger([]);
   rootLogger.resetDescendants();
   delete rootLogger.contextLocalStorage;
@@ -275,14 +373,23 @@ export async function reset(): Promise<void> {
  * Dispose of the disposables.
  */
 export async function dispose(): Promise<void> {
-  for (const disposable of disposables) disposable[Symbol.dispose]();
-  disposables.clear();
+  disposeSync();
   const promises: PromiseLike<void>[] = [];
   for (const disposable of asyncDisposables) {
     promises.push(disposable[Symbol.asyncDispose]());
     asyncDisposables.delete(disposable);
   }
   await Promise.all(promises);
+}
+
+/**
+ * Dispose of the sync disposables. Async disposables will be untouched,
+ * use {@link dispose} if you have async sinks.
+ * @since 0.9.0
+ */
+export function disposeSync(): void {
+  for (const disposable of disposables) disposable[Symbol.dispose]();
+  disposables.clear();
 }
 
 /**
