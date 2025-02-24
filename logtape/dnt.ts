@@ -29,12 +29,12 @@ await build({
     ],
   },
   outDir: "./npm",
-  entryPoints: ["./logtape/mod.ts"],
+  entryPoints: ["./mod.ts"],
   importMap: "./deno.json",
   mappings: {
-    "./logtape/filesink.jsr.ts": "./logtape/filesink.node.ts",
-    "./logtape/filesink.deno.ts": "./logtape/filesink.node.ts",
-    "./logtape/fs.ts": "./logtape/fs.js",
+    "./filesink.jsr.ts": "./filesink.node.ts",
+    "./filesink.deno.ts": "./filesink.node.ts",
+    "./fs.ts": "./fs.js",
   },
   shims: {
     deno: "dev",
@@ -50,15 +50,15 @@ await build({
       "npm/esm/fs.js",
       'import fs from "./fs.cjs";\nexport default fs;\n',
     );
-    await Deno.copyFile("logtape/fs.cjs", "npm/esm/fs.cjs");
-    await Deno.copyFile("logtape/fs.cjs", "npm/script/fs.js");
+    await Deno.copyFile("fs.cjs", "npm/esm/fs.cjs");
+    await Deno.copyFile("fs.cjs", "npm/script/fs.js");
     await Deno.writeTextFile(
       "npm/esm/nodeUtil.js",
       'import util from "./nodeUtil.cjs";\nexport default util;\n',
     );
-    await Deno.copyFile("logtape/nodeUtil.cjs", "npm/esm/nodeUtil.cjs");
-    await Deno.copyFile("logtape/nodeUtil.cjs", "npm/script/nodeUtil.js");
-    await Deno.copyFile("LICENSE", "npm/LICENSE");
+    await Deno.copyFile("nodeUtil.cjs", "npm/esm/nodeUtil.cjs");
+    await Deno.copyFile("nodeUtil.cjs", "npm/script/nodeUtil.js");
+    await Deno.copyFile("../LICENSE", "npm/LICENSE");
     await Deno.copyFile("README.md", "npm/README.md");
   },
 });

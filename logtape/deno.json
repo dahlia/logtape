@@ -2,7 +2,7 @@
   "name": "@logtape/logtape",
   "version": "0.9.0",
   "license": "MIT",
-  "exports": "./logtape/mod.ts",
+  "exports": "./mod.ts",
   "imports": {
     "@deno/dnt": "jsr:@deno/dnt@^0.41.1",
     "@std/assert": "jsr:@std/assert@^0.222.1",
@@ -14,10 +14,7 @@
     "which_runtime": "https://deno.land/x/which_runtime@0.2.0/mod.ts"
   },
   "exclude": [
-    "*-venv/",
-    ".github/",
     "coverage/",
-    "docs/",
     "npm/"
   ],
   "unstable": [
