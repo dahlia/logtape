@@ -50,6 +50,13 @@ type ILoggerProvider = LoggerProviderBase & {
  */
 export type ObjectRenderer = "json" | "inspect";
 
+type Message = (string | null | undefined)[];
+
+/**
+ * Custom `body` attribute formatter
+ */
+export type BodyFormatter = (message: Message) => AnyValue;
+
 /**
  * Options for creating an OpenTelemetry sink.
  */
@@ -65,8 +72,10 @@ export interface OpenTelemetrySinkOptions {
    * interpolated into the message.  If `"array"`, the message is
    * rendered as an array of strings.  `"string"` by default.
    * @since 0.2.0
+   *
+   * Or even fully customizable with a {@link BodyFormatter} function.
    */
-  messageType?: "string" | "array";
+  messageType?: "string" | "array" | BodyFormatter;
 
   /**
    * The way to render the object in the log record.  If `"json"`,
@@ -139,16 +148,19 @@ export function getOpenTelemetrySink(
     const severityNumber = mapLevelToSeverityNumber(level);
     const attributes = convertToAttributes(properties, objectRenderer);
     attributes["category"] = [...category];
-    const body = convertMessageToBody(message, objectRenderer);
     logger.emit(
       {
         severityNumber,
         severityText: level,
-        body: options.messageType === "array"
-          ? body
-          : body.map((v) =>
-            v === undefined ? "undefined" : v === null ? "null" : v
-          ).join(""),
+        body: typeof options.messageType === "function"
+          ? convertMessageToCustomBodyFormat(
+            message,
+            objectRenderer,
+            options.messageType,
+          )
+          : options.messageType === "array"
+          ? convertMessageToArray(message, objectRenderer)
+          : convertMessageToString(message, objectRenderer),
         attributes,
         timestamp: new Date(timestamp),
       } satisfies OTLogRecord,
@@ -222,10 +234,10 @@ function convertToString(
   else return JSON.stringify(value);
 }
 
-function convertMessageToBody(
+function convertMessageToArray(
   message: readonly unknown[],
   objectRenderer: ObjectRenderer,
-): (string | null | undefined)[] {
+): AnyValue {
   const body: (string | null | undefined)[] = [];
   for (let i = 0; i < message.length; i += 2) {
     const msg = message[i] as string;
@@ -235,6 +247,31 @@ function convertMessageToBody(
     body.push(convertToString(val, objectRenderer));
   }
   return body;
+}
+
+function convertMessageToString(
+  message: readonly unknown[],
+  objectRenderer: ObjectRenderer,
+): AnyValue {
+  let body = "";
+  for (let i = 0; i < message.length; i += 2) {
+    const msg = message[i] as string;
+    body += msg;
+    if (message.length <= i + 1) break;
+    const val = message[i + 1];
+    const extra = convertToString(val, objectRenderer);
+    body += extra ?? JSON.stringify(extra);
+  }
+  return body;
+}
+
+function convertMessageToCustomBodyFormat(
+  message: readonly unknown[],
+  objectRenderer: ObjectRenderer,
+  bodyFormatter: BodyFormatter,
+): AnyValue {
+  const body = message.map((msg) => convertToString(msg, objectRenderer));
+  return bodyFormatter(body);
 }
 
 /**
