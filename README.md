@@ -153,7 +153,7 @@ Changelog
 
 ### Version 0.3.0
 
-To be released.
+Released on February 26, 2025.
 
  -  Now you can customize the body formatter.  [[#1] by Hyeseong Kim]
 
