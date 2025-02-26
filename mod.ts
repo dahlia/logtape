@@ -53,7 +53,8 @@ export type ObjectRenderer = "json" | "inspect";
 type Message = (string | null | undefined)[];
 
 /**
- * Custom `body` attribute formatter
+ * Custom `body` attribute formatter.
+ * @since 0.3.0
  */
 export type BodyFormatter = (message: Message) => AnyValue;
 
@@ -71,9 +72,9 @@ export interface OpenTelemetrySinkOptions {
    * the message is rendered as a single string with the values are
    * interpolated into the message.  If `"array"`, the message is
    * rendered as an array of strings.  `"string"` by default.
-   * @since 0.2.0
    *
    * Or even fully customizable with a {@link BodyFormatter} function.
+   * @since 0.2.0
    */
   messageType?: "string" | "array" | BodyFormatter;
 

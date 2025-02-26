@@ -155,6 +155,15 @@ Changelog
 
 To be released.
 
+ -  Now you can customize the body formatter.  [[#1] by Hyeseong Kim]
+
+     -  Added `BodyFormatter` type.
+     -  Changed the type of `OpenTelemetrySinkOptions.messageType` to
+        `"string" | "array" | BodyFormatter | undefined` (was
+        `"string" | "array" | undefined`).
+
+[#1]: https://github.com/dahlia/logtape-otel/pull/1
+
 
 ### Version 0.2.0
 
