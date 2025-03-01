@@ -3,6 +3,12 @@
 LogTape changelog
 =================
 
+Version 0.9.1
+-------------
+
+To be released.
+
+
 Version 0.9.0
 -------------
 
