@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.9.0
 -------------
 
-To be released.
+Released on March 1, 2025.
 
  -  Moved file sinks and rotating file sinks to separate packages.
     [[#19], [#27], [#28]]
