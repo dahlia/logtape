@@ -19,7 +19,7 @@ the `~Config.loggers` object to assign filters to loggers.
 For example, the following filter discards log messages whose property `elapsed`
 is less than 100 milliseconds:
 
-~~~~ typescript{5-9} twoslash
+~~~~ typescript{5-10} twoslash
 // @noErrors: 2345
 import { configure, type LogRecord } from "@logtape/logtape";
 

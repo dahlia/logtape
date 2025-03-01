@@ -39,6 +39,10 @@ await configure({
 This setup will log all `"info"` level and above messages from the `["my-app"]`
 &nbsp;[category](./categories.md) to the console.
 
+> [!TIP]
+> Want to avoid the `await`?  Check out the
+> [*Synchronous configuration*](#synchronous-configuration) section.
+
 
 Crafting your configuration
 ---------------------------

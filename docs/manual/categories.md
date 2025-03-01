@@ -15,7 +15,7 @@ hierarchy.
 
 Here's an example of setting log levels for different categories:
 
-~~~~ typescript{9-10} twoslash
+~~~~ typescript{10-11} twoslash
 import { getFileSink } from "@logtape/file";
 import { configure, getConsoleSink } from "@logtape/logtape";
 

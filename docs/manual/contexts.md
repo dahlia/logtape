@@ -84,7 +84,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { configure, getLogger } from "@logtape/logtape";
 
 await configure({
-  // ... other settings ... 
+  // ... other settings ...
   // ---cut-start---
   sinks: {},
   loggers: [],

@@ -16,7 +16,7 @@ const jsrRef_logtape = await jsrRef({
 const jsrRef_file = await jsrRef({
   package: "@logtape/file",
   version: jsrRefVersion,
-  cachePath: ".jsr-cache.file.json",
+  cachePath: ".jsr-cache-file.json",
 });
 
 let extraNav: { text: string; link: string }[] = [];
