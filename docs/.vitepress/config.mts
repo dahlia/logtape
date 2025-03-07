@@ -29,9 +29,11 @@ if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   ];
 }
 
-let plausibleScript: [string, Record<string, string>][] = [];
+const head: [string, Record<string, string>][] = [
+  ["link", { rel: "icon", href: "/logtape.svg", }]
+];
 if (process.env.PLAUSIBLE_DOMAIN) {
-  plausibleScript = [
+  head.push(
     [
       "script",
       {
@@ -40,7 +42,7 @@ if (process.env.PLAUSIBLE_DOMAIN) {
         src: "https://plausible.io/js/script.outbound-links.js",
       },
     ],
-  ];
+  );
 }
 
 const MANUAL = {
@@ -104,7 +106,7 @@ export default defineConfig({
       pattern: "https://github.com/dahlia/logtape/edit/main/docs/:path",
     },
   },
-  head: plausibleScript,
+  head: head,
   markdown: {
     codeTransformers: [
       transformerTwoslash({
