@@ -28,11 +28,11 @@ This package is available on [JSR] and [npm].  You can install it for various
 JavaScript runtimes and package managers:
 
 ~~~~ sh
-deno add @logtape/file  # for Deno
-npm  add @logtape/file  # for npm
-pnpm add @logtape/file  # for pnpm
-yarn add @logtape/file  # for Yarn
-bun  add @logtape/file  # for Bun
+deno add jsr:@logtape/file  # for Deno
+npm  add     @logtape/file  # for npm
+pnpm add     @logtape/file  # for pnpm
+yarn add     @logtape/file  # for Yarn
+bun  add     @logtape/file  # for Bun
 ~~~~
 
 

@@ -62,11 +62,11 @@ LogTape is available on [JSR] and [npm].  You can install LogTape for various
 JavaScript runtimes and package managers:
 
 ~~~~ sh
-deno add @logtape/logtape  # for Deno
-npm  add @logtape/logtape  # for npm
-pnpm add @logtape/logtape  # for pnpm
-yarn add @logtape/logtape  # for Yarn
-bun  add @logtape/logtape  # for Bun
+deno add jsr:@logtape/logtape  # for Deno
+npm  add     @logtape/logtape  # for npm
+pnpm add     @logtape/logtape  # for pnpm
+yarn add     @logtape/logtape  # for Yarn
+bun  add     @logtape/logtape  # for Bun
 ~~~~
 
 See also the [installation manual][Runtime diversity] for more details.
