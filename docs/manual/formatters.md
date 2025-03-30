@@ -76,6 +76,7 @@ The timestamp format.  This can be one of the following:
     (e.g., `2023-11-14`).
  -  `"rfc3339"`: The date and time in RFC 3339 format
     (e.g., `2023-11-14T22:13:20.000Z`).
+ -  `"none"` or `"disabled"`: No displayment
 
 Alternatively, this can be a function that accepts a timestamp and returns
 a string.
