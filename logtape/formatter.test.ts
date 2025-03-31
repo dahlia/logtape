@@ -32,6 +32,14 @@ Deno.test("getTextFormatter()", () => {
     "2023-11-14 22:13:20.000 +00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
   assertEquals(
+    getTextFormatter({ timestamp: "none" })(info),
+    "[INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assertEquals(
+    getTextFormatter({ timestamp: "disabled" })(info),
+    "[INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assertEquals(
     getTextFormatter({ timestamp: "rfc3339" })(info),
     "2023-11-14T22:13:20.000Z [INF] my-app·junk: Hello, 123 & 456!\n",
   );

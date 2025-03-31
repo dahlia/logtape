@@ -68,7 +68,7 @@ export interface FormattedValues {
   /**
    * The formatted timestamp.
    */
-  timestamp: string;
+  timestamp: string | null;
 
   /**
    * The formatted log level.
@@ -115,6 +115,7 @@ export interface TextFormatterOptions {
    *   (e.g., `"2023-11-14"`).
    * - `"rfc3339"`: The date and time in RFC 3339 format
    *   (e.g., `"2023-11-14T22:13:20.000Z"`).
+   * - `"none"` or `"disabled"`: No displayment
    *
    * Alternatively, this can be a function that accepts a timestamp and returns
    * a string.
@@ -130,7 +131,9 @@ export interface TextFormatterOptions {
     | "time"
     | "date"
     | "rfc3339"
-    | ((ts: number) => string);
+    | "none"
+    | "disabled"
+    | ((ts: number) => string | null);
 
   /**
    * The log level format.  This can be one of the following:
@@ -241,6 +244,8 @@ export function getTextFormatter(
       ? (ts: number): string => new Date(ts).toISOString().replace(/T.*/, "")
       : options.timestamp === "rfc3339"
       ? (ts: number): string => new Date(ts).toISOString()
+      : options.timestamp === "none" || options.timestamp === "disabled"
+      ? () => null
       : options.timestamp;
   const categorySeparator = options.category ?? "·";
   const valueRenderer = options.value ?? inspect;
@@ -259,7 +264,7 @@ export function getTextFormatter(
     : options.level;
   const formatter: (values: FormattedValues) => string = options.format ??
     (({ timestamp, level, category, message }: FormattedValues) =>
-      `${timestamp} [${level}] ${category}: ${message}`);
+      `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}: ${message}`);
   return (record: LogRecord): string => {
     let message = "";
     for (let i = 0; i < record.message.length; i++) {

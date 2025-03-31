@@ -8,6 +8,20 @@ Version 0.10.0
 
 To be released.
 
+ -  The text formatter now can omit the timestamp from the formatted message.
+    [[#35] by Ooker]
+
+     -  Changed the type of the `TextFormatterOptions.timestamp` option to
+        `"date-time-timezone" | "date-time-tz" | "date-time" | "time-timezone"
+        | "time-tz" | "time" | "date" | "rfc3339" | "none" | "disabled"
+        | ((ts: number) => string | null)` (was `"date-time-timezone"
+        | "date-time-tz" | "date-time" | "time-timezone" | "time-tz" | "time"
+        | "date" | "rfc3339" | ((ts: number) => string)`).
+     -  Changed the type of the `FormattedValues.timestamp` property to
+        `string | null` (was `string`).
+
+[#35]: https://github.com/dahlia/logtape/pull/35
+
 
 Version 0.9.0
 -------------
