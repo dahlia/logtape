@@ -133,7 +133,7 @@ export interface TextFormatterOptions {
     | "rfc3339"
     | "none"
     | "disabled"
-    | ((ts: number) => string);
+    | ((ts: number) => string | null);
 
   /**
    * The log level format.  This can be one of the following:
