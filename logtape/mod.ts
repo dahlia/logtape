@@ -24,6 +24,8 @@ export {
   type AnsiStyle,
   type ConsoleFormatter,
   defaultConsoleFormatter,
+  defaultLevelAbbreviations,
+  defaultLogLevelStyles,
   defaultTextFormatter,
   type FormattedValues,
   getAnsiColorFormatter,

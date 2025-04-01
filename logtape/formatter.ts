@@ -14,7 +14,7 @@ export type TextFormatter = (record: LogRecord) => string;
 /**
  * The severity level abbreviations.
  */
-const levelAbbreviations: Record<LogLevel, string> = {
+export const defaultLevelAbbreviations: Record<LogLevel, string> = {
   "debug": "DBG",
   "info": "INF",
   "warning": "WRN",
@@ -250,9 +250,10 @@ export function getTextFormatter(
   const categorySeparator = options.category ?? "·";
   const valueRenderer = options.value ?? inspect;
   const levelRenderer = options.level == null || options.level === "ABBR"
-    ? (level: LogLevel): string => levelAbbreviations[level]
+    ? (level: LogLevel): string => defaultLevelAbbreviations[level]
     : options.level === "abbr"
-    ? (level: LogLevel): string => levelAbbreviations[level].toLowerCase()
+    ? (level: LogLevel): string =>
+      defaultLevelAbbreviations[level].toLowerCase()
     : options.level === "FULL"
     ? (level: LogLevel): string => level.toUpperCase()
     : options.level === "full"
@@ -516,7 +517,7 @@ export type ConsoleFormatter = (record: LogRecord) => readonly unknown[];
 /**
  * The styles for the log level in the console.
  */
-const logLevelStyles: Record<LogLevel, string> = {
+export const defaultLogLevelStyles: Record<LogLevel, string> = {
   "debug": "background-color: gray; color: white;",
   "info": "background-color: white; color: black;",
   "warning": "background-color: orange; color: black;",
@@ -548,11 +549,11 @@ export function defaultConsoleFormatter(record: LogRecord): readonly unknown[] {
     date.getUTCMilliseconds().toString().padStart(3, "0")
   }`;
   return [
-    `%c${time} %c${levelAbbreviations[record.level]}%c %c${
+    `%c${time} %c${defaultLevelAbbreviations[record.level]}%c %c${
       record.category.join("\xb7")
     } %c${msg}`,
     "color: gray;",
-    logLevelStyles[record.level],
+    defaultLogLevelStyles[record.level],
     "background-color: default;",
     "color: gray;",
     "color: default;",
