@@ -1,6 +1,7 @@
 import { isDeno } from "@david/which-runtime";
 import type { Sink } from "@logtape/logtape";
 import { assertEquals } from "@std/assert/assert-equals";
+import { assertThrows } from "@std/assert/assert-throws";
 import { join } from "@std/path/join";
 import fs from "node:fs";
 import { debug, error, fatal, info, warning } from "../logtape/fixtures.ts";
@@ -36,6 +37,63 @@ Deno.test("getBaseFileSink()", () => {
       closeSync: fs.closeSync,
     };
     sink = getBaseFileSink(path, driver);
+  }
+  sink(debug);
+  sink(info);
+  sink(warning);
+  sink(error);
+  sink(fatal);
+  sink[Symbol.dispose]();
+  assertEquals(
+    Deno.readTextFileSync(path),
+    `\
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
+`,
+  );
+});
+
+Deno.test("getBaseFileSink() with lazy option", () => {
+  const pathDir = Deno.makeTempDirSync();
+  const path = join(pathDir, "test.log");
+  let sink: Sink & Disposable;
+  if (isDeno) {
+    const driver: FileSinkDriver<Deno.FsFile> = {
+      openSync(path: string) {
+        return Deno.openSync(path, { create: true, append: true });
+      },
+      writeSync(fd, chunk) {
+        fd.writeSync(chunk);
+      },
+      flushSync(fd) {
+        fd.syncSync();
+      },
+      closeSync(fd) {
+        fd.close();
+      },
+    };
+    sink = getBaseFileSink(path, { ...driver, lazy: true });
+  } else {
+    const driver: FileSinkDriver<number> = {
+      openSync(path: string) {
+        return fs.openSync(path, "a");
+      },
+      writeSync: fs.writeSync,
+      flushSync: fs.fsyncSync,
+      closeSync: fs.closeSync,
+    };
+    sink = getBaseFileSink(path, { ...driver, lazy: true });
+  }
+  if (isDeno) {
+    assertThrows(
+      () => Deno.lstatSync(path),
+      Deno.errors.NotFound,
+    );
+  } else {
+    assertEquals(fs.existsSync(path), false);
   }
   sink(debug);
   sink(info);

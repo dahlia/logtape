@@ -8,7 +8,12 @@ import {
 /**
  * Options for the {@link getBaseFileSink} function.
  */
-export type FileSinkOptions = StreamSinkOptions;
+export type FileSinkOptions = StreamSinkOptions & {
+  /**
+   * If `true`, the file is not opened until the first write.  Defaults to `false`.
+   */
+  lazy?: boolean;
+};
 
 /**
  * A platform-specific file sink driver.
@@ -56,19 +61,26 @@ export function getBaseFileSink<TFile>(
 ): Sink & Disposable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
-  const fd = options.openSync(path);
+  let fd = options.lazy ? null : options.openSync(path);
   const sink: Sink & Disposable = (record: LogRecord) => {
+    if (fd === null) {
+      fd = options.openSync(path);
+    }
     options.writeSync(fd, encoder.encode(formatter(record)));
     options.flushSync(fd);
   };
-  sink[Symbol.dispose] = () => options.closeSync(fd);
+  sink[Symbol.dispose] = () => {
+    if (fd !== null) {
+      options.closeSync(fd);
+    }
+  };
   return sink;
 }
 
 /**
  * Options for the {@link getBaseRotatingFileSink} function.
  */
-export interface RotatingFileSinkOptions extends FileSinkOptions {
+export interface RotatingFileSinkOptions extends Omit<FileSinkOptions, "lazy"> {
   /**
    * The maximum bytes of the file before it is rotated.  1 MiB by default.
    */
