@@ -171,7 +171,7 @@ import { configure } from "@logtape/logtape";
 
 await configure({
   sinks: {
-    file: getFileSink("my-app.log"),
+    file: getFileSink("my-app.log", { lazy: true }),
   },
   // Omitted for brevity
 });

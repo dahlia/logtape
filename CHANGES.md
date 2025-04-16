@@ -20,7 +20,11 @@ To be released.
      -  Changed the type of the `FormattedValues.timestamp` property to
         `string | null` (was `string`).
 
+ -  Added `FileSinkOptions.lazy` option.  [[#38], [#39] by Rickey Ward]
+
 [#35]: https://github.com/dahlia/logtape/pull/35
+[#38]: https://github.com/dahlia/logtape/issues/38
+[#39]: https://github.com/dahlia/logtape/pull/39
 
 
 Version 0.9.0

@@ -2,8 +2,8 @@
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",
-    "@logtape/file": "0.9.0-dev.134",
-    "@logtape/logtape": "0.9.0-dev.134",
+    "@logtape/file": "^0.10.0-dev.146",
+    "@logtape/logtape": "^0.10.0-dev.146",
     "@logtape/otel": "^0.2.0",
     "@logtape/sentry": "^0.1.0",
     "@sentry/node": "^8.40.0",
