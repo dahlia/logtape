@@ -128,6 +128,9 @@ export default defineConfig({
       md.use(jsrRef_file);
     },
   },
+  sitemap: {
+    hostname: process.env.SITEMAP_HOSTNAME,
+  },
 
   async transformHead(context) {
     return [

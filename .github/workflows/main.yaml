@@ -126,6 +126,7 @@ jobs:
           bun add -D @logtape/otel@latest
           EXTRA_NAV_TEXT=Unstable \
           EXTRA_NAV_LINK="$UNSTABLE_DOCS_URL" \
+          SITEMAP_HOSTNAME="$STABLE_DOCS_URL" \
           bun run build
         else
           bun add -D @logtape/logtape@dev
@@ -133,6 +134,7 @@ jobs:
           bun add -D @logtape/otel@dev
           EXTRA_NAV_TEXT=Stable \
           EXTRA_NAV_LINK="$STABLE_DOCS_URL" \
+          SITEMAP_HOSTNAME="$UNSTABLE_DOCS_URL" \
           bun run build
         fi
       env:
