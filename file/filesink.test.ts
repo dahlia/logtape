@@ -87,10 +87,14 @@ Deno.test("getBaseFileSink() with lazy option", () => {
     };
     sink = getBaseFileSink(path, { ...driver, lazy: true });
   }
-  assertThrows(
-    () => Deno.lstatSync(path),
-    Deno.errors.NotFound,
-  );
+  if (isDeno) {
+    assertThrows(
+      () => Deno.lstatSync(path),
+      Deno.errors.NotFound,
+    );
+  } else {
+    assertEquals(fs.existsSync(path), false);
+  }
   sink(debug);
   sink(info);
   sink(warning);
