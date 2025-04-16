@@ -1,6 +1,7 @@
 import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
 import { jsrRef } from "markdown-it-jsr-ref";
 import { defineConfig } from "vitepress";
+import llmstxt from "vitepress-plugin-llms";
 
 const jsrRefVersion =
   process.env.CI === "true" && process.env.GITHUB_REF_TYPE === "tag"
@@ -128,6 +129,11 @@ export default defineConfig({
   },
   sitemap: {
     hostname: process.env.SITEMAP_HOSTNAME,
+  },
+  vite: {
+    plugins: [
+      llmstxt(),
+    ]
   },
 
   async transformHead(context) {
