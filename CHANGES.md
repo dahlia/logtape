@@ -8,6 +8,11 @@ Version 0.9.1
 
 To be released.
 
+ -  Fixed a CORS error when using LogTape in web browser environments like Fresh
+    islands components due to importing Node.js `node:util` module.  [[#40]]
+
+[#40]: https://github.com/dahlia/logtape/issues/40
+
 
 Version 0.9.0
 -------------

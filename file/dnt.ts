@@ -1,11 +1,22 @@
 import { build, emptyDir } from "@deno/dnt";
+import { format } from "@std/semver/format";
+import { parse } from "@std/semver/parse";
+import type { SemVer } from "@std/semver/types";
 import workspace from "../deno.json" with { type: "json" };
 import metadata from "./deno.json" with { type: "json" };
 
 await emptyDir("./npm");
 
+const version = parse(Deno.args[0] ?? metadata.version);
+const minorVersion: SemVer = {
+  ...version,
+  patch: 0,
+  prerelease: [],
+  build: [],
+};
+
 const imports = {
-  "@logtape/logtape": "../logtape/mod.ts",
+  "@logtape/logtape": `npm:@logtape/logtape@^${format(minorVersion)}`,
   ...workspace.imports,
 };
 
@@ -17,7 +28,7 @@ await Deno.writeTextFile(
 await build({
   package: {
     name: metadata.name,
-    version: Deno.args[0] ?? metadata.version,
+    version: format(version),
     description: "File sink and rotating file sink for LogTape",
     keywords: ["logging", "log", "logger", "file", "sink", "rotating"],
     license: "MIT",
