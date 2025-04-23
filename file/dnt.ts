@@ -1,4 +1,6 @@
 import { build, emptyDir } from "@deno/dnt";
+import { maxWith } from "@std/collections/max-with";
+import { compare } from "@std/semver/compare";
 import { format } from "@std/semver/format";
 import { parse } from "@std/semver/parse";
 import type { SemVer } from "@std/semver/types";
@@ -8,12 +10,19 @@ import metadata from "./deno.json" with { type: "json" };
 await emptyDir("./npm");
 
 const version = parse(Deno.args[0] ?? metadata.version);
-const minorVersion: SemVer = {
+let minorVersion: SemVer = {
   ...version,
   patch: 0,
   prerelease: [],
   build: [],
 };
+
+const logtapeResp = await fetch("https://registry.npmjs.com/@logtape/logtape");
+const logtapeData = await logtapeResp.json();
+const logtapeVersions = Object.keys(logtapeData.versions);
+if (!logtapeVersions.includes(format(minorVersion))) {
+  minorVersion = maxWith(logtapeVersions.map(parse), compare) ?? Deno.exit(1);
+}
 
 const imports = {
   "@logtape/logtape": `npm:@logtape/logtape@^${format(minorVersion)}`,

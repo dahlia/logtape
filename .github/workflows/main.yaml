@@ -80,13 +80,14 @@ jobs:
         set -ex
         [[ "$(jq -r .version logtape/deno.json)" = "$GITHUB_REF_NAME" ]]
         deno task check:versions
-    - run: deno task dnt-all
     - if: github.event_name == 'push'
       run: |
         set -ex
         npm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
-        for npm in */npm/; do
-          pushd "$npm"
+        jq -r '.workspace | .[]' deno.json | while read pkg; do
+          pushd "$pkg"
+          deno task dnt
+          cd npm
           if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
             npm publish --provenance --access public
           else

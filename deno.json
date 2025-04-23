@@ -8,6 +8,7 @@
     "@deno/dnt": "jsr:@deno/dnt@^0.41.1",
     "@std/assert": "jsr:@std/assert@^0.222.1",
     "@std/async": "jsr:@std/async@^0.222.1",
+    "@std/collections": "jsr:@std/collections@^1.0.10",
     "@std/fs": "jsr:@std/fs@^0.223.0",
     "@std/path": "jsr:@std/path@^1.0.2",
     "@std/semver": "jsr:@std/semver@^1.0.5",
@@ -32,7 +33,6 @@
     "check:versions": "deno run --allow-read scripts/check_versions.ts",
     "test": "deno test --allow-read --allow-write",
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
-    "dnt-all": "deno task --recursive dnt",
     "test-all:bun": "deno task --recursive test:bun",
     "test-all": {
       "dependencies": [
