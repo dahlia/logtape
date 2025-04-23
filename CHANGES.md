@@ -27,6 +27,17 @@ To be released.
 [#39]: https://github.com/dahlia/logtape/pull/39
 
 
+Version 0.9.1
+-------------
+
+Released on April 24, 2025.
+
+ -  Fixed a CORS error when using LogTape in web browser environments like Fresh
+    islands components due to importing Node.js `node:util` module.  [[#40]]
+
+[#40]: https://github.com/dahlia/logtape/issues/40
+
+
 Version 0.9.0
 -------------
 

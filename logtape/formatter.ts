@@ -33,12 +33,19 @@ const levelAbbreviations: Record<LogLevel, string> = {
  * @returns The string representation of the value.
  */
 const inspect: (value: unknown, options?: { colors?: boolean }) => string =
-  // @ts-ignore: Deno global
+  // @ts-ignore: Browser detection
   // dnt-shim-ignore
-  "Deno" in globalThis && "inspect" in globalThis.Deno &&
+  typeof document !== "undefined" ||
+    // @ts-ignore: React Native detection
+    // dnt-shim-ignore
+    typeof navigator !== "undefined" && navigator.product === "ReactNative"
+    ? (v) => JSON.stringify(v)
     // @ts-ignore: Deno global
     // dnt-shim-ignore
-    typeof globalThis.Deno.inspect === "function"
+    : "Deno" in globalThis && "inspect" in globalThis.Deno &&
+        // @ts-ignore: Deno global
+        // dnt-shim-ignore
+        typeof globalThis.Deno.inspect === "function"
     ? (v, opts) =>
       // @ts-ignore: Deno global
       // dnt-shim-ignore
