@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.9.1
 -------------
 
-To be released.
+Released on April 24, 2025.
 
  -  Fixed a CORS error when using LogTape in web browser environments like Fresh
     islands components due to importing Node.js `node:util` module.  [[#40]]
