@@ -33,7 +33,7 @@ let util: UtilInterface = {
 
 // Only try to import node:util in non-browser environments
 if (!isBrowser()) {
-  util = eval("({ inspect: Deno.inspect })");
+  util = (0, eval)("({ inspect: Deno.inspect })");
 }
 
 export default util;
