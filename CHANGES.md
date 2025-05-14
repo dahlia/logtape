@@ -8,6 +8,12 @@ Version 0.9.2
 
 To be released.
 
+ -  Fixed a bug where importing `@logtape/logtape` threw a `ReferenceError`
+    on Node.js or Bun when LogTape was installed from JSR (instead of npm).
+    [[#42]]
+
+[#42]: https://github.com/dahlia/logtape/issues/42
+
 
 Version 0.9.1
 -------------
