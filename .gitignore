@@ -1,3 +1,4 @@
+.cov/
 .dnt-import-map.json
 coverage/
 npm/

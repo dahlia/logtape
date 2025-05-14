@@ -19,7 +19,9 @@
   ],
   "lock": false,
   "exclude": [
+    ".cov/",
     ".github/",
+    "coverage/",
     "docs/"
   ],
   "tasks": {
