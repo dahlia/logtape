@@ -27,6 +27,18 @@ To be released.
 [#39]: https://github.com/dahlia/logtape/pull/39
 
 
+Version 0.9.2
+-------------
+
+Released on May 15, 2025.
+
+ -  Fixed a bug where importing `@logtape/logtape` threw a `ReferenceError`
+    on Node.js or Bun when LogTape was installed from JSR (instead of npm).
+    [[#42]]
+
+[#42]: https://github.com/dahlia/logtape/issues/42
+
+
 Version 0.9.1
 -------------
 

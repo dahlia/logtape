@@ -24,7 +24,7 @@ interface UtilInterface {
 }
 
 // Default implementation with fallback
-let util: UtilInterface = {
+let utilModule: UtilInterface = {
   inspect(obj: unknown, options?: InspectOptions): string {
     const indent = options?.compact === true ? undefined : 2;
     return JSON.stringify(obj, null, indent);
@@ -33,7 +33,14 @@ let util: UtilInterface = {
 
 // Only try to import node:util in non-browser environments
 if (!isBrowser()) {
-  util = (0, eval)("({ inspect: Deno.inspect })");
+  if ("Deno" in globalThis) {
+    // @ts-ignore: Deno.inspect() exists
+    utilModule = { inspect: Deno.inspect };
+  } else {
+    import("node:util").then((util) => {
+      utilModule.inspect = util.inspect;
+    });
+  }
 }
 
-export default util;
+export default utilModule;
