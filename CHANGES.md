@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.9.2
 -------------
 
-To be released.
+Released on May 15, 2025.
 
  -  Fixed a bug where importing `@logtape/logtape` threw a `ReferenceError`
     on Node.js or Bun when LogTape was installed from JSR (instead of npm).
