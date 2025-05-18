@@ -4,7 +4,6 @@ import { compare } from "@std/semver/compare";
 import { format } from "@std/semver/format";
 import { parse } from "@std/semver/parse";
 import type { SemVer } from "@std/semver/types";
-import workspace from "../deno.json" with { type: "json" };
 import metadata from "./deno.json" with { type: "json" };
 
 await emptyDir("./npm");
@@ -23,16 +22,6 @@ const logtapeVersions = Object.keys(logtapeData.versions);
 if (!logtapeVersions.includes(format(minorVersion))) {
   minorVersion = maxWith(logtapeVersions.map(parse), compare) ?? Deno.exit(1);
 }
-
-const imports = {
-  "@logtape/logtape": `npm:@logtape/logtape@^${format(minorVersion)}`,
-  ...workspace.imports,
-};
-
-await Deno.writeTextFile(
-  ".dnt-import-map.json",
-  JSON.stringify({ imports }, undefined, 2),
-);
 
 await build({
   package: {
@@ -66,10 +55,13 @@ await build({
     funding: [
       "https://github.com/sponsors/dahlia",
     ],
+    devDependencies: {
+      "@logtape/logtape": `^${format(minorVersion)}`,
+    },
   },
   outDir: "./npm",
   entryPoints: ["./mod.ts"],
-  importMap: "./.dnt-import-map.json",
+  importMap: "../deno.json",
   shims: {
     deno: "dev",
   },
