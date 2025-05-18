@@ -16,6 +16,14 @@ To be released.
      -  Added `FieldPatterns` type.
      -  Added `FieldRedactionOptions` interface.
      -  Added `DEFAULT_REDACT_FIELDS` constant.
+     -  Added `redactByPattern()` function.
+     -  Added `RedactionPattern` interface.
+     -  Added `RedactionPatterns` type.
+     -  Added `CREDIT_CARD_NUMBER_PATTERN` constant.
+     -  Added `EMAIL_ADDRESS_PATTERN` constant.
+     -  Added `JWT_PATTERN` constant.
+     -  Added `KR_RRN_PATTERN` constant.
+     -  Added `US_SSN_PATTERN` constant.
 
  -  The text formatter now can omit the timestamp from the formatted message.
     [[#35] by Ooker]

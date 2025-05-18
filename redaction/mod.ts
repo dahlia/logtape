@@ -5,3 +5,4 @@ export {
   type FieldRedactionOptions,
   redactByField,
 } from "./field.ts";
+export * from "./pattern.ts";
