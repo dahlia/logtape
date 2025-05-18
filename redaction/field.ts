@@ -99,8 +99,16 @@ export function redactByField(
 }
 
 /**
- * Redacts properties in a record based on the provided field patterns and
- * action.
+ * Redacts properties from an object based on specified field patterns.
+ *
+ * This function creates a shallow copy of the input object and applies
+ * redaction rules to its properties. For properties that match the redaction
+ * patterns, the function either removes them or transforms their values based
+ * on the provided action.
+ *
+ * The redaction process is recursive and will be applied to nested objects
+ * as well, allowing for deep redaction of sensitive data in complex object
+ * structures.
  * @param properties The properties to redact.
  * @param options The redaction options.
  * @returns The redacted properties.
@@ -112,11 +120,23 @@ export function redactProperties(
 ): Record<string, unknown> {
   const copy = { ...properties };
   for (const field in copy) {
-    if (!shouldFieldRedacted(field, options.fieldPatterns)) continue;
-    if (options.action == null || options.action === "delete") {
-      delete copy[field];
-    } else {
-      copy[field] = options.action(copy[field]);
+    if (shouldFieldRedacted(field, options.fieldPatterns)) {
+      if (options.action == null || options.action === "delete") {
+        delete copy[field];
+      } else {
+        copy[field] = options.action(copy[field]);
+      }
+      continue;
+    }
+    const value = copy[field];
+    // Check if value is a vanilla object:
+    if (
+      typeof value === "object" && value !== null &&
+      (Object.getPrototypeOf(value) === Object.prototype ||
+        Object.getPrototypeOf(value) === null)
+    ) {
+      // @ts-ignore: value is always Record<string, unknown>
+      copy[field] = redactProperties(value, options);
     }
   }
   return copy;

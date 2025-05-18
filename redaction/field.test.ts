@@ -1,5 +1,8 @@
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { assertEquals } from "@std/assert/assert-equals";
+import { assert } from "@std/assert/assert";
+import { assertExists } from "@std/assert/assert-exists";
+import { assertFalse } from "@std/assert/assert-false";
 import {
   type FieldPatterns,
   redactByField,
@@ -47,10 +50,33 @@ Deno.test("redactProperties()", async (t) => {
       fieldPatterns: ["password", "email"],
     });
 
-    assertEquals("username" in result, true);
-    assertEquals("password" in result, false);
-    assertEquals("email" in result, false);
-    assertEquals("message" in result, true);
+    assert("username" in result);
+    assertFalse("password" in result);
+    assertFalse("email" in result);
+    assert("message" in result);
+
+    const nestedObject = {
+      ...properties,
+      nested: {
+        foo: "bar",
+        baz: "qux",
+        passphrase: "asdf",
+      },
+    };
+    const result2 = redactProperties(nestedObject, {
+      fieldPatterns: ["password", "email", "passphrase"],
+    });
+
+    assert("username" in result2);
+    assertFalse("password" in result2);
+    assertFalse("email" in result2);
+    assert("message" in result2);
+    assert("nested" in result2);
+    assert(typeof result2.nested === "object");
+    assertExists(result2.nested);
+    assert("foo" in result2.nested);
+    assert("baz" in result2.nested);
+    assertFalse("passphrase" in result2.nested);
   });
 
   await t.step("custom action function", () => {
@@ -85,7 +111,7 @@ Deno.test("redactProperties()", async (t) => {
 
     assertEquals(result.username, "user123");
     assertEquals(result.data, { nested: "value" });
-    assertEquals("sensitive" in result, false);
+    assertFalse("sensitive" in result);
   });
 });
 
@@ -114,9 +140,9 @@ Deno.test("redactByField()", async (t) => {
     wrappedSink(record);
 
     assertEquals(records.length, 1);
-    assertEquals("username" in records[0].properties, true);
-    assertEquals("password" in records[0].properties, false);
-    assertEquals("token" in records[0].properties, false);
+    assert("username" in records[0].properties);
+    assertFalse("password" in records[0].properties);
+    assertFalse("token" in records[0].properties);
   });
 
   await t.step("uses default field patterns when not specified", () => {
@@ -142,10 +168,10 @@ Deno.test("redactByField()", async (t) => {
     wrappedSink(record);
 
     assertEquals(records.length, 1);
-    assertEquals("username" in records[0].properties, true);
-    assertEquals("password" in records[0].properties, false);
-    assertEquals("email" in records[0].properties, false);
-    assertEquals("apiKey" in records[0].properties, false);
+    assert("username" in records[0].properties);
+    assertFalse("password" in records[0].properties);
+    assertFalse("email" in records[0].properties);
+    assertFalse("apiKey" in records[0].properties);
   });
 
   await t.step("preserves Disposable behavior", () => {
@@ -161,9 +187,9 @@ Deno.test("redactByField()", async (t) => {
 
     const wrappedSink = redactByField(originalSink) as Sink & Disposable;
 
-    assertEquals(Symbol.dispose in wrappedSink, true);
+    assert(Symbol.dispose in wrappedSink);
     wrappedSink[Symbol.dispose]();
-    assertEquals(disposed, true);
+    assert(disposed);
   });
 
   await t.step("preserves AsyncDisposable behavior", async () => {
@@ -180,8 +206,8 @@ Deno.test("redactByField()", async (t) => {
 
     const wrappedSink = redactByField(originalSink) as Sink & AsyncDisposable;
 
-    assertEquals(Symbol.asyncDispose in wrappedSink, true);
+    assert(Symbol.asyncDispose in wrappedSink);
     await wrappedSink[Symbol.asyncDispose]();
-    assertEquals(disposed, true);
+    assert(disposed);
   });
 });
