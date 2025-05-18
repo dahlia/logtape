@@ -28,6 +28,10 @@ The highlights of LogTape are:
     template literals for log messages.  You can use template literals to log
     messages with placeholders and values.
 
+ -  [*Built-in data redaction*](./manual/redaction.md): LogTape provides robust
+    capabilities to redact sensitive information from logs using pattern-based
+    or field-based approaches.
+
  -  [*Dead simple sinks*](./manual/sinks.md): You can easily add your own sinks
     to LogTape.
 

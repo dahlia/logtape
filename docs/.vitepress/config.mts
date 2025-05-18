@@ -20,6 +20,12 @@ const jsrRef_file = await jsrRef({
   cachePath: ".jsr-cache-file.json",
 });
 
+const jsrRef_redaction = await jsrRef({
+  package: "@logtape/redaction",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-file.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -31,7 +37,7 @@ if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
 }
 
 const head: [string, Record<string, string>][] = [
-  ["link", { rel: "icon", href: "/logtape.svg", }]
+  ["link", { rel: "icon", href: "/logtape.svg" }],
 ];
 if (process.env.PLAUSIBLE_DOMAIN) {
   head.push(
@@ -59,6 +65,7 @@ const MANUAL = {
     { text: "Sinks", link: "/manual/sinks" },
     { text: "Filters", link: "/manual/filters" },
     { text: "Text formatters", link: "/manual/formatters" },
+    { text: "Data redaction", link: "/manual/redaction" },
     { text: "Using in libraries", link: "/manual/library" },
     { text: "Testing", link: "/manual/testing" },
   ],
@@ -127,6 +134,7 @@ export default defineConfig({
     config(md) {
       md.use(jsrRef_logtape);
       md.use(jsrRef_file);
+      md.use(jsrRef_redaction);
     },
   },
   sitemap: {
@@ -135,7 +143,7 @@ export default defineConfig({
   vite: {
     plugins: [
       llmstxt(),
-    ]
+    ],
   },
 
   async transformHead(context) {
