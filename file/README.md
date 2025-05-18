@@ -39,5 +39,5 @@ bun  add     @logtape/file  # for Bun
 Docs
 ----
 
-The docs of LogTape is available at <https://logtape.org/manual/sinks>.
+The docs of this pcakge is available at <https://logtape.org/manual/sinks>.
 For the API references, see <https://jsr.io/@logtape/file>.

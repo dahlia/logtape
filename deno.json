@@ -1,7 +1,8 @@
 {
   "workspace": [
     "./logtape",
-    "./file"
+    "./file",
+    "./redaction"
   ],
   "imports": {
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",

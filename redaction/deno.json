@@ -1,0 +1,20 @@
+{
+  "name": "@logtape/redaction",
+  "version": "0.10.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
+  "exclude": [
+    "coverage/",
+    "npm/",
+    ".dnt-import-map.json"
+  ],
+  "tasks": {
+    "dnt": "deno run -A dnt.ts",
+    "test:bun": {
+      "command": "cd npm/ && bun run ./test_runner.js && cd ../",
+      "dependencies": [
+        "dnt"
+      ]
+    }
+  }
+}

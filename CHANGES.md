@@ -8,6 +8,15 @@ Version 0.10.0
 
 To be released.
 
+ -  Added `@logtape/redaction` package for redacting sensitive information
+    from log records.
+
+     -  Added `redactByField()` function.
+     -  Added `FieldPattern` type.
+     -  Added `FieldPatterns` type.
+     -  Added `FieldRedactionOptions` interface.
+     -  Added `DEFAULT_REDACT_FIELDS` constant.
+
  -  The text formatter now can omit the timestamp from the formatted message.
     [[#35] by Ooker]
 
@@ -454,4 +463,4 @@ Version 0.1.0
 
 Initial release.  Released on April 19, 2024.
 
-<!-- cSpell: ignore Murph runtimes Kitson Diyar Oktay -->
+<!-- cSpell: ignore Murph runtimes Kitson Diyar Oktay Ooker -->
