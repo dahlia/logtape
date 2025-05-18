@@ -30,23 +30,5 @@
     "editor.codeActionsOnSave": {
       "source.sortImports": "always"
     }
-  },
-  "cSpell.words": [
-    "Codecov",
-    "consolemock",
-    "deno",
-    "denoland",
-    "filesink",
-    "hongminhee",
-    "logtape",
-    "npmjs",
-    "popd",
-    "pushd",
-    "runtimes",
-    "strikethrough",
-    "supercategory",
-    "twoslash",
-    "typeof",
-    "venv"
-  ]
+  }
 }
