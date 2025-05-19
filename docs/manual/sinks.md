@@ -45,8 +45,69 @@ await configure({
 });
 ~~~~
 
+You can also customize the format of log messages by passing
+a `ConsoleFormatter` to the `~ConsoleSinkOptions.formatter` option of
+the `getConsoleSink()` function.  The signature of a `ConsoleFormatter` is:
+
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
+export type ConsoleFormatter = (record: LogRecord) => readonly unknown[];
+~~~~
+
+The returned array is a list of arguments that will be passed to
+[`console.debug()`], [`console.info()`], [`console.warn()`],
+or [`console.error()`] depending on the log level of the record.
+
+Here's an example of a custom console formatter that formats log messages
+with a custom message format:
+
+~~~~ typescript {6-24} twoslash
+// @noErrors: 2345
+import { configure, getConsoleSink, type LogRecord } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink({
+      formatter(record: LogRecord): readonly unknown[] {
+        let msg = "";
+        const values: unknown[] = [];
+        for (let i = 0; i < record.message.length; i++) {
+          if (i % 2 === 0) msg += record.message[i];
+          else {
+            msg += "%o";
+            values.push(record.message[i]);
+          }
+        }
+        return [
+          `${record.level.toUpperCase()} %c${
+            record.category.join("\xb7")
+          } %c${msg}`,
+          "color: gray;",
+          "color: default;",
+          ...values,
+        ];
+      }
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+> [!TIP]
+> Although they are ignored in Node.js and Bun, [you can use some styles]
+> like `color: red;` or `font-weight: bold;` in the second and third arguments
+> of the returned array to style the log messages in the browser console and
+> Deno.
+
 See also `getConsoleSink()` function and `ConsoleSinkOptions` interface
 in the API reference for more details.
+
+[`console.debug()`]: https://developer.mozilla.org/en-US/docs/Web/API/console/debug_static
+[`console.info()`]: https://developer.mozilla.org/en-US/docs/Web/API/console/info_static
+[`console.warn()`]: https://developer.mozilla.org/en-US/docs/Web/API/console/warn_static
+[`console.error()`]: https://developer.mozilla.org/en-US/docs/Web/API/console/error_static
+[you can use some styles]: https://developer.mozilla.org/en-US/docs/Web/API/console#styling_console_output
 
 
 Stream sink
