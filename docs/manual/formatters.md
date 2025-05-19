@@ -236,6 +236,39 @@ the following:
  - `null` (no color)
 
 
+Pattern-based redaction
+-----------------------
+
+*This API is available since LogTape 0.10.0.*
+
+You can redact sensitive data in log records through
+[pattern-based redaction](./redaction.md#pattern-based-redaction) by wrapping
+your text formatter with a `redactByPattern()` function from
+*@logtape/redaction* package:
+
+~~~~ typescript {8-10} twoslash
+import { getTextFormatter } from "@logtape/logtape";
+import {
+  EMAIL_ADDRESS_PATTERN,
+  JWT_PATTERN,
+  redactByPattern,
+} from "@logtape/redaction";
+
+const formatter = redactByPattern(getTextFormatter(), [
+  EMAIL_ADDRESS_PATTERN,
+  JWT_PATTERN,
+]);
+~~~~
+
+The above code will create a text formatter that redacts email addresses
+and JSON Web Tokens (JWTs) in log records.  The `redactByPattern()` function
+takes a `TextFormatter` and an array of patterns, and returns a new
+`TextFormatter` that redacts the sensitive data matching those patterns.
+
+For more information about it, see the [*Pattern-based redaction*
+section](./redaction.md#pattern-based-redaction).
+
+
 Fully customized text formatter
 -------------------------------
 

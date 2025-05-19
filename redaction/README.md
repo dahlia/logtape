@@ -7,13 +7,18 @@ Data redaction for LogTape
 [![npm][npm badge]][npm]
 
 This package provides data redaction for [LogTape].  You can redact sensitive
-data in log records.
+data in log records.  For details, read the docs:
+
+ -  [Pattern-based redaction]
+ -  [Field-based redaction]
 
 [JSR]: https://jsr.io/@logtape/redaction
 [JSR badge]: https://jsr.io/badges/@logtape/redaction
 [npm]: https://www.npmjs.com/package/@logtape/redaction
 [npm badge]: https://img.shields.io/npm/v/@logtape/redaction?logo=npm
 [LogTape]: https://logtape.org/
+[Pattern-based redaction]: https://logtape.org/manual/redaction#pattern-based-redaction
+[Field-based redaction]: https://logtape.org/manual/redaction#field-based-redaction
 
 
 Installation
@@ -29,3 +34,10 @@ pnpm add     @logtape/redaction  # for pnpm
 yarn add     @logtape/redaction  # for Yarn
 bun  add     @logtape/redaction  # for Bun
 ~~~~
+
+
+Docs
+----
+
+The docs of this package is available at  <https://logtape.org/manual/redaction>.
+For the API references, see <https://jsr.io/@logtape/redaction>.
