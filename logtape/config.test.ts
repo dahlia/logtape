@@ -231,6 +231,50 @@ Deno.test("configure()", async (t) => {
     assertStrictEquals(getConfig(), null);
   });
 
+  await t.step("duplicate logger categories", async () => {
+    await assertRejects(
+      () =>
+        configure({
+          sinks: {},
+          loggers: [
+            {
+              category: "my-app",
+              lowestLevel: "info",
+            },
+            {
+              category: ["my-app"],
+              lowestLevel: "warning",
+            },
+          ],
+          reset: true,
+        }),
+      ConfigError,
+      'Duplicate logger configuration for category: ["my-app"]',
+    );
+    assertStrictEquals(getConfig(), null);
+
+    await assertRejects(
+      () =>
+        configure({
+          sinks: {},
+          loggers: [
+            {
+              category: ["my-app", "service"],
+              lowestLevel: "info",
+            },
+            {
+              category: ["my-app", "service"],
+              lowestLevel: "warning",
+            },
+          ],
+          reset: true,
+        }),
+      ConfigError,
+      'Duplicate logger configuration for category: ["my-app","service"]',
+    );
+    assertStrictEquals(getConfig(), null);
+  });
+
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
     await t.step(
@@ -401,6 +445,50 @@ Deno.test("configureSync()", async (t) => {
         }),
       ConfigError,
       "Filter not found: invalid",
+    );
+    assertStrictEquals(getConfig(), null);
+  });
+
+  await t.step("duplicate logger categories", () => {
+    assertThrows(
+      () =>
+        configureSync({
+          sinks: {},
+          loggers: [
+            {
+              category: ["my-app"],
+              lowestLevel: "info",
+            },
+            {
+              category: "my-app",
+              lowestLevel: "warning",
+            },
+          ],
+          reset: true,
+        }),
+      ConfigError,
+      'Duplicate logger configuration for category: ["my-app"]',
+    );
+    assertStrictEquals(getConfig(), null);
+
+    assertThrows(
+      () =>
+        configureSync({
+          sinks: {},
+          loggers: [
+            {
+              category: ["my-app", "service"],
+              lowestLevel: "info",
+            },
+            {
+              category: ["my-app", "service"],
+              lowestLevel: "warning",
+            },
+          ],
+          reset: true,
+        }),
+      ConfigError,
+      'Duplicate logger configuration for category: ["my-app","service"]',
     );
     assertStrictEquals(getConfig(), null);
   });

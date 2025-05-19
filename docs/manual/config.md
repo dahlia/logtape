@@ -140,6 +140,11 @@ see [*Configuring severity levels*](./levels.md#configuring-severity-levels).
 > By default, loggers inherit the sinks of their ascendants.  You can override
 > them by specifying the `parentSinks: "override"` option in the logger.
 
+> [!WARNING]
+> Defining loggers with the same category is disallowed.  If there are
+> duplicate categories, LogTape will throw a `ConfigError` when you call
+> `configure()`.
+
 ### Disposal of resources
 
 If sinks or filters implement the `Disposal` or `AsyncDisposal` interface,

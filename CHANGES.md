@@ -39,9 +39,15 @@ To be released.
 
  -  Added `FileSinkOptions.lazy` option.  [[#38], [#39] by Rickey Ward]
 
+ -  The `configure()` and `configureSync()` functions now check for duplicate
+    logger configurations with the same category and throw a `ConfigError` when
+    detected.  This prevents unintended overriding of logger configurations when
+    configuring multiple loggers with the same category.  [[#41]]
+
 [#35]: https://github.com/dahlia/logtape/pull/35
 [#38]: https://github.com/dahlia/logtape/issues/38
 [#39]: https://github.com/dahlia/logtape/pull/39
+[#41]: https://github.com/dahlia/logtape/issues/41
 
 
 Version 0.9.2

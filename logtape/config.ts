@@ -242,11 +242,25 @@ function configureInternal<
 
   let metaConfigured = false;
   let levelUsed = false;
+  const configuredCategories = new Set<string>();
 
   for (const cfg of config.loggers) {
     if (isLoggerConfigMeta(cfg)) {
       metaConfigured = true;
     }
+
+    // Check for duplicate logger categories
+    const categoryKey = Array.isArray(cfg.category)
+      ? JSON.stringify(cfg.category)
+      : JSON.stringify([cfg.category]);
+    if (configuredCategories.has(categoryKey)) {
+      throw new ConfigError(
+        `Duplicate logger configuration for category: ${categoryKey}. ` +
+          `Each category can only be configured once.`,
+      );
+    }
+    configuredCategories.add(categoryKey);
+
     const logger = LoggerImpl.getLogger(cfg.category);
     for (const sinkId of cfg.sinks ?? []) {
       const sink = config.sinks[sinkId];
