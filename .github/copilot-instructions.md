@@ -189,6 +189,81 @@ User documentation is available at https://logtape.org/ and is structured as:
 When adding or changing functionality, update both the code documentation and
 user documentation as needed.
 
+## Changelog Guidelines
+
+The project maintains a detailed changelog in `CHANGES.md` that follows specific
+principles and formatting:
+
+### Changelog Principles
+
+1. **User-Focused Changes**: Document changes from the user's perspective, not
+   implementation details. Focus on what users of the library will experience,
+   not how it was implemented.
+
+2. **API Documentation**: Clearly document all API changes, including:
+   - Additions of new functions, types, interfaces, or constants
+   - Changes to existing API types or signatures (include both old and new
+     types)
+   - Deprecation notices
+   - Removals or relocations of APIs between packages
+
+3. **Attribution**: Include attribution to contributors where applicable, with
+   links to their PRs or issues.
+
+4. **Versioning**: Each version has its own section with release date (when
+   applicable).
+
+### When to Update the Changelog
+
+Update the changelog when:
+
+- Adding, changing, or removing public APIs
+- Fixing bugs that affect user behavior
+- Making performance improvements that users would notice
+- Changing behavior of existing functionality
+- Moving code between packages
+
+Do NOT update the changelog for:
+
+- Internal implementation changes that don't affect users
+- Documentation-only changes
+- Test-only changes
+- Build system changes
+
+### Changelog Format
+
+1. **Structure**:
+   - Top-level heading for the project name
+   - Second-level heading for each version number
+   - Version status ("To be released" or "Released on DATE")
+   - Bulleted list of changes
+
+2. **Entry Format**:
+   - Use `-` for list items
+   - Nest related sub-items with indentation
+   - Link issue/PR numbers using `[[#XX]]` or `[[#XX] by Contributor Name]`
+   - For API changes, include the full type signature changes
+
+3. **Order**:
+   - Group related changes together
+   - List additions first, then changes, then fixes
+
+### Example Entry
+
+```
+Version X.Y.Z
+-------------
+
+Released on Month Day, Year.
+
+ -  Added `newFunction()` function to perform X.  [[#42]]
+
+ -  Changed the type of the `existingFunction()` function to
+    `(param: string) => number` (was `(param: string) => void`).
+
+ -  Fixed a bug where X happened when Y was expected.  [[#43], [#44] by Contributor]
+```
+
 ## Cross-Runtime Compatibility
 
 LogTape supports multiple JavaScript runtimes:
