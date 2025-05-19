@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.10.0
 --------------
 
-To be released.
+Released on May 19, 2025.
 
  -  Added `@logtape/redaction` package for redacting sensitive information
     from log records.
