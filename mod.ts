@@ -56,11 +56,24 @@ const inspect: (value: unknown) => string =
  */
 export function getSentrySink(client?: BaseClient<ClientOptions>): Sink {
   return (record: LogRecord) => {
+    const message = getParameterizedString(record);
     if (client == null) client = getClient();
-    client?.captureMessage(
-      getParameterizedString(record),
-      record.level,
-      { data: record.properties },
-    );
+    if (record.level === "error" && record.properties.error instanceof Error) {
+      const { error, ...rest } = record.properties;
+      client?.captureException(error, {
+        data: {
+          message,
+          ...rest,
+        },
+      });
+    } else {
+      client?.captureMessage(
+        message,
+        record.level,
+        {
+          data: record.properties,
+        },
+      );
+    }
   };
 }
