@@ -85,6 +85,12 @@ Changelog
 
 To be released.
 
+ -  Log records having `error` property will now be sent to Sentry as
+    exceptions.  [[#1], [#2] by Martin Becze]
+
+[#1]: https://github.com/dahlia/logtape-sentry/issues/1
+[#2]: https://github.com/dahlia/logtape-sentry/pull/2
+
 ### Version 0.1.0
 
 Initial release.  Released on November 26, 2024.
