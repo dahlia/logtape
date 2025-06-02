@@ -511,6 +511,137 @@ export function getAnsiColorFormatter(
 export const ansiColorFormatter: TextFormatter = getAnsiColorFormatter();
 
 /**
+ * Options for the {@link getJsonLinesFormatter} function.
+ * @since 0.11.0
+ */
+export interface JsonLinesFormatterOptions {
+  /**
+   * The separator between category names.  For example, if the separator is
+   * `"."`, the category `["a", "b", "c"]` will be formatted as `"a.b.c"`.
+   * If this is a function, it will be called with the category array and
+   * should return a string or an array of strings, which will be used
+   * for rendering the category.
+   *
+   * @default `"."`
+   */
+  readonly categorySeparator?:
+    | string
+    | ((category: readonly string[]) => string | readonly string[]);
+
+  /**
+   * The message format.  This can be one of the following:
+   *
+   * - `"template"`: The raw message template is used as the message.
+   * - `"rendered"`: The message is rendered with the values.
+   *
+   * @default `"rendered"`
+   */
+  readonly message?: "template" | "rendered";
+
+  /**
+   * The properties format.  This can be one of the following:
+   *
+   * - `"flatten"`: The properties are flattened into the root object.
+   * - `"prepend:<prefix>"`: The properties are prepended with the given prefix
+   *   (e.g., `"prepend:ctx_"` will prepend `ctx_` to each property key).
+   * - `"nest:<key>"`: The properties are nested under the given key
+   *   (e.g., `"nest:properties"` will nest the properties under the
+   *   `properties` key).
+   *
+   * @default `"nest:properties"`
+   */
+  readonly properties?: "flatten" | `prepend:${string}` | `nest:${string}`;
+}
+
+/**
+ * Get a [JSON Lines] formatter with the specified options.
+ *
+ * [JSON Lines]: https://jsonlines.org/
+ * @param options The options for the JSON Lines formatter.
+ * @returns The JSON Lines formatter.
+ * @since 0.11.0
+ */
+export function getJsonLinesFormatter(
+  options: JsonLinesFormatterOptions = {},
+): TextFormatter {
+  let joinCategory: (category: readonly string[]) => string | readonly string[];
+  if (typeof options.categorySeparator === "function") {
+    joinCategory = options.categorySeparator;
+  } else {
+    const separator = options.categorySeparator ?? ".";
+    joinCategory = (category: readonly string[]): string =>
+      category.join(separator);
+  }
+
+  let getMessage: TextFormatter;
+  if (options.message === "template") {
+    getMessage = (record: LogRecord): string => {
+      if (typeof record.rawMessage === "string") {
+        return record.rawMessage;
+      }
+      let msg = "";
+      for (let i = 0; i < record.rawMessage.length; i++) {
+        msg += i % 2 < 1 ? record.rawMessage[i] : "{}";
+      }
+      return msg;
+    };
+  } else {
+    getMessage = (record: LogRecord): string => {
+      let msg = "";
+      for (let i = 0; i < record.message.length; i++) {
+        msg += i % 2 < 1
+          ? record.message[i]
+          : JSON.stringify(record.message[i]);
+      }
+      return msg;
+    };
+  }
+
+  const propertiesOption = options.properties ?? "nest:properties";
+  let getProperties: (
+    properties: Record<string, unknown>,
+  ) => Record<string, unknown>;
+  if (propertiesOption === "flatten") {
+    getProperties = (properties) => properties;
+  } else if (propertiesOption.startsWith("prepend:")) {
+    const prefix = propertiesOption.substring(8);
+    if (prefix === "") {
+      throw new TypeError(
+        `Invalid properties option: ${
+          JSON.stringify(propertiesOption)
+        }. It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.`,
+      );
+    }
+    getProperties = (properties) => {
+      const result: Record<string, unknown> = {};
+      for (const key in properties) {
+        result[`${prefix}${key}`] = properties[key];
+      }
+      return result;
+    };
+  } else if (propertiesOption.startsWith("nest:")) {
+    const key = propertiesOption.substring(5);
+    getProperties = (properties) => ({ [key]: properties });
+  } else {
+    throw new TypeError(
+      `Invalid properties option: ${
+        JSON.stringify(propertiesOption)
+      }. It must be "flatten", "prepend:<prefix>", or "nest:<key>".`,
+    );
+  }
+
+  return (record: LogRecord): string => {
+    return JSON.stringify({
+      "@timestamp": new Date(record.timestamp).toISOString(),
+      level: record.level === "warning" ? "WARN" : record.level.toUpperCase(),
+      message: getMessage(record),
+      logger: joinCategory(record.category),
+      ...getProperties(record.properties),
+    });
+  };
+}
+
+/**
  * A console formatter is a function that accepts a log record and returns
  * an array of arguments to pass to {@link console.log}.
  *

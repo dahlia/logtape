@@ -24,6 +24,13 @@ To be released.
         calling the method with a message template of `{*}` and the object as
         the second argument.
 
+ -  Added the built-in [JSON Lines] formatter.
+
+     -  Added `getJsonLinesFormatter()` function.
+     -  Added `JsonLinesFormatterOptions` interface.  
+
+[JSON Lines]: https://jsonlines.org/
+
 
 Version 0.10.0
 --------------

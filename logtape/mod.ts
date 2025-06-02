@@ -27,7 +27,9 @@ export {
   defaultTextFormatter,
   type FormattedValues,
   getAnsiColorFormatter,
+  getJsonLinesFormatter,
   getTextFormatter,
+  type JsonLinesFormatterOptions,
   type TextFormatter,
   type TextFormatterOptions,
 } from "./formatter.ts";
