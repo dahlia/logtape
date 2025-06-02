@@ -8,6 +8,16 @@ Version 0.11.0
 
 To be released.
 
+ -  Loggers now allow to interpolate all properties at once through the special
+    placeholder `{*}`.  This is useful for logging objects with many properties
+    without having to specify each property name in the message template.
+
+     -  `Logger.debug()`, `Logger.info()`, `Logger.warn()`, `Logger.error()`,
+        and `Logger.fatal()` methods now accept a message template with the
+        `{*}` placeholder.  Unless there is a property with the name `*`,
+        the `{*}` placeholder will be replaced with a stringified version of
+        the `LogRecord.properties` object.
+
 
 Version 0.10.0
 --------------

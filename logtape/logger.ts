@@ -867,7 +867,13 @@ export function parseMessageTemplate(
     } else if (char === "}") {
       // End of a placeholder
       let prop: unknown;
-      if (part.match(/^\s|\s$/)) {
+      if (part.match(/^\s*\*\s*$/)) {
+        prop = part in properties
+          ? properties[part]
+          : "*" in properties
+          ? properties["*"]
+          : properties;
+      } else if (part.match(/^\s|\s$/)) {
         prop = part in properties ? properties[part] : properties[part.trim()];
       } else {
         prop = properties[part];
