@@ -189,6 +189,7 @@ designed for structured logging, outputting each log record as a JSON object
 on a separate line:
 
 ~~~~ typescript twoslash
+// @noErrors: 2345
 import { getFileSink } from "@logtape/file";
 import { configure, jsonLinesFormatter } from "@logtape/logtape";
 
@@ -249,7 +250,7 @@ await configure({
     console: getConsoleSink()
   },
   filters: {
-    highPriorityOnly: (record) => 
+    highPriorityOnly: (record) =>
       record.properties.priority === "high" || record.level === "error"
   },
   loggers: [

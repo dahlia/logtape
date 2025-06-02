@@ -86,6 +86,12 @@ jobs:
         npm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
         jq -r '.workspace | .[]' deno.json | while read pkg; do
           pushd "$pkg"
+          pkgname="$(jq -r '.name + "@" + .version' deno.json)"
+          if npm view "$pkgname"; then
+            echo "Package $pkgname already exists, skipping publish."
+            popd
+            continue
+          fi
           deno task dnt
           cd npm
           if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then

@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.11.0
 --------------
 
-To be released.
+Released on June 2, 2025.
 
  -  Loggers now allow to interpolate all properties at once through the special
     placeholder `{*}`.  This is useful for logging objects with many properties
@@ -28,7 +28,7 @@ To be released.
 
      -  Added `jsonLinesFormatter()` function.
      -  Added `getJsonLinesFormatter()` function.
-     -  Added `JsonLinesFormatterOptions` interface.  
+     -  Added `JsonLinesFormatterOptions` interface.
 
 [JSON Lines]: https://jsonlines.org/
 
