@@ -21,17 +21,41 @@ LogTape provides built-in support for structured logging, allowing you to
 include additional context and metadata with your log messages.
 
 
-Including structured data in log messages
------------------------------------------
+Logging structured data
+-----------------------
 
-You can pass an object as the second argument to any log method.  The properties
-of this object will be included as structured data in the log record:
+*This API is available since LogTape 0.11.0.*
+
+You can log structured data by passing an object as the first argument
+to any log method.  The properties of this object will be included as
+structured data in the log record:
 
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 
 const logger = getLogger(["my-app"]);
 
+logger.info({
+  userId: 123456,
+  username: "johndoe",
+  loginTime: new Date(),
+});
+~~~~
+
+This will create a log entry with no message, but it will include the `userId`,
+`username`, and `loginTime` as structured fields in the log record.
+
+
+Including structured data in log messages
+-----------------------------------------
+
+You can also log structured data with a message by passing the message as the
+first argument and the structured data as the second argument:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
 logger.info("User logged in", {
   userId: 123456,
   username: "johndoe",
@@ -95,6 +119,33 @@ message while still maintaining it as separate fields in the log record.
 > Currently, template literals do not support structured data.  You must use
 > method calls with an object argument to include structured data in your log
 > messages.
+
+
+Including all properties in log messages
+----------------------------------------
+
+*This API is available since LogTape 0.11.0.*
+
+Sometimes, you may want to include all the properties into the log message,
+but without listing them all explicitly.  You can use the special placeholder
+`{*}` to include all properties of the structured data object in the log message:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info("User logged in with properties {*}", {
+  userId: 123456,
+  username: "johndoe",
+  loginTime: new Date(),
+});
+~~~~
+
+> [!TIP]
+>
+> Actually, `logger.info({ ... })` is equivalent to
+> `logger.info("{*}", { ... })`, so you can use either method to log structured
+> data without a message.
 
 
 Lazy evaluation of structured data

@@ -6,7 +6,7 @@
         "@biomejs/biome": "^1.8.3",
         "@cloudflare/workers-types": "^4.20240909.0",
         "@logtape/file": "^0.10.0-dev.167",
-        "@logtape/logtape": "^0.10.0-dev.167",
+        "@logtape/logtape": "^0.11.0-dev.173",
         "@logtape/otel": "^0.2.0",
         "@logtape/redaction": "^0.10.0-dev.167",
         "@logtape/sentry": "^0.1.0",
@@ -154,7 +154,7 @@
 
     "@logtape/file": ["@logtape/file@0.10.0-dev.167", "", { "dependencies": { "@logtape/logtape": "^0.10.0-dev.166" } }, "sha512-8sks/HYIU9p90/QKD4LBw4ws6TYoUz3FriPOa7nnw38PeinEQsAxX64OpvsXcMLC/mkylJjU2uiW09l16TYC/A=="],
 
-    "@logtape/logtape": ["@logtape/logtape@0.10.0-dev.167", "", {}, "sha512-cZTbvmnt8x2yFIOre3fWana8lOXQ6wfx3GuV0jNA45CvowbESrGQP10w3thK47cynjDUxLTZMeHTlyYu1ODLJw=="],
+    "@logtape/logtape": ["@logtape/logtape@0.11.0-dev.173", "", {}, "sha512-MFGDhRWk9/8j0hcXOHFeZMiVzIRtwPxaG7R9pHGGDGvWLnmdukpUM6g2zPMPBQOZaCZiTAOa6cqkIB/ykmXrfQ=="],
 
     "@logtape/otel": ["@logtape/otel@0.2.0", "", { "dependencies": { "@logtape/logtape": "^0.4.3", "@opentelemetry/api": "^1.9.0", "@opentelemetry/api-logs": "^0.52.1", "@opentelemetry/exporter-logs-otlp-http": "^0.52.1", "@opentelemetry/otlp-exporter-base": "^0.52.1", "@opentelemetry/resources": "^1.25.1", "@opentelemetry/sdk-logs": "^0.52.1", "@opentelemetry/semantic-conventions": "^1.26.0" } }, "sha512-LIYt3VgqzTUPoxhLGTxYfF9zxOxkf1WbAg8t11FdAgym2zbyr38yxyS5L+WwyDCCQk0QzT18L58mtRJ//WI5uA=="],
 
@@ -797,6 +797,8 @@
     "yargs-parser": ["yargs-parser@21.1.1", "", {}, "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw=="],
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
+
+    "@logtape/file/@logtape/logtape": ["@logtape/logtape@0.10.0-dev.167", "", {}, "sha512-cZTbvmnt8x2yFIOre3fWana8lOXQ6wfx3GuV0jNA45CvowbESrGQP10w3thK47cynjDUxLTZMeHTlyYu1ODLJw=="],
 
     "@logtape/otel/@logtape/logtape": ["@logtape/logtape@0.4.3", "", {}, "sha512-sUZAJpoYGHfRSVhExiGIzPFdLBuXcGWhkOOLieieaU2JDkTT7zx+f3i6i2YeyqA0bpPHcOGl5xBT2YD+lasWig=="],
 

@@ -17,6 +17,12 @@ To be released.
         `{*}` placeholder.  Unless there is a property with the name `*`,
         the `{*}` placeholder will be replaced with a stringified version of
         the `LogRecord.properties` object.
+     -  As a shorthand, overloads of `Logger.debug()`, `Logger.info()`,
+        `Logger.warn()`, `Logger.error()`, and `Logger.fatal()` methods that
+        accept an object as the first argument now treat the object as a
+        message template with the `{*}` placeholder.  This is equivalent to
+        calling the method with a message template of `{*}` and the object as
+        the second argument.
 
 
 Version 0.10.0

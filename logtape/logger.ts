@@ -147,6 +147,7 @@ export interface Logger {
    *
    * @param properties The values to log.  Note that this does not take
    *                   a callback.
+   * @since 0.11.0
    */
   debug(properties: Record<string, unknown>): void;
 
@@ -231,6 +232,7 @@ export interface Logger {
    *
    * @param properties The values to log.  Note that this does not take
    *                   a callback.
+   * @since 0.11.0
    */
   info(properties: Record<string, unknown>): void;
 
@@ -316,6 +318,7 @@ export interface Logger {
    *
    * @param properties The values to log.  Note that this does not take
    *                   a callback.
+   * @since 0.11.0
    */
   warn(properties: Record<string, unknown>): void;
 
@@ -401,6 +404,7 @@ export interface Logger {
    *
    * @param properties The values to log.  Note that this does not take
    *                   a callback.
+   * @since 0.11.0
    */
   error(properties: Record<string, unknown>): void;
 
@@ -486,6 +490,7 @@ export interface Logger {
    *
    * @param properties The values to log.  Note that this does not take
    *                   a callback.
+   * @since 0.11.0
    */
   fatal(properties: Record<string, unknown>): void;
 
