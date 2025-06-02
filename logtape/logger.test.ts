@@ -714,6 +714,30 @@ for (const method of methods) {
     await t.step("tear down", () => {
       logger.resetDescendants();
     });
+
+    await t.step("with no message", () => {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+      const before = Date.now();
+      logger[method]({ foo: 123, bar: 456 });
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: method === "warn" ? "warning" : method,
+          message: ["", { foo: 123, bar: 456 }, ""],
+          rawMessage: "{*}",
+          timestamp: logs[0].timestamp,
+          properties: { foo: 123, bar: 456 },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    });
+
+    await t.step("tear down", () => {
+      logger.resetDescendants();
+    });
   });
 }
 

@@ -121,6 +121,36 @@ export interface Logger {
   ): void;
 
   /**
+   * Log a debug values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.debug({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.debug('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.debug('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   */
+  debug(properties: Record<string, unknown>): void;
+
+  /**
    * Lazily log a debug message.  Use this when the message values are expensive
    * to compute and should only be computed if the message is actually logged.
    *
@@ -173,6 +203,36 @@ export interface Logger {
     message: string,
     properties?: Record<string, unknown> | (() => Record<string, unknown>),
   ): void;
+
+  /**
+   * Log an informational values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.info({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.info('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.info('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   */
+  info(properties: Record<string, unknown>): void;
 
   /**
    * Lazily log an informational message.  Use this when the message values are
@@ -230,6 +290,36 @@ export interface Logger {
   ): void;
 
   /**
+   * Log a warning values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.warn({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.warn('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.warn('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   */
+  warn(properties: Record<string, unknown>): void;
+
+  /**
    * Lazily log a warning message.  Use this when the message values are
    * expensive to compute and should only be computed if the message is actually
    * logged.
@@ -285,6 +375,36 @@ export interface Logger {
   ): void;
 
   /**
+   * Log an error values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.error({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.error('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.error('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   */
+  error(properties: Record<string, unknown>): void;
+
+  /**
    * Lazily log an error message.  Use this when the message values are
    * expensive to compute and should only be computed if the message is actually
    * logged.
@@ -338,6 +458,36 @@ export interface Logger {
     message: string,
     properties?: Record<string, unknown> | (() => Record<string, unknown>),
   ): void;
+
+  /**
+   * Log a fatal error values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.fatal({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.fatal('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.fatal('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   */
+  fatal(properties: Record<string, unknown>): void;
 
   /**
    * Lazily log a fatal error message.  Use this when the message values are
@@ -629,33 +779,49 @@ export class LoggerImpl implements Logger {
   }
 
   debug(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("debug", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("debug", message);
+    } else if (!Array.isArray(message)) {
+      this.log("debug", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("debug", message, values);
+      this.logTemplate("debug", message as TemplateStringsArray, values);
     }
   }
 
   info(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("info", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("info", message);
+    } else if (!Array.isArray(message)) {
+      this.log("info", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("info", message, values);
+      this.logTemplate("info", message as TemplateStringsArray, values);
     }
   }
 
   warn(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
@@ -666,34 +832,48 @@ export class LoggerImpl implements Logger {
       );
     } else if (typeof message === "function") {
       this.logLazily("warning", message);
+    } else if (!Array.isArray(message)) {
+      this.log("warning", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("warning", message, values);
+      this.logTemplate("warning", message as TemplateStringsArray, values);
     }
   }
 
   error(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("error", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("error", message);
+    } else if (!Array.isArray(message)) {
+      this.log("error", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("error", message, values);
+      this.logTemplate("error", message as TemplateStringsArray, values);
     }
   }
 
   fatal(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("fatal", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("fatal", message);
+    } else if (!Array.isArray(message)) {
+      this.log("fatal", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("fatal", message, values);
+      this.logTemplate("fatal", message as TemplateStringsArray, values);
     }
   }
 }
@@ -762,33 +942,49 @@ export class LoggerCtx implements Logger {
   }
 
   debug(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("debug", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("debug", message);
+    } else if (!Array.isArray(message)) {
+      this.log("debug", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("debug", message, values);
+      this.logTemplate("debug", message as TemplateStringsArray, values);
     }
   }
 
   info(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("info", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("info", message);
+    } else if (!Array.isArray(message)) {
+      this.log("info", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("info", message, values);
+      this.logTemplate("info", message as TemplateStringsArray, values);
     }
   }
 
   warn(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
@@ -799,34 +995,48 @@ export class LoggerCtx implements Logger {
       );
     } else if (typeof message === "function") {
       this.logLazily("warning", message);
+    } else if (!Array.isArray(message)) {
+      this.log("warning", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("warning", message, values);
+      this.logTemplate("warning", message as TemplateStringsArray, values);
     }
   }
 
   error(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("error", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("error", message);
+    } else if (!Array.isArray(message)) {
+      this.log("error", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("error", message, values);
+      this.logTemplate("error", message as TemplateStringsArray, values);
     }
   }
 
   fatal(
-    message: TemplateStringsArray | string | LogCallback,
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
     ...values: unknown[]
   ): void {
     if (typeof message === "string") {
       this.log("fatal", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("fatal", message);
+    } else if (!Array.isArray(message)) {
+      this.log("fatal", "{*}", message as Record<string, unknown>);
     } else {
-      this.logTemplate("fatal", message, values);
+      this.logTemplate("fatal", message as TemplateStringsArray, values);
     }
   }
 }
