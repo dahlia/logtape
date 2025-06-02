@@ -93,6 +93,10 @@ export default defineConfig({
       MANUAL,
     ],
 
+    outline: {
+      level: [2, 4],
+    },
+
     socialLinks: [
       {
         icon: {

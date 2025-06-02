@@ -178,8 +178,33 @@ Configuring sinks for structured logging
 ----------------------------------------
 
 To make the most of structured logging, you'll want to use sinks that can handle
-structured data.  For example, you can output logs in [JSON Lines] format by
-providing a [text formatter](./formatters.md) to a file sink:
+structured data.  LogTape provides several ways to format structured logs:
+
+### JSON Lines formatter
+
+*This API is available since LogTape 0.11.0.*
+
+The [JSON Lines formatter](./formatters.md#json-lines-formatter) is specifically
+designed for structured logging, outputting each log record as a JSON object
+on a separate line:
+
+~~~~ typescript twoslash
+import { getFileSink } from "@logtape/file";
+import { configure, jsonLinesFormatter } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    jsonl: getFileSink("log.jsonl", {
+      formatter: jsonLinesFormatter
+    }),
+  },
+  // ... rest of configuration
+});
+~~~~
+
+### Custom formatter
+
+You can also create a custom formatter for JSON Lines format:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
@@ -196,7 +221,7 @@ await configure({
 });
 ~~~~
 
-This will output each log record as a JSON object on a separate line,
+Both approaches will output each log record as a JSON object on a separate line,
 preserving the structure of your log data.
 
 > [!TIP]

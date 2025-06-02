@@ -14,7 +14,7 @@ Of course, you can write your own sinks that take a text formatter.
 Built-in text formatters
 ------------------------
 
-LogTape provides two built-in text formatters:
+LogTape provides three built-in text formatters:
 
 ### Default text formatter
 
@@ -39,6 +39,22 @@ the message, and the prettified values embedded in the message.
 It formats log records like this:
 
 ![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
+
+### JSON Lines formatter
+
+*This API is available since LogTape 0.11.0.*
+
+`jsonLinesFormatter` formats log records as [JSON Lines] (also known as 
+Newline-Delimited JSON or NDJSON). Each log record is rendered as a JSON object
+on a single line, which is a common format for structured logging.
+
+It formats log records like this:
+
+~~~~
+{"@timestamp":"2023-11-14T22:13:20.000Z","level":"INFO","message":"Hello, world!","logger":"my.logger","properties":{"key":"value"}}
+~~~~
+
+[JSON Lines]: https://jsonlines.org/
 
 
 Configuring text formatters
@@ -235,6 +251,47 @@ the following:
  - `"white"`
  - `null` (no color)
 
+### JSON Lines formatter
+
+*This API is available since LogTape 0.11.0.*
+
+You can customize the JSON Lines formatter by calling
+the `getJsonLinesFormatter()` function with a `JsonLinesFormatterOptions`
+object. Customizable options include:
+
+#### `~JsonLinesFormatterOptions.categorySeparator`
+
+The separator between category names. For example, if the separator is `"."`,
+the category `["a", "b", "c"]` will be formatted as `"a.b.c"`.
+
+The default separator is `"."`.
+
+If this is a function, it will be called with the category array and should
+return a string or an array of strings, which will be used for rendering
+the category.
+
+#### `~JsonLinesFormatterOptions.message`
+
+The message format. This can be one of the following:
+
+ -  `"template"`: The raw message template is used as the message.
+ -  `"rendered"`: The message is rendered with the values.
+
+The default is `"rendered"`.
+
+#### `~JsonLinesFormatterOptions.properties`
+
+The properties format. This can be one of the following:
+
+ -  `"flatten"`: The properties are flattened into the root object.
+ -  `"prepend:<prefix>"`: The properties are prepended with the given prefix
+    (e.g., `"prepend:ctx_"` will prepend `ctx_` to each property key).
+ -  `"nest:<key>"`: The properties are nested under the given key
+    (e.g., `"nest:properties"` will nest the properties under the
+    `properties` key).
+
+The default is `"nest:properties"`.
+
 
 Pattern-based redaction
 -----------------------
@@ -283,7 +340,7 @@ export type TextFormatter = (record: LogRecord) => string;
 
 If you want to build a text formatter from scratch, you can just write
 a function that takes a log record and returns a string.  For example,
-the following function is a text formatter that formats log records into
+the following function is a simple text formatter that formats log records into
 [JSON Lines]:
 
 ~~~~ typescript twoslash
@@ -293,5 +350,8 @@ function jsonLinesFormatter(record: LogRecord): string {
   return JSON.stringify(record) + "\n";
 }
 ~~~~
+
+Of course, you can use the built-in `getJsonLinesFormatter()` function for
+more sophisticated JSON Lines formatting with customizable options.
 
 [JSON Lines]: https://jsonlines.org/

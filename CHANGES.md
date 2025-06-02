@@ -26,6 +26,7 @@ To be released.
 
  -  Added the built-in [JSON Lines] formatter.
 
+     -  Added `jsonLinesFormatter()` function.
      -  Added `getJsonLinesFormatter()` function.
      -  Added `JsonLinesFormatterOptions` interface.  
 

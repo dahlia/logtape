@@ -29,6 +29,7 @@ export {
   getAnsiColorFormatter,
   getJsonLinesFormatter,
   getTextFormatter,
+  jsonLinesFormatter,
   type JsonLinesFormatterOptions,
   type TextFormatter,
   type TextFormatterOptions,

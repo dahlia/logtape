@@ -554,7 +554,14 @@ export interface JsonLinesFormatterOptions {
 }
 
 /**
- * Get a [JSON Lines] formatter with the specified options.
+ * Get a [JSON Lines] formatter with the specified options.  The log records
+ * will be rendered as JSON objects, one per line, which is a common format
+ * for log files.  This format is also known as Newline-Delimited JSON (NDJSON).
+ * It looks like this:
+ *
+ * ```json
+ * {"@timestamp":"2023-11-14T22:13:20.000Z","level":"INFO","message":"Hello, world!","logger":"my.logger","properties":{"key":"value"}}
+ * ```
  *
  * [JSON Lines]: https://jsonlines.org/
  * @param options The options for the JSON Lines formatter.
@@ -640,6 +647,24 @@ export function getJsonLinesFormatter(
     });
   };
 }
+
+/**
+ * The default [JSON Lines] formatter.  This formatter formats log records
+ * as JSON objects, one per line, which is a common format for log files.
+ * It looks like this:
+ *
+ * ```json
+ * {"@timestamp":"2023-11-14T22:13:20.000Z","level":"INFO","message":"Hello, world!","logger":"my.logger","properties":{"key":"value"}}
+ * ```
+ *
+ * You can customize the output by passing options to
+ * {@link getJsonLinesFormatter}.  For example, you can change the category
+ * separator, the message format, and how the properties are formatted.
+ *
+ * [JSON Lines]: https://jsonlines.org/
+ * @since 0.11.0
+ */
+export const jsonLinesFormatter: TextFormatter = getJsonLinesFormatter();
 
 /**
  * A console formatter is a function that accepts a log record and returns
