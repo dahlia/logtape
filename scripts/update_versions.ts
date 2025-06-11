@@ -15,5 +15,11 @@ for (const member of metadata.workspace) {
   const json = await Deno.readTextFile(file);
   const data = JSON.parse(json);
   data.version = version;
-  await Deno.writeTextFile(file, JSON.stringify(data, undefined, 2) + "\n");
+  await Deno.writeTextFile(file, `${JSON.stringify(data, undefined, 2)}\n`);
+
+  const file2 = join(root, member, "package.json");
+  const json2 = await Deno.readTextFile(file2);
+  const data2 = JSON.parse(json2);
+  data2.version = version;
+  await Deno.writeTextFile(file2, `${JSON.stringify(data2, undefined, 2)}\n`);
 }

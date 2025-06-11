@@ -9,6 +9,11 @@ for (const member of metadata.workspace) {
   const json = await Deno.readTextFile(file);
   const data = JSON.parse(json);
   versions[join(member, "deno.json")] = data.version;
+
+  const file2 = join(root, member, "package.json");
+  const json2 = await Deno.readTextFile(file2);
+  const data2 = JSON.parse(json2);
+  versions[join(member, "package.json")] = data2.version;
 }
 let version: string | undefined;
 

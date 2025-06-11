@@ -9,11 +9,25 @@
     ".dnt-import-map.json"
   ],
   "tasks": {
-    "dnt": "deno run -A dnt.ts",
-    "test:bun": {
-      "command": "cd npm/ && bun run ./test_runner.js && cd ../",
+    "build": "pnpm build",
+    "test": "deno test",
+    "test:node": {
       "dependencies": [
-        "dnt"
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
       ]
     }
   }

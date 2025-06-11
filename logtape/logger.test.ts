@@ -1,9 +1,10 @@
+import { suite } from "@hongminhee/suite";
 import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertFalse } from "@std/assert/assert-false";
-import { assertGreaterOrEqual } from "@std/assert/assert-greater-or-equal";
-import { assertLessOrEqual } from "@std/assert/assert-less-or-equal";
-import { assertStrictEquals } from "@std/assert/assert-strict-equals";
+import { assertEquals } from "@std/assert/equals";
+import { assertFalse } from "@std/assert/false";
+import { assertGreaterOrEqual } from "@std/assert/greater-or-equal";
+import { assertLessOrEqual } from "@std/assert/less-or-equal";
+import { assertStrictEquals } from "@std/assert/strict-equals";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import {
@@ -16,11 +17,13 @@ import {
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
+const test = suite(import.meta);
+
 function templateLiteral(tpl: TemplateStringsArray, ..._: unknown[]) {
   return tpl;
 }
 
-Deno.test("getLogger()", () => {
+test("getLogger()", () => {
   assertEquals(getLogger().category, []);
   assertStrictEquals(getLogger(), getLogger());
   assertStrictEquals(getLogger([]), getLogger());
@@ -39,7 +42,7 @@ Deno.test("getLogger()", () => {
   );
 });
 
-Deno.test("Logger.getChild()", () => {
+test("Logger.getChild()", () => {
   const foo = getLogger("foo");
   const fooBar = foo.getChild("bar");
   assertEquals(fooBar.category, ["foo", "bar"]);
@@ -55,7 +58,7 @@ Deno.test("Logger.getChild()", () => {
   assertEquals(fooBarCtx.properties, { a: 1, b: 2 });
 });
 
-Deno.test("Logger.with()", () => {
+test("Logger.with()", () => {
   const foo = getLogger("foo");
   const ctx = foo.with({ a: 1, b: 2 });
   assertEquals(ctx.parent, getLogger());
@@ -66,7 +69,7 @@ Deno.test("Logger.with()", () => {
   assertEquals(ctx.with({ c: 3 }).properties, { a: 1, b: 2, c: 3 });
 });
 
-Deno.test("LoggerImpl.filter()", async (t) => {
+test("LoggerImpl.filter()", () => {
   const root = LoggerImpl.getLogger([]);
   const foo = LoggerImpl.getLogger("foo");
   const fooBar = foo.getChild("bar");
@@ -74,7 +77,7 @@ Deno.test("LoggerImpl.filter()", async (t) => {
   const fooBarQux = fooBar.getChild("qux");
   const fooQuux = foo.getChild("quux");
 
-  await t.step("test", () => {
+  try {
     foo.filters.push((log) => log.level === "info");
     fooBar.filters.push((log) => log.message.includes("!"));
     fooBaz.filters.push((log) => log.message.includes("."));
@@ -91,21 +94,19 @@ Deno.test("LoggerImpl.filter()", async (t) => {
     assertFalse(fooBaz.filter(debug));
     assert(fooBarQux.filter(debug));
     assertFalse(fooQuux.filter(debug));
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     root.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerImpl.getSinks()", async (t) => {
+test("LoggerImpl.getSinks()", () => {
   const root = LoggerImpl.getLogger([]);
   const foo = LoggerImpl.getLogger("foo");
   const fooBar = foo.getChild("bar");
   const fooBaz = foo.getChild("baz");
   const fooBarQux = fooBar.getChild("qux");
 
-  await t.step("test", () => {
+  try {
     const sinkA: Sink = () => {};
     foo.sinks.push(sinkA);
     const sinkB: Sink = () => {};
@@ -121,14 +122,12 @@ Deno.test("LoggerImpl.getSinks()", async (t) => {
     assertEquals([...fooBarQux.getSinks("debug")], [sinkA, sinkB, sinkD]);
     fooBarQux.parentSinks = "override";
     assertEquals([...fooBarQux.getSinks("debug")], [sinkD]);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     root.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerImpl.emit()", async (t) => {
+test("LoggerImpl.emit()", () => {
   const root = LoggerImpl.getLogger([]);
   const foo = root.getChild("foo");
   const fooBar = foo.getChild("bar");
@@ -147,7 +146,7 @@ Deno.test("LoggerImpl.emit()", async (t) => {
   const fooQuxRecords: LogRecord[] = [];
   fooQux.sinks.push(fooQuxRecords.push.bind(fooQuxRecords));
 
-  await t.step("filter and sink", () => {
+  try {
     root.emit(info);
     assertEquals(rootRecords, []);
     assertEquals(fooRecords, []);
@@ -174,18 +173,18 @@ Deno.test("LoggerImpl.emit()", async (t) => {
     assertEquals(rootRecords, [warning, info, error]);
     assertEquals(fooRecords, [info, error]);
     assertEquals(fooBarRecords, [error]);
-  });
-
-  while (rootRecords.length > 0) rootRecords.pop();
-  while (fooRecords.length > 0) fooRecords.pop();
-  while (fooBarRecords.length > 0) fooBarRecords.pop();
+  } finally {
+    while (rootRecords.length > 0) rootRecords.pop();
+    while (fooRecords.length > 0) fooRecords.pop();
+    while (fooBarRecords.length > 0) fooBarRecords.pop();
+  }
 
   const errorSink: Sink = () => {
     throw new Error("This is an error");
   };
   fooBarBaz.sinks.push(errorSink);
 
-  await t.step("error handling", () => {
+  try {
     fooBarBaz.emit(error);
     assertEquals(rootRecords.length, 2);
     assertEquals(rootRecords[0], error);
@@ -208,21 +207,21 @@ Deno.test("LoggerImpl.emit()", async (t) => {
 
     root.sinks.push(errorSink);
     fooBarBaz.emit(error);
-  });
-
-  while (rootRecords.length > 0) rootRecords.pop();
-  while (fooRecords.length > 0) fooRecords.pop();
-  while (fooBarRecords.length > 0) fooBarRecords.pop();
-  while (root.filters.length > 0) root.filters.pop();
-  while (foo.filters.length > 0) foo.filters.pop();
-  while (fooBar.filters.length > 0) fooBar.filters.pop();
-  root.sinks.pop();
+  } finally {
+    while (rootRecords.length > 0) rootRecords.pop();
+    while (fooRecords.length > 0) fooRecords.pop();
+    while (fooBarRecords.length > 0) fooBarRecords.pop();
+    while (root.filters.length > 0) root.filters.pop();
+    while (foo.filters.length > 0) foo.filters.pop();
+    while (fooBar.filters.length > 0) fooBar.filters.pop();
+    root.sinks.pop();
+  }
 
   root.lowestLevel = "debug";
   foo.lowestLevel = "error";
   fooBar.lowestLevel = "info";
 
-  await t.step("lowestLevel", () => {
+  try {
     fooBar.emit({ ...debug, category: ["foo", "bar"] });
     assertEquals(rootRecords, []);
     assertEquals(fooRecords, []);
@@ -247,17 +246,15 @@ Deno.test("LoggerImpl.emit()", async (t) => {
     assertEquals(rootRecords, [debugRecord2]);
     assertEquals(fooRecords, []);
     assertEquals(fooBarRecords, [infoRecord]);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     root.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerImpl.log()", async (t) => {
+test("LoggerImpl.log()", () => {
   const logger = LoggerImpl.getLogger("foo");
 
-  await t.step("test", () => {
+  try {
     const logs: LogRecord[] = [];
     logger.sinks.push(logs.push.bind(logs));
     const before = Date.now();
@@ -301,23 +298,21 @@ Deno.test("LoggerImpl.log()", async (t) => {
       },
     ]);
     assertEquals(called, 1);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     logger.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerImpl.logLazily()", async (t) => {
+test("LoggerImpl.logLazily()", () => {
   const logger = LoggerImpl.getLogger("foo");
 
-  await t.step("test", () => {
-    let called = 0;
-    function calc() {
-      called++;
-      return 123;
-    }
+  let called = 0;
+  function calc() {
+    called++;
+    return 123;
+  }
 
+  try {
     const logs: LogRecord[] = [];
     logger.sinks.push(logs.push.bind(logs));
     logger.filters.push(toFilter("error"));
@@ -341,20 +336,19 @@ Deno.test("LoggerImpl.logLazily()", async (t) => {
     assertGreaterOrEqual(logs[0].timestamp, before);
     assertLessOrEqual(logs[0].timestamp, after);
     assertEquals(called, 1);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     logger.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerImpl.logTemplate()", async (t) => {
+test("LoggerImpl.logTemplate()", () => {
   const logger = LoggerImpl.getLogger("foo");
 
-  await t.step("test", () => {
-    function info(tpl: TemplateStringsArray, ...values: unknown[]) {
-      logger.logTemplate("info", tpl, values);
-    }
+  function info(tpl: TemplateStringsArray, ...values: unknown[]) {
+    logger.logTemplate("info", tpl, values);
+  }
+
+  try {
     const logs: LogRecord[] = [];
     logger.sinks.push(logs.push.bind(logs));
 
@@ -373,18 +367,16 @@ Deno.test("LoggerImpl.logTemplate()", async (t) => {
     ]);
     assertGreaterOrEqual(logs[0].timestamp, before);
     assertLessOrEqual(logs[0].timestamp, after);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     logger.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerCtx.log()", async (t) => {
+test("LoggerCtx.log()", () => {
   const logger = LoggerImpl.getLogger("foo");
   const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
 
-  await t.step("test", () => {
+  try {
     const logs: LogRecord[] = [];
     logger.sinks.push(logs.push.bind(logs));
     const before = Date.now();
@@ -428,24 +420,22 @@ Deno.test("LoggerCtx.log()", async (t) => {
       },
     ]);
     assertEquals(called, 1);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     logger.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerCtx.logLazily()", async (t) => {
+test("LoggerCtx.logLazily()", () => {
   const logger = LoggerImpl.getLogger("foo");
   const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
 
-  await t.step("test", () => {
-    let called = 0;
-    function calc() {
-      called++;
-      return 123;
-    }
+  let called = 0;
+  function calc() {
+    called++;
+    return 123;
+  }
 
+  try {
     const logs: LogRecord[] = [];
     logger.sinks.push(logs.push.bind(logs));
     logger.filters.push(toFilter("error"));
@@ -469,21 +459,20 @@ Deno.test("LoggerCtx.logLazily()", async (t) => {
     assertGreaterOrEqual(logs[0].timestamp, before);
     assertLessOrEqual(logs[0].timestamp, after);
     assertEquals(called, 1);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     logger.resetDescendants();
-  });
+  }
 });
 
-Deno.test("LoggerCtx.logTemplate()", async (t) => {
+test("LoggerCtx.logTemplate()", () => {
   const logger = LoggerImpl.getLogger("foo");
   const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
 
-  await t.step("test", () => {
-    function info(tpl: TemplateStringsArray, ...values: unknown[]) {
-      ctx.logTemplate("info", tpl, values);
-    }
+  function info(tpl: TemplateStringsArray, ...values: unknown[]) {
+    ctx.logTemplate("info", tpl, values);
+  }
+
+  try {
     const logs: LogRecord[] = [];
     logger.sinks.push(logs.push.bind(logs));
 
@@ -502,29 +491,27 @@ Deno.test("LoggerCtx.logTemplate()", async (t) => {
     ]);
     assertGreaterOrEqual(logs[0].timestamp, before);
     assertLessOrEqual(logs[0].timestamp, after);
-  });
-
-  await t.step("tear down", () => {
+  } finally {
     logger.resetDescendants();
-  });
+  }
 });
 
 const methods = ["debug", "info", "warn", "error", "fatal"] as const;
 for (const method of methods) {
-  Deno.test(`Logger.${method}()`, async (t) => {
+  test(`Logger.${method}() [template]`, () => {
     const logger = LoggerImpl.getLogger("foo");
     const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
 
-    await t.step("template", () => {
-      function tpl(tpl: TemplateStringsArray, ...values: unknown[]) {
-        logger[method](tpl, ...values);
-      }
+    function tpl(tpl: TemplateStringsArray, ...values: unknown[]) {
+      logger[method](tpl, ...values);
+    }
 
-      const logs: LogRecord[] = [];
+    const logs: LogRecord[] = [];
+    try {
       logger.sinks.push(logs.push.bind(logs));
-      let before = Date.now();
+      const before = Date.now();
       tpl`Hello, ${123}!`;
-      let after = Date.now();
+      const after = Date.now();
       assertEquals(logs, [
         {
           category: ["foo"],
@@ -537,15 +524,18 @@ for (const method of methods) {
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
       assertLessOrEqual(logs[0].timestamp, after);
-
-      function ctxTpl(tpl: TemplateStringsArray, ...values: unknown[]) {
-        ctx[method](tpl, ...values);
-      }
-
+    } finally {
       logs.shift();
-      before = Date.now();
+    }
+
+    function ctxTpl(tpl: TemplateStringsArray, ...values: unknown[]) {
+      ctx[method](tpl, ...values);
+    }
+
+    try {
+      const before = Date.now();
       ctxTpl`Hello, ${123}!`;
-      after = Date.now();
+      const after = Date.now();
       assertEquals(logs, [
         {
           category: ["foo"],
@@ -558,13 +548,16 @@ for (const method of methods) {
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
       assertLessOrEqual(logs[0].timestamp, after);
-    });
-
-    await t.step("tear down", () => {
+    } finally {
       logger.resetDescendants();
-    });
+    }
+  });
 
-    await t.step("lazy template", () => {
+  test(`Logger.${method}() [lazy template]`, () => {
+    const logger = LoggerImpl.getLogger("foo");
+    const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+    try {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
       let before = Date.now();
@@ -599,13 +592,16 @@ for (const method of methods) {
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
       assertLessOrEqual(logs[0].timestamp, after);
-    });
-
-    await t.step("tear down", () => {
+    } finally {
       logger.resetDescendants();
-    });
+    }
+  });
 
-    await t.step("eager", () => {
+  test(`Logger.${method}() [eager]`, () => {
+    const logger = LoggerImpl.getLogger("foo");
+    const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+    try {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
       let before = Date.now();
@@ -664,13 +660,16 @@ for (const method of methods) {
           properties: { a: 1, b: 2 },
         },
       ]);
-    });
-
-    await t.step("tear down", () => {
+    } finally {
       logger.resetDescendants();
-    });
+    }
+  });
 
-    await t.step("lazy", () => {
+  test(`Logger.${method}() [lazy]`, () => {
+    const logger = LoggerImpl.getLogger("foo");
+    const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+    try {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
       let before = Date.now();
@@ -709,13 +708,15 @@ for (const method of methods) {
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
       assertLessOrEqual(logs[0].timestamp, after);
-    });
-
-    await t.step("tear down", () => {
+    } finally {
       logger.resetDescendants();
-    });
+    }
+  });
 
-    await t.step("with no message", () => {
+  test(`Logger.${method}() [with no message]`, () => {
+    const logger = LoggerImpl.getLogger("foo");
+
+    try {
       const logs: LogRecord[] = [];
       logger.sinks.push(logs.push.bind(logs));
       const before = Date.now();
@@ -733,15 +734,13 @@ for (const method of methods) {
       ]);
       assertGreaterOrEqual(logs[0].timestamp, before);
       assertLessOrEqual(logs[0].timestamp, after);
-    });
-
-    await t.step("tear down", () => {
+    } finally {
       logger.resetDescendants();
-    });
+    }
   });
 }
 
-Deno.test("parseMessageTemplate()", () => {
+test("parseMessageTemplate()", () => {
   assertEquals(parseMessageTemplate("Hello, world!", {}), ["Hello, world!"]);
   assertEquals(
     parseMessageTemplate("Hello, world!", { foo: 123 }),
@@ -813,7 +812,7 @@ Deno.test("parseMessageTemplate()", () => {
   );
 });
 
-Deno.test("renderMessage()", () => {
+test("renderMessage()", () => {
   function rm(tpl: TemplateStringsArray, ...values: unknown[]) {
     return renderMessage(tpl, values);
   }

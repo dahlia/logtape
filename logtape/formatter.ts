@@ -1,5 +1,5 @@
+import * as util from "#util";
 import type { LogLevel } from "./level.ts";
-import util from "./nodeUtil.ts";
 import type { LogRecord } from "./record.ts";
 
 /**

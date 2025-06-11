@@ -2,10 +2,10 @@
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",
-    "@logtape/file": "^0.10.0-dev.167",
-    "@logtape/logtape": "^0.11.0-dev.174",
+    "@logtape/file": "workspace:",
+    "@logtape/logtape": "workspace:",
     "@logtape/otel": "^0.2.0",
-    "@logtape/redaction": "^0.10.0-dev.167",
+    "@logtape/redaction": "workspace:",
     "@logtape/sentry": "^0.1.0",
     "@sentry/node": "^8.40.0",
     "@shikijs/vitepress-twoslash": "^1.17.6",

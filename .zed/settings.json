@@ -1,7 +1,12 @@
 {
-  "deno": {
-    "enable": true,
-    "unstable": true
+  "lsp": {
+    "deno": {
+      "settings": {
+        "deno": {
+          "enable": true
+        }
+      }
+    }
   },
   "ensure_final_newline_on_save": true,
   "format_on_save": "on",
@@ -12,7 +17,20 @@
         "deno",
         "!typescript-language-server",
         "!vtsls",
+        "!eslint",
         "!biome",
+        "..."
+      ]
+    },
+    "JSON": {
+      "language_servers": [
+        "json-language-server",
+        "..."
+      ]
+    },
+    "JSONC": {
+      "language_servers": [
+        "json-language-server",
         "..."
       ]
     },
@@ -21,6 +39,7 @@
         "deno",
         "!typescript-language-server",
         "!vtsls",
+        "!eslint",
         "!biome",
         "..."
       ]
@@ -30,6 +49,15 @@
         "deno",
         "!typescript-language-server",
         "!vtsls",
+        "!eslint",
+        "!biome",
+        "..."
+      ]
+    },
+    "YAML": {
+      "language_servers": [
+        "!yaml-language-server",
+        "!eslint",
         "!biome",
         "..."
       ]

@@ -1,15 +1,23 @@
 import { isDeno } from "@david/which-runtime";
+import { suite } from "@hongminhee/suite";
 import type { Sink } from "@logtape/logtape";
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertThrows } from "@std/assert/assert-throws";
+import { assertEquals } from "@std/assert/equals";
+import { assertThrows } from "@std/assert/throws";
 import { join } from "@std/path/join";
+import { getFileSink, getRotatingFileSink } from "#filesink";
 import fs from "node:fs";
+import { tmpdir } from "node:os";
 import { debug, error, fatal, info, warning } from "../logtape/fixtures.ts";
 import { type FileSinkDriver, getBaseFileSink } from "./filesink.base.ts";
-import { getFileSink, getRotatingFileSink } from "./filesink.deno.ts";
 
-Deno.test("getBaseFileSink()", () => {
-  const path = Deno.makeTempFileSync();
+const test = suite(import.meta);
+
+function makeTempFileSync(): string {
+  return join(fs.mkdtempSync(join(tmpdir(), "logtape-")), "logtape.txt");
+}
+
+test("getBaseFileSink()", () => {
+  const path = makeTempFileSync();
   let sink: Sink & Disposable;
   if (isDeno) {
     const driver: FileSinkDriver<Deno.FsFile> = {
@@ -45,7 +53,7 @@ Deno.test("getBaseFileSink()", () => {
   sink(fatal);
   sink[Symbol.dispose]();
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
@@ -56,8 +64,8 @@ Deno.test("getBaseFileSink()", () => {
   );
 });
 
-Deno.test("getBaseFileSink() with lazy option", () => {
-  const pathDir = Deno.makeTempDirSync();
+test("getBaseFileSink() with lazy option", () => {
+  const pathDir = fs.mkdtempSync(join(tmpdir(), "logtape-"));
   const path = join(pathDir, "test.log");
   let sink: Sink & Disposable;
   if (isDeno) {
@@ -102,7 +110,7 @@ Deno.test("getBaseFileSink() with lazy option", () => {
   sink(fatal);
   sink[Symbol.dispose]();
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
@@ -113,8 +121,8 @@ Deno.test("getBaseFileSink() with lazy option", () => {
   );
 });
 
-Deno.test("getFileSink()", () => {
-  const path = Deno.makeTempFileSync();
+test("getFileSink()", () => {
+  const path = makeTempFileSync();
   const sink: Sink & Disposable = getFileSink(path);
   sink(debug);
   sink(info);
@@ -123,7 +131,7 @@ Deno.test("getFileSink()", () => {
   sink(fatal);
   sink[Symbol.dispose]();
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
@@ -134,19 +142,19 @@ Deno.test("getFileSink()", () => {
   );
 });
 
-Deno.test("getRotatingFileSink()", () => {
-  const path = Deno.makeTempFileSync();
+test("getRotatingFileSink()", () => {
+  const path = makeTempFileSync();
   const sink: Sink & Disposable = getRotatingFileSink(path, {
     maxSize: 150,
   });
   sink(debug);
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
   sink(info);
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
@@ -154,11 +162,11 @@ Deno.test("getRotatingFileSink()", () => {
   );
   sink(warning);
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!\n",
   );
   assertEquals(
-    Deno.readTextFileSync(`${path}.1`),
+    fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
@@ -166,14 +174,14 @@ Deno.test("getRotatingFileSink()", () => {
   );
   sink(error);
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
 `,
   );
   assertEquals(
-    Deno.readTextFileSync(`${path}.1`),
+    fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
@@ -182,32 +190,32 @@ Deno.test("getRotatingFileSink()", () => {
   sink(fatal);
   sink[Symbol.dispose]();
   assertEquals(
-    Deno.readTextFileSync(path),
+    fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!\n",
   );
   assertEquals(
-    Deno.readTextFileSync(`${path}.1`),
+    fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
 `,
   );
   assertEquals(
-    Deno.readTextFileSync(`${path}.2`),
+    fs.readFileSync(`${path}.2`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
 `,
   );
 
-  const dirPath = Deno.makeTempDirSync();
+  const dirPath = fs.mkdtempSync(join(tmpdir(), "logtape-"));
   const path2 = join(dirPath, "log");
   const sink2: Sink & Disposable = getRotatingFileSink(path2, {
     maxSize: 150,
   });
   sink2(debug);
   assertEquals(
-    Deno.readTextFileSync(path2),
+    fs.readFileSync(path2, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
   sink2[Symbol.dispose]();

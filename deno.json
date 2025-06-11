@@ -6,41 +6,115 @@
   ],
   "imports": {
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",
-    "@deno/dnt": "jsr:@deno/dnt@^0.41.1",
-    "@std/assert": "jsr:@std/assert@^0.222.1",
-    "@std/async": "jsr:@std/async@^0.222.1",
+    "@hongminhee/suite": "jsr:@hongminhee/suite@^0.6.2",
+    "@std/assert": "jsr:@std/assert@^1.0.13",
+    "@std/async": "jsr:@std/async@^1.0.13",
     "@std/collections": "jsr:@std/collections@^1.0.10",
     "@std/fs": "jsr:@std/fs@^0.223.0",
-    "@std/path": "jsr:@std/path@^1.0.2",
+    "@std/path": "jsr:@std/path@^1.1.0",
     "@std/semver": "jsr:@std/semver@^1.0.5",
     "@std/testing": "jsr:@std/testing@^0.222.1",
-    "consolemock": "npm:consolemock@^1.1.0"
+    "consolemock": "npm:consolemock@^1.1.0",
+    "tsdown": "npm:tsdown@^0.12.7"
   },
   "unstable": [
     "fs"
   ],
   "lock": false,
   "exclude": [
+    "*/dist/",
     ".cov/",
     ".github/",
     "coverage/",
-    "docs/"
+    "docs/",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
   ],
   "tasks": {
     "check": {
-      "command": "deno check **/*.ts && deno lint && deno fmt --check",
+      "command": "deno check && deno lint && deno fmt --check",
       "dependencies": [
         "check:versions"
       ]
     },
     "check:versions": "deno run --allow-read scripts/check_versions.ts",
-    "test": "deno test --allow-read --allow-write",
-    "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
-    "test-all:bun": "deno task --recursive test:bun",
+    "build:file": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/file build"
+    },
+    "build:logtape": "deno task -f @logtape/logtape build",
+    "build:redaction": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/redaction build"
+    },
+    "build": {
+      "dependencies": [
+        "build:file",
+        "build:logtape",
+        "build:redaction"
+      ]
+    },
+    "coverage": "rm -rf coverage && deno task test --coverage --allow-read --allow-write --allow-env=TEMP,TMP,TMPDIR && deno coverage --html coverage",
+    "test": "deno test --allow-read --allow-write --allow-env=TEMP,TMP,TMPDIR",
+    "test:node:file": {
+      "dependencies": [
+        "build:file"
+      ],
+      "command": "cd file/ && node --experimental-transform-types --test"
+    },
+    "test:node:logtape": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "cd logtape/ && node --experimental-transform-types --test"
+    },
+    "test:node:redaction": {
+      "dependencies": [
+        "build:redaction"
+      ],
+      "command": "cd redaction/ && node --experimental-transform-types --test"
+    },
+    "test:node": {
+      "dependencies": [
+        "test:node:file",
+        "test:node:logtape",
+        "test:node:redaction"
+      ]
+    },
+    "test:bun:file": {
+      "dependencies": [
+        "build:file"
+      ],
+      "command": "cd file/ && bun test"
+    },
+    "test:bun:logtape": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "cd logtape/ && bun test"
+    },
+    "test:bun:redaction": {
+      "dependencies": [
+        "build:redaction"
+      ],
+      "command": "cd redaction/ && bun test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "test:bun:file",
+        "test:bun:logtape",
+        "test:bun:redaction"
+      ]
+    },
     "test-all": {
       "dependencies": [
         "test",
-        "test-all:bun"
+        "test:node",
+        "test:bun"
       ]
     },
     "publish": {

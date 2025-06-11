@@ -1,4 +1,7 @@
 .cov/
 .dnt-import-map.json
 coverage/
+node_modules/
 npm/
+*/dist/
+*/logtape-*-*.tgz

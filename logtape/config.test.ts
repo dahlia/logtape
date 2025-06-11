@@ -1,7 +1,8 @@
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertRejects } from "@std/assert/assert-rejects";
-import { assertStrictEquals } from "@std/assert/assert-strict-equals";
-import { assertThrows } from "@std/assert/assert-throws";
+import { suite } from "@hongminhee/suite";
+import { assertEquals } from "@std/assert/equals";
+import { assertRejects } from "@std/assert/rejects";
+import { assertStrictEquals } from "@std/assert/strict-equals";
+import { assertThrows } from "@std/assert/throws";
 import {
   type Config,
   ConfigError,
@@ -16,10 +17,12 @@ import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
-Deno.test("configure()", async (t) => {
+const test = suite(import.meta);
+
+test("configure()", async () => {
   let disposed = 0;
 
-  await t.step("test", async () => {
+  try {
     const aLogs: LogRecord[] = [];
     const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
@@ -124,9 +127,8 @@ Deno.test("configure()", async (t) => {
       },
     ]);
     assertStrictEquals(getConfig(), config);
-  });
 
-  await t.step("reconfigure", async () => {
+    // reconfigure
     await assertRejects(
       () =>
         configure({
@@ -139,22 +141,20 @@ Deno.test("configure()", async (t) => {
     assertEquals(disposed, 0);
 
     // No exception if reset is true:
-    const config = {
+    const config2 = {
       sinks: {},
       loggers: [{ category: "my-app" }],
       reset: true,
     };
-    await configure(config);
+    await configure(config2);
     assertEquals(disposed, 4);
-    assertStrictEquals(getConfig(), config);
-  });
-
-  await t.step("tear down", async () => {
+    assertStrictEquals(getConfig(), config2);
+  } finally {
     await reset();
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("lowestLevel", async () => {
+  try { // lowestLevel
     const a: LogRecord[] = [];
     const b: LogRecord[] = [];
     const c: LogRecord[] = [];
@@ -185,14 +185,12 @@ Deno.test("configure()", async (t) => {
 
     while (a.length > 0) a.pop();
     while (c.length > 0) c.pop();
-  });
-
-  await t.step("tear down", async () => {
+  } finally {
     await reset();
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("misconfiguration", async () => {
+  { // misconfiguration
     await assertRejects(
       () =>
         configure({
@@ -229,9 +227,9 @@ Deno.test("configure()", async (t) => {
       "Filter not found: invalid",
     );
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("duplicate logger categories", async () => {
+  { // duplicate logger categories
     await assertRejects(
       () =>
         configure({
@@ -273,41 +271,36 @@ Deno.test("configure()", async (t) => {
       'Duplicate logger configuration for category: ["my-app","service"]',
     );
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
-    await t.step(
-      "meta configuration: " + JSON.stringify(metaCategory),
-      async () => {
-        const config = {
-          sinks: {},
-          loggers: [
-            {
-              category: metaCategory,
-              sinks: [],
-              filters: [],
-            },
-          ],
-        };
-        await configure(config);
+    try { // meta configuration
+      const config = {
+        sinks: {},
+        loggers: [
+          {
+            category: metaCategory,
+            sinks: [],
+            filters: [],
+          },
+        ],
+      };
+      await configure(config);
 
-        assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
-        assertStrictEquals(getConfig(), config);
-      },
-    );
-
-    await t.step("tear down", async () => {
+      assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
+      assertStrictEquals(getConfig(), config);
+    } finally {
       await reset();
       assertStrictEquals(getConfig(), null);
-    });
+    }
   }
 });
 
-Deno.test("configureSync()", async (t) => {
+test("configureSync()", async () => {
   let disposed = 0;
 
-  await t.step("test", () => {
+  try {
     const bLogs: LogRecord[] = [];
     const b: Sink & Disposable = (record) => bLogs.push(record);
     b[Symbol.dispose] = () => ++disposed;
@@ -380,9 +373,8 @@ Deno.test("configureSync()", async (t) => {
       },
     ]);
     assertStrictEquals(getConfig(), config);
-  });
 
-  await t.step("reconfigure", () => {
+    // reconfigure
     assertThrows(
       () =>
         configureSync({
@@ -395,22 +387,20 @@ Deno.test("configureSync()", async (t) => {
     assertEquals(disposed, 0);
 
     // No exception if reset is true:
-    const config = {
+    const config2 = {
       sinks: {},
       loggers: [{ category: "my-app" }],
       reset: true,
     };
-    configureSync(config);
+    configureSync(config2);
     assertEquals(disposed, 2);
-    assertStrictEquals(getConfig(), config);
-  });
-
-  await t.step("tear down", () => {
+    assertStrictEquals(getConfig(), config2);
+  } finally {
     resetSync();
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("misconfiguration", () => {
+  { // misconfiguration
     assertThrows(
       () =>
         configureSync({
@@ -447,9 +437,9 @@ Deno.test("configureSync()", async (t) => {
       "Filter not found: invalid",
     );
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("duplicate logger categories", () => {
+  { // duplicate logger categories
     assertThrows(
       () =>
         configureSync({
@@ -491,11 +481,11 @@ Deno.test("configureSync()", async (t) => {
       'Duplicate logger configuration for category: ["my-app","service"]',
     );
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
-    await t.step("meta configuration: " + JSON.stringify(metaCategory), () => {
+    try { // meta configuration
       const config = {
         sinks: {},
         loggers: [
@@ -510,15 +500,13 @@ Deno.test("configureSync()", async (t) => {
 
       assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
       assertStrictEquals(getConfig(), config);
-    });
-
-    await t.step("tear down", () => {
+    } finally {
       resetSync();
       assertStrictEquals(getConfig(), null);
-    });
+    }
   }
 
-  await t.step("no async sinks", () => {
+  { // no async sinks
     const aLogs: LogRecord[] = [];
     const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
@@ -540,9 +528,9 @@ Deno.test("configureSync()", async (t) => {
       "Async disposables cannot be used with configureSync()",
     );
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("no async filters", () => {
+  { // no async filters
     const aLogs: LogRecord[] = [];
     const a: Sink & Disposable = (record) => aLogs.push(record);
     a[Symbol.dispose] = () => ++disposed;
@@ -569,9 +557,9 @@ Deno.test("configureSync()", async (t) => {
       "Async disposables cannot be used with configureSync()",
     );
     assertStrictEquals(getConfig(), null);
-  });
+  }
 
-  await t.step("cannot reset async disposables", async () => {
+  try { // cannot reset async disposables
     const aLogs: LogRecord[] = [];
     const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
@@ -596,5 +584,8 @@ Deno.test("configureSync()", async (t) => {
       ConfigError,
       "Previously configured async disposables are still active",
     );
-  });
+  } finally {
+    await reset();
+    assertStrictEquals(getConfig(), null);
+  }
 });

@@ -21,6 +21,12 @@ jobs:
     - uses: denoland/setup-deno@v2
       with:
         deno-version: v2.x
+    - uses: pnpm/action-setup@v4
+      with:
+        version: latest
+    - uses: actions/setup-node@v4
+      with:
+        node-version: latest
     - uses: oven-sh/setup-bun@v2
       with:
         bun-version: latest
@@ -51,7 +57,9 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: dahlia/logtape
         file: .cov.lcov
-    - run: deno task test-all:bun
+    - run: pnpm install
+    - run: deno task test:node
+    - run: deno task test:bun
     - run: deno task check
 
   publish:
@@ -65,6 +73,12 @@ jobs:
     - uses: denoland/setup-deno@v2
       with:
         deno-version: v2.x
+    - uses: pnpm/action-setup@v4
+      with:
+        version: latest
+    - uses: actions/setup-node@v4
+      with:
+        node-version: latest
     - if: github.ref_type == 'branch'
       run: |
         v="$(jq \
@@ -83,26 +97,27 @@ jobs:
     - if: github.event_name == 'push'
       run: |
         set -ex
-        npm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
+        pnpm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
+        pnpm install
         jq -r '.workspace | .[]' deno.json | while read pkg; do
           pushd "$pkg"
           pkgname="$(jq -r '.name + "@" + .version' deno.json)"
-          if npm view "$pkgname"; then
+          if pnpm view "$pkgname"; then
             echo "Package $pkgname already exists, skipping publish."
             popd
             continue
           fi
-          deno task dnt
-          cd npm
+          pnpm build
           if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-            npm publish --provenance --access public
+            pnpm publish --no-git-checks --access public
           else
-            npm publish --provenance --access public --tag dev
+            pnpm publish --no-git-checks --access public --tag dev
           fi
           popd
         done
       env:
         NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+        NPM_CONFIG_PROVENANCE: "true"
     - if: github.event_name == 'pull_request'
       run: deno task publish --dry-run --allow-dirty
     - if: github.event_name == 'push'
@@ -121,30 +136,31 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4
-    - uses: oven-sh/setup-bun@v2
+    - uses: denoland/setup-deno@v2
       with:
-        bun-version: latest
+        deno-version: v2.x
+    - uses: pnpm/action-setup@v4
+      with:
+        version: latest
+    - uses: actions/setup-node@v4
+      with:
+        node-version: latest
+    - run: pnpm install
+    - run: deno task build
     - run: |
         set -ex
-        bun install
         if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-          bun add -D "@logtape/logtape@$GITHUB_REF_NAME"
-          bun add -D "@logtape/file@$GITHUB_REF_NAME"
-          bun add -D "@logtape/redaction@$GITHUB_REF_NAME"
-          bun add -D @logtape/otel@latest
+          pnpm add -D @logtape/otel@latest
           EXTRA_NAV_TEXT=Unstable \
           EXTRA_NAV_LINK="$UNSTABLE_DOCS_URL" \
           SITEMAP_HOSTNAME="$STABLE_DOCS_URL" \
-          bun run build
+          pnpm build
         else
-          bun add -D @logtape/logtape@dev
-          bun add -D @logtape/file@dev
-          bun add -D @logtape/redaction@dev
-          bun add -D @logtape/otel@dev
+          pnpm add -D @logtape/otel@dev
           EXTRA_NAV_TEXT=Stable \
           EXTRA_NAV_LINK="$STABLE_DOCS_URL" \
           SITEMAP_HOSTNAME="$UNSTABLE_DOCS_URL" \
-          bun run build
+          pnpm build
         fi
       env:
         STABLE_DOCS_URL: ${{ vars.STABLE_DOCS_URL }}

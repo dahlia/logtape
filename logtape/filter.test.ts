@@ -1,12 +1,15 @@
+import { suite } from "@hongminhee/suite";
 import { assert } from "@std/assert/assert";
-import { assertFalse } from "@std/assert/assert-false";
-import { assertStrictEquals } from "@std/assert/assert-strict-equals";
-import { assertThrows } from "@std/assert/assert-throws";
+import { assertFalse } from "@std/assert/false";
+import { assertStrictEquals } from "@std/assert/strict-equals";
+import { assertThrows } from "@std/assert/throws";
 import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
 
-Deno.test("getLevelFilter()", () => {
+const test = suite(import.meta);
+
+test("getLevelFilter()", () => {
   const noneFilter = getLevelFilter(null);
   assertFalse(noneFilter(fatal));
   assertFalse(noneFilter(error));
@@ -56,7 +59,7 @@ Deno.test("getLevelFilter()", () => {
   );
 });
 
-Deno.test("toFilter()", () => {
+test("toFilter()", () => {
   const hasJunk: Filter = (record) => record.category.includes("junk");
   assertStrictEquals(toFilter(hasJunk), hasJunk);
 

@@ -1,7 +1,8 @@
+import { suite } from "@hongminhee/suite";
 import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertFalse } from "@std/assert/assert-false";
-import { assertThrows } from "@std/assert/assert-throws";
+import { assertEquals } from "@std/assert/equals";
+import { assertFalse } from "@std/assert/false";
+import { assertThrows } from "@std/assert/throws";
 import {
   compareLogLevel,
   isLogLevel,
@@ -9,7 +10,9 @@ import {
   parseLogLevel,
 } from "./level.ts";
 
-Deno.test("parseLogLevel()", () => {
+const test = suite(import.meta);
+
+test("parseLogLevel()", () => {
   assertEquals(parseLogLevel("debug"), "debug");
   assertEquals(parseLogLevel("info"), "info");
   assertEquals(parseLogLevel("warning"), "warning");
@@ -27,7 +30,7 @@ Deno.test("parseLogLevel()", () => {
   );
 });
 
-Deno.test("isLogLevel()", () => {
+test("isLogLevel()", () => {
   assert(isLogLevel("debug"));
   assert(isLogLevel("info"));
   assert(isLogLevel("warning"));
@@ -37,7 +40,7 @@ Deno.test("isLogLevel()", () => {
   assertFalse(isLogLevel("invalid"));
 });
 
-Deno.test("compareLogLevel()", () => {
+test("compareLogLevel()", () => {
   const levels: LogLevel[] = ["info", "debug", "error", "warning", "fatal"];
   levels.sort(compareLogLevel);
   assertEquals(levels, ["debug", "info", "warning", "error", "fatal"]);

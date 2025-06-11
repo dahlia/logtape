@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertThrows } from "@std/assert/assert-throws";
+import { suite } from "@hongminhee/suite";
+import { assertEquals } from "@std/assert/equals";
+import { assertThrows } from "@std/assert/throws";
 import { fatal, info } from "./fixtures.ts";
 import {
   ansiColorFormatter,
@@ -12,7 +13,9 @@ import {
 } from "./formatter.ts";
 import type { LogRecord } from "./record.ts";
 
-Deno.test("getTextFormatter()", () => {
+const test = suite(import.meta);
+
+test("getTextFormatter()", () => {
   assertEquals(
     getTextFormatter()(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
@@ -181,7 +184,7 @@ Deno.test("getTextFormatter()", () => {
   }
 });
 
-Deno.test("defaultTextFormatter()", () => {
+test("defaultTextFormatter()", () => {
   assertEquals(
     defaultTextFormatter(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
@@ -192,7 +195,7 @@ Deno.test("defaultTextFormatter()", () => {
   );
 });
 
-Deno.test("getAnsiColorFormatter()", () => {
+test("getAnsiColorFormatter()", () => {
   assertEquals(
     getAnsiColorFormatter()(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
@@ -341,7 +344,7 @@ Deno.test("getAnsiColorFormatter()", () => {
   );
 });
 
-Deno.test("ansiColorFormatter()", () => {
+test("ansiColorFormatter()", () => {
   assertEquals(
     ansiColorFormatter(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
@@ -358,7 +361,7 @@ Deno.test("ansiColorFormatter()", () => {
   );
 });
 
-Deno.test("defaultConsoleFormatter()", () => {
+test("defaultConsoleFormatter()", () => {
   assertEquals(
     defaultConsoleFormatter(info),
     [
@@ -374,7 +377,7 @@ Deno.test("defaultConsoleFormatter()", () => {
   );
 });
 
-Deno.test("getJsonLinesFormatter()", async (t) => {
+test("getJsonLinesFormatter()", () => {
   const logRecord: LogRecord = {
     level: "info",
     category: ["my-app", "junk"],
@@ -394,7 +397,7 @@ Deno.test("getJsonLinesFormatter()", async (t) => {
     properties: { attempt: 3 },
   };
 
-  await t.step("default options", () => {
+  { // default options
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(logRecord));
 
@@ -403,46 +406,46 @@ Deno.test("getJsonLinesFormatter()", async (t) => {
     assertEquals(result.message, "Hello, 123 & 456!");
     assertEquals(result.logger, "my-app.junk");
     assertEquals(result.properties, { userId: "12345", requestId: "abc-def" });
-  });
+  }
 
-  await t.step("warning level converts to WARN", () => {
+  { // warning level converts to WARN
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(warningRecord));
     assertEquals(result.level, "WARN");
-  });
+  }
 
-  await t.step("categorySeparator string option", () => {
+  { // categorySeparator string option
     const formatter = getJsonLinesFormatter({ categorySeparator: "/" });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.logger, "my-app/junk");
-  });
+  }
 
-  await t.step("categorySeparator function option", () => {
+  { // categorySeparator function option
     const formatter = getJsonLinesFormatter({
       categorySeparator: (category) => category.join("::").toUpperCase(),
     });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.logger, "MY-APP::JUNK");
-  });
+  }
 
-  await t.step("categorySeparator function returning array", () => {
+  { // categorySeparator function returning array
     const formatter = getJsonLinesFormatter({
       categorySeparator: (category) => category,
     });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.logger, ["my-app", "junk"]);
-  });
+  }
 
-  await t.step("message template option", () => {
+  { // message template option
     const formatter = getJsonLinesFormatter({ message: "template" });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.message, "Hello, {a} & {b}!");
 
     const result2 = JSON.parse(formatter(warningRecord));
     assertEquals(result2.message, "Login failed for {}");
-  });
+  }
 
-  await t.step("message template with string rawMessage", () => {
+  { // message template with string rawMessage
     const stringRawRecord: LogRecord = {
       ...logRecord,
       rawMessage: "Simple string message",
@@ -450,52 +453,52 @@ Deno.test("getJsonLinesFormatter()", async (t) => {
     const formatter = getJsonLinesFormatter({ message: "template" });
     const result = JSON.parse(formatter(stringRawRecord));
     assertEquals(result.message, "Simple string message");
-  });
+  }
 
-  await t.step("message rendered option (default)", () => {
+  { // message rendered option (default)
     const formatter = getJsonLinesFormatter({ message: "rendered" });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.message, "Hello, 123 & 456!");
-  });
+  }
 
-  await t.step("properties flatten option", () => {
+  { // properties flatten option
     const formatter = getJsonLinesFormatter({ properties: "flatten" });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.userId, "12345");
     assertEquals(result.requestId, "abc-def");
     assertEquals(result.properties, undefined);
-  });
+  }
 
-  await t.step("properties prepend option", () => {
+  { // properties prepend option
     const formatter = getJsonLinesFormatter({ properties: "prepend:ctx_" });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.ctx_userId, "12345");
     assertEquals(result.ctx_requestId, "abc-def");
     assertEquals(result.properties, undefined);
-  });
+  }
 
-  await t.step("properties nest option", () => {
+  { // properties nest option
     const formatter = getJsonLinesFormatter({ properties: "nest:context" });
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.context, { userId: "12345", requestId: "abc-def" });
     assertEquals(result.properties, undefined);
-  });
+  }
 
-  await t.step("properties nest option (default)", () => {
+  { // properties nest option (default)
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(logRecord));
     assertEquals(result.properties, { userId: "12345", requestId: "abc-def" });
-  });
+  }
 
-  await t.step("invalid properties option - empty prepend prefix", () => {
+  { // invalid properties option - empty prepend prefix
     assertThrows(
       () => getJsonLinesFormatter({ properties: "prepend:" }),
       TypeError,
       'Invalid properties option: "prepend:". It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.',
     );
-  });
+  }
 
-  await t.step("invalid properties option - invalid format", () => {
+  { // invalid properties option - invalid format
     assertThrows(
       () =>
         getJsonLinesFormatter({
@@ -505,9 +508,9 @@ Deno.test("getJsonLinesFormatter()", async (t) => {
       TypeError,
       'Invalid properties option: "invalid:option". It must be "flatten", "prepend:<prefix>", or "nest:<key>".',
     );
-  });
+  }
 
-  await t.step("combined options", () => {
+  { // combined options
     const formatter = getJsonLinesFormatter({
       categorySeparator: "::",
       message: "template",
@@ -523,5 +526,5 @@ Deno.test("getJsonLinesFormatter()", async (t) => {
       prop_userId: "12345",
       prop_requestId: "abc-def",
     });
-  });
+  }
 });

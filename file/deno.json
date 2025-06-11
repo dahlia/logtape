@@ -3,17 +3,34 @@
   "version": "0.12.0",
   "license": "MIT",
   "exports": "./mod.ts",
+  "imports": {
+    "#filesink": "./filesink.jsr.ts"
+  },
   "exclude": [
     "coverage/",
     "npm/",
     ".dnt-import-map.json"
   ],
   "tasks": {
-    "dnt": "deno run -A dnt.ts",
-    "test:bun": {
-      "command": "cd npm/ && bun run ./test_runner.js && cd ../",
+    "build": "pnpm build",
+    "test": "deno test --allow-read --allow-write --allow-env=TEMP,TMP,TMPDIR",
+    "test:node": {
       "dependencies": [
-        "dnt"
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
       ]
     }
   }

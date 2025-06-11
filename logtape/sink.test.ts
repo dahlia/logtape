@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertThrows } from "@std/assert/assert-throws";
+import { suite } from "@hongminhee/suite";
+import { assertEquals } from "@std/assert/equals";
+import { assertThrows } from "@std/assert/throws";
 import makeConsoleMock from "consolemock";
 import { debug, error, fatal, info, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
@@ -7,7 +8,9 @@ import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 import { getConsoleSink, getStreamSink, withFilter } from "./sink.ts";
 
-Deno.test("withFilter()", () => {
+const test = suite(import.meta);
+
+test("withFilter()", () => {
   const buffer: LogRecord[] = [];
   const sink = withFilter(buffer.push.bind(buffer), "warning");
   sink(debug);
@@ -22,7 +25,7 @@ interface ConsoleMock extends Console {
   history(): unknown[];
 }
 
-Deno.test("getStreamSink()", async () => {
+test("getStreamSink()", async () => {
   let buffer: string = "";
   const decoder = new TextDecoder();
   const sink = getStreamSink(
@@ -51,7 +54,7 @@ Deno.test("getStreamSink()", async () => {
   );
 });
 
-Deno.test("getConsoleSink()", () => {
+test("getConsoleSink()", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
   const sink = getConsoleSink({ console: mock });

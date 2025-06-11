@@ -1,12 +1,13 @@
+import { suite } from "@hongminhee/suite";
 import type {
   ConsoleFormatter,
   LogRecord,
   TextFormatter,
 } from "@logtape/logtape";
 import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertMatch } from "@std/assert/assert-match";
-import { assertThrows } from "@std/assert/assert-throws";
+import { assertEquals } from "@std/assert/equals";
+import { assertMatch } from "@std/assert/match";
+import { assertThrows } from "@std/assert/throws";
 import {
   CREDIT_CARD_NUMBER_PATTERN,
   EMAIL_ADDRESS_PATTERN,
@@ -17,7 +18,9 @@ import {
   US_SSN_PATTERN,
 } from "./pattern.ts";
 
-Deno.test("EMAIL_ADDRESS_PATTERN", () => {
+const test = suite(import.meta);
+
+test("EMAIL_ADDRESS_PATTERN", () => {
   const { pattern, replacement } = EMAIL_ADDRESS_PATTERN;
 
   // Test valid email addresses
@@ -68,7 +71,7 @@ Deno.test("EMAIL_ADDRESS_PATTERN", () => {
   );
 });
 
-Deno.test("CREDIT_CARD_NUMBER_PATTERN", () => {
+test("CREDIT_CARD_NUMBER_PATTERN", () => {
   const { pattern, replacement } = CREDIT_CARD_NUMBER_PATTERN;
 
   // Test valid credit card numbers with dashes
@@ -95,7 +98,7 @@ Deno.test("CREDIT_CARD_NUMBER_PATTERN", () => {
   );
 });
 
-Deno.test("US_SSN_PATTERN", () => {
+test("US_SSN_PATTERN", () => {
   const { pattern, replacement } = US_SSN_PATTERN;
 
   // Test valid US Social Security numbers
@@ -116,7 +119,7 @@ Deno.test("US_SSN_PATTERN", () => {
   );
 });
 
-Deno.test("KR_RRN_PATTERN", () => {
+test("KR_RRN_PATTERN", () => {
   const { pattern, replacement } = KR_RRN_PATTERN;
 
   // Test valid South Korean resident registration numbers
@@ -137,7 +140,7 @@ Deno.test("KR_RRN_PATTERN", () => {
   );
 });
 
-Deno.test("JWT_PATTERN", () => {
+test("JWT_PATTERN", () => {
   const { pattern, replacement } = JWT_PATTERN;
 
   // Test valid JWT tokens
@@ -160,8 +163,8 @@ Deno.test("JWT_PATTERN", () => {
   );
 });
 
-Deno.test("redactByPattern(TextFormatter)", async (t) => {
-  await t.step("redacts sensitive information in text output", () => {
+test("redactByPattern(TextFormatter)", () => {
+  { // redacts sensitive information in text output
     // Create a simple TextFormatter that returns a string
     const formatter: TextFormatter = (record: LogRecord) => {
       return `[${record.level.toUpperCase()}] ${record.message.join(" ")}`;
@@ -194,9 +197,9 @@ Deno.test("redactByPattern(TextFormatter)", async (t) => {
       output,
       "[INFO] Sensitive info: email = REDACTED@EMAIL.ADDRESS, cc = XXXX-XXXX-XXXX-XXXX, ssn = XXX-XX-XXXX",
     );
-  });
+  }
 
-  await t.step("handles function-based replacements", () => {
+  { // handles function-based replacements
     const formatter: TextFormatter = (record: LogRecord) => {
       return record.message.join(" ");
     };
@@ -223,9 +226,9 @@ Deno.test("redactByPattern(TextFormatter)", async (t) => {
       output,
       "Credentials: password=[HIDDEN], pw=[HIDDEN]",
     );
-  });
+  }
 
-  await t.step("throws error if global flag is not set", () => {
+  { // throws error if global flag is not set
     const formatter: TextFormatter = (record: LogRecord) =>
       record.message.join(" ");
 
@@ -239,67 +242,64 @@ Deno.test("redactByPattern(TextFormatter)", async (t) => {
       TypeError,
       "does not have the global flag set",
     );
-  });
+  }
 });
 
-Deno.test("redactByPattern(ConsoleFormatter)", async (t) => {
-  await t.step(
-    "redacts sensitive information in console formatter arrays",
-    () => {
-      // Create a simple ConsoleFormatter that returns an array of values
-      const formatter: ConsoleFormatter = (record: LogRecord) => {
-        return [
-          `[${record.level.toUpperCase()}]`,
-          ...record.message,
-        ];
-      };
+test("redactByPattern(ConsoleFormatter)", () => {
+  { // redacts sensitive information in console formatter arrays
+    // Create a simple ConsoleFormatter that returns an array of values
+    const formatter: ConsoleFormatter = (record: LogRecord) => {
+      return [
+        `[${record.level.toUpperCase()}]`,
+        ...record.message,
+      ];
+    };
 
-      // Create test record with sensitive data
-      const record: LogRecord = {
-        level: "info",
-        category: ["test"],
-        message: [
-          "User data:",
-          {
-            name: "John Doe",
-            email: "john@example.com",
-            creditCard: "1234-5678-9012-3456",
-          },
-        ],
-        rawMessage: "User data: [object Object]",
-        timestamp: Date.now(),
-        properties: {},
-      };
+    // Create test record with sensitive data
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: [
+        "User data:",
+        {
+          name: "John Doe",
+          email: "john@example.com",
+          creditCard: "1234-5678-9012-3456",
+        },
+      ],
+      rawMessage: "User data: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
 
-      // Apply redaction
-      const redactedFormatter = redactByPattern(formatter, [
-        EMAIL_ADDRESS_PATTERN,
-        CREDIT_CARD_NUMBER_PATTERN,
-      ]);
+    // Apply redaction
+    const redactedFormatter = redactByPattern(formatter, [
+      EMAIL_ADDRESS_PATTERN,
+      CREDIT_CARD_NUMBER_PATTERN,
+    ]);
 
-      const output = redactedFormatter(record);
+    const output = redactedFormatter(record);
 
-      // Verify output structure is preserved and data is redacted
-      assertEquals(output[0], "[INFO]");
-      assertEquals(output[1], "User data:");
-      assertEquals(
-        (output[2] as { name: string; email: string; creditCard: string }).name,
-        "John Doe",
-      );
-      assertEquals(
-        (output[2] as { name: string; email: string; creditCard: string })
-          .email,
-        "REDACTED@EMAIL.ADDRESS",
-      );
-      assertEquals(
-        (output[2] as { name: string; email: string; creditCard: string })
-          .creditCard,
-        "XXXX-XXXX-XXXX-XXXX",
-      );
-    },
-  );
+    // Verify output structure is preserved and data is redacted
+    assertEquals(output[0], "[INFO]");
+    assertEquals(output[1], "User data:");
+    assertEquals(
+      (output[2] as { name: string; email: string; creditCard: string }).name,
+      "John Doe",
+    );
+    assertEquals(
+      (output[2] as { name: string; email: string; creditCard: string })
+        .email,
+      "REDACTED@EMAIL.ADDRESS",
+    );
+    assertEquals(
+      (output[2] as { name: string; email: string; creditCard: string })
+        .creditCard,
+      "XXXX-XXXX-XXXX-XXXX",
+    );
+  }
 
-  await t.step("handles nested objects and arrays in console output", () => {
+  { // handles nested objects and arrays in console output
     const formatter: ConsoleFormatter = (record: LogRecord) => {
       return [record.level, record.message];
     };
@@ -347,5 +347,5 @@ Deno.test("redactByPattern(ConsoleFormatter)", async (t) => {
     assertEquals(resultData.user.payment.cards[0], "XXXX-XXXX-XXXX-XXXX");
     assertEquals(resultData.user.payment.cards[1], "XXXX-XXXX-XXXX-XXXX");
     assertEquals(resultData.user.documents.ssn, "XXX-XX-XXXX");
-  });
+  }
 });

@@ -210,12 +210,12 @@ You can also create a custom formatter for JSON Lines format:
 ~~~~ typescript twoslash
 // @noErrors: 2345
 import { getFileSink } from "@logtape/file";
-import { configure } from "@logtape/logtape";
+import { configure, type LogRecord } from "@logtape/logtape";
 
 await configure({
   sinks: {
     jsonl: getFileSink("log.jsonl", {
-      formatter: (record) => JSON.stringify(record) + "\n"
+      formatter: (record: LogRecord) => JSON.stringify(record) + "\n"
     }),
   },
   // ... rest of configuration

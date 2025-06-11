@@ -4,4 +4,4 @@ export type {
   RotatingFileSinkDriver,
   RotatingFileSinkOptions,
 } from "./filesink.base.ts";
-export { getFileSink, getRotatingFileSink } from "./filesink.jsr.ts";
+export { getFileSink, getRotatingFileSink } from "#filesink";

@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert/assert-equals";
+import { suite } from "@hongminhee/suite";
+import { assertEquals } from "@std/assert/equals";
 import { delay } from "@std/async/delay";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { configure, reset } from "./config.ts";
@@ -6,10 +7,12 @@ import { withContext } from "./context.ts";
 import { getLogger } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
-Deno.test("withContext()", async (t) => {
+const test = suite(import.meta);
+
+test("withContext()", async () => {
   const buffer: LogRecord[] = [];
 
-  await t.step("set up", async () => {
+  { // set up
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),
@@ -21,9 +24,10 @@ Deno.test("withContext()", async (t) => {
       contextLocalStorage: new AsyncLocalStorage(),
       reset: true,
     });
-  });
+  }
 
-  await t.step("test", () => {
+  try {
+    // test
     getLogger("my-app").debug("hello", { foo: 1, bar: 2 });
     assertEquals(buffer, [
       {
@@ -63,9 +67,8 @@ Deno.test("withContext()", async (t) => {
         timestamp: buffer[0].timestamp,
       },
     ]);
-  });
 
-  await t.step("nesting", () => {
+    // nesting
     while (buffer.length > 0) buffer.pop();
     withContext({ foo: 1, bar: 2 }, () => {
       withContext({ foo: 3, baz: 4 }, () => {
@@ -82,9 +85,8 @@ Deno.test("withContext()", async (t) => {
         timestamp: buffer[0].timestamp,
       },
     ]);
-  });
 
-  await t.step("concurrent runs", async () => {
+    // concurrent runs
     while (buffer.length > 0) buffer.pop();
     await Promise.all([
       (async () => {
@@ -124,15 +126,13 @@ Deno.test("withContext()", async (t) => {
         assertEquals(log.properties, { qux: 4 });
       }
     }
-  });
-
-  await t.step("tear down", async () => {
+  } finally {
     await reset();
-  });
+  }
 
   const metaBuffer: LogRecord[] = [];
 
-  await t.step("set up", async () => {
+  { // set up
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),
@@ -148,9 +148,9 @@ Deno.test("withContext()", async (t) => {
       ],
       reset: true,
     });
-  });
+  }
 
-  await t.step("without settings", () => {
+  try { // without settings
     while (buffer.length > 0) buffer.pop();
     const rv = withContext({ foo: 1 }, () => {
       getLogger("my-app").debug("hello", { bar: 2 });
@@ -181,9 +181,7 @@ Deno.test("withContext()", async (t) => {
         timestamp: metaBuffer[0].timestamp,
       },
     ]);
-  });
-
-  await t.step("tear down", async () => {
+  } finally {
     await reset();
-  });
+  }
 });

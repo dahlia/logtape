@@ -8,6 +8,13 @@ Version 0.12.0
 
 To be released.
 
+ -  Improved build and test infrastructure by migrating from [dnt] to [tsdown]
+    for npm package bundling.  [[#43]]
+
+[dnt]: https://github.com/denoland/dnt
+[tsdown]: https://tsdown.dev/
+[#43]: https://github.com/dahlia/logtape/issues/43
+
 
 Version 0.11.0
 --------------
