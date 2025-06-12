@@ -337,6 +337,92 @@ export interface Logger {
   warn(callback: LogCallback): void;
 
   /**
+   * Log a warning message.  Use this as a template string prefix.
+   *
+   * ```typescript
+   * logger.warning `A warning message with ${value}.`;
+   * ```
+   *
+   * @param message The message template strings array.
+   * @param values The message template values.
+   */
+  warning(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+
+  /**
+   * Log a warning message with properties.
+   *
+   * ```typescript
+   * logger.warning('A warning message with {value}.', { value });
+   * ```
+   *
+   * If the properties are expensive to compute, you can pass a callback that
+   * returns the properties:
+   *
+   * ```typescript
+   * logger.warning(
+   *   'A warning message with {value}.',
+   *   () => ({ value: expensiveComputation() })
+   * );
+   * ```
+   *
+   * @param message The message template.  Placeholders to be replaced with
+   *                `values` are indicated by keys in curly braces (e.g.,
+   *                `{value}`).
+   * @param properties The values to replace placeholders with.  For lazy
+   *                   evaluation, this can be a callback that returns the
+   *                   properties.
+   */
+  warning(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+
+  /**
+   * Log a warning values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.warning({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.warning('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.warning('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   * @since 0.11.0
+   */
+  warning(properties: Record<string, unknown>): void;
+
+  /**
+   * Lazily log a warning message.  Use this when the message values are
+   * expensive to compute and should only be computed if the message is actually
+   * logged.
+   *
+   * ```typescript
+   * logger.warning(l => l`A warning message with ${expensiveValue()}.`);
+   * ```
+   *
+   * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
+   */
+  warning(callback: LogCallback): void;
+
+  /**
    * Log an error message.  Use this as a template string prefix.
    *
    * ```typescript
@@ -844,6 +930,17 @@ export class LoggerImpl implements Logger {
     }
   }
 
+  warning(
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
+    ...values: unknown[]
+  ): void {
+    this.warn(message, ...values);
+  }
+
   error(
     message:
       | TemplateStringsArray
@@ -1005,6 +1102,17 @@ export class LoggerCtx implements Logger {
     } else {
       this.logTemplate("warning", message as TemplateStringsArray, values);
     }
+  }
+
+  warning(
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
+    ...values: unknown[]
+  ): void {
+    this.warn(message, ...values);
   }
 
   error(

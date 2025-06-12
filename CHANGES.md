@@ -8,12 +8,16 @@ Version 0.12.0
 
 To be released.
 
+ -  Added `Logger.warning()` method which is an alias for `Logger.warn()`.
+    [[#44]]
+
  -  Improved build and test infrastructure by migrating from [dnt] to [tsdown]
     for npm package bundling.  [[#43]]
 
 [dnt]: https://github.com/denoland/dnt
 [tsdown]: https://tsdown.dev/
 [#43]: https://github.com/dahlia/logtape/issues/43
+[#44]: https://github.com/dahlia/logtape/issues/44
 
 
 Version 0.11.0
