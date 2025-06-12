@@ -142,17 +142,17 @@ function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
  *     {
  *       category: "my-app",
  *       sinks: ["console"],
- *       level: "info",
+ *       lowestLevel: "info",
  *     },
  *     {
  *       category: ["my-app", "sql"],
  *       filters: ["slow"],
- *       level: "debug",
+ *       lowestLevel: "debug",
  *     },
  *     {
  *       category: "logtape",
  *       sinks: ["console"],
- *       level: "error",
+ *       lowestLevel: "error",
  *     },
  *   ],
  * });
@@ -197,12 +197,12 @@ export async function configure<
  *     {
  *       category: "my-app",
  *       sinks: ["console"],
- *       level: "info",
+ *       lowestLevel: "info",
  *     },
  *     {
  *       category: "logtape",
  *       sinks: ["console"],
- *       level: "error",
+ *       lowestLevel: "error",
  *     },
  *   ],
  * });

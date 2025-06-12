@@ -39,6 +39,7 @@ The highlights of LogTape are:
 
  -  *[Dead simple sinks]*: You can easily add your own sinks to LogTape.
 
+![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/web-console.png)
 ![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
 
 [JSR]: https://jsr.io/@logtape/logtape

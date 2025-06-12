@@ -35,6 +35,7 @@ The highlights of LogTape are:
  -  [*Dead simple sinks*](./manual/sinks.md): You can easily add your own sinks
     to LogTape.
 
+![](./screenshots/web-console.png)
 ![](./screenshots/terminal.png)
 
 [Deno]: https://deno.com/

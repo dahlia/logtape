@@ -35,6 +35,8 @@ Let's break down when you might use each of these:
 
 ### Trace
 
+*This API is available since LogTape 0.12.0.*
+
 Use this level for very detailed information that is useful for tracing the
 flow of execution in your application. This is typically used during development
 or debugging sessions.
