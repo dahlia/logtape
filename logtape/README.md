@@ -76,6 +76,36 @@ bun  add     @logtape/logtape  # for Bun
 See also the [installation manual][Runtime diversity] for more details.
 
 
+Packages
+--------
+
+LogTape is a monorepo that contains several packages.  The main package is
+*@logtape/logtape*, which provides the core logging functionality.  Other
+packages provide additional features and integrations.  The following is a
+list of the packages in the LogTape monorepo:
+
+| Package                            | JSR                           | npm                           | Description                |
+|------------------------------------|-------------------------------|-------------------------------|----------------------------|
+| *@logtape/logtape*                 | [JSR][jsr:@logtape/logtape]   | [npm][npm:@logtape/logtape]   | Core logging functionality |
+| [*@logtape/file*](file/)           | [JSR][jsr:@logtape/file]      | [npm][npm:@logtape/file]      | File sinks                 |
+| [*@logtape/otel*](otel/)           | [JSR][jsr:@logtape/otel]      | [npm][npm:@logtape/otel]      | [OpenTelemetry] sink       |
+| [*@logtape/redaction*](redaction/) | [JSR][jsr:@logtape/redaction] | [npm][npm:@logtape/redaction] | Data redaction             |
+| [*@logtape/sentry*](sentry/)       | [JSR][jsr:@logtape/sentry]    | [npm][npm:@logtape/sentry]    | [Sentry] sink              |
+
+[OpenTelemetry]: https://opentelemetry.io/
+[Sentry]: https://sentry.io/
+[jsr:@logtape/logtape]: https://jsr.io/@logtape/logtape
+[npm:@logtape/logtape]: https://www.npmjs.com/package/@logtape/logtape
+[jsr:@logtape/file]: https://jsr.io/@logtape/file
+[npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
+[jsr:@logtape/otel]: https://jsr.io/@logtape/otel
+[npm:@logtape/otel]: https://www.npmjs.com/package/@logtape/otel
+[jsr:@logtape/redaction]: https://jsr.io/@logtape/redaction
+[npm:@logtape/redaction]: https://www.npmjs.com/package/@logtape/redaction
+[jsr:@logtape/sentry]: https://jsr.io/@logtape/sentry
+[npm:@logtape/sentry]: https://www.npmjs.com/package/@logtape/sentry
+
+
 Docs
 ----
 
