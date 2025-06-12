@@ -1,6 +1,8 @@
-.jsr-cache-otel.json
 .jsr-cache-file.json
+.jsr-cache-otel.json
+.jsr-cache-redaction.json
 .jsr-cache.json
 .vitepress/cache/
+.vitepress/config.mts.timestamp-*
 .vitepress/dist/
 node_modules/

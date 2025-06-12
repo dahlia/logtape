@@ -20,10 +20,16 @@ const jsrRef_file = await jsrRef({
   cachePath: ".jsr-cache-file.json",
 });
 
+const jsrRef_otel = await jsrRef({
+  package: "@logtape/otel",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-otel.json",
+});
+
 const jsrRef_redaction = await jsrRef({
   package: "@logtape/redaction",
   version: jsrRefVersion,
-  cachePath: ".jsr-cache-file.json",
+  cachePath: ".jsr-cache-redaction.json",
 });
 
 let extraNav: { text: string; link: string }[] = [];
@@ -138,6 +144,7 @@ export default defineConfig({
     config(md) {
       md.use(jsrRef_logtape);
       md.use(jsrRef_file);
+      md.use(jsrRef_otel);
       md.use(jsrRef_redaction);
     },
   },

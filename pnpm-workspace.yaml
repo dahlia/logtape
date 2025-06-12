@@ -1,6 +1,7 @@
 packages:
 - logtape
 - file
+- otel
 - redaction
 - docs
 

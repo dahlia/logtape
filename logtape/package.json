@@ -58,6 +58,8 @@
   },
   "scripts": {
     "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
     "test": "tsdown && node --experimental-transform-types --test",
     "test:bun": "tsdown && bun test",
     "test:deno": "deno test",

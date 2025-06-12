@@ -2,6 +2,7 @@
   "workspace": [
     "./logtape",
     "./file",
+    "./otel",
     "./redaction"
   ],
   "imports": {

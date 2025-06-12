@@ -46,9 +46,8 @@ await configure({
   sinks: {
     otel: getOpenTelemetrySink(),
   },
-  filters: {},
   loggers: [
-    { category: [], sinks: ["otel"], level: "debug" },
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
   ],
 });
 ~~~~
@@ -74,9 +73,8 @@ await configure({
       },
     }),
   },
-  filters: {},
   loggers: [
-    { category: [], sinks: ["otel"], level: "debug" },
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
   ],
 });
 ~~~~
@@ -103,7 +101,6 @@ await configure({
   sinks: {
     otel: getOpenTelemetrySink({ loggerProvider }),
   },
-  filters: {},
   loggers: [
     { category: [], sinks: ["otel"], level: "debug" },
   ],

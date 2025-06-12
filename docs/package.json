@@ -4,9 +4,11 @@
     "@cloudflare/workers-types": "^4.20240909.0",
     "@logtape/file": "workspace:",
     "@logtape/logtape": "workspace:",
-    "@logtape/otel": "0.4.0-dev.8",
+    "@logtape/otel": "workspace:",
     "@logtape/redaction": "workspace:",
     "@logtape/sentry": "0.2.0-dev.8",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.202.0",
+    "@opentelemetry/sdk-logs": "^0.202.0",
     "@sentry/node": "^9.28.1",
     "@shikijs/vitepress-twoslash": "^1.17.6",
     "@teidesu/deno-types": "^1.46.3",
@@ -17,8 +19,8 @@
     "vitepress-plugin-llms": "^1.1.0"
   },
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
+    "dev": "cd ../ && pnpm run --filter '!{docs}' -r build && cd docs/ && vitepress dev",
+    "build": "cd ../ && pnpm run --filter '!{docs}' -r build && cd docs/ && vitepress build",
     "preview": "vitepress preview"
   }
 }

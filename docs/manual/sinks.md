@@ -354,7 +354,16 @@ await configure({
 
 It would look like this:
 
-![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
+~~~~ ansi
+[2m2025-06-12 10:34:10.465 +00[0m [1m[32mINF[0m [2mlogtape·meta:[0m LogTape loggers are configured.  Note that LogTape itself uses the meta logger, which has category [ [32m"logtape"[39m, [32m"meta"[39m ].  The meta logger purposes to log internal errors such as sink exceptions.  If you are seeing this message, the meta logger is automatically configured.  It's recommended to configure the meta logger with a separate sink so that you can easily notice if logging itself fails or is misconfigured.  To turn off this message, configure the meta logger with higher log levels than [32m"info"[39m.  See also <https://logtape.org/manual/categories#meta-logger>.
+[2m2025-06-12 10:34:10.472 +00[0m [1mTRC[0m [2mmy-app·module:[0m This is a trace log.
+[2m2025-06-12 10:34:10.473 +00[0m [1m[34mDBG[0m [2mmy-app·module:[0m This is a debug log with value: { foo: [33m123[39m }
+[2m2025-06-12 10:34:10.473 +00[0m [1m[32mINF[0m [2mmy-app:[0m This is an informational log.
+[2m2025-06-12 10:34:10.474 +00[0m [1m[33mWRN[0m [2mmy-app:[0m This is a warning.
+[2m2025-06-12 10:34:10.475 +00[0m [1m[31mERR[0m [2mmy-app·module:[0m This is an error with exception: Error: This is an exception.
+    at file:///tmp/test.ts:28:10
+[2m2025-06-12 10:34:10.475 +00[0m [1m[35mFTL[0m [2mmy-app:[0m This is a fatal error.
+~~~~
 
 [JSON Lines]: https://jsonlines.org/
 
@@ -363,7 +372,7 @@ OpenTelemetry sink
 ------------------
 
 If you have an [OpenTelemetry] collector running, you can use the OpenTelemetry
-sink to send log messages to the collector using [@logtape/otel] package:
+sink to send log messages to the collector using *@logtape/otel* package:
 
 ::: code-group
 
@@ -389,7 +398,7 @@ bun add @logtape/otel
 
 :::
 
-The quickest way to get started is to use the [`getOpenTelemetrySink()`]
+The quickest way to get started is to use the `getOpenTelemetrySink()`
 function without any arguments:
 
 ~~~~ typescript twoslash
@@ -400,7 +409,6 @@ await configure({
   sinks: {
     otel: getOpenTelemetrySink(),
   },
-  filters: {},
   loggers: [
     { category: [], sinks: ["otel"], lowestLevel: "debug" },
   ],
@@ -411,11 +419,65 @@ This will use the default OpenTelemetry configuration, which is to send logs to
 the OpenTelemetry collector running on `localhost:4317` or respects the `OTEL_*`
 environment variables.
 
-For more details, see the documentation of [@logtape/otel].
+If you want to customize the OpenTelemetry configuration, you can specify
+options to the `getOpenTelemetrySink()` function:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getOpenTelemetrySink } from "@logtape/otel";
+
+await configure({
+  sinks: {
+    otel: getOpenTelemetrySink({
+      serviceName: "my-service",
+      otlpExporterConfig: {
+        url: "https://my-otel-collector:4317",
+        headers: { "x-api-key": "my-api-key" },
+      },
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+Or you can even pass an existing OpenTelemetry [`LoggerProvider`] instance:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getOpenTelemetrySink } from "@logtape/otel";
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
+import {
+  LoggerProvider,
+  SimpleLogRecordProcessor,
+} from '@opentelemetry/sdk-logs';
+
+const exporter = new OTLPLogExporter({
+  url: "https://my-otel-collector:4317",
+  headers: { "x-api-key": "my-api-key" },
+});
+const loggerProvider = new LoggerProvider({
+  processors: [
+    new SimpleLogRecordProcessor(exporter),
+  ],
+});
+
+await configure({
+  sinks: {
+    otel: getOpenTelemetrySink({ loggerProvider }),
+  },
+  loggers: [
+    { category: [], sinks: ["otel"], level: "debug" },
+  ],
+});
+~~~~
+
+For more information, see the documentation of the `getOpenTelemetrySink()`
+function and `OpenTelemetrySinkOptions` type.
 
 [OpenTelemetry]: https://opentelemetry.io/
-[@logtape/otel]: https://github.com/dahlia/logtape-otel
-[`getOpenTelemetrySink()`]: https://jsr.io/@logtape/otel/doc/~/getOpenTelemetrySink
+[`LoggerProvider`]: https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_sdk_logs.LoggerProvider.html
 
 
 Sentry sink

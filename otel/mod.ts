@@ -13,7 +13,10 @@ import {
 } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import type { OTLPExporterNodeConfigBase } from "@opentelemetry/otlp-exporter-base";
-import { Resource } from "@opentelemetry/resources";
+import {
+  defaultResource,
+  resourceFromAttributes,
+} from "@opentelemetry/resources";
 import {
   LoggerProvider,
   type LogRecordProcessor,
@@ -121,8 +124,8 @@ export function getOpenTelemetrySink(
 
   let loggerProvider: ILoggerProvider;
   if (options.loggerProvider == null) {
-    const resource = Resource.default().merge(
-      new Resource({
+    const resource = defaultResource().merge(
+      resourceFromAttributes({
         [ATTR_SERVICE_NAME]: options.serviceName ??
           process.env.OTEL_SERVICE_NAME,
       }),
