@@ -23,6 +23,7 @@
   "lock": false,
   "exclude": [
     "*/dist/",
+    "*/README.md",
     ".cov/",
     ".github/",
     "coverage/",

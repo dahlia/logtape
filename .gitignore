@@ -1,4 +1,5 @@
 .cov/
+.env/
 .dnt-import-map.json
 coverage/
 node_modules/
