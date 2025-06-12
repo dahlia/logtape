@@ -1,11 +1,10 @@
 {
-  "name": "@logtape/otel",
+  "name": "@logtape/sentry",
   "version": "0.12.0",
-  "description": "LogTape OpenTelemetry sink",
+  "description": "LogTape Sentry sink",
   "keywords": [
     "LogTape",
-    "OpenTelemetry",
-    "otel"
+    "Sentry"
   ],
   "license": "MIT",
   "author": {
@@ -17,7 +16,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dahlia/logtape.git",
-    "directory": "otel/"
+    "directory": "sentry/"
   },
   "bugs": {
     "url": "https://github.com/dahlia/logtape/issues"
@@ -41,13 +40,7 @@
     "@logtape/logtape": "workspace:"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.202.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.202.0",
-    "@opentelemetry/otlp-exporter-base": "^0.202.0",
-    "@opentelemetry/resources": "^2.0.1",
-    "@opentelemetry/sdk-logs": "^0.202.0",
-    "@opentelemetry/semantic-conventions": "^1.34.0"
+    "@sentry/core": "^9.28.1"
   },
   "devDependencies": {
     "@std/dotenv": "catalog:",

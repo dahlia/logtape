@@ -8,7 +8,7 @@
 This package provides an [Sentry] sink for [LogTape]. It allows you to
 capture your LogTape logs and send them to Sentry.
 
-![LogTape messages show up in Sentry](./screenshot.png)
+![LogTape messages show up in Sentry](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/sentry.png)
 
 [JSR]: https://jsr.io/@logtape/sentry
 [JSR badge]: https://jsr.io/badges/@logtape/sentry
@@ -56,7 +56,8 @@ await configure({
 ~~~~
 
 If you want to explicitly configure the Sentry client, you can pass the
-`Client` instance to the `getSentrySink()` function:
+`Client` instance, which is returned by `init()` or `getClient()` functions,
+to the `getSentrySink()` function:
 
 ~~~~ typescript
 import { configure } from "@logtape/logtape";
@@ -70,30 +71,8 @@ await configure({
   sinks: {
     sentry: getSentrySink(client),
   },
-  filters: {},
   loggers: [
     { category: [], sinks: ["sentry"], lowestLevel: "trace" },
   ],
 });
 ~~~~
-
-
-Changelog
----------
-
-### Version 0.2.0
-
-To be released.
-
- -  The minimum supported version of LogTape is now 0.12.0, which introduces
-    `"trace"` log level support.
-
- -  Log records having `error` property will now be sent to Sentry as
-    exceptions.  [[#1], [#2] by Martin Becze]
-
-[#1]: https://github.com/dahlia/logtape-sentry/issues/1
-[#2]: https://github.com/dahlia/logtape-sentry/pull/2
-
-### Version 0.1.0
-
-Initial release.  Released on November 26, 2024.

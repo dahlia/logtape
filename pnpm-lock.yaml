@@ -18,6 +18,9 @@ catalogs:
     '@std/async':
       specifier: jsr:^1.0.13
       version: 1.0.13
+    '@std/dotenv':
+      specifier: jsr:^0.225.5
+      version: 0.225.5
     '@std/path':
       specifier: jsr:^1.1.0
       version: 1.1.0
@@ -54,8 +57,8 @@ importers:
         specifier: 'workspace:'
         version: link:../redaction
       '@logtape/sentry':
-        specifier: 0.2.0-dev.8
-        version: 0.2.0-dev.8
+        specifier: 'workspace:'
+        version: link:../sentry
       '@opentelemetry/exporter-logs-otlp-http':
         specifier: ^0.202.0
         version: 0.202.0(@opentelemetry/api@1.9.0)
@@ -161,7 +164,7 @@ importers:
         version: 1.34.0
     devDependencies:
       '@std/dotenv':
-        specifier: jsr:^0.225.5
+        specifier: 'catalog:'
         version: '@jsr/std__dotenv@0.225.5'
       tsdown:
         specifier: 'catalog:'
@@ -182,6 +185,25 @@ importers:
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  sentry:
+    dependencies:
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+      '@sentry/core':
+        specifier: ^9.28.1
+        version: 9.28.1
+    devDependencies:
+      '@std/dotenv':
+        specifier: 'catalog:'
+        version: '@jsr/std__dotenv@0.225.5'
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -569,12 +591,6 @@ packages:
 
   '@jsr/std__path@1.1.0':
     resolution: {integrity: sha512-rnxGg/nJGfDbJO+xIJ9YEzLD7dCzjr3NHShf4dbnlt44WEYNwMjg+TcDO6F2NPHBnn/6iUFwbnNzysrZvyD1Og==, tarball: https://npm.jsr.io/~/11/@jsr/std__path/1.1.0.tgz}
-
-  '@logtape/logtape@0.12.0-dev.186':
-    resolution: {integrity: sha512-a/mXutOiznNXGP0BNoqVzvlXLPPBlwd0whcLvmCGUGMnBgs/+qekqYNwSntn5NmCCEVmXb547t5YNKBXawyENg==}
-
-  '@logtape/sentry@0.2.0-dev.8':
-    resolution: {integrity: sha512-C70KN/SAR754KcK8O5su5uA2x/j1l+6YK8ztOynzXRFfyzvpQXT78D53aZNz9QeFpcekz/ICjvSQTSFKdO6OLg==}
 
   '@napi-rs/wasm-runtime@0.2.11':
     resolution: {integrity: sha512-9DPkXtvHydrcOsopiYpUgPHpmj0HWZKMUnL2dZqpvC42lsratuBG06V5ipyno0fUek5VlFsNQ+AcFATSrJXgMA==}
@@ -2503,13 +2519,6 @@ snapshots:
   '@jsr/std__internal@1.0.8': {}
 
   '@jsr/std__path@1.1.0': {}
-
-  '@logtape/logtape@0.12.0-dev.186': {}
-
-  '@logtape/sentry@0.2.0-dev.8':
-    dependencies:
-      '@logtape/logtape': 0.12.0-dev.186
-      '@sentry/core': 9.28.1
 
   '@napi-rs/wasm-runtime@0.2.11':
     dependencies:

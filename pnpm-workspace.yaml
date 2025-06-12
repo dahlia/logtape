@@ -3,6 +3,7 @@ packages:
 - file
 - otel
 - redaction
+- sentry
 - docs
 
 catalog:
@@ -10,6 +11,7 @@ catalog:
   "@hongminhee/suite": ^0.6.2
   "@std/assert": "jsr:^1.0.13"
   "@std/async": "jsr:^1.0.13"
+  "@std/dotenv": "jsr:^0.225.5"
   "@std/path": "jsr:^1.1.0"
   consolemock: ^1.1.0
   tsdown: ^0.12.7

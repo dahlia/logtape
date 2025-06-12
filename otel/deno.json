@@ -12,7 +12,9 @@
     "@opentelemetry/otlp-exporter-base": "npm:@opentelemetry/otlp-exporter-base@^0.202.0",
     "@opentelemetry/resources": "npm:@opentelemetry/resources@^2.0.1",
     "@opentelemetry/sdk-logs": "npm:@opentelemetry/sdk-logs@^0.202.0",
-    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.34.0",
-    "@std/dotenv": "jsr:@std/dotenv@^0.225.5"
+    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.34.0"
+  },
+  "tasks": {
+    "build": "pnpm build"
   }
 }

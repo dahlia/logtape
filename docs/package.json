@@ -6,7 +6,7 @@
     "@logtape/logtape": "workspace:",
     "@logtape/otel": "workspace:",
     "@logtape/redaction": "workspace:",
-    "@logtape/sentry": "0.2.0-dev.8",
+    "@logtape/sentry": "workspace:",
     "@opentelemetry/exporter-logs-otlp-http": "^0.202.0",
     "@opentelemetry/sdk-logs": "^0.202.0",
     "@sentry/node": "^9.28.1",

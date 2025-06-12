@@ -3,7 +3,8 @@
     "./logtape",
     "./file",
     "./otel",
-    "./redaction"
+    "./redaction",
+    "./sentry"
   ],
   "imports": {
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",
@@ -11,6 +12,7 @@
     "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/async": "jsr:@std/async@^1.0.13",
     "@std/collections": "jsr:@std/collections@^1.0.10",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
     "@std/fs": "jsr:@std/fs@^0.223.0",
     "@std/path": "jsr:@std/path@^1.1.0",
     "@std/semver": "jsr:@std/semver@^1.0.5",
@@ -46,18 +48,32 @@
       ],
       "command": "deno task -f @logtape/file build"
     },
-    "build:logtape": "deno task -f @logtape/logtape build",
+    "build:logtape": "pnpm install && deno task -f @logtape/logtape build",
+    "build:otel": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/otel build"
+    },
     "build:redaction": {
       "dependencies": [
         "build:logtape"
       ],
       "command": "deno task -f @logtape/redaction build"
     },
+    "build:sentry": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/sentry build"
+    },
     "build": {
       "dependencies": [
         "build:file",
         "build:logtape",
-        "build:redaction"
+        "build:otel",
+        "build:redaction",
+        "build:sentry"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage --allow-read --allow-write --allow-env=TEMP,TMP,TMPDIR && deno coverage --html coverage",

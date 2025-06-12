@@ -16,6 +16,11 @@ To be released.
  -  Added `Logger.warning()` method which is an alias for `Logger.warn()`.
     [[#44]]
 
+ -  Now *@logtape/otel* and *@logtape/sentry* packages are released along with
+    *@logtape/logtape* package.  This means they share the same version number
+    and changelog.  This is to ensure that the packages are always compatible
+    with each other and to simplify the release process.
+
  -  Improved build and test infrastructure by migrating from [dnt] to [tsdown]
     for npm package bundling.  [[#43]]
 

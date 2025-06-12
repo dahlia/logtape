@@ -484,7 +484,7 @@ Sentry sink
 -----------
 
 If you are using [Sentry] for error monitoring, you can use the Sentry sink to
-send log messages to Sentry using [@logtape/sentry] package:
+send log messages to Sentry using *@logtape/sentry* package:
 
 ::: code-group
 
@@ -510,7 +510,7 @@ bun add @logtape/sentry
 
 :::
 
-The quickest way to get started is to use the [`getSentrySink()`] function
+The quickest way to get started is to use the `getSentrySink()` function
 without any arguments:
 
 ~~~~ typescript twoslash
@@ -521,7 +521,6 @@ await configure({
   sinks: {
     sentry: getSentrySink(),
   },
-  filters: {},
   loggers: [
     { category: [], sinks: ["sentry"], lowestLevel: "debug" },
   ],
@@ -530,10 +529,11 @@ await configure({
 
 The log records will show up in the breadcrumbs of the Sentry issues:
 
-![LogTape records show up in the breadcrumbs of a Sentry issue.](https://raw.githubusercontent.com/dahlia/logtape-sentry/refs/heads/main/screenshot.png)
+![LogTape records show up in the breadcrumbs of a Sentry issue.](../screenshots/sentry.png)
 
 If you want to explicitly configure the Sentry client, you can pass
-the [`Client`] instance to the [`getSentrySink()`] function:
+the `Client` instance, which is returned by [`init()`] or [`getClient()`]
+functions, to the `getSentrySink()` function:
 
 ~~~~ typescript twoslash
 import { configure } from "@logtape/logtape";
@@ -548,19 +548,16 @@ await configure({
   sinks: {
     sentry: getSentrySink(client),
   },
-  filters: {},
   loggers: [
     { category: [], sinks: ["sentry"], lowestLevel: "debug" },
   ],
 });
 ~~~~
 
-For more details, see the documentation of [@logtape/sentry].
-
 [Sentry]: https://sentry.io/
 [@logtape/sentry]: https://github.com/dahlia/logtape-sentry
-[`getSentrySink()`]: https://jsr.io/@logtape/sentry/doc/~/getSentrySink
-[`Client`]: https://getsentry.github.io/sentry-javascript/interfaces/_sentry_types.Client.html
+[`init()`]: https://docs.sentry.io/platforms/javascript/apis/#init
+[`getClient()`]: https://docs.sentry.io/platforms/javascript/apis/#getClient
 
 
 Disposable sink
