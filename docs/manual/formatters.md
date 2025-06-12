@@ -38,13 +38,22 @@ the message, and the prettified values embedded in the message.
 
 It formats log records like this:
 
-![A preview of ansiColorFormatter.](https://i.imgur.com/I8LlBUf.png)
+~~~~ ansi
+[2m2025-06-12 10:34:10.465 +00[0m [1m[32mINF[0m [2mlogtape·meta:[0m LogTape loggers are configured.  Note that LogTape itself uses the meta logger, which has category [ [32m"logtape"[39m, [32m"meta"[39m ].  The meta logger purposes to log internal errors such as sink exceptions.  If you are seeing this message, the meta logger is automatically configured.  It's recommended to configure the meta logger with a separate sink so that you can easily notice if logging itself fails or is misconfigured.  To turn off this message, configure the meta logger with higher log levels than [32m"info"[39m.  See also <https://logtape.org/manual/categories#meta-logger>.
+[2m2025-06-12 10:34:10.472 +00[0m [1mTRC[0m [2mmy-app·module:[0m This is a trace log.
+[2m2025-06-12 10:34:10.473 +00[0m [1m[34mDBG[0m [2mmy-app·module:[0m This is a debug log with value: { foo: [33m123[39m }
+[2m2025-06-12 10:34:10.473 +00[0m [1m[32mINF[0m [2mmy-app:[0m This is an informational log.
+[2m2025-06-12 10:34:10.474 +00[0m [1m[33mWRN[0m [2mmy-app:[0m This is a warning.
+[2m2025-06-12 10:34:10.475 +00[0m [1m[31mERR[0m [2mmy-app·module:[0m This is an error with exception: Error: This is an exception.
+    at file:///tmp/test.ts:28:10
+[2m2025-06-12 10:34:10.475 +00[0m [1m[35mFTL[0m [2mmy-app:[0m This is a fatal error.
+~~~~
 
 ### JSON Lines formatter
 
 *This API is available since LogTape 0.11.0.*
 
-`jsonLinesFormatter` formats log records as [JSON Lines] (also known as 
+`jsonLinesFormatter` formats log records as [JSON Lines] (also known as
 Newline-Delimited JSON or NDJSON). Each log record is rendered as a JSON object
 on a single line, which is a common format for structured logging.
 
@@ -189,6 +198,7 @@ The ANSI style for the log level.  `"bold"` is used by default.
 
 The ANSI colors for the log levels.  The default colors are as follows:
 
+ -  `"trace"`: no color (default terminal color)
  -  `"debug"`: `"blue"`
  -  `"info"`: `"green"`
  -  `"warning"`: `"yellow"`

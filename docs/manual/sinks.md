@@ -461,7 +461,7 @@ await configure({
   },
   filters: {},
   loggers: [
-    { category: [], sinks: ["sentry"], level: "debug" },
+    { category: [], sinks: ["sentry"], lowestLevel: "debug" },
   ],
 });
 ~~~~

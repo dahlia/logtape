@@ -52,6 +52,13 @@ export function getLevelFilter(level: LogLevel | null): Filter {
       record.level === "error" ||
       record.level === "warning" ||
       record.level === "info";
-  } else if (level === "debug") return () => true;
+  } else if (level === "debug") {
+    return (record: LogRecord) =>
+      record.level === "fatal" ||
+      record.level === "error" ||
+      record.level === "warning" ||
+      record.level === "info" ||
+      record.level === "debug";
+  } else if (level === "trace") return () => true;
   throw new TypeError(`Invalid log level: ${level}.`);
 }

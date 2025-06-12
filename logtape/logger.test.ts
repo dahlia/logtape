@@ -496,7 +496,16 @@ test("LoggerCtx.logTemplate()", () => {
   }
 });
 
-const methods = ["debug", "info", "warn", "warning", "error", "fatal"] as const;
+const methods = [
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "warning",
+  "error",
+  "fatal",
+] as const;
+
 for (const method of methods) {
   test(`Logger.${method}() [template]`, () => {
     const logger = LoggerImpl.getLogger("foo");

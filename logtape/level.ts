@@ -1,4 +1,11 @@
-const logLevels = ["debug", "info", "warning", "error", "fatal"] as const;
+const logLevels = [
+  "trace",
+  "debug",
+  "info",
+  "warning",
+  "error",
+  "fatal",
+] as const;
 
 /**
  * The severity level of a {@link LogRecord}.
@@ -15,6 +22,7 @@ export type LogLevel = typeof logLevels[number];
 export function parseLogLevel(level: string): LogLevel {
   level = level.toLowerCase();
   switch (level) {
+    case "trace":
     case "debug":
     case "info":
     case "warning":
@@ -35,6 +43,7 @@ export function parseLogLevel(level: string): LogLevel {
  */
 export function isLogLevel(level: string): level is LogLevel {
   switch (level) {
+    case "trace":
     case "debug":
     case "info":
     case "warning":

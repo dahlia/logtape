@@ -15,6 +15,7 @@ export type TextFormatter = (record: LogRecord) => string;
  * The severity level abbreviations.
  */
 const levelAbbreviations: Record<LogLevel, string> = {
+  "trace": "TRC",
   "debug": "DBG",
   "info": "INF",
   "warning": "WRN",
@@ -353,6 +354,7 @@ const ansiStyles: Record<AnsiStyle, string> = {
 };
 
 const defaultLevelColors: Record<LogLevel, AnsiColor | null> = {
+  trace: null,
   debug: "blue",
   info: "green",
   warning: "yellow",
@@ -419,6 +421,7 @@ export interface AnsiColorFormatterOptions extends TextFormatterOptions {
   /**
    * The ANSI colors for the log levels.  The default colors are as follows:
    *
+   * - `"trace"`: `null` (no color)
    * - `"debug"`: `"blue"`
    * - `"info"`: `"green"`
    * - `"warning"`: `"yellow"`
@@ -680,6 +683,7 @@ export type ConsoleFormatter = (record: LogRecord) => readonly unknown[];
  * The styles for the log level in the console.
  */
 const logLevelStyles: Record<LogLevel, string> = {
+  "trace": "background-color: gray; color: white;",
   "debug": "background-color: gray; color: white;",
   "info": "background-color: white; color: black;",
   "warning": "background-color: orange; color: black;",

@@ -10,6 +10,7 @@ import type { Sink } from "./sink.ts";
  *
  * ```typescript
  * const logger = getLogger("category");
+ * logger.trace `A trace message with ${value}`
  * logger.debug `A debug message with ${value}.`;
  * logger.info `An info message with ${value}.`;
  * logger.warn `A warning message with ${value}.`;
@@ -78,6 +79,94 @@ export interface Logger {
    * @since 0.5.0
    */
   with(properties: Record<string, unknown>): Logger;
+
+  /**
+   * Log a trace message.  Use this as a template string prefix.
+   *
+   * ```typescript
+   * logger.trace `A trace message with ${value}.`;
+   * ```
+   *
+   * @param message The message template strings array.
+   * @param values The message template values.
+   * @since 0.12.0
+   */
+  trace(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+
+  /**
+   * Log a trace message with properties.
+   *
+   * ```typescript
+   * logger.trace('A trace message with {value}.', { value });
+   * ```
+   *
+   * If the properties are expensive to compute, you can pass a callback that
+   * returns the properties:
+   *
+   * ```typescript
+   * logger.trace(
+   *   'A trace message with {value}.',
+   *   () => ({ value: expensiveComputation() })
+   * );
+   * ```
+   *
+   * @param message The message template.  Placeholders to be replaced with
+   *                `values` are indicated by keys in curly braces (e.g.,
+   *                `{value}`).
+   * @param properties The values to replace placeholders with.  For lazy
+   *                   evaluation, this can be a callback that returns the
+   *                   properties.
+   * @since 0.12.0
+   */
+  trace(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+
+  /**
+   * Log a trace values with no message.  This is useful when you
+   * want to log properties without a message, e.g., when you want to log
+   * the context of a request or an operation.
+   *
+   * ```typescript
+   * logger.trace({ method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * Note that this is a shorthand for:
+   *
+   * ```typescript
+   * logger.trace('{*}', { method: 'GET', url: '/api/v1/resource' });
+   * ```
+   *
+   * If the properties are expensive to compute, you cannot use this shorthand
+   * and should use the following syntax instead:
+   *
+   * ```typescript
+   * logger.trace('{*}', () => ({
+   *   method: expensiveMethod(),
+   *   url: expensiveUrl(),
+   * }));
+   * ```
+   *
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   * @since 0.12.0
+   */
+  trace(properties: Record<string, unknown>): void;
+
+  /**
+   * Lazily log a trace message.  Use this when the message values are expensive
+   * to compute and should only be computed if the message is actually logged.
+   *
+   * ```typescript
+   * logger.trace(l => l`A trace message with ${expensiveValue()}.`);
+   * ```
+   *
+   * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
+   * @since 0.12.0
+   */
+  trace(callback: LogCallback): void;
 
   /**
    * Log a debug message.  Use this as a template string prefix.
@@ -345,6 +434,7 @@ export interface Logger {
    *
    * @param message The message template strings array.
    * @param values The message template values.
+   * @since 0.12.0
    */
   warning(message: TemplateStringsArray, ...values: readonly unknown[]): void;
 
@@ -371,6 +461,7 @@ export interface Logger {
    * @param properties The values to replace placeholders with.  For lazy
    *                   evaluation, this can be a callback that returns the
    *                   properties.
+   * @since 0.12.0
    */
   warning(
     message: string,
@@ -404,7 +495,7 @@ export interface Logger {
    *
    * @param properties The values to log.  Note that this does not take
    *                   a callback.
-   * @since 0.11.0
+   * @since 0.12.0
    */
   warning(properties: Record<string, unknown>): void;
 
@@ -419,6 +510,7 @@ export interface Logger {
    *
    * @param callback A callback that returns the message template prefix.
    * @throws {TypeError} If no log record was made inside the callback.
+   * @since 0.12.0
    */
   warning(callback: LogCallback): void;
 
@@ -654,7 +746,7 @@ export class LoggerImpl implements Logger {
   readonly sinks: Sink[];
   parentSinks: "inherit" | "override" = "inherit";
   readonly filters: Filter[];
-  lowestLevel: LogLevel | null = "debug";
+  lowestLevel: LogLevel | null = "trace";
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
@@ -712,7 +804,7 @@ export class LoggerImpl implements Logger {
     while (this.sinks.length > 0) this.sinks.shift();
     this.parentSinks = "inherit";
     while (this.filters.length > 0) this.filters.shift();
-    this.lowestLevel = "debug";
+    this.lowestLevel = "trace";
   }
 
   /**
@@ -867,6 +959,25 @@ export class LoggerImpl implements Logger {
       timestamp: Date.now(),
       properties: { ...implicitContext, ...properties },
     });
+  }
+
+  trace(
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log("trace", message, (values[0] ?? {}) as Record<string, unknown>);
+    } else if (typeof message === "function") {
+      this.logLazily("trace", message);
+    } else if (!Array.isArray(message)) {
+      this.log("trace", "{*}", message as Record<string, unknown>);
+    } else {
+      this.logTemplate("trace", message as TemplateStringsArray, values);
+    }
   }
 
   debug(
@@ -1041,6 +1152,25 @@ export class LoggerCtx implements Logger {
     values: unknown[],
   ): void {
     this.logger.logTemplate(level, messageTemplate, values, this.properties);
+  }
+
+  trace(
+    message:
+      | TemplateStringsArray
+      | string
+      | LogCallback
+      | Record<string, unknown>,
+    ...values: unknown[]
+  ): void {
+    if (typeof message === "string") {
+      this.log("trace", message, (values[0] ?? {}) as Record<string, unknown>);
+    } else if (typeof message === "function") {
+      this.logLazily("trace", message);
+    } else if (!Array.isArray(message)) {
+      this.log("trace", "{*}", message as Record<string, unknown>);
+    } else {
+      this.logTemplate("trace", message as TemplateStringsArray, values);
+    }
   }
 
   debug(

@@ -42,14 +42,16 @@ For detailed information, see [*Configuration*](./config.md).
 How to log
 ----------
 
-There are total 5 log levels: `debug`, `info`, `warning`, `error`, `fatal` (in
-the order of verbosity).  You can log messages with the following syntax:
+There are total 6 log levels: `trace`, `debug`, `info`, `warning`, `error`,
+`fatal` (in the order of verbosity).  You can log messages with the following
+syntax:
 
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger([]);
 const value = 0 as unknown;
 // ---cut-before---
+logger.trace `This is a trace message with ${value}.`;
 logger.debug `This is a debug message with ${value}.`;
 logger.info  `This is an info message with ${value}.`;
 logger.warn  `This is a warning message with ${value}.`;
@@ -67,6 +69,7 @@ import { getLogger } from "@logtape/logtape";
 const logger = getLogger([]);
 const value = 0 as unknown;
 // ---cut-before---
+logger.trace("This is a trace message with {value}.", { value });
 logger.debug("This is a debug message with {value}.", { value });
 logger.info("This is an info message with {value}.", { value });
 logger.warn("This is a warning message with {value}.", { value });

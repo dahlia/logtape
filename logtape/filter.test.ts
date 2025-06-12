@@ -4,7 +4,7 @@ import { assertFalse } from "@std/assert/false";
 import { assertStrictEquals } from "@std/assert/strict-equals";
 import { assertThrows } from "@std/assert/throws";
 import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
-import { debug, error, fatal, info, warning } from "./fixtures.ts";
+import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
 
 const test = suite(import.meta);
@@ -16,6 +16,7 @@ test("getLevelFilter()", () => {
   assertFalse(noneFilter(warning));
   assertFalse(noneFilter(info));
   assertFalse(noneFilter(debug));
+  assertFalse(noneFilter(trace));
 
   const fatalFilter = getLevelFilter("fatal");
   assert(fatalFilter(fatal));
@@ -23,6 +24,7 @@ test("getLevelFilter()", () => {
   assertFalse(fatalFilter(warning));
   assertFalse(fatalFilter(info));
   assertFalse(fatalFilter(debug));
+  assertFalse(fatalFilter(trace));
 
   const errorFilter = getLevelFilter("error");
   assert(errorFilter(fatal));
@@ -30,6 +32,7 @@ test("getLevelFilter()", () => {
   assertFalse(errorFilter(warning));
   assertFalse(errorFilter(info));
   assertFalse(errorFilter(debug));
+  assertFalse(errorFilter(trace));
 
   const warningFilter = getLevelFilter("warning");
   assert(warningFilter(fatal));
@@ -37,6 +40,7 @@ test("getLevelFilter()", () => {
   assert(warningFilter(warning));
   assertFalse(warningFilter(info));
   assertFalse(warningFilter(debug));
+  assertFalse(warningFilter(trace));
 
   const infoFilter = getLevelFilter("info");
   assert(infoFilter(fatal));
@@ -44,6 +48,7 @@ test("getLevelFilter()", () => {
   assert(infoFilter(warning));
   assert(infoFilter(info));
   assertFalse(infoFilter(debug));
+  assertFalse(infoFilter(trace));
 
   const debugFilter = getLevelFilter("debug");
   assert(debugFilter(fatal));
@@ -51,6 +56,15 @@ test("getLevelFilter()", () => {
   assert(debugFilter(warning));
   assert(debugFilter(info));
   assert(debugFilter(debug));
+  assertFalse(debugFilter(trace));
+
+  const traceFilter = getLevelFilter("trace");
+  assert(traceFilter(fatal));
+  assert(traceFilter(error));
+  assert(traceFilter(warning));
+  assert(traceFilter(info));
+  assert(traceFilter(debug));
+  assert(traceFilter(trace));
 
   assertThrows(
     () => getLevelFilter("invalid" as LogLevel),

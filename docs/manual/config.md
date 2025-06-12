@@ -176,7 +176,7 @@ await configure({
   loggers: [
     {
       category: "my-app",
-      level: isDevelopment ? "debug" : "info",
+      lowestLevel: isDevelopment ? "trace" : "info",
       sinks: isDevelopment ? ["console", "file"] : ["file"],
     },
   ],
@@ -199,7 +199,7 @@ await configure({
   loggers: [
     {
       category: "my-app",
-      level: isDevelopment ? "debug" : "info",
+      level: isDevelopment ? "trace" : "info",
       sinks: isDevelopment ? ["console", "file"] : ["file"],
     },
   ],
@@ -229,7 +229,7 @@ await configure({
     ...initialConfig.loggers,
     {
       category: "new-feature",
-      level: "debug",
+      lowestLevel: "debug",
       sinks: ["console"],
     },
   ],

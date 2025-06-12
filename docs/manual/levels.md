@@ -4,40 +4,66 @@ Severity levels
 When you're logging events in your application, not all messages are created
 equal. Some might be routine information, while others could be critical errors
 that need immediate attention. That's where severity levels come in.
-LogTape provides five severity levels to help you categorize your log messages
+LogTape provides six severity levels to help you categorize your log messages
 effectively.
 
 
-Five severity levels
---------------------
+Six severity levels
+-------------------
 
 LogTape uses the following severity levels, listed from lowest to highest
 severity:
 
- 1. *Debug*: Detailed information useful for diagnosing problems.
- 2. *Information*: General information about the application's operation.
- 3. *Warning*: An unexpected event that doesn't prevent the application
+ 1. *Trace*: The most detailed level, used for tracing the flow of execution.
+ 2. *Debug*: Detailed information useful for diagnosing problems.
+ 3. *Information*: General information about the application's operation.
+ 4. *Warning*: An unexpected event that doesn't prevent the application
     from functioning.
- 4. *Error*: A significant problem that prevented a specific operation from
+ 5. *Error*: A significant problem that prevented a specific operation from
     being completed.
- 5. *Fatal error*: A critical error that causes the application to abort.
+ 6. *Fatal error*: A critical error that causes the application to abort.
+
+> [!NOTE]
+> Previous versions of LogTape had only five severity levels: *Debug*,
+> *Information*, *Warning*, *Error*, and *Fatal error*.  The *Trace* level was
+> introduced in LogTape 0.12.0.
 
 > [!NOTE]
 > LogTape currently does not support custom severity levels.
 
 Let's break down when you might use each of these:
 
-### Debug
+### Trace
 
-Use this level for detailed information that's mostly useful when diagnosing
-problems. Debug logs are typically not shown in production environments.
+Use this level for very detailed information that is useful for tracing the
+flow of execution in your application. This is typically used during development
+or debugging sessions.
 
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
-const elapsedMs = 0 as number;
+const userId = "user123" as string;
 // ---cut-before---
-logger.debug("Database query took {elapsedMs}ms to execute.", { elapsedMs });
+logger.trace("Entering function with user {userId}.", { userId });
+~~~~
+
+### Debug
+
+Use this level for detailed information that is useful for diagnosing
+problems. Unlike trace which focuses on execution flow, debug provides
+contextual information about application state, variable values, and
+business logic decisions that help identify issues.
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const queryParams = { limit: 10, offset: 0 } as Record<string, unknown>;
+const results = [] as unknown[];
+// ---cut-before---
+logger.debug(
+  "Database query returned {count} results with params: {queryParams}.",
+  { count: results.length, queryParams },
+);
 ~~~~
 
 ### Information
@@ -137,7 +163,7 @@ await configure({
     },
     {
       category: ["app", "database"],
-      lowestLevel: "debug",  // This will log everything for database operations
+      lowestLevel: "trace",  // This will log everything including trace for database operations
       sinks: ["file"],
     }
   ]
@@ -145,7 +171,7 @@ await configure({
 ~~~~
 
 This configuration will log all levels from `"info"` up for most of the app,
-but will include `"debug"` logs for database operations.
+but will include all levels including `"trace"` logs for database operations.
 
 > [!NOTE]
 > The `~LoggerConfig.lowestLevel` is applied to the logger itself, not to its
@@ -156,7 +182,7 @@ but will include `"debug"` logs for database operations.
 > the child logger still won't emit `"debug"` records to the `"console"` sink.
 
 The `~LoggerConfig.lowestLevel` property does not inherit from parent loggers,
-but it is `"debug"` by default for all loggers.  If you want to make child
+but it is `"trace"` by default for all loggers.  If you want to make child
 loggers inherit the severity level from their parent logger, you can use the
 `~LoggerConfig.filters` option instead.
 
@@ -212,7 +238,7 @@ and positive means the first argument is more severe, you can use it with
 // @noErrors: 2724
 import { type LogLevel, compareLogLevel } from "@logtape/logtape";
 
-const levels: LogLevel[] = ["info", "debug", "error", "warning", "fatal"];
+const levels: LogLevel[] = ["info", "debug", "error", "warning", "fatal", "trace"];
 levels.sort(compareLogLevel);
 for (const level of levels) console.log(level);
 ~~~~
@@ -220,6 +246,7 @@ for (const level of levels) console.log(level);
 The above code will output:
 
 ~~~~
+trace
 debug
 info
 warning

@@ -8,6 +8,11 @@ Version 0.12.0
 
 To be released.
 
+ -  Added the `"trace"` severity level, which is lower than `"debug"`.  [[#24]]
+
+     -  Added `"trace"` to the `LogLevel` union type.
+     -  Added `Logger.trace()` method.
+
  -  Added `Logger.warning()` method which is an alias for `Logger.warn()`.
     [[#44]]
 
@@ -16,6 +21,7 @@ To be released.
 
 [dnt]: https://github.com/denoland/dnt
 [tsdown]: https://tsdown.dev/
+[#24]: https://github.com/dahlia/logtape/issues/24
 [#43]: https://github.com/dahlia/logtape/issues/43
 [#44]: https://github.com/dahlia/logtape/issues/44
 

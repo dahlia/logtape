@@ -70,11 +70,11 @@ test("configure()", async () => {
     const logger = LoggerImpl.getLogger("my-app");
     assertEquals(logger.sinks, [a]);
     assertEquals(logger.filters, [x]);
-    assertEquals(logger.lowestLevel, "debug");
+    assertEquals(logger.lowestLevel, "trace");
     const foo = LoggerImpl.getLogger(["my-app", "foo"]);
     assertEquals(foo.sinks, [b]);
     assertEquals(foo.filters, [y]);
-    assertEquals(foo.lowestLevel, "debug");
+    assertEquals(foo.lowestLevel, "trace");
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
     assertEquals(bar.sinks, [c]);
     assertEquals(bar.lowestLevel, "info");
@@ -332,7 +332,7 @@ test("configureSync()", async () => {
     const foo = LoggerImpl.getLogger(["my-app", "foo"]);
     assertEquals(foo.sinks, [b]);
     assertEquals(foo.filters, [y]);
-    assertEquals(foo.lowestLevel, "debug");
+    assertEquals(foo.lowestLevel, "trace");
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
     assertEquals(bar.sinks, [c]);
     assertEquals(bar.lowestLevel, "info");

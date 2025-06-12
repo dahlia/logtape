@@ -267,6 +267,7 @@ test("getAnsiColorFormatter()", () => {
   assertEquals(
     getAnsiColorFormatter({
       levelColors: {
+        trace: null,
         debug: "blue",
         info: "cyan",
         warning: "yellow",
@@ -282,6 +283,7 @@ test("getAnsiColorFormatter()", () => {
   assertEquals(
     getAnsiColorFormatter({
       levelColors: {
+        trace: null,
         debug: "blue",
         info: null,
         warning: "yellow",

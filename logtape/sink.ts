@@ -117,6 +117,7 @@ export interface ConsoleSinkOptions {
    *
    * ```typescript
    * {
+   *   trace: "trace",
    *   debug: "debug",
    *   info: "info",
    *   warning: "warn",
@@ -143,6 +144,7 @@ export interface ConsoleSinkOptions {
 export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
   const formatter = options.formatter ?? defaultConsoleFormatter;
   const levelMap: Record<LogLevel, ConsoleMethod> = {
+    trace: "debug",
     debug: "debug",
     info: "info",
     warning: "warn",

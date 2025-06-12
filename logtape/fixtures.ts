@@ -9,6 +9,11 @@ export const info: LogRecord = {
   properties: {},
 };
 
+export const trace: LogRecord = {
+  ...info,
+  level: "trace",
+};
+
 export const debug: LogRecord = {
   ...info,
   level: "debug",

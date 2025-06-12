@@ -2,7 +2,7 @@ import { suite } from "@hongminhee/suite";
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
 import makeConsoleMock from "consolemock";
-import { debug, error, fatal, info, warning } from "./fixtures.ts";
+import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -13,6 +13,7 @@ const test = suite(import.meta);
 test("withFilter()", () => {
   const buffer: LogRecord[] = [];
   const sink = withFilter(buffer.push.bind(buffer), "warning");
+  sink(trace);
   sink(debug);
   sink(info);
   sink(warning);
@@ -36,6 +37,7 @@ test("getStreamSink()", async () => {
       },
     }),
   );
+  sink(trace);
   sink(debug);
   sink(info);
   sink(warning);
@@ -45,6 +47,7 @@ test("getStreamSink()", async () => {
   assertEquals(
     buffer,
     `\
+2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
@@ -58,12 +61,25 @@ test("getConsoleSink()", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
   const sink = getConsoleSink({ console: mock });
+  sink(trace);
   sink(debug);
   sink(info);
   sink(warning);
   sink(error);
   sink(fatal);
   assertEquals(mock.history(), [
+    {
+      DEBUG: [
+        "%c22:13:20.000 %cTRC%c %cmy-app·junk %cHello, %o & %o!",
+        "color: gray;",
+        "background-color: gray; color: white;",
+        "background-color: default;",
+        "color: gray;",
+        "color: default;",
+        123,
+        456,
+      ],
+    },
     {
       DEBUG: [
         "%c22:13:20.000 %cDBG%c %cmy-app·junk %cHello, %o & %o!",
@@ -138,12 +154,18 @@ test("getConsoleSink()", () => {
     console: mock2,
     formatter: defaultTextFormatter,
   });
+  sink2(trace);
   sink2(debug);
   sink2(info);
   sink2(warning);
   sink2(error);
   sink2(fatal);
   assertEquals(mock2.history(), [
+    {
+      DEBUG: [
+        "2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
     {
       DEBUG: [
         "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!",
@@ -176,6 +198,7 @@ test("getConsoleSink()", () => {
   const sink3 = getConsoleSink({
     console: mock3,
     levelMap: {
+      trace: "log",
       debug: "log",
       info: "log",
       warning: "log",
@@ -184,12 +207,18 @@ test("getConsoleSink()", () => {
     },
     formatter: defaultTextFormatter,
   });
+  sink3(trace);
   sink3(debug);
   sink3(info);
   sink3(warning);
   sink3(error);
   sink3(fatal);
   assertEquals(mock3.history(), [
+    {
+      LOG: [
+        "2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!",
+      ],
+    },
     {
       LOG: [
         "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!",
