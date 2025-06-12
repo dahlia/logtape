@@ -176,6 +176,8 @@ export function getOpenTelemetrySink(
 
 function mapLevelToSeverityNumber(level: string): number {
   switch (level) {
+    case "trace":
+      return SeverityNumber.TRACE;
     case "debug":
       return SeverityNumber.DEBUG;
     case "info":

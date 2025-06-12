@@ -1,11 +1,11 @@
 {
-  "version": "4",
+  "version": "5",
   "specifiers": {
     "jsr:@david/code-block-writer@^13.0.2": "13.0.2",
     "jsr:@deno/cache-dir@~0.10.3": "0.10.3",
     "jsr:@deno/dnt@~0.41.3": "0.41.3",
     "jsr:@deno/graph@~0.73.1": "0.73.1",
-    "jsr:@logtape/logtape@~0.4.3": "0.4.3",
+    "jsr:@logtape/logtape@~0.12.0-dev.186+8c242544": "0.12.0-dev.186+8c242544",
     "jsr:@std/assert@0.223": "0.223.0",
     "jsr:@std/assert@0.226": "0.226.0",
     "jsr:@std/bytes@0.223": "0.223.0",
@@ -60,8 +60,8 @@
     "@deno/graph@0.73.1": {
       "integrity": "cd69639d2709d479037d5ce191a422eabe8d71bb68b0098344f6b07411c84d41"
     },
-    "@logtape/logtape@0.4.3": {
-      "integrity": "eac68335a6ffe28265b16bcbc3aea27e10581c09c0c9f5cb11a3acb5cb170945"
+    "@logtape/logtape@0.12.0-dev.186+8c242544": {
+      "integrity": "7d2dc83c3475f99ebed0e918d0d4634f8d58d487034fb0754d7bc96c56642e2c"
     },
     "@std/assert@0.223.0": {
       "integrity": "eb8d6d879d76e1cc431205bd346ed4d88dc051c6366365b1af47034b0670be24"
@@ -289,7 +289,8 @@
         "@protobufjs/utf8",
         "@types/node@22.0.0",
         "long"
-      ]
+      ],
+      "scripts": true
     },
     "undici-types@6.11.1": {
       "integrity": "sha512-mIDEX2ek50x0OlRgxryxsenE5XaQD4on5U2inY7RApK3SOJpofyw7uW2AyfMKkhAxXIceo2DeWGVGwyvng1GNQ=="
@@ -298,7 +299,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@deno/dnt@~0.41.3",
-      "jsr:@logtape/logtape@~0.4.3",
+      "jsr:@logtape/logtape@~0.12.0-dev.186+8c242544",
       "jsr:@std/dotenv@~0.225.1",
       "npm:@opentelemetry/api-logs@~0.52.1",
       "npm:@opentelemetry/api@^1.9.0",

@@ -7,7 +7,7 @@
   },
   "imports": {
     "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
-    "@logtape/logtape": "jsr:@logtape/logtape@^0.4.3",
+    "@logtape/logtape": "jsr:@logtape/logtape@^0.12.0-dev.186+8c242544",
     "@logtape/otel": "./mod.ts",
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@opentelemetry/api-logs": "npm:@opentelemetry/api-logs@^0.52.1",

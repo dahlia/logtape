@@ -155,6 +155,9 @@ Changelog
 
 To be released.
 
+ -  The minimum supported version of LogTape is now 0.12.0, which introduces
+    `"trace"` log level support.
+
 
 ### Version 0.3.0
 

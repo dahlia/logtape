@@ -10,7 +10,7 @@ await Deno.writeTextFile(
     imports: {
       ...metadata.imports,
       "@logtape/logtape": metadata.imports["@logtape/logtape"]
-        .replace(/^jsr:/, "npm:"),
+        .replace(/^jsr:/, "npm:").replace(/\+.*$/, ""),
     },
   }),
 );
