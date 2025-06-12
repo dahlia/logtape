@@ -1,6 +1,5 @@
 import type { LogRecord, Sink } from "@logtape/logtape";
-import { type BaseClient, getClient } from "@sentry/core";
-import type { ClientOptions, ParameterizedString } from "@sentry/types";
+import { type Client, getClient, type ParameterizedString } from "@sentry/core";
 // deno-lint-ignore no-unused-vars
 import type util from "node:util";
 
@@ -54,7 +53,7 @@ const inspect: (value: unknown) => string =
  *               used.
  * @returns A LogTape sink that sends logs to Sentry.
  */
-export function getSentrySink(client?: BaseClient<ClientOptions>): Sink {
+export function getSentrySink(client?: Client): Sink {
   return (record: LogRecord) => {
     const message = getParameterizedString(record);
     if (client == null) client = getClient();
@@ -69,7 +68,7 @@ export function getSentrySink(client?: BaseClient<ClientOptions>): Sink {
     } else {
       client?.captureMessage(
         message,
-        record.level,
+        record.level === "trace" ? "debug" : record.level,
         {
           data: record.properties,
         },

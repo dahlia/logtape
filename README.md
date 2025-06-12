@@ -26,11 +26,11 @@ Installation
 The package is available on [JSR] and [npm].
 
 ~~~~ bash
-deno add @logtape/sentry # for Deno
-npm add @logtape/sentry  # for npm
-pnpm add @logtape/sentry # for pnpm
-yarn add @logtape/sentry # for Yarn
-bun add @logtape/sentry  # for Bun
+deno add jsr:@logtape/sentry # for Deno
+npm  add     @logtape/sentry  # for npm
+pnpm add     @logtape/sentry # for pnpm
+yarn add     @logtape/sentry # for Yarn
+bun  add     @logtape/sentry  # for Bun
 ~~~~
 
 
@@ -50,7 +50,7 @@ await configure({
   },
   filters: {},
   loggers: [
-    { category: [], sinks: ["sentry"], level: "debug" },
+    { category: [], sinks: ["sentry"], lowestLevel: "trace" },
   ],
 });
 ~~~~
@@ -72,7 +72,7 @@ await configure({
   },
   filters: {},
   loggers: [
-    { category: [], sinks: ["sentry"], level: "debug" },
+    { category: [], sinks: ["sentry"], lowestLevel: "trace" },
   ],
 });
 ~~~~
@@ -84,6 +84,9 @@ Changelog
 ### Version 0.2.0
 
 To be released.
+
+ -  The minimum supported version of LogTape is now 0.12.0, which introduces
+    `"trace"` log level support.
 
  -  Log records having `error` property will now be sent to Sentry as
     exceptions.  [[#1], [#2] by Martin Becze]

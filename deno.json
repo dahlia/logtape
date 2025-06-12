@@ -7,10 +7,9 @@
   },
   "imports": {
     "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
-    "@logtape/logtape": "jsr:@logtape/logtape@^0.8.0",
+    "@logtape/logtape": "jsr:@logtape/logtape@^0.12.0-dev.186+8c242544",
     "@logtape/sentry": "./mod.ts",
-    "@sentry/core": "npm:@sentry/core@^8.40.0",
-    "@sentry/types": "npm:@sentry/types@^8.40.0",
+    "@sentry/core": "npm:@sentry/core@^9.28.1",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.2"
   },
   "tasks": {

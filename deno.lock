@@ -1,10 +1,10 @@
 {
-  "version": "4",
+  "version": "5",
   "specifiers": {
     "jsr:@david/code-block-writer@^13.0.2": "13.0.3",
     "jsr:@deno/cache-dir@~0.10.3": "0.10.3",
     "jsr:@deno/dnt@~0.41.3": "0.41.3",
-    "jsr:@logtape/logtape@0.8": "0.8.0",
+    "jsr:@logtape/logtape@~0.12.0-dev.186+8c242544": "0.12.0-dev.186+8c242544",
     "jsr:@std/assert@0.223": "0.223.0",
     "jsr:@std/assert@0.226": "0.226.0",
     "jsr:@std/bytes@0.223": "0.223.0",
@@ -22,8 +22,8 @@
     "jsr:@std/path@~0.225.2": "0.225.2",
     "jsr:@ts-morph/bootstrap@0.24": "0.24.0",
     "jsr:@ts-morph/common@0.24": "0.24.0",
-    "npm:@sentry/core@^8.40.0": "8.40.0",
-    "npm:@sentry/types@^8.40.0": "8.40.0"
+    "npm:@sentry/core@^9.28.1": "9.28.1",
+    "npm:@types/node@*": "22.15.15"
   },
   "jsr": {
     "@david/code-block-writer@13.0.3": {
@@ -49,8 +49,8 @@
         "jsr:@ts-morph/bootstrap"
       ]
     },
-    "@logtape/logtape@0.8.0": {
-      "integrity": "12bdf406a713f754d99c2ff65deb45127ce4e2c59e7136d608042250629428bd"
+    "@logtape/logtape@0.12.0-dev.186+8c242544": {
+      "integrity": "7d2dc83c3475f99ebed0e918d0d4634f8d58d487034fb0754d7bc96c56642e2c"
     },
     "@std/assert@0.223.0": {
       "integrity": "eb8d6d879d76e1cc431205bd346ed4d88dc051c6366365b1af47034b0670be24"
@@ -125,23 +125,25 @@
     }
   },
   "npm": {
-    "@sentry/core@8.40.0": {
-      "integrity": "sha512-u/U2CJpG/+SmTR2bPM4ZZoPYTJAOUuxzj/0IURnvI0v9+rNu939J/fzrO9huA5IJVxS5TiYykhQm7o6I3Zuo3Q==",
+    "@sentry/core@9.28.1": {
+      "integrity": "sha512-6q59r/71MeE+4StkvwdKAAyhBBNpWcii0HeiWBZ3l1gaFYQlb6bChjZJRZmxSzF5dnvkdF4duQbAC3JmjeIbPA=="
+    },
+    "@types/node@22.15.15": {
+      "integrity": "sha512-R5muMcZob3/Jjchn5LcO8jdKwSCbzqmPB6ruBxMcf9kbxtniZHP327s6C37iOfuw8mbKK3cAQa7sEl7afLrQ8A==",
       "dependencies": [
-        "@sentry/types"
+        "undici-types"
       ]
     },
-    "@sentry/types@8.40.0": {
-      "integrity": "sha512-nuCf3U3deolPM9BjNnwCc33UtFl9ec15/r74ngAkNccn+A2JXdIAsDkGJMO/9mgSFykLe1QyeJ0pQFRisCGOiA=="
+    "undici-types@6.21.0": {
+      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="
     }
   },
   "workspace": {
     "dependencies": [
       "jsr:@deno/dnt@~0.41.3",
-      "jsr:@logtape/logtape@0.8",
+      "jsr:@logtape/logtape@~0.12.0-dev.186+8c242544",
       "jsr:@std/dotenv@~0.225.2",
-      "npm:@sentry/core@^8.40.0",
-      "npm:@sentry/types@^8.40.0"
+      "npm:@sentry/core@^9.28.1"
     ]
   }
 }
