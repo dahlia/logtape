@@ -12,6 +12,7 @@
     "winston-transport": "npm:winston-transport@^4.9.0"
   },
   "tasks": {
-    "null": "deno run -A null.ts"
+    "null": "deno run -A null.ts",
+    "file": "deno run -A file.ts"
   }
 }
