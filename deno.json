@@ -4,7 +4,8 @@
     "./file",
     "./otel",
     "./redaction",
-    "./sentry"
+    "./sentry",
+    "./benchmarks"
   ],
   "imports": {
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",

@@ -5,6 +5,7 @@ packages:
 - redaction
 - sentry
 - docs
+- benchmarks
 
 catalog:
   "@david/which-runtime": "jsr:^0.2.1"
