@@ -1,6 +1,7 @@
 {
   "type": "module",
   "dependencies": {
+    "@logtape/file": "workspace:",
     "@logtape/logtape": "workspace:",
     "bunyan": "^1.8.15",
     "log4js": "^6.9.1",
@@ -17,6 +18,8 @@
   },
   "scripts": {
     "null": "node --experimental-transform-types --expose-gc null.ts",
-    "null:bun": "bun --expose-gc null.ts"
+    "null:bun": "bun --expose-gc null.ts",
+    "file": "node --experimental-transform-types --expose-gc file.ts",
+    "file:bun": "bun --expose-gc file.ts"
   }
 }

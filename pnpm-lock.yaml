@@ -38,6 +38,9 @@ importers:
 
   benchmarks:
     dependencies:
+      '@logtape/file':
+        specifier: 'workspace:'
+        version: link:../file
       '@logtape/logtape':
         specifier: 'workspace:'
         version: link:../logtape
