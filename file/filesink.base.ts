@@ -13,6 +13,15 @@ export type FileSinkOptions = StreamSinkOptions & {
    * If `true`, the file is not opened until the first write.  Defaults to `false`.
    */
   lazy?: boolean;
+
+  /**
+   * The size of the buffer to use when writing to the file.  If not specified,
+   * a default buffer size will be used.  If it is less or equal to 0,
+   * the file will be written directly without buffering.
+   * @default 8192
+   * @since 0.12.0
+   */
+  bufferSize?: number;
 };
 
 /**
@@ -61,16 +70,22 @@ export function getBaseFileSink<TFile>(
 ): Sink & Disposable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
+  const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
   let fd = options.lazy ? null : options.openSync(path);
+  let buffer: string = "";
   const sink: Sink & Disposable = (record: LogRecord) => {
-    if (fd === null) {
-      fd = options.openSync(path);
+    if (fd == null) fd = options.openSync(path);
+    buffer += formatter(record);
+    if (buffer.length >= bufferSize) {
+      options.writeSync(fd, encoder.encode(buffer));
+      buffer = "";
+      options.flushSync(fd);
     }
-    options.writeSync(fd, encoder.encode(formatter(record)));
-    options.flushSync(fd);
   };
   sink[Symbol.dispose] = () => {
     if (fd !== null) {
+      options.writeSync(fd, encoder.encode(buffer));
+      options.flushSync(fd);
       options.closeSync(fd);
     }
   };
@@ -132,6 +147,7 @@ export function getBaseRotatingFileSink<TFile>(
   const encoder = options.encoder ?? new TextEncoder();
   const maxSize = options.maxSize ?? 1024 * 1024;
   const maxFiles = options.maxFiles ?? 5;
+  const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
   let offset: number = 0;
   try {
     const stat = options.statSync(path);
@@ -158,13 +174,22 @@ export function getBaseRotatingFileSink<TFile>(
     offset = 0;
     fd = options.openSync(path);
   }
+  let buffer: string = "";
   const sink: Sink & Disposable = (record: LogRecord) => {
-    const bytes = encoder.encode(formatter(record));
-    if (shouldRollover(bytes)) performRollover();
-    options.writeSync(fd, bytes);
-    options.flushSync(fd);
-    offset += bytes.length;
+    buffer += formatter(record);
+    if (buffer.length >= bufferSize) {
+      const bytes = encoder.encode(buffer);
+      buffer = "";
+      if (shouldRollover(bytes)) performRollover();
+      options.writeSync(fd, bytes);
+      options.flushSync(fd);
+      offset += bytes.length;
+    }
   };
-  sink[Symbol.dispose] = () => options.closeSync(fd);
+  sink[Symbol.dispose] = () => {
+    options.writeSync(fd, encoder.encode(buffer));
+    options.flushSync(fd);
+    options.closeSync(fd);
+  };
   return sink;
 }
