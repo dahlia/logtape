@@ -9,6 +9,7 @@ packages:
 - cloudwatch-logs
 - windows-eventlog
 - docs
+- benchmarks
 
 catalog:
   "@alinea/suite": ^0.6.3

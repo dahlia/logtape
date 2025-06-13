@@ -8,7 +8,8 @@
     "./sentry",
     "./syslog",
     "./cloudwatch-logs",
-    "./windows-eventlog"
+    "./windows-eventlog",
+    "./benchmarks"
   ],
   "imports": {
     "@alinea/suite": "jsr:@alinea/suite@^0.6.3",
