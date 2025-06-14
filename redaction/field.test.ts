@@ -1,4 +1,4 @@
-import { suite } from "@hongminhee/suite";
+import { suite } from "@alinea/suite";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";

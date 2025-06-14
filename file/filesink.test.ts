@@ -1,10 +1,10 @@
+import { getFileSink, getRotatingFileSink } from "#filesink";
+import { suite } from "@alinea/suite";
 import { isDeno } from "@david/which-runtime";
-import { suite } from "@hongminhee/suite";
 import type { Sink } from "@logtape/logtape";
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
 import { join } from "@std/path/join";
-import { getFileSink, getRotatingFileSink } from "#filesink";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import { debug, error, fatal, info, warning } from "../logtape/fixtures.ts";

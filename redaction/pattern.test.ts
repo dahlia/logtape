@@ -1,4 +1,4 @@
-import { suite } from "@hongminhee/suite";
+import { suite } from "@alinea/suite";
 import type {
   ConsoleFormatter,
   LogRecord,

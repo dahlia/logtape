@@ -49,7 +49,7 @@
     }
   },
   "devDependencies": {
-    "@hongminhee/suite": "catalog:",
+    "@alinea/suite": "catalog:",
     "@std/assert": "catalog:",
     "@std/async": "catalog:",
     "consolemock": "catalog:",

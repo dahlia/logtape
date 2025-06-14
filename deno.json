@@ -7,8 +7,8 @@
     "./sentry"
   ],
   "imports": {
+    "@alinea/suite": "jsr:@alinea/suite@^0.6.2",
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",
-    "@hongminhee/suite": "jsr:@hongminhee/suite@^0.6.2",
     "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/async": "jsr:@std/async@^1.0.13",
     "@std/collections": "jsr:@std/collections@^1.0.10",
@@ -23,7 +23,6 @@
   "unstable": [
     "fs"
   ],
-  "lock": false,
   "exclude": [
     "*/dist/",
     "*/README.md",

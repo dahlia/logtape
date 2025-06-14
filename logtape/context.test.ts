@@ -1,4 +1,4 @@
-import { suite } from "@hongminhee/suite";
+import { suite } from "@alinea/suite";
 import { assertEquals } from "@std/assert/equals";
 import { delay } from "@std/async/delay";
 import { AsyncLocalStorage } from "node:async_hooks";

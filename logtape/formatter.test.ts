@@ -1,4 +1,4 @@
-import { suite } from "@hongminhee/suite";
+import { suite } from "@alinea/suite";
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
 import { fatal, info } from "./fixtures.ts";

@@ -1,4 +1,4 @@
-import { suite } from "@hongminhee/suite";
+import { suite } from "@alinea/suite";
 import { assertEquals } from "@std/assert/equals";
 import { assertRejects } from "@std/assert/rejects";
 import { assertStrictEquals } from "@std/assert/strict-equals";

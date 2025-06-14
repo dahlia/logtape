@@ -6,12 +6,12 @@ settings:
 
 catalogs:
   default:
+    '@alinea/suite':
+      specifier: ^0.6.3
+      version: 0.6.3
     '@david/which-runtime':
       specifier: jsr:^0.2.1
       version: 0.2.1
-    '@hongminhee/suite':
-      specifier: ^0.6.2
-      version: 0.6.2
     '@std/assert':
       specifier: jsr:^1.0.13
       version: 1.0.13
@@ -96,12 +96,12 @@ importers:
         specifier: 'workspace:'
         version: link:../logtape
     devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
       '@david/which-runtime':
         specifier: 'catalog:'
         version: '@jsr/david__which-runtime@0.2.1'
-      '@hongminhee/suite':
-        specifier: 'catalog:'
-        version: 0.6.2
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
@@ -117,9 +117,9 @@ importers:
 
   logtape:
     devDependencies:
-      '@hongminhee/suite':
+      '@alinea/suite':
         specifier: 'catalog:'
-        version: 0.6.2
+        version: 0.6.3
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
@@ -179,9 +179,9 @@ importers:
         specifier: 'workspace:'
         version: link:../logtape
     devDependencies:
-      '@hongminhee/suite':
+      '@alinea/suite':
         specifier: 'catalog:'
-        version: 0.6.2
+        version: 0.6.3
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
@@ -284,6 +284,9 @@ packages:
   '@algolia/requester-node-http@5.27.0':
     resolution: {integrity: sha512-Nx9EdLYZDsaYFTthqmc0XcVvsx6jqeEX8fNiYOB5i2HboQwl8pJPj1jFhGqoGd0KG7KFR+sdPO5/e0EDDAru2Q==}
     engines: {node: '>= 14.0.0'}
+
+  '@alinea/suite@0.6.3':
+    resolution: {integrity: sha512-4oGhbwAGq3rQeuuq9ylmybMkIT1mAl6e+DiiTLwwmwNzHFQiVihishgOpkIGrs0fGVSD4T8jOLyNTuQ30RtVuQ==}
 
   '@babel/generator@7.27.5':
     resolution: {integrity: sha512-ZGhA37l0e/g2s1Cnzdix0O3aLYm66eF8aufiVteOgnwxgnRP8GoyMj7VWsgWnQbVKXyge7hqrFh2K2TQM6t1Hw==}
@@ -546,9 +549,6 @@ packages:
 
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
-
-  '@hongminhee/suite@0.6.2':
-    resolution: {integrity: sha512-i/TEKObfnKiRNhNfTqU/AekrzMaCHiFjGFEUHkq/i5ytIaRM0KHtheb8oOTGDWjaR1ySm2FJ4P6svB8rkzhd0w==}
 
   '@iconify-json/simple-icons@1.2.38':
     resolution: {integrity: sha512-mvMeFQgVjoHanQE9Q7ihmriEXAorjLZW+crUgQspDjFpzWuQp2RZMTppl1MN6TQztMVTsNFgF6LDKsp+v1RYRg==}
@@ -2297,6 +2297,8 @@ snapshots:
     dependencies:
       '@algolia/client-common': 5.27.0
 
+  '@alinea/suite@0.6.3': {}
+
   '@babel/generator@7.27.5':
     dependencies:
       '@babel/parser': 7.27.5
@@ -2480,8 +2482,6 @@ snapshots:
       '@floating-ui/core': 1.7.1
 
   '@floating-ui/utils@0.2.9': {}
-
-  '@hongminhee/suite@0.6.2': {}
 
   '@iconify-json/simple-icons@1.2.38':
     dependencies:

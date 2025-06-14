@@ -45,7 +45,7 @@
     "@logtape/logtape": "workspace:"
   },
   "devDependencies": {
-    "@hongminhee/suite": "catalog:",
+    "@alinea/suite": "catalog:",
     "@std/assert": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"

@@ -53,8 +53,8 @@
     "@logtape/logtape": "workspace:"
   },
   "devDependencies": {
+    "@alinea/suite": "catalog:",
     "@david/which-runtime": "catalog:",
-    "@hongminhee/suite": "catalog:",
     "@std/assert": "catalog:",
     "@std/path": "catalog:",
     "tsdown": "catalog:",
