@@ -36,6 +36,7 @@ export {
 } from "./formatter.ts";
 export {
   compareLogLevel,
+  getLogLevels,
   isLogLevel,
   type LogLevel,
   parseLogLevel,

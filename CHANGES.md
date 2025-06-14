@@ -8,6 +8,8 @@ Version 0.13.0
 
 To be released.
 
+ -  Added `getLogLevels()` function to retrieve all available log levels.
+
 
 Version 0.12.0
 --------------

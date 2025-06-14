@@ -5,12 +5,36 @@ import { assertFalse } from "@std/assert/false";
 import { assertThrows } from "@std/assert/throws";
 import {
   compareLogLevel,
+  getLogLevels,
   isLogLevel,
   type LogLevel,
   parseLogLevel,
 } from "./level.ts";
 
 const test = suite(import.meta);
+
+test("getLogLevels()", () => {
+  const levels: readonly LogLevel[] = getLogLevels();
+  assertEquals(levels, [
+    "trace",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "fatal",
+  ]);
+  const levels2 = levels as LogLevel[];
+  levels2.push("trace");
+  const levels3 = getLogLevels();
+  assertEquals(levels3, [
+    "trace",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "fatal",
+  ]);
+});
 
 test("parseLogLevel()", () => {
   assertEquals(parseLogLevel("debug"), "debug");

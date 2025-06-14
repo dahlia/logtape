@@ -13,6 +13,16 @@ const logLevels = [
 export type LogLevel = typeof logLevels[number];
 
 /**
+ * Lists all available log levels with the order of their severity.
+ * The `"trace"` level goes first, and the `"fatal"` level goes last.
+ * @returns A new copy of the array of log levels.
+ * @since 0.13.0
+ */
+export function getLogLevels(): readonly LogLevel[] {
+  return [...logLevels];
+}
+
+/**
  * Parses a log level from a string.
  *
  * @param level The log level as a string.  This is case-insensitive.

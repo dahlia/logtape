@@ -225,6 +225,32 @@ the parent logger, so it will log all levels from `"info"` up.
 > See also the [*Level filter* section](./filters.md#level-filter).
 
 
+Listing severity levels
+-----------------------
+
+*This API is available since LogTape 0.13.0.*
+
+You can list all available severity levels using the `getLogLevels()` function:
+
+~~~~ typescript twoslash
+import { getLogLevels } from "@logtape/logtape";
+
+const levels = getLogLevels();
+for (const level of levels) console.log(level);
+~~~~
+
+The returned array is sorted from lowest to highest severity level:
+
+~~~~
+trace
+debug
+info
+warning
+error
+fatal
+~~~~
+
+
 Comparing two severity levels
 -----------------------------
 
