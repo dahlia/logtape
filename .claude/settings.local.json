@@ -4,7 +4,8 @@
       "Bash(deno task check:*)",
       "Bash(deno task test:*)",
       "Bash(deno task test-all:*)",
-      "Bash(deno fmt:*)"
+      "Bash(deno fmt:*)",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": false

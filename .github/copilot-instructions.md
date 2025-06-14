@@ -18,18 +18,45 @@ Key features include:
 
 ## Codebase Structure
 
-The project is organized as a workspace with multiple modules:
+The project uses a unique **dual workspace** architecture that combines both
+Deno workspace and pnpm workspace features:
+
+### Dual Workspace Setup
+
+- **Deno Workspace**: Defined in the root `deno.json` with workspace members
+- **pnpm Workspace**: Defined in `pnpm-workspace.yaml` for Node.js ecosystem
+  compatibility
+- Each package must be listed in BOTH workspace configurations
+- This enables seamless cross-runtime development and publishing
+
+### Current Packages
 
 - **logtape/**: Core logging functionality
 - **file/**: File-based logging sink
+- **otel/**: OpenTelemetry integration
 - **redaction/**: Functionality for redacting sensitive information
+- **sentry/**: Sentry integration
 
-Each module follows a similar structure with:
+### Package Structure
+
+Each package follows a consistent structure with:
 
 - `mod.ts`: Main entry point exposing the public API
 - `*.ts`: Implementation files
 - `*.test.ts`: Test files matching their respective implementation
-- `dnt.ts`: Deno-to-Node packaging configuration
+- `deno.json`: Deno configuration and workspace membership
+- `package.json`: npm package configuration and workspace membership
+- `tsdown.config.ts`: Cross-platform build configuration (replaces dnt.ts)
+
+### Adding New Packages
+
+When adding a new package to the workspace:
+
+1. Create the package directory with both `deno.json` and `package.json`
+2. Add the package to **both** workspace configurations:
+   - Add to `packages:` array in `pnpm-workspace.yaml`
+   - Add to `workspace:` array in root `deno.json`
+3. Configure dependencies using the dual dependency management system
 
 ## Coding Conventions
 
@@ -70,46 +97,101 @@ Each module follows a similar structure with:
 
 ### Test Framework
 
-The project uses Deno's built-in testing capabilities with the `@std/assert`
-library.
+The project uses **@alinea/suite** for cross-runtime testing compatibility,
+along with `@std/assert` for assertions.
 
 ### Test Organization
 
-1. Each implementation file has a corresponding `*.test.ts` file.
-2. Tests are organized using Deno's `test()` function with steps.
-3. Each test should focus on a single piece of functionality.
+1. Each implementation file has a corresponding `*.test.ts` file
+2. Tests are organized using `@alinea/suite`'s `suite()` function
+3. Each test should focus on a single piece of functionality
+4. Tests run across multiple runtimes: Deno, Node.js, and Bun
 
 ### Test Structure
 
 ```typescript
-Deno.test("ComponentName.methodName()", async (t) => {
+import { suite } from "@alinea/suite";
+import { assertEquals } from "@std/assert/equals";
+
+const test = suite(import.meta);
+
+test("ComponentName.methodName()", () => {
+  // Test code
+  assertEquals(actual, expected);
+});
+
+test("ComponentName.methodName() with multiple assertions", () => {
   // Setup code
 
-  await t.step("test case description", () => {
-    // Test code
-    assertEquals(actual, expected);
-  });
+  // Test multiple aspects
+  assertEquals(actual1, expected1);
+  assertEquals(actual2, expected2);
 
-  await t.step("tear down", () => {
-    // Cleanup code
-  });
+  // Cleanup code if needed
 });
 ```
+
+### Cross-Runtime Testing
+
+The project supports testing across multiple JavaScript runtimes:
+
+- **Deno**: Native runtime, tests run directly
+- **Node.js**: Requires build step, uses Node's built-in test runner
+- **Bun**: Requires build step, uses Bun's test runner
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run Deno tests only
 deno task test
 
-# Run tests with coverage
+# Run tests with coverage (Deno)
 deno task coverage
 
-# Run tests across all runtimes
+# Run tests across ALL runtimes (Deno, Node.js, Bun)
 deno task test-all
+
+# Run tests for specific runtime
+deno task test:node    # Node.js only
+deno task test:bun     # Bun only
+
+# Individual package testing
+deno task test:node:logtape    # Test logtape package in Node.js
+deno task test:bun:file        # Test file package in Bun
 ```
 
+### Test Workflow
+
+For Node.js and Bun testing:
+
+1. Packages are built using `tsdown` to generate CommonJS/ESM outputs
+2. Tests run against the built packages in `dist/` directories
+3. This ensures cross-runtime compatibility of the published packages
+
 ## Development Workflow
+
+### Build System
+
+The project uses **tsdown** for cross-platform package building:
+
+- Replaces the previous `dnt.ts` configuration
+- Generates both ESM and CommonJS outputs
+- Supports platform-specific builds (Node.js, Deno, Bun)
+- Each package has its own `tsdown.config.ts` configuration
+
+### Building Packages
+
+```bash
+# Build all packages
+deno task build
+
+# Build specific packages
+deno task build:logtape
+deno task build:file
+deno task build:otel
+deno task build:redaction
+deno task build:sentry
+```
 
 ### Checking Code
 
@@ -121,10 +203,17 @@ deno task check
 
 This runs:
 
-- `deno check **/*.ts`: Type checking
+- `deno check`: Type checking across all workspace members
 - `deno lint`: Linting
 - `deno fmt --check`: Format checking
-- `deno run --allow-read scripts/check_versions.ts`: Version consistency check
+- `deno task check:versions`: Version consistency check across packages
+
+### Workspace vs Package-Level Tasks
+
+- **Workspace-level tasks**: Run from the root directory using `deno task`
+- **Package-level tasks**: Run from individual package directories or using `-f`
+  flag
+- Cross-runtime testing requires building packages first
 
 ### Git Hooks
 
@@ -145,9 +234,12 @@ deno task hooks:install
 The project uses GitHub Actions for:
 
 - Running tests across multiple platforms (macOS, Ubuntu, Windows)
+- Cross-runtime testing (Deno, Node.js, Bun)
 - Checking code style and types
+- Building packages with tsdown
 - Generating test coverage reports
 - Publishing to JSR and npm
+- Monorepo-aware package publishing
 
 ## Documentation
 
@@ -278,6 +370,33 @@ Ensure new code works across all supported environments. Use the
 `@david/which-runtime` library to detect runtime-specific behavior when
 necessary.
 
+## Dependency Management
+
+The project uses a **dual dependency management** system to maintain version
+consistency across packages and runtimes:
+
+### pnpm Catalog
+
+- Common dependencies are defined in `pnpm-workspace.yaml` under the `catalog:`
+  section
+- Individual packages reference catalog dependencies using `"catalog:"` syntax
+- Ensures version consistency across all packages in the workspace
+
+### Deno Imports Map
+
+- The root `deno.json` centralizes dependency versions in the `imports:` section
+- Provides JSR and npm package mappings for Deno runtime
+- Coordinates with pnpm catalog to maintain version alignment
+
+### Adding Dependencies
+
+When adding a new dependency:
+
+1. **For workspace-wide dependencies**: Add to both pnpm catalog and Deno
+   imports
+2. **In individual packages**: Reference using `"catalog:"` in package.json
+3. **Version consistency**: Ensure versions match between catalog and imports
+
 ## Package Management
 
 The project is published to:
@@ -285,7 +404,8 @@ The project is published to:
 - JSR (JavaScript Registry)
 - npm
 
-Version consistency is important—all packages should have matching versions.
+Version consistency is critical—all packages should have matching versions
+across the entire workspace.
 
 ## Best Practices
 
