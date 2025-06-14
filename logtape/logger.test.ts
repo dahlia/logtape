@@ -11,6 +11,7 @@ import {
   getLogger,
   LoggerCtx,
   LoggerImpl,
+  type LogMethod,
   parseMessageTemplate,
   renderMessage,
 } from "./logger.ts";
@@ -829,4 +830,25 @@ test("renderMessage()", () => {
   assertEquals(rm`Hello, ${123}!`, ["Hello, ", 123, "!"]);
   assertEquals(rm`Hello, ${123}, ${456}!`, ["Hello, ", 123, ", ", 456, "!"]);
   assertEquals(rm`Hello, ${123}, ${456}`, ["Hello, ", 123, ", ", 456, ""]);
+});
+
+test("LogMethod", () => {
+  // The below test ensures that the LogMethod type is correctly inferred,
+  // which is checked at compile time:
+  const logger = LoggerImpl.getLogger("foo");
+  let _method: LogMethod = logger.trace;
+  _method = logger.debug;
+  _method = logger.info;
+  _method = logger.warn;
+  _method = logger.warning;
+  _method = logger.error;
+  _method = logger.fatal;
+  const ctx = logger.with({});
+  _method = ctx.trace;
+  _method = ctx.debug;
+  _method = ctx.info;
+  _method = ctx.warn;
+  _method = ctx.warning;
+  _method = ctx.error;
+  _method = ctx.fatal;
 });

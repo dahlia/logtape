@@ -10,6 +10,8 @@ To be released.
 
  -  Added `getLogLevels()` function to retrieve all available log levels.
 
+ -  Added `LogMethod` type for better type inference of logger methods.
+
 
 Version 0.12.0
 --------------

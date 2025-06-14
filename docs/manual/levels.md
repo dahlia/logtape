@@ -286,6 +286,24 @@ fatal
 [`Array.toSorted()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSorted
 
 
+Type for logging methods
+------------------------
+
+*This API is available since LogTape 0.13.0.*
+
+LogTape provides a type for logging methods like `~Logger.trace()`,
+`~Logger.debug()`, etc.  This type is called `LogMethod` and contains all
+overloaded signatures for logging methods:
+
+~~~~ typescript twoslash
+import { getLogger, getLogLevels, type LogMethod } from "@logtape/logtape";
+
+const logger = getLogger();
+const methods: LogMethod[] = getLogLevels()
+  .map((level) => logger[level].bind(logger));
+~~~~
+
+
 Best practices
 --------------
 

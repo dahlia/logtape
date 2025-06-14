@@ -708,6 +708,50 @@ export type LogTemplatePrefix = (
 ) => unknown[];
 
 /**
+ * A function type for logging methods in the {@link Logger} interface.
+ * @since 0.13.0
+ */
+export interface LogMethod {
+  /**
+   * Log a message with the given level using a template string.
+   * @param message The message template strings array.
+   * @param values The message template values.
+   */
+  (
+    message: TemplateStringsArray,
+    ...values: readonly unknown[]
+  ): void;
+
+  /**
+   * Log a message with the given level with properties.
+   * @param message The message template.  Placeholders to be replaced with
+   *                `values` are indicated by keys in curly braces (e.g.,
+   *                `{value}`).
+   * @param properties The values to replace placeholders with.  For lazy
+   *                   evaluation, this can be a callback that returns the
+   *                   properties.
+   */
+  (
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+
+  /**
+   * Log a message with the given level with no message.
+   * @param properties The values to log.  Note that this does not take
+   *                   a callback.
+   */
+  (properties: Record<string, unknown>): void;
+
+  /**
+   * Lazily log a message with the given level.
+   * @param callback A callback that returns the message template prefix.
+   * @throws {TypeError} If no log record was made inside the callback.
+   */
+  (callback: LogCallback): void;
+}
+
+/**
  * Get a logger with the given category.
  *
  * ```typescript
