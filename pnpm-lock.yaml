@@ -83,6 +83,9 @@ importers:
       '@types/node':
         specifier: ^22.5.5
         version: 22.15.31
+      markdown-it-deflist:
+        specifier: ^3.0.0
+        version: 3.0.0
       markdown-it-jsr-ref:
         specifier: ^0.4.2
         version: 0.4.2
@@ -1653,6 +1656,9 @@ packages:
 
   mark.js@8.11.1:
     resolution: {integrity: sha512-1I+1qpDt4idfgLQG+BNWmrqku+7/2bi5nLf4YwF8y8zXvmfiTBY3PV3ZibfrjBueCByROpuBjLLFCajqkgYoLQ==}
+
+  markdown-it-deflist@3.0.0:
+    resolution: {integrity: sha512-OxPmQ/keJZwbubjiQWOvKLHwpV2wZ5I3Smc81OjhwbfJsjdRrvD5aLTQxmZzzePeO0kbGzAo3Krk4QLgA8PWLg==}
 
   markdown-it-jsr-ref@0.4.2:
     resolution: {integrity: sha512-JWnLHdDkFvo8kXlbKC4dj52sJRdJ3KYcapd5Sv+suLIaKxVlxO7V8qTAA4mdP/R4pvRZD9lXFpQ8/DMpvEGp5Q==}
@@ -3647,6 +3653,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.0
 
   mark.js@8.11.1: {}
+
+  markdown-it-deflist@3.0.0: {}
 
   markdown-it-jsr-ref@0.4.2:
     dependencies:

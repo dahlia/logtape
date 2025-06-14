@@ -1,4 +1,5 @@
 import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
+import deflist from "markdown-it-deflist";
 import { jsrRef } from "markdown-it-jsr-ref";
 import { defineConfig } from "vitepress";
 import llmstxt from "vitepress-plugin-llms";
@@ -154,6 +155,7 @@ export default defineConfig({
       }),
     ],
     config(md) {
+      md.use(deflist);
       md.use(jsrRef_logtape);
       md.use(jsrRef_file);
       md.use(jsrRef_otel);
