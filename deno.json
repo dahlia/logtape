@@ -26,14 +26,19 @@
   ],
   "exclude": [
     "*/dist/",
-    "*/README.md",
     ".cov/",
     ".github/",
     "coverage/",
     "docs/",
+    "screenshots/",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml"
   ],
+  "fmt": {
+    "exclude": [
+      "*/README.md"
+    ]
+  },
   "tasks": {
     "check": {
       "command": "deno check && deno lint && deno fmt --check",
