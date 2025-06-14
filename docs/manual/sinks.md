@@ -241,6 +241,15 @@ await configure({
 See also `getFileSink()` function and `FileSinkOptions` interface
 in the API reference for more details.
 
+> [!TIP]
+> File sinks support buffering for improved performance through
+> the `~FileSinkOptions.bufferSize` option (default: 8192 characters).
+> To prevent log loss during unexpected process termination, you can use
+> the `~FileSinkOptions.flushInterval` option (default: 5000ms) to 
+> automatically flush buffered logs after a specified time interval.
+> Set `flushInterval: 0` to disable time-based flushing, or `bufferSize: 0` to 
+> disable buffering entirely for immediate writes.
+
 > [!NOTE]
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
 > flag to use the file sink.
@@ -317,6 +326,13 @@ Rotated log files are named with a suffix like *.1*, *.2*, *.3*, and so on.
 
 For more details, see `getRotatingFileSink()` function and
 `RotatingFileSinkOptions` interface in the API reference.
+
+> [!TIP]
+> Like regular file sinks, rotating file sinks support buffering through the 
+> `~FileSinkOptions.bufferSize` option (default: 8192 characters) and time-based
+> flushing through the `~FileSinkOptions.flushInterval` option (default: 5000ms)
+> to prevent log loss during unexpected process termination. These options work
+> the same way as in regular file sinks.
 
 > [!NOTE]
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`

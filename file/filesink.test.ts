@@ -550,4 +550,145 @@ test("getBaseFileSink() with buffer edge cases", () => {
   );
 });
 
+test("getBaseFileSink() with time-based flushing", async () => {
+  const path = makeTempFileSync();
+  let sink: Sink & Disposable;
+  if (isDeno) {
+    const driver: FileSinkDriver<Deno.FsFile> = {
+      openSync(path: string) {
+        return Deno.openSync(path, { create: true, append: true });
+      },
+      writeSync(fd, chunk) {
+        fd.writeSync(chunk);
+      },
+      flushSync(fd) {
+        fd.syncSync();
+      },
+      closeSync(fd) {
+        fd.close();
+      },
+    };
+    sink = getBaseFileSink(path, {
+      ...driver,
+      bufferSize: 1000, // Large buffer to prevent size-based flushing
+      flushInterval: 100, // 100ms flush interval for testing
+    });
+  } else {
+    const driver: FileSinkDriver<number> = {
+      openSync(path: string) {
+        return fs.openSync(path, "a");
+      },
+      writeSync: fs.writeSync,
+      flushSync: fs.fsyncSync,
+      closeSync: fs.closeSync,
+    };
+    sink = getBaseFileSink(path, {
+      ...driver,
+      bufferSize: 1000, // Large buffer to prevent size-based flushing
+      flushInterval: 100, // 100ms flush interval for testing
+    });
+  }
+
+  // Create a log record with current timestamp
+  const record1 = { ...debug, timestamp: Date.now() };
+  sink(record1);
+
+  // Should be buffered (file empty initially)
+  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+
+  // Wait for flush interval to pass and write another record
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const record2 = { ...info, timestamp: Date.now() };
+  sink(record2);
+
+  // First record should now be flushed due to time interval
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+  assertEquals(content.includes("Hello, 123 & 456!"), true);
+
+  sink[Symbol.dispose]();
+});
+
+test("getRotatingFileSink() with time-based flushing", async () => {
+  const path = makeTempFileSync();
+  const sink: Sink & Disposable = getRotatingFileSink(path, {
+    maxSize: 1024 * 1024, // Large maxSize to prevent rotation
+    bufferSize: 1000, // Large buffer to prevent size-based flushing
+    flushInterval: 100, // 100ms flush interval for testing
+  });
+
+  // Create a log record with current timestamp
+  const record1 = { ...debug, timestamp: Date.now() };
+  sink(record1);
+
+  // Should be buffered (file empty initially)
+  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+
+  // Wait for flush interval to pass and write another record
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const record2 = { ...info, timestamp: Date.now() };
+  sink(record2);
+
+  // First record should now be flushed due to time interval
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+  assertEquals(content.includes("Hello, 123 & 456!"), true);
+
+  sink[Symbol.dispose]();
+});
+
+test("getBaseFileSink() with flushInterval disabled", () => {
+  const path = makeTempFileSync();
+  let sink: Sink & Disposable;
+  if (isDeno) {
+    const driver: FileSinkDriver<Deno.FsFile> = {
+      openSync(path: string) {
+        return Deno.openSync(path, { create: true, append: true });
+      },
+      writeSync(fd, chunk) {
+        fd.writeSync(chunk);
+      },
+      flushSync(fd) {
+        fd.syncSync();
+      },
+      closeSync(fd) {
+        fd.close();
+      },
+    };
+    sink = getBaseFileSink(path, {
+      ...driver,
+      bufferSize: 1000, // Large buffer to prevent size-based flushing
+      flushInterval: 0, // Disable time-based flushing
+    });
+  } else {
+    const driver: FileSinkDriver<number> = {
+      openSync(path: string) {
+        return fs.openSync(path, "a");
+      },
+      writeSync: fs.writeSync,
+      flushSync: fs.fsyncSync,
+      closeSync: fs.closeSync,
+    };
+    sink = getBaseFileSink(path, {
+      ...driver,
+      bufferSize: 1000, // Large buffer to prevent size-based flushing
+      flushInterval: 0, // Disable time-based flushing
+    });
+  }
+
+  // Create log records with simulated time gap
+  const now = Date.now();
+  const record1 = { ...debug, timestamp: now };
+  const record2 = { ...info, timestamp: now + 10000 }; // 10 seconds later
+
+  sink(record1);
+  sink(record2);
+
+  // Should still be buffered since time-based flushing is disabled
+  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+
+  // Only disposal should flush
+  sink[Symbol.dispose]();
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+  assertEquals(content.includes("Hello, 123 & 456!"), true);
+});
+
 // cSpell: ignore filesink

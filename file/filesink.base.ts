@@ -22,6 +22,15 @@ export type FileSinkOptions = StreamSinkOptions & {
    * @since 0.12.0
    */
   bufferSize?: number;
+
+  /**
+   * The maximum time interval in milliseconds between flushes.  If this time
+   * passes since the last flush, the buffer will be flushed regardless of size.
+   * This helps prevent log loss during unexpected process termination.
+   * @default 5000
+   * @since 0.12.0
+   */
+  flushInterval?: number;
 };
 
 /**
@@ -71,21 +80,36 @@ export function getBaseFileSink<TFile>(
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
+  const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
   let fd = options.lazy ? null : options.openSync(path);
   let buffer: string = "";
-  const sink: Sink & Disposable = (record: LogRecord) => {
-    if (fd == null) fd = options.openSync(path);
-    buffer += formatter(record);
-    if (buffer.length >= bufferSize) {
+  let lastFlushTimestamp: number = Date.now();
+
+  function flushBuffer(): void {
+    if (fd == null) return;
+    if (buffer.length > 0) {
       options.writeSync(fd, encoder.encode(buffer));
       buffer = "";
       options.flushSync(fd);
+      lastFlushTimestamp = Date.now();
+    }
+  }
+
+  const sink: Sink & Disposable = (record: LogRecord) => {
+    if (fd == null) fd = options.openSync(path);
+    buffer += formatter(record);
+
+    const shouldFlushBySize = buffer.length >= bufferSize;
+    const shouldFlushByTime = flushInterval > 0 &&
+      (record.timestamp - lastFlushTimestamp) >= flushInterval;
+
+    if (shouldFlushBySize || shouldFlushByTime) {
+      flushBuffer();
     }
   };
   sink[Symbol.dispose] = () => {
     if (fd !== null) {
-      options.writeSync(fd, encoder.encode(buffer));
-      options.flushSync(fd);
+      flushBuffer();
       options.closeSync(fd);
     }
   };
@@ -148,6 +172,7 @@ export function getBaseRotatingFileSink<TFile>(
   const maxSize = options.maxSize ?? 1024 * 1024;
   const maxFiles = options.maxFiles ?? 5;
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
+  const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
   let offset: number = 0;
   try {
     const stat = options.statSync(path);
@@ -156,6 +181,8 @@ export function getBaseRotatingFileSink<TFile>(
     // Continue as the offset is already 0.
   }
   let fd = options.openSync(path);
+  let lastFlushTimestamp: number = Date.now();
+
   function shouldRollover(bytes: Uint8Array): boolean {
     return offset + bytes.length > maxSize;
   }
@@ -174,21 +201,33 @@ export function getBaseRotatingFileSink<TFile>(
     offset = 0;
     fd = options.openSync(path);
   }
-  let buffer: string = "";
-  const sink: Sink & Disposable = (record: LogRecord) => {
-    buffer += formatter(record);
-    if (buffer.length >= bufferSize) {
+
+  function flushBuffer(): void {
+    if (buffer.length > 0) {
       const bytes = encoder.encode(buffer);
       buffer = "";
       if (shouldRollover(bytes)) performRollover();
       options.writeSync(fd, bytes);
       options.flushSync(fd);
       offset += bytes.length;
+      lastFlushTimestamp = Date.now();
+    }
+  }
+
+  let buffer: string = "";
+  const sink: Sink & Disposable = (record: LogRecord) => {
+    buffer += formatter(record);
+
+    const shouldFlushBySize = buffer.length >= bufferSize;
+    const shouldFlushByTime = flushInterval > 0 &&
+      (record.timestamp - lastFlushTimestamp) >= flushInterval;
+
+    if (shouldFlushBySize || shouldFlushByTime) {
+      flushBuffer();
     }
   };
   sink[Symbol.dispose] = () => {
-    options.writeSync(fd, encoder.encode(buffer));
-    options.flushSync(fd);
+    flushBuffer();
     options.closeSync(fd);
   };
   return sink;

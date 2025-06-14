@@ -16,17 +16,24 @@ To be released.
  -  Added `Logger.warning()` method which is an alias for `Logger.warn()`.
     [[#44]]
 
- -  Added `bufferSize` option to `FileSinkOptions` for configurable buffering
-    in file sinks.
+ -  Added `bufferSize` and `flushInterval` options to `FileSinkOptions` for
+    configurable buffering in file sinks.
 
      -  `getFileSink()` and `getRotatingFileSink()` functions now accept a
         `bufferSize` option to control write buffering behavior.
+     -  `getFileSink()` and `getRotatingFileSink()` functions now accept
+        a `flushInterval` option to control the time-based flushing of
+        the buffer to disk.
      -  When `bufferSize` is 0 or negative, writes are immediate without
         buffering.
      -  When `bufferSize` is positive, log entries are buffered until the
         buffer size is exceeded, then flushed to disk.
      -  Default buffer size is 8192 characters for improved performance.
      -  Buffer content is automatically flushed when the sink is disposed.
+     -  When `flushInterval` is 0 or negative, the time-based flushing is
+        disabled.
+     -  Default `flushInterval` is 5000 milliseconds (5 seconds) for
+        periodic flushing.
 
  -  Now *@logtape/otel* and *@logtape/sentry* packages are released along with
     *@logtape/logtape* package.  This means they share the same version number
