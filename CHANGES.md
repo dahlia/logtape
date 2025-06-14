@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.12.0
 --------------
 
-To be released.
+Released on June 15, 2025.
 
  -  Added the `"trace"` severity level, which is lower than `"debug"`.  [[#24]]
 
