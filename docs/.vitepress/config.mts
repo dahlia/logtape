@@ -38,6 +38,12 @@ const jsrRef_sentry = await jsrRef({
   cachePath: ".jsr-cache-sentry.json",
 });
 
+const jsrRef_syslog = await jsrRef({
+  package: "@logtape/syslog",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-syslog.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -153,6 +159,7 @@ export default defineConfig({
       md.use(jsrRef_otel);
       md.use(jsrRef_redaction);
       md.use(jsrRef_sentry);
+      md.use(jsrRef_syslog);
     },
   },
   sitemap: {

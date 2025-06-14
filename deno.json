@@ -4,10 +4,11 @@
     "./file",
     "./otel",
     "./redaction",
-    "./sentry"
+    "./sentry",
+    "./syslog"
   ],
   "imports": {
-    "@alinea/suite": "jsr:@alinea/suite@^0.6.2",
+    "@alinea/suite": "jsr:@alinea/suite@^0.6.3",
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",
     "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/async": "jsr:@std/async@^1.0.13",
@@ -66,17 +67,24 @@
       ],
       "command": "deno task -f @logtape/sentry build"
     },
+    "build:syslog": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/syslog build"
+    },
     "build": {
       "dependencies": [
         "build:file",
         "build:logtape",
         "build:otel",
         "build:redaction",
-        "build:sentry"
+        "build:sentry",
+        "build:syslog"
       ]
     },
-    "coverage": "rm -rf coverage && deno task test --coverage --allow-read --allow-write --allow-env=TEMP,TMP,TMPDIR && deno coverage --html coverage",
-    "test": "deno test --allow-read --allow-write --allow-env=TEMP,TMP,TMPDIR",
+    "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
+    "test": "deno test --allow-read --allow-write --allow-net --allow-env=TEMP,TMP,TMPDIR,HOSTNAME --allow-sys",
     "test:node:file": {
       "dependencies": [
         "build:file"
@@ -95,11 +103,18 @@
       ],
       "command": "cd redaction/ && node --experimental-transform-types --test"
     },
+    "test:node:syslog": {
+      "dependencies": [
+        "build:syslog"
+      ],
+      "command": "cd syslog/ && node --experimental-transform-types --test"
+    },
     "test:node": {
       "dependencies": [
         "test:node:file",
         "test:node:logtape",
-        "test:node:redaction"
+        "test:node:redaction",
+        "test:node:syslog"
       ]
     },
     "test:bun:file": {
@@ -120,11 +135,18 @@
       ],
       "command": "cd redaction/ && bun test"
     },
+    "test:bun:syslog": {
+      "dependencies": [
+        "build:syslog"
+      ],
+      "command": "cd syslog/ && bun test"
+    },
     "test:bun": {
       "dependencies": [
         "test:bun:file",
         "test:bun:logtape",
-        "test:bun:redaction"
+        "test:bun:redaction",
+        "test:bun:syslog"
       ]
     },
     "test-all": {

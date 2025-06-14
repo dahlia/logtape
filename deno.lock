@@ -1,7 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@alinea/suite@~0.6.2": "0.6.2",
+    "jsr:@alinea/suite@~0.6.3": "0.6.3",
     "jsr:@david/which-runtime@~0.2.1": "0.2.1",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/async@^1.0.13": "1.0.13",
@@ -21,8 +21,8 @@
     "npm:tsdown@~0.12.7": "0.12.7_rolldown@1.0.0-beta.11-commit.f051675"
   },
   "jsr": {
-    "@alinea/suite@0.6.2": {
-      "integrity": "067948595ee65876c3d76ae40fdf6f321a4afab3566da5ca259559490c95da23"
+    "@alinea/suite@0.6.3": {
+      "integrity": "7d24a38729663b84d8a263d64ff7e3f8c72ac7cbb1db8ec5f414d0416b6b72e2"
     },
     "@david/which-runtime@0.2.1": {
       "integrity": "2a304e36b1122ebfe384d45de8fe0fb2bfe54a0a5a2a596efbfc81f54a47a62d"
@@ -565,7 +565,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@alinea/suite@~0.6.2",
+      "jsr:@alinea/suite@~0.6.3",
       "jsr:@david/which-runtime@~0.2.1",
       "jsr:@std/assert@^1.0.13",
       "jsr:@std/async@^1.0.13",

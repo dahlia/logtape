@@ -5,7 +5,18 @@
       "Bash(deno task test:*)",
       "Bash(deno task test-all:*)",
       "Bash(deno fmt:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:tools.ietf.org)",
+      "WebFetch(domain:www.rfc-editor.org)",
+      "Bash(mkdir:*)",
+      "Bash(deno test:*)",
+      "Bash(deno task:*)",
+      "Bash(deno lint:*)",
+      "Bash(deno check:*)",
+      "Bash(node:*)",
+      "Bash(deno eval:*)",
+      "Bash(deno run:*)",
+      "Bash(grep:*)"
     ]
   },
   "enableAllProjectMcpServers": false

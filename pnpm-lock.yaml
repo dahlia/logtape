@@ -59,6 +59,9 @@ importers:
       '@logtape/sentry':
         specifier: 'workspace:'
         version: link:../sentry
+      '@logtape/syslog':
+        specifier: 'workspace:'
+        version: link:../syslog
       '@opentelemetry/exporter-logs-otlp-http':
         specifier: ^0.202.0
         version: 0.202.0(@opentelemetry/api@1.9.0)
@@ -204,6 +207,28 @@ importers:
       '@std/dotenv':
         specifier: 'catalog:'
         version: '@jsr/std__dotenv@0.225.5'
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  syslog:
+    dependencies:
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@david/which-runtime':
+        specifier: 'catalog:'
+        version: '@jsr/david__which-runtime@0.2.1'
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)

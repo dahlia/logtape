@@ -4,6 +4,7 @@ packages:
 - otel
 - redaction
 - sentry
+- syslog
 - docs
 
 catalog:

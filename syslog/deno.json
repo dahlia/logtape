@@ -1,0 +1,34 @@
+{
+  "name": "@logtape/syslog",
+  "version": "0.12.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
+  "exclude": [
+    "coverage/",
+    "npm/",
+    ".dnt-import-map.json"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-net --allow-env=TEMP,TMP,TMPDIR,HOSTNAME --allow-sys",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}

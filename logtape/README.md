@@ -91,6 +91,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/otel*](otel/)           | [JSR][jsr:@logtape/otel]      | [npm][npm:@logtape/otel]      | [OpenTelemetry] sink       |
 | [*@logtape/redaction*](redaction/) | [JSR][jsr:@logtape/redaction] | [npm][npm:@logtape/redaction] | Data redaction             |
 | [*@logtape/sentry*](sentry/)       | [JSR][jsr:@logtape/sentry]    | [npm][npm:@logtape/sentry]    | [Sentry] sink              |
+| [*@logtape/syslog*](syslog/)       | [JSR][jsr:@logtape/syslog]    | [npm][npm:@logtape/syslog]    | Syslog sink                |
 
 [OpenTelemetry]: https://opentelemetry.io/
 [Sentry]: https://sentry.io/
@@ -104,6 +105,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/redaction]: https://www.npmjs.com/package/@logtape/redaction
 [jsr:@logtape/sentry]: https://jsr.io/@logtape/sentry
 [npm:@logtape/sentry]: https://www.npmjs.com/package/@logtape/sentry
+[jsr:@logtape/syslog]: https://jsr.io/@logtape/syslog
+[npm:@logtape/syslog]: https://www.npmjs.com/package/@logtape/syslog
 
 
 Docs
