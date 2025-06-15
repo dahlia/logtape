@@ -4,6 +4,40 @@ This document provides comprehensive instructions for AI coding assistants (like
 GitHub Copilot, Claude, etc.) working with the LogTape codebase. Follow these
 guidelines to ensure your contributions align with project standards.
 
+## Repository Information
+
+**⚠️ IMPORTANT: Upstream Repository is `dahlia/logtape`**
+
+All GitHub operations (issues, pull requests, etc.) must be performed against
+the upstream repository `dahlia/logtape`, not personal forks.
+
+### GitHub Operations
+
+#### Issues
+
+- Always create issues against `dahlia/logtape`
+- Use: `gh issue create --repo dahlia/logtape`
+- Reference issues as: `dahlia/logtape#123`
+
+#### Pull Requests
+
+- Always create pull requests against `dahlia/logtape`
+- Use: `gh pr create --repo dahlia/logtape`
+- Target the appropriate base branch (usually `main` for new features)
+
+#### Common Commands
+
+```bash
+# Check issues in upstream
+gh issue list --repo dahlia/logtape
+
+# Create PR to upstream
+gh pr create --repo dahlia/logtape --title "Your Title" --body "Your description"
+
+# View upstream PRs
+gh pr list --repo dahlia/logtape
+```
+
 ## Project Overview
 
 LogTape is a zero-dependency logging library for JavaScript and TypeScript that
