@@ -45,6 +45,12 @@ const jsrRef_syslog = await jsrRef({
   cachePath: ".jsr-cache-syslog.json",
 });
 
+const jsrRef_cloudwatch_logs = await jsrRef({
+  package: "@logtape/cloudwatch-logs",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-cloudwatch-logs.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -162,6 +168,7 @@ export default defineConfig({
       md.use(jsrRef_redaction);
       md.use(jsrRef_sentry);
       md.use(jsrRef_syslog);
+      md.use(jsrRef_cloudwatch_logs);
     },
   },
   sitemap: {

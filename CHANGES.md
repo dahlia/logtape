@@ -32,9 +32,27 @@ To be released.
      -  Returns a sink with `AsyncDisposable` support that waits for all
         pending operations on disposal.
 
+ -  Added `@logtape/cloudwatch-logs` package for AWS CloudWatch Logs
+    integration. [[#48], [#49]]
+
+     -  Added `getCloudWatchLogsSink()` function to send logs to AWS CloudWatch
+        Logs.
+     -  Added `CloudWatchLogsSinkOptions` interface for configuration.
+     -  Supports intelligent batching up to 10,000 events or 1MiB per batch.
+     -  Includes exponential backoff retry strategy for error handling.
+     -  Works with existing CloudWatch Logs clients or creates new ones
+        automatically.
+     -  Supports custom AWS credentials and regions.
+     -  Added `formatter` option to support custom text formatters, including
+        `jsonLinesFormatter()` for enhanced CloudWatch Logs Insights querying
+        capabilities with dot notation support.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.
+
+[#48]: https://github.com/dahlia/logtape/issues/48
+[#49]: https://github.com/dahlia/logtape/pull/49
 
 
 Version 0.12.0

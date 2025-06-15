@@ -17,7 +17,14 @@
       "Bash(deno eval:*)",
       "Bash(deno run:*)",
       "Bash(grep:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(gh issue view:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "WebFetch(domain:jsr.io)",
+      "Bash(pnpm test:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)"
     ]
   },
   "enableAllProjectMcpServers": false

@@ -5,6 +5,7 @@ packages:
 - redaction
 - sentry
 - syslog
+- cloudwatch-logs
 - docs
 
 catalog:
