@@ -2,8 +2,9 @@ Text formatters
 ===============
 
 A text formatter is a function that formats a log record into a string.  LogTape
-has three built-in [sinks](./sinks.md) that can take a text formatter:
+has four built-in [sinks](./sinks.md) that can take a text formatter:
 
+ -  [console sink](./sinks.md#console-sink)
  -  [stream sink](./sinks.md#stream-sink)
  -  [file sink](./sinks.md#file-sink)
  -  [rotating file sink](./sinks.md#rotating-file-sink)
