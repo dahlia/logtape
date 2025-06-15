@@ -732,6 +732,99 @@ For more details, see the `getSyslogSink()` function and `SyslogSinkOptions`
 interface in the API reference.
 
 
+Buffered sink
+-------------
+
+*This API is available since LogTape 1.0.0.*
+
+A buffered sink is a decorator that wraps another sink to provide memory
+buffering functionality. It collects log records in memory and flushes them
+to the underlying sink either when the buffer reaches a specified size or
+after a certain time interval.
+
+This is particularly useful for:
+
+ -  Reducing the frequency of expensive I/O operations
+ -  Batching log records for better performance
+ -  Controlling when logs are actually written to their destination
+
+You can create a buffered sink using the `withBuffer()` function:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getConsoleSink, withBuffer } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    buffered: withBuffer(getConsoleSink(), {
+      bufferSize: 5,        // Flush after 5 records
+      flushInterval: 1000,  // Flush every 1 second
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Buffer options
+
+The `withBuffer()` function accepts the following options:
+
+`~BufferSinkOptions.bufferSize`
+:   The maximum number of log records to buffer before flushing to the
+    underlying sink. Defaults to 10. When the buffer reaches this size,
+    all buffered records are immediately flushed.
+
+`~BufferSinkOptions.flushInterval`
+:   The maximum time in milliseconds to wait before flushing buffered records
+    to the underlying sink. Defaults to 5000 (5 seconds). Set to 0 or negative
+    to disable time-based flushing. When this interval elapses, all buffered
+    records are flushed regardless of the buffer size.
+
+### Automatic flushing
+
+Buffered sinks automatically flush their contents when:
+
+ 1. The buffer reaches the specified `~BufferSinkOptions.bufferSize`
+ 2. The `~BufferSinkOptions.flushInterval` time elapses (if enabled)
+ 3. The sink is disposed (either explicitly or during configuration reset)
+
+### Example usage
+
+Here's a practical example of using a buffered sink with a file sink:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { getFileSink } from "@logtape/file";
+import { configure, withBuffer } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    // Buffer file writes for better performance
+    file: withBuffer(getFileSink("app.log"), {
+      bufferSize: 20,       // Write to file every 20 log records
+      flushInterval: 3000,  // Or every 3 seconds, whichever comes first
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["file"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+> [!TIP]
+> Buffered sinks are especially beneficial when used with sinks that perform
+> expensive operations like file I/O or network requests. The buffering reduces
+> the frequency of these operations while ensuring logs are not lost.
+
+> [!WARNING]
+> Be aware that buffered logs may be lost if the application crashes before
+> they are flushed. Consider the trade-off between performance and reliability
+> when choosing buffer settings.
+
+For more details, see the `withBuffer()` function and `BufferSinkOptions`
+interface in the API reference.
+
+
 Disposable sink
 ---------------
 

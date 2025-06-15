@@ -12,7 +12,18 @@ To be released.
 
  -  Added `LogMethod` type for better type inference of logger methods.
 
- -  Removed the deprecated `LoggerConfig.level` property.  Use 
+ -  Added `withBuffer()` function to create buffered sinks that collect log
+    records in memory and flush them to the underlying sink when the buffer is
+    full or after a specified time interval.
+
+     -  Added `BufferSinkOptions` interface for configuring buffer behavior.
+     -  `withBuffer()` accepts `bufferSize` (default: 10 records) and
+        `flushInterval` (default: 5000ms) options.
+     -  Buffered sinks automatically flush when buffer is full, time interval
+        elapses, or the sink is disposed.
+     -  Returns a sink with `AsyncDisposable` support for proper cleanup.
+
+ -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.
 
