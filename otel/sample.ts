@@ -12,7 +12,7 @@ await configure({
   },
   filters: {},
   loggers: [
-    { category: [], sinks: ["console", "otel"], level: "debug" },
+    { category: [], sinks: ["console", "otel"], lowestLevel: "debug" },
   ],
 });
 

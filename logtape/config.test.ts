@@ -60,7 +60,6 @@ test("configure()", async () => {
           category: ["my-app", "bar"],
           sinks: ["c"],
           filters: ["debug"],
-          level: "info", // deprecated
           lowestLevel: "info",
         },
       ],
@@ -322,7 +321,6 @@ test("configureSync()", async () => {
           category: ["my-app", "bar"],
           sinks: ["c"],
           filters: ["debug"],
-          level: "info", // deprecated
           lowestLevel: "info",
         },
       ],

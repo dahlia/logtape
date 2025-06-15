@@ -16,7 +16,8 @@
       "Bash(node:*)",
       "Bash(deno eval:*)",
       "Bash(deno run:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:github.com)"
     ]
   },
   "enableAllProjectMcpServers": false

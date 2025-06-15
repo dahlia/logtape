@@ -484,7 +484,7 @@ await configure({
     otel: getOpenTelemetrySink({ loggerProvider }),
   },
   loggers: [
-    { category: [], sinks: ["otel"], level: "debug" },
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
   ],
 });
 ~~~~

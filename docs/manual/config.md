@@ -199,7 +199,7 @@ await configure({
   loggers: [
     {
       category: "my-app",
-      level: isDevelopment ? "trace" : "info",
+      lowestLevel: isDevelopment ? "trace" : "info",
       sinks: isDevelopment ? ["console", "file"] : ["file"],
     },
   ],

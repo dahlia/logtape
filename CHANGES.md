@@ -12,6 +12,10 @@ To be released.
 
  -  Added `LogMethod` type for better type inference of logger methods.
 
+ -  Removed the deprecated `LoggerConfig.level` property.  Use 
+    `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
+    use `LoggerConfig.filters` for more advanced filtering.
+
 
 Version 0.12.0
 --------------
