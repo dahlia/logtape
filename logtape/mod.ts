@@ -44,8 +44,10 @@ export {
 export { getLogger, type Logger, type LogMethod } from "./logger.ts";
 export type { LogRecord } from "./record.ts";
 export {
+  type AsyncSink,
   type BufferSinkOptions,
   type ConsoleSinkOptions,
+  fromAsyncSink,
   getConsoleSink,
   getStreamSink,
   type Sink,

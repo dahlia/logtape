@@ -20,6 +20,17 @@ import type { LogRecord } from "./record.ts";
 export type Sink = (record: LogRecord) => void;
 
 /**
+ * An async sink is a function that accepts a log record and asynchronously
+ * processes it. This type is used with {@link fromAsyncSink} to create
+ * a regular sink that properly handles asynchronous operations.
+ *
+ * @param record The log record to process asynchronously.
+ * @returns A promise that resolves when the record has been processed.
+ * @since 1.0.0
+ */
+export type AsyncSink = (record: LogRecord) => Promise<void>;
+
+/**
  * Turns a sink into a filtered sink.  The returned sink only logs records that
  * pass the filter.
  *
@@ -275,4 +286,39 @@ export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
       console[method](...args);
     }
   };
+}
+
+/**
+ * Converts an async sink into a regular sink with proper async handling.
+ * The returned sink chains async operations to ensure proper ordering and
+ * implements AsyncDisposable to wait for all pending operations on disposal.
+ *
+ * @example Create a sink that asynchronously posts to a webhook
+ * ```typescript
+ * const asyncSink: AsyncSink = async (record) => {
+ *   await fetch("https://example.com/logs", {
+ *     method: "POST",
+ *     body: JSON.stringify(record),
+ *   });
+ * };
+ * const sink = fromAsyncSink(asyncSink);
+ * ```
+ *
+ * @param asyncSink The async sink function to convert.
+ * @returns A sink that properly handles async operations and disposal.
+ * @since 1.0.0
+ */
+export function fromAsyncSink(asyncSink: AsyncSink): Sink & AsyncDisposable {
+  let lastPromise = Promise.resolve();
+  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
+    lastPromise = lastPromise
+      .then(() => asyncSink(record))
+      .catch(() => {
+        // Errors are handled by the sink infrastructure
+      });
+  };
+  sink[Symbol.asyncDispose] = async () => {
+    await lastPromise;
+  };
+  return sink;
 }

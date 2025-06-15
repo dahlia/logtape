@@ -825,6 +825,166 @@ For more details, see the `withBuffer()` function and `BufferSinkOptions`
 interface in the API reference.
 
 
+Async sink adapter
+------------------
+
+*This API is available since LogTape 1.0.0.*
+
+LogTape sinks are synchronous by design for simplicity and performance.
+However, sometimes you need to perform asynchronous operations like sending
+logs to a remote server or writing to a database. The `fromAsyncSink()`
+function provides a clean way to bridge async operations with LogTape's
+synchronous sink interface.
+
+### The `AsyncSink` type
+
+The `AsyncSink` type represents an asynchronous sink function:
+
+~~~~ typescript twoslash
+import type { LogRecord } from "@logtape/logtape";
+// ---cut-before---
+export type AsyncSink = (record: LogRecord) => Promise<void>;
+~~~~
+
+### Creating an async sink
+
+To create an async sink, define your function with the `AsyncSink` type:
+
+~~~~ typescript twoslash
+import { type AsyncSink, fromAsyncSink } from "@logtape/logtape";
+
+const webhookSink: AsyncSink = async (record) => {
+  await fetch("https://example.com/logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      timestamp: record.timestamp,
+      level: record.level,
+      message: record.message,
+      properties: record.properties,
+    }),
+  });
+};
+
+const sink = fromAsyncSink(webhookSink);
+~~~~
+
+### How it works
+
+The `fromAsyncSink()` function:
+
+ 1. *Chains async operations*: Each log call is chained to the previous one
+    using Promise chaining, ensuring logs are processed in order.
+ 2. *Handles errors gracefully*: If an async operation fails, the error is
+    caught to prevent breaking the chain for subsequent logs.
+ 3. [*Implements `AsyncDisposable`*](#disposable-sink): The returned sink can be
+    properly disposed, waiting for all pending operations to complete.
+
+### Example: Database logging
+
+Here's an example of logging to a database:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+interface Database {
+  /**
+  * A hypothetical table interface.
+  */
+  readonly logs: Table<"logs">;
+}
+interface Table<TableName extends string> {
+  /**
+   * A hypothetical method to insert a record into the table.
+   */
+  insert(record: TableRecord<TableName>): Promise<void>;
+}
+interface TableRecord<TableName extends string> {
+  timestamp: number;
+  level: string;
+  category: string;
+  message: string;
+  properties: string;
+}
+/**
+ * A hypothetical database interface.
+ */
+const db = null as unknown as Database;
+// ---cut-before---
+import { type AsyncSink, configure, fromAsyncSink } from "@logtape/logtape";
+
+const databaseSink: AsyncSink = async (record) => {
+  await db.logs.insert({
+    timestamp: record.timestamp,
+    level: record.level,
+    category: record.category.join("."),
+    message: record.message.join(""),
+    properties: JSON.stringify(record.properties),
+  });
+};
+
+await configure({
+  sinks: {
+    database: fromAsyncSink(databaseSink),
+  },
+  loggers: [
+    { category: [], sinks: ["database"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+### Important considerations
+
+Configuration
+:   Async sinks created with `fromAsyncSink()` require asynchronous disposal,
+    which means they can only be used with the `configure()` function, not
+    `configureSync()`. If you need synchronous configuration, you cannot use
+    async sinks.
+
+    See also the [*Synchronous configuration*
+    section](./config.md#synchronous-configuration).
+
+Performance
+:   Async operations can be slower than synchronous ones.
+    Consider using `withBuffer()` to batch operations:
+
+    ~~~~ typescript twoslash
+    // @noErrors: 2345
+    import { type AsyncSink, fromAsyncSink, withBuffer } from "@logtape/logtape";
+
+    const asyncSink: AsyncSink = async (record) => {
+      // Async operation
+    };
+
+    const sink = withBuffer(fromAsyncSink(asyncSink), {
+      bufferSize: 20,
+      flushInterval: 1000,
+    });
+    ~~~~
+
+    See also the [*Buffered sink* section](#buffered-sink) above.
+
+Error handling
+:   Errors in async sinks are caught to prevent breaking
+    the promise chain. Make sure to handle errors appropriately within your
+    async sink if needed.
+
+Disposal
+:   Always ensure proper disposal of async sinks to wait for pending operations:
+
+    ~~~~ typescript twoslash
+    // @noErrors: 2345
+    import { dispose } from "@logtape/logtape";
+
+    // In your shutdown handler
+    await dispose();
+    ~~~~
+
+    See also the [*Explicit disposal* section](#explicit-disposal) below.
+
+For more details, see the `fromAsyncSink()` function and `AsyncSink` type
+in the API reference.
+
+
 Disposable sink
 ---------------
 

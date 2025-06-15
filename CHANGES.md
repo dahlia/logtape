@@ -23,6 +23,15 @@ To be released.
         elapses, or the sink is disposed.
      -  Returns a sink with `AsyncDisposable` support for proper cleanup.
 
+ -  Added `fromAsyncSink()` function to convert async sinks to regular sinks
+    with proper async handling.
+
+     -  Added `AsyncSink` type: `(record: LogRecord) => Promise<void>`.
+     -  `fromAsyncSink()` chains async operations to ensure order preservation.
+     -  Errors in async sinks are caught to prevent breaking the promise chain.
+     -  Returns a sink with `AsyncDisposable` support that waits for all
+        pending operations on disposal.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.

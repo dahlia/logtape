@@ -9,6 +9,8 @@ import { defaultTextFormatter } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 import {
+  type AsyncSink,
+  fromAsyncSink,
   getConsoleSink,
   getStreamSink,
   type Sink,
@@ -634,4 +636,203 @@ test("withBuffer() - edge case: concurrent dispose and log calls", async () => {
   // Only the first record should be in buffer
   assertEquals(buffer.length, 1);
   assertEquals(buffer, [trace]);
+});
+
+test("fromAsyncSink() - basic functionality", async () => {
+  const buffer: LogRecord[] = [];
+  const asyncSink: AsyncSink = async (record) => {
+    await delay(10);
+    buffer.push(record);
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  sink(trace);
+  sink(debug);
+  sink(info);
+
+  // Records should not be in buffer immediately
+  assertEquals(buffer.length, 0);
+
+  // Wait for async operations to complete
+  await sink[Symbol.asyncDispose]();
+
+  // All records should be in buffer in order
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer, [trace, debug, info]);
+});
+
+test("fromAsyncSink() - promise chaining preserves order", async () => {
+  const buffer: LogRecord[] = [];
+  const delays = [50, 10, 30]; // Different delays for each call
+  let callIndex = 0;
+
+  const asyncSink: AsyncSink = async (record) => {
+    const delayTime = delays[callIndex % delays.length];
+    callIndex++;
+    await delay(delayTime);
+    buffer.push(record);
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  sink(trace);
+  sink(debug);
+  sink(info);
+
+  await sink[Symbol.asyncDispose]();
+
+  // Despite different delays, order should be preserved
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer, [trace, debug, info]);
+});
+
+test("fromAsyncSink() - error handling", async () => {
+  const buffer: LogRecord[] = [];
+  let errorCount = 0;
+
+  const asyncSink: AsyncSink = async (record) => {
+    if (record.level === "error") {
+      errorCount++;
+      throw new Error("Async sink error");
+    }
+    await Promise.resolve(); // Ensure it's async
+    buffer.push(record);
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  sink(trace);
+  sink(error); // This will throw in async sink
+  sink(info);
+
+  await sink[Symbol.asyncDispose]();
+
+  // Error should be caught and not break the chain
+  assertEquals(errorCount, 1);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer, [trace, info]);
+});
+
+test("fromAsyncSink() - multiple dispose calls", async () => {
+  const buffer: LogRecord[] = [];
+  const asyncSink: AsyncSink = async (record) => {
+    await delay(10);
+    buffer.push(record);
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  sink(trace);
+  sink(debug);
+
+  // First dispose
+  await sink[Symbol.asyncDispose]();
+  assertEquals(buffer.length, 2);
+
+  // Second dispose should be safe
+  await sink[Symbol.asyncDispose]();
+  assertEquals(buffer.length, 2);
+
+  // Third dispose should be safe
+  await sink[Symbol.asyncDispose]();
+  assertEquals(buffer.length, 2);
+});
+
+test("fromAsyncSink() - concurrent calls", async () => {
+  const buffer: LogRecord[] = [];
+  let concurrentCalls = 0;
+  let maxConcurrentCalls = 0;
+
+  const asyncSink: AsyncSink = async (record) => {
+    concurrentCalls++;
+    maxConcurrentCalls = Math.max(maxConcurrentCalls, concurrentCalls);
+    await delay(20);
+    buffer.push(record);
+    concurrentCalls--;
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  // Fire multiple calls rapidly
+  for (let i = 0; i < 5; i++) {
+    sink(trace);
+  }
+
+  await sink[Symbol.asyncDispose]();
+
+  // Due to promise chaining, max concurrent calls should be 1
+  assertEquals(maxConcurrentCalls, 1);
+  assertEquals(buffer.length, 5);
+});
+
+test("fromAsyncSink() - works with synchronous exceptions", async () => {
+  const buffer: LogRecord[] = [];
+  let errorCount = 0;
+
+  const asyncSink: AsyncSink = async (record) => {
+    if (record.level === "fatal") {
+      errorCount++;
+      // Synchronous throw before any await
+      throw new Error("Sync error in async sink");
+    }
+    await delay(10);
+    buffer.push(record);
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  sink(trace);
+  sink(fatal); // This will throw synchronously in async sink
+  sink(info);
+
+  await sink[Symbol.asyncDispose]();
+
+  // Error should still be caught
+  assertEquals(errorCount, 1);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer, [trace, info]);
+});
+
+test("fromAsyncSink() - very long async operations", async () => {
+  const buffer: LogRecord[] = [];
+  const asyncSink: AsyncSink = async (record) => {
+    await delay(100); // Longer delay
+    buffer.push(record);
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  sink(trace);
+  sink(debug);
+
+  // Don't wait, just dispose immediately
+  const disposePromise = sink[Symbol.asyncDispose]();
+
+  // Buffer should still be empty
+  assertEquals(buffer.length, 0);
+
+  // Wait for dispose to complete
+  await disposePromise;
+
+  // Now all records should be processed
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer, [trace, debug]);
+});
+
+test("fromAsyncSink() - empty async sink", async () => {
+  const asyncSink: AsyncSink = async () => {
+    // Do nothing
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  // Should not throw
+  sink(trace);
+  sink(debug);
+
+  await sink[Symbol.asyncDispose]();
+
+  // Test passes if no errors thrown
+  assertEquals(true, true);
 });
