@@ -228,7 +228,7 @@ the parent logger, so it will log all levels from `"info"` up.
 Listing severity levels
 -----------------------
 
-*This API is available since LogTape 0.13.0.*
+*This API is available since LogTape 1.0.0.*
 
 You can list all available severity levels using the `getLogLevels()` function:
 
@@ -289,7 +289,7 @@ fatal
 Type for logging methods
 ------------------------
 
-*This API is available since LogTape 0.13.0.*
+*This API is available since LogTape 1.0.0.*
 
 LogTape provides a type for logging methods like `~Logger.trace()`,
 `~Logger.debug()`, etc.  This type is called `LogMethod` and contains all

@@ -5,6 +5,7 @@ const root = dirname(import.meta.dirname!);
 
 if (Deno.args.length < 1) {
   console.error("error: no argument");
+  console.error("usage: deno task update-versions VERSION");
   Deno.exit(1);
 }
 

@@ -709,7 +709,7 @@ export type LogTemplatePrefix = (
 
 /**
  * A function type for logging methods in the {@link Logger} interface.
- * @since 0.13.0
+ * @since 1.0.0
  */
 export interface LogMethod {
   /**

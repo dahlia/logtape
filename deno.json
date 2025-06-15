@@ -47,6 +47,7 @@
       ]
     },
     "check:versions": "deno run --allow-read scripts/check_versions.ts",
+    "update-versions": "deno run --allow-read --allow-write scripts/update_versions.ts",
     "build:file": {
       "dependencies": [
         "build:logtape"

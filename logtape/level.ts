@@ -16,7 +16,7 @@ export type LogLevel = typeof logLevels[number];
  * Lists all available log levels with the order of their severity.
  * The `"trace"` level goes first, and the `"fatal"` level goes last.
  * @returns A new copy of the array of log levels.
- * @since 0.13.0
+ * @since 1.0.0
  */
 export function getLogLevels(): readonly LogLevel[] {
   return [...logLevels];
