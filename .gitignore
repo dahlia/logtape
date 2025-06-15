@@ -1,8 +1,9 @@
 .cov/
-.env/
+.env
 .dnt-import-map.json
 coverage/
 node_modules/
 npm/
+*/.env
 */dist/
 */logtape-*-*.tgz

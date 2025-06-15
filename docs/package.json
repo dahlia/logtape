@@ -1,7 +1,9 @@
 {
   "devDependencies": {
+    "@aws-sdk/client-cloudwatch-logs": "^3.828.0",
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",
+    "@logtape/cloudwatch-logs": "workspace:",
     "@logtape/file": "workspace:",
     "@logtape/logtape": "workspace:",
     "@logtape/otel": "workspace:",

@@ -5,7 +5,8 @@
     "./otel",
     "./redaction",
     "./sentry",
-    "./syslog"
+    "./syslog",
+    "./cloudwatch-logs"
   ],
   "imports": {
     "@alinea/suite": "jsr:@alinea/suite@^0.6.3",
@@ -79,6 +80,12 @@
       ],
       "command": "deno task -f @logtape/syslog build"
     },
+    "build:cloudwatch-logs": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/cloudwatch-logs build"
+    },
     "build": {
       "dependencies": [
         "build:file",
@@ -86,11 +93,12 @@
         "build:otel",
         "build:redaction",
         "build:sentry",
-        "build:syslog"
+        "build:syslog",
+        "build:cloudwatch-logs"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
-    "test": "deno test --allow-read --allow-write --allow-net --allow-env=TEMP,TMP,TMPDIR,HOSTNAME --allow-sys",
+    "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-sys",
     "test:node:file": {
       "dependencies": [
         "build:file"
@@ -115,12 +123,19 @@
       ],
       "command": "cd syslog/ && node --experimental-transform-types --test"
     },
+    "test:node:cloudwatch-logs": {
+      "dependencies": [
+        "build:cloudwatch-logs"
+      ],
+      "command": "cd cloudwatch-logs/ && node --experimental-transform-types --test"
+    },
     "test:node": {
       "dependencies": [
         "test:node:file",
         "test:node:logtape",
         "test:node:redaction",
-        "test:node:syslog"
+        "test:node:syslog",
+        "test:node:cloudwatch-logs"
       ]
     },
     "test:bun:file": {
@@ -147,12 +162,19 @@
       ],
       "command": "cd syslog/ && bun test"
     },
+    "test:bun:cloudwatch-logs": {
+      "dependencies": [
+        "build:cloudwatch-logs"
+      ],
+      "command": "cd cloudwatch-logs/ && bun test"
+    },
     "test:bun": {
       "dependencies": [
         "test:bun:file",
         "test:bun:logtape",
         "test:bun:redaction",
-        "test:bun:syslog"
+        "test:bun:syslog",
+        "test:bun:cloudwatch-logs"
       ]
     },
     "test-all": {
