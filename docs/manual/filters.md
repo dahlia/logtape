@@ -158,6 +158,6 @@ The `filteredConsoleSink` only logs messages whose property `elapsed` is greater
 than or equal to 100 milliseconds to the console.
 
 > [!TIP]
-> The `withFilter()` function can take a [`LogLevel`] string as the second
+> The `withFilter()` function can take a `LogLevel` string as the second
 > argument.  In this case, the log messages whose log level is less than
 > the specified log level are discarded.
