@@ -5,10 +5,10 @@ import type {
   TextFormatterOptions,
 } from "@logtape/logtape";
 import { inspect as nodeInspect } from "node:util";
-import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
-import { wrapText } from "./wordwrap.ts";
-import { getDisplayWidth } from "./wcwidth.ts";
 import { getOptimalWordWrapWidth } from "./terminal.ts";
+import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
+import { getDisplayWidth } from "./wcwidth.ts";
+import { wrapText } from "./wordwrap.ts";
 
 /**
  * ANSI escape codes for styling
@@ -845,6 +845,16 @@ export function getPrettyFormatter(
   const levelWidth = Math.max(...allLevels.map((l) => formatLevel(l).length));
 
   return (record: LogRecord): string => {
+    // Calculate the prefix parts first to determine message column position
+    const icon = iconMap[record.level] || "";
+    const level = formatLevel(record.level);
+    const categoryStr = truncateCategory(
+      record.category,
+      typeof categoryWidth === "number" ? categoryWidth : 30,
+      categorySeparator,
+      categoryTruncate,
+    );
+
     // Format message with values - handle color reset/reapply for interpolated values
     let message = "";
     const messageColorCode = useColors ? colorToAnsi(messageColor) : "";
@@ -862,24 +872,41 @@ export function getPrettyFormatter(
           colors: useColors,
           ...inspectOptions,
         });
-        // Reset formatting before interpolated value, then reapply after
-        if (useColors && (messageColorCode || messageStyleCode)) {
-          message += `${RESET}${inspected}${messagePrefix}`;
+
+        // Handle multiline interpolated values properly
+        if (inspected.includes("\n")) {
+          const lines = inspected.split("\n");
+
+          const formattedLines = lines.map((line, index) => {
+            if (index === 0) {
+              // First line: reset formatting, add the line, then reapply
+              if (useColors && (messageColorCode || messageStyleCode)) {
+                return `${RESET}${line}${messagePrefix}`;
+              } else {
+                return line;
+              }
+            } else {
+              // Continuation lines: just apply formatting, let wrapText handle indentation
+              if (useColors && (messageColorCode || messageStyleCode)) {
+                return `${line}${messagePrefix}`;
+              } else {
+                return line;
+              }
+            }
+          });
+          message += formattedLines.join("\n");
         } else {
-          message += inspected;
+          // Single line - handle normally
+          if (useColors && (messageColorCode || messageStyleCode)) {
+            message += `${RESET}${inspected}${messagePrefix}`;
+          } else {
+            message += inspected;
+          }
         }
       }
     }
 
-    // Format parts
-    const icon = iconMap[record.level] || "";
-    const level = formatLevel(record.level);
-    const categoryStr = truncateCategory(
-      record.category,
-      typeof categoryWidth === "number" ? categoryWidth : 30,
-      categorySeparator,
-      categoryTruncate,
-    );
+    // Parts are already calculated above
 
     // Determine category color (with prefix matching)
     const finalCategoryColor = useColors
@@ -945,9 +972,13 @@ export function getPrettyFormatter(
       let result =
         `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
 
-      // Apply word wrapping if enabled
-      if (wordWrapEnabled) {
-        result = wrapText(result, wordWrapWidth, message);
+      // Apply word wrapping if enabled, or if there are multiline interpolated values
+      if (wordWrapEnabled || message.includes("\n")) {
+        result = wrapText(
+          result,
+          wordWrapEnabled ? wordWrapWidth : Infinity,
+          message,
+        );
       }
 
       return result + "\n";
@@ -955,9 +986,13 @@ export function getPrettyFormatter(
       let result =
         `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
 
-      // Apply word wrapping if enabled
-      if (wordWrapEnabled) {
-        result = wrapText(result, wordWrapWidth, message);
+      // Apply word wrapping if enabled, or if there are multiline interpolated values
+      if (wordWrapEnabled || message.includes("\n")) {
+        result = wrapText(
+          result,
+          wordWrapEnabled ? wordWrapWidth : Infinity,
+          message,
+        );
       }
 
       return result + "\n";

@@ -686,3 +686,97 @@ test("getPrettyFormatter() with automatic width detection", () => {
     );
   }
 });
+
+test("getPrettyFormatter() with multiline interpolated values", () => {
+  const formatter = getPrettyFormatter({
+    wordWrap: 60,
+    colors: false,
+    align: true,
+  });
+
+  // Create an error that will have multiline output
+  const error = new Error("Test error message");
+  const record = createLogRecord("error", ["test"], [
+    "Exception occurred: ",
+    error,
+  ]);
+  const result = formatter(record);
+
+  const lines = result.split("\n").filter((line) => line.length > 0);
+
+  // Should have multiple lines due to error stack trace
+  assert(
+    lines.length >= 2,
+    "Should have multiple lines for error with stack trace",
+  );
+
+  // First line should contain our message and start of error
+  assert(
+    lines[0].includes("Exception occurred:"),
+    "First line should contain our message",
+  );
+  assert(lines[0].includes("Error:"), "First line should contain error start");
+
+  // Error message might be on first or second line depending on wrapping
+  const fullOutput = result;
+  assert(
+    fullOutput.includes("Test error message"),
+    "Output should contain error message",
+  );
+
+  // Check that continuation lines are properly indented (should start with significant whitespace)
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trimStart();
+    const indentLength = line.length - trimmedLine.length;
+    assert(
+      indentLength >= 10,
+      `Line ${i} should be indented (has ${indentLength} spaces)`,
+    );
+  }
+
+  // Should contain stack trace somewhere
+  const stackTraceLine = lines.find((line) => line.trim().startsWith("at "));
+  assert(stackTraceLine, "Should contain a stack trace line");
+  const trimmedStackTrace = stackTraceLine.trimStart();
+  const stackIndentLength = stackTraceLine.length - trimmedStackTrace.length;
+  assert(stackIndentLength >= 10, "Stack trace should be properly indented");
+});
+
+test("getPrettyFormatter() with multiline interpolated values (no align)", () => {
+  const formatter = getPrettyFormatter({
+    wordWrap: 50,
+    colors: false,
+    align: false,
+  });
+
+  const error = new Error("Test error");
+  const record = createLogRecord("error", ["app"], [
+    "Error: ",
+    error,
+  ]);
+  const result = formatter(record);
+
+  const lines = result.split("\n").filter((line) => line.length > 0);
+
+  // Should have multiple lines
+  assert(lines.length >= 2, "Should have multiple lines for error");
+
+  // Check that stack trace lines are properly indented relative to the message start
+  const firstLine = lines[0];
+  assert(
+    firstLine.includes("❌ error app Error:"),
+    "First line should contain prefix and message start",
+  );
+
+  if (lines.length > 1) {
+    const stackTraceLine = lines.find((line) => line.trim().startsWith("at "));
+    if (stackTraceLine) {
+      // Stack trace should be indented to align with message content
+      assert(
+        stackTraceLine.length > stackTraceLine.trimStart().length,
+        "Stack trace line should be indented",
+      );
+    }
+  }
+});

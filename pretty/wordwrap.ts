@@ -26,7 +26,9 @@ export function wrapText(
   if (maxWidth <= 0) return text;
 
   const displayWidth = getDisplayWidth(text);
-  if (displayWidth <= maxWidth) return text;
+  // If text has newlines (multiline interpolated values), always process it
+  // even if it fits within the width
+  if (displayWidth <= maxWidth && !text.includes("\n")) return text;
 
   // Find where the message content starts in the first line
   const firstLineWords = messageContent.split(" ");
