@@ -24,7 +24,14 @@
       "WebFetch(domain:jsr.io)",
       "Bash(pnpm test:*)",
       "Bash(gh pr view:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm run test-nodejs:*)",
+      "WebFetch(domain:koffi.dev)",
+      "WebFetch(domain:bun.sh)",
+      "Bash(pnpm build:*)",
+      "Bash(powershell:*)",
+      "Bash(bun test:*)"
     ]
   },
   "enableAllProjectMcpServers": false

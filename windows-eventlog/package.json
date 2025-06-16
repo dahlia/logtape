@@ -1,0 +1,74 @@
+{
+  "name": "@logtape/windows-eventlog",
+  "version": "1.0.0",
+  "description": "Windows Event Log sink for LogTape",
+  "license": "MIT",
+  "keywords": [
+    "logging",
+    "windows",
+    "eventlog",
+    "logtape",
+    "sink"
+  ],
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dahlia/logtape.git",
+    "directory": "windows-eventlog"
+  },
+  "bugs": "https://github.com/dahlia/logtape/issues",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "type": "module",
+  "os": [
+    "win32"
+  ],
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs",
+      "types": "./dist/mod.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "imports": {
+    "#wineventlog": {
+      "bun": "./dist/sink.bun.js",
+      "deno": "./dist/sink.deno.js",
+      "import": "./dist/sink.node.js",
+      "require": "./dist/sink.node.cjs",
+      "types": "./dist/sink.node.d.ts"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test --timeout 10000",
+    "test:deno": "deno test --allow-ffi --allow-run=powershell --allow-env=TEMP,TMP,TMPDIR,HOSTNAME",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+  },
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:"
+  },
+  "dependencies": {
+    "koffi": "^2.10.0"
+  },
+  "devDependencies": {
+    "@alinea/suite": "catalog:",
+    "@std/assert": "catalog:",
+    "@std/async": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  }
+}

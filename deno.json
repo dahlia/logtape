@@ -6,7 +6,8 @@
     "./redaction",
     "./sentry",
     "./syslog",
-    "./cloudwatch-logs"
+    "./cloudwatch-logs",
+    "./windows-eventlog"
   ],
   "imports": {
     "@alinea/suite": "jsr:@alinea/suite@^0.6.3",
@@ -86,6 +87,12 @@
       ],
       "command": "deno task -f @logtape/cloudwatch-logs build"
     },
+    "build:windows-eventlog": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/windows-eventlog build"
+    },
     "build": {
       "dependencies": [
         "build:file",
@@ -94,11 +101,12 @@
         "build:redaction",
         "build:sentry",
         "build:syslog",
-        "build:cloudwatch-logs"
+        "build:cloudwatch-logs",
+        "build:windows-eventlog"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
-    "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-sys",
+    "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-sys --allow-ffi --allow-run=powershell",
     "test:node:file": {
       "dependencies": [
         "build:file"
@@ -129,13 +137,20 @@
       ],
       "command": "cd cloudwatch-logs/ && node --experimental-transform-types --test"
     },
+    "test:node:windows-eventlog": {
+      "dependencies": [
+        "build:windows-eventlog"
+      ],
+      "command": "cd windows-eventlog/ && node --experimental-transform-types --test"
+    },
     "test:node": {
       "dependencies": [
         "test:node:file",
         "test:node:logtape",
         "test:node:redaction",
         "test:node:syslog",
-        "test:node:cloudwatch-logs"
+        "test:node:cloudwatch-logs",
+        "test:node:windows-eventlog"
       ]
     },
     "test:bun:file": {
@@ -168,17 +183,25 @@
       ],
       "command": "cd cloudwatch-logs/ && bun test"
     },
+    "test:bun:windows-eventlog": {
+      "dependencies": [
+        "build:windows-eventlog"
+      ],
+      "command": "cd windows-eventlog/ && bun test --timeout 10000"
+    },
     "test:bun": {
       "dependencies": [
         "test:bun:file",
         "test:bun:logtape",
         "test:bun:redaction",
         "test:bun:syslog",
-        "test:bun:cloudwatch-logs"
+        "test:bun:cloudwatch-logs",
+        "test:bun:windows-eventlog"
       ]
     },
     "test-all": {
       "dependencies": [
+        "check",
         "test",
         "test:node",
         "test:bun"
