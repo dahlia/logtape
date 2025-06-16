@@ -1,0 +1,950 @@
+import type {
+  LogLevel,
+  LogRecord,
+  TextFormatter,
+  TextFormatterOptions,
+} from "@logtape/logtape";
+import { inspect as nodeInspect } from "node:util";
+import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
+import { wrapText } from "./wordwrap.ts";
+
+/**
+ * ANSI escape codes for styling
+ */
+const RESET = "\x1b[0m";
+const DIM = "\x1b[2m";
+
+// Default true color values (referenced in JSDoc)
+const defaultColors = {
+  trace: "rgb(167,139,250)", // Light purple
+  debug: "rgb(96,165,250)", // Light blue
+  info: "rgb(52,211,153)", // Emerald
+  warning: "rgb(251,191,36)", // Amber
+  error: "rgb(248,113,113)", // Light red
+  fatal: "rgb(220,38,38)", // Dark red
+  category: "rgb(100,116,139)", // Slate
+  message: "rgb(148,163,184)", // Light slate
+  timestamp: "rgb(100,116,139)", // Slate
+} as const;
+
+/**
+ * ANSI style codes
+ */
+const styles = {
+  reset: RESET,
+  bold: "\x1b[1m",
+  dim: DIM,
+  italic: "\x1b[3m",
+  underline: "\x1b[4m",
+  strikethrough: "\x1b[9m",
+} as const;
+
+/**
+ * Standard ANSI colors (16-color)
+ */
+const ansiColors = {
+  black: "\x1b[30m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  white: "\x1b[37m",
+} as const;
+
+/**
+ * Color type definition
+ */
+export type Color =
+  | keyof typeof ansiColors
+  | `rgb(${number},${number},${number})`
+  | `#${string}`
+  | null;
+
+/**
+ * Category color mapping for prefix-based coloring.
+ *
+ * Maps category prefixes (as arrays) to colors. The formatter will match
+ * categories against these prefixes and use the corresponding color.
+ * Longer/more specific prefixes take precedence over shorter ones.
+ *
+ * @example
+ * ```typescript
+ * new Map([
+ *   [["app", "auth"], "#ff6b6b"],     // app.auth.* -> red
+ *   [["app", "db"], "#4ecdc4"],       // app.db.* -> teal
+ *   [["app"], "#45b7d1"],             // app.* (fallback) -> blue
+ *   [["lib"], "#96ceb4"],             // lib.* -> green
+ * ])
+ * ```
+ */
+export type CategoryColorMap = Map<readonly string[], Color>;
+
+/**
+ * Internal representation of category prefix patterns
+ */
+type CategoryPattern = {
+  prefix: readonly string[];
+  color: Color;
+};
+
+/**
+ * Style type definition - supports single styles, arrays of styles, or null
+ */
+export type Style = keyof typeof styles | (keyof typeof styles)[] | null;
+
+/**
+ * Helper function to convert color to ANSI escape code
+ */
+function colorToAnsi(color: Color): string {
+  if (color === null) return "";
+  if (color in ansiColors) {
+    return ansiColors[color as keyof typeof ansiColors];
+  }
+  // Handle rgb() format
+  const rgbMatch = color.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `\x1b[38;2;${r};${g};${b}m`;
+  }
+  // Handle hex format (#rrggbb or #rgb)
+  const hexMatch = color.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  if (hexMatch) {
+    let hex = hexMatch[1];
+    // Convert 3-digit hex to 6-digit
+    if (hex.length === 3) {
+      hex = hex.split("").map((c) => c + c).join("");
+    }
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    return `\x1b[38;2;${r};${g};${b}m`;
+  }
+  return "";
+}
+
+/**
+ * Helper function to convert style to ANSI escape code
+ */
+function styleToAnsi(style: Style): string {
+  if (style === null) return "";
+  if (Array.isArray(style)) {
+    return style.map((s) => styles[s] || "").join("");
+  }
+  return styles[style] || "";
+}
+
+/**
+ * Converts a category color map to internal patterns and sorts them by specificity.
+ * More specific (longer) prefixes come first for proper matching precedence.
+ */
+function prepareCategoryPatterns(
+  categoryColorMap: CategoryColorMap,
+): CategoryPattern[] {
+  const patterns: CategoryPattern[] = [];
+
+  for (const [prefix, color] of categoryColorMap) {
+    patterns.push({ prefix, color });
+  }
+
+  // Sort by prefix length (descending) for most-specific-first matching
+  return patterns.sort((a, b) => b.prefix.length - a.prefix.length);
+}
+
+/**
+ * Matches a category against category color patterns.
+ * Returns the color of the first matching pattern, or null if no match.
+ */
+function matchCategoryColor(
+  category: readonly string[],
+  patterns: CategoryPattern[],
+): Color {
+  for (const pattern of patterns) {
+    if (categoryMatches(category, pattern.prefix)) {
+      return pattern.color;
+    }
+  }
+  return null;
+}
+
+/**
+ * Checks if a category matches a prefix pattern.
+ * A category matches if it starts with all segments of the prefix.
+ */
+function categoryMatches(
+  category: readonly string[],
+  prefix: readonly string[],
+): boolean {
+  if (prefix.length > category.length) {
+    return false;
+  }
+
+  for (let i = 0; i < prefix.length; i++) {
+    if (category[i] !== prefix[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Default icons for each log level
+ */
+const defaultIcons: Record<LogLevel, string> = {
+  trace: "🔍",
+  debug: "🐛",
+  info: "✨",
+  warning: "⚠️ ",
+  error: "❌",
+  fatal: "💀",
+};
+
+/**
+ * Platform-specific inspect function. Uses Node.js `util.inspect()` which
+ * is available in both Deno and Node.js environments. For browser environments,
+ * it falls back to {@link JSON.stringify}.
+ *
+ * @param value The value to inspect.
+ * @param options The options for inspecting the value.
+ * @returns The string representation of the value.
+ */
+const inspect: (value: unknown, options?: { colors?: boolean }) => string =
+  // @ts-ignore: Browser detection
+  typeof document !== "undefined" ||
+    // @ts-ignore: React Native detection
+    typeof navigator !== "undefined" && navigator.product === "ReactNative"
+    ? (v) => JSON.stringify(v)
+    : (v, opts) =>
+      nodeInspect(v, {
+        maxArrayLength: 10,
+        maxStringLength: 80,
+        compact: true,
+        ...opts,
+      });
+
+/**
+ * Configuration options for the pretty formatter.
+ *
+ * This interface extends the base text formatter options while providing
+ * extensive customization options for visual styling, layout control, and
+ * development-focused features. It offers granular control over colors,
+ * styles, and formatting similar to the ANSI color formatter.
+ *
+ * @since 1.0.0
+ */
+export interface PrettyFormatterOptions
+  extends Omit<TextFormatterOptions, "category" | "value" | "format"> {
+  /**
+   * Color for timestamp display when timestamps are enabled.
+   *
+   * Supports true color RGB values, hex colors, or ANSI color names.
+   * Set to `null` to disable timestamp coloring.
+   *
+   * @example
+   * ```typescript
+   * timestampColor: "#888888"        // Hex color
+   * timestampColor: "rgb(128,128,128)" // RGB color
+   * timestampColor: "cyan"           // ANSI color name
+   * timestampColor: null             // No color
+   * ```
+   *
+   * @default `"rgb(100,116,139)"` (slate gray)
+   */
+  timestampColor?: Color;
+
+  /**
+   * Visual style applied to timestamp text.
+   *
+   * Controls text appearance like boldness, dimming, etc.
+   * Supports single styles, multiple styles combined, or no styling.
+   * Combines with `timestampColor` for full styling control.
+   *
+   * @example
+   * ```typescript
+   * timestampStyle: "dim"                    // Single style: dimmed text
+   * timestampStyle: "bold"                   // Single style: bold text
+   * timestampStyle: ["bold", "underline"]    // Multiple styles: bold + underlined
+   * timestampStyle: ["dim", "italic"]        // Multiple styles: dimmed + italic
+   * timestampStyle: null                     // No styling
+   * ```
+   *
+   * @default `"dim"`
+   */
+  timestampStyle?: Style;
+
+  /**
+   * Custom colors for each log level.
+   *
+   * Allows fine-grained control over level appearance. Each level can have
+   * its own color scheme. Unspecified levels use built-in defaults.
+   * Set individual levels to `null` to disable coloring for that level.
+   *
+   * @example
+   * ```typescript
+   * levelColors: {
+   *   info: "#00ff00",     // Bright green for info
+   *   error: "#ff0000",    // Bright red for errors
+   *   warning: "orange",   // ANSI orange for warnings
+   *   debug: null,         // No color for debug
+   * }
+   * ```
+   *
+   * @default Built-in color scheme (purple trace, blue debug, green info, amber warning, red error, dark red fatal)
+   */
+  levelColors?: Partial<Record<LogLevel, Color>>;
+
+  /**
+   * Visual style applied to log level text.
+   *
+   * Controls the appearance of the level indicator (e.g., "info", "error").
+   * Supports single styles, multiple styles combined, or no styling.
+   * Applied in addition to level-specific colors.
+   *
+   * @example
+   * ```typescript
+   * levelStyle: "bold"                    // Single style: bold level text
+   * levelStyle: "underline"               // Single style: underlined level text
+   * levelStyle: ["bold", "underline"]     // Multiple styles: bold + underlined
+   * levelStyle: ["dim", "italic"]         // Multiple styles: dimmed + italic
+   * levelStyle: null                      // No additional styling
+   * ```
+   *
+   * @default `null` (no additional styling)
+   */
+  levelStyle?: Style;
+
+  /**
+   * Icon configuration for each log level.
+   *
+   * Controls the emoji/symbol displayed before each log entry.
+   * Provides visual quick-identification of log severity.
+   *
+   * - `true`: Use built-in emoji set (🔍 trace, 🐛 debug, ✨ info, ⚠️ warning, ❌ error, 💀 fatal)
+   * - `false`: Disable all icons for clean text-only output
+   * - Object: Custom icon mapping, falls back to defaults for unspecified levels
+   *
+   * @example
+   * ```typescript
+   * icons: true                    // Use default emoji set
+   * icons: false                   // No icons
+   * icons: {
+   *   info: "ℹ️",                  // Custom info icon
+   *   error: "🔥",                 // Custom error icon
+   *   warning: "⚡",               // Custom warning icon
+   * }
+   * ```
+   *
+   * @default `true` (use default emoji icons)
+   */
+  icons?: boolean | Partial<Record<LogLevel, string>>;
+
+  /**
+   * Character(s) used to separate category hierarchy levels.
+   *
+   * Categories are hierarchical (e.g., ["app", "auth", "jwt"]) and this
+   * separator joins them for display (e.g., "app.auth.jwt").
+   *
+   * @example
+   * ```typescript
+   * categorySeparator: "·"        // app·auth·jwt
+   * categorySeparator: "."        // app.auth.jwt
+   * categorySeparator: ":"        // app:auth:jwt
+   * categorySeparator: " > "      // app > auth > jwt
+   * categorySeparator: "::"       // app::auth::jwt
+   * ```
+   *
+   * @default `"·"` (interpunct)
+   */
+  categorySeparator?: string;
+
+  /**
+   * Default color for category display.
+   *
+   * Used as fallback when no specific color is found in `categoryColorMap`.
+   * Controls the visual appearance of the category hierarchy display.
+   *
+   * @example
+   * ```typescript
+   * categoryColor: "#666666"        // Gray categories
+   * categoryColor: "blue"           // Blue categories
+   * categoryColor: "rgb(100,150,200)" // Light blue categories
+   * categoryColor: null             // No coloring
+   * ```
+   *
+   * @default `"rgb(100,116,139)"` (slate gray)
+   */
+  categoryColor?: Color;
+
+  /**
+   * Category-specific color mapping based on prefixes.
+   *
+   * Maps category prefixes (as arrays) to colors for visual grouping.
+   * More specific (longer) prefixes take precedence over shorter ones.
+   * If no prefix matches, falls back to the default `categoryColor`.
+   *
+   * @example
+   * ```typescript
+   * new Map([
+   *   [["app", "auth"], "#ff6b6b"],     // app.auth.* -> red
+   *   [["app", "db"], "#4ecdc4"],       // app.db.* -> teal
+   *   [["app"], "#45b7d1"],             // app.* (fallback) -> blue
+   *   [["lib"], "#96ceb4"],             // lib.* -> green
+   * ])
+   * ```
+   */
+  categoryColorMap?: CategoryColorMap;
+
+  /**
+   * Visual style applied to category text.
+   *
+   * Controls the appearance of the category hierarchy display.
+   * Supports single styles, multiple styles combined, or no styling.
+   * Applied in addition to category colors from `categoryColor` or `categoryColorMap`.
+   *
+   * @example
+   * ```typescript
+   * categoryStyle: "dim"                     // Single style: dimmed category text
+   * categoryStyle: "italic"                  // Single style: italic category text
+   * categoryStyle: ["dim", "italic"]         // Multiple styles: dimmed + italic
+   * categoryStyle: ["bold", "underline"]     // Multiple styles: bold + underlined
+   * categoryStyle: null                      // No additional styling
+   * ```
+   *
+   * @default `["dim", "italic"]` (dimmed for subtle appearance)
+   */
+  categoryStyle?: Style;
+
+  /**
+   * Maximum display width for category names.
+   *
+   * Controls layout consistency by limiting category width.
+   * Long categories are truncated according to `categoryTruncate` strategy.
+   *
+   * - Number: Fixed character width limit
+   * - `"auto"`: No width limit, categories display at full length
+   *
+   * @example
+   * ```typescript
+   * categoryWidth: 20           // Limit to 20 characters
+   * categoryWidth: 30           // Limit to 30 characters
+   * categoryWidth: "auto"       // No limit
+   * ```
+   *
+   * @default `20` (20 character limit)
+   */
+  categoryWidth?: number | "auto";
+
+  /**
+   * Strategy for truncating long category names.
+   *
+   * When categories exceed `categoryWidth`, this controls how truncation works.
+   * Smart truncation preserves important context while maintaining layout.
+   *
+   * - `"middle"`: Keep first and last parts (e.g., "app.server…auth.jwt")
+   * - `"end"`: Truncate at the end (e.g., "app.server.middleware…")
+   * - `false`: No truncation (ignores `categoryWidth`)
+   *
+   * @example
+   * ```typescript
+   * categoryTruncate: "middle"   // app.server…jwt (preserves context)
+   * categoryTruncate: "end"      // app.server.midd… (linear truncation)
+   * categoryTruncate: false      // app.server.middleware.auth.jwt (full)
+   * ```
+   *
+   * @default `"middle"` (smart context-preserving truncation)
+   */
+  categoryTruncate?: TruncationStrategy;
+
+  /**
+   * Color for log message text content.
+   *
+   * Controls the visual appearance of the actual log message content.
+   * Does not affect structured values, which use syntax highlighting.
+   *
+   * @example
+   * ```typescript
+   * messageColor: "#ffffff"        // White message text
+   * messageColor: "green"          // Green message text
+   * messageColor: "rgb(200,200,200)" // Light gray message text
+   * messageColor: null             // No coloring
+   * ```
+   *
+   * @default `"rgb(148,163,184)"` (light slate gray)
+   */
+  messageColor?: Color;
+
+  /**
+   * Visual style applied to log message text.
+   *
+   * Controls the appearance of the log message content.
+   * Supports single styles, multiple styles combined, or no styling.
+   * Applied in addition to `messageColor`.
+   *
+   * @example
+   * ```typescript
+   * messageStyle: "dim"                      // Single style: dimmed message text
+   * messageStyle: "italic"                   // Single style: italic message text
+   * messageStyle: ["dim", "italic"]          // Multiple styles: dimmed + italic
+   * messageStyle: ["bold", "underline"]      // Multiple styles: bold + underlined
+   * messageStyle: null                       // No additional styling
+   * ```
+   *
+   * @default `"dim"` (dimmed for subtle readability)
+   */
+  messageStyle?: Style;
+
+  /**
+   * Global color control for the entire formatter.
+   *
+   * Master switch to enable/disable all color output.
+   * When disabled, produces clean monochrome output suitable for
+   * non-color terminals or when colors are not desired.
+   *
+   * @example
+   * ```typescript
+   * colors: true     // Full color output (default)
+   * colors: false    // Monochrome output only
+   * ```
+   *
+   * @default `true` (colors enabled)
+   */
+  colors?: boolean;
+
+  /**
+   * Column alignment for consistent visual layout.
+   *
+   * When enabled, ensures all log components (icons, levels, categories)
+   * align consistently across multiple log entries, creating a clean
+   * tabular appearance.
+   *
+   * @example
+   * ```typescript
+   * align: true      // Aligned columns (default)
+   * align: false     // Compact, non-aligned output
+   * ```
+   *
+   * @default `true` (alignment enabled)
+   */
+  align?: boolean;
+
+  /**
+   * Configuration for structured value inspection and rendering.
+   *
+   * Controls how objects, arrays, and other complex values are displayed
+   * within log messages. Uses Node.js `util.inspect()` style options.
+   *
+   * @example
+   * ```typescript
+   * inspectOptions: {
+   *   depth: 3,         // Show 3 levels of nesting
+   *   colors: false,    // Disable value syntax highlighting
+   *   compact: true,    // Use compact object display
+   * }
+   * ```
+   *
+   * @default `{}` (use built-in defaults: depth=unlimited, colors=auto, compact=true)
+   */
+  inspectOptions?: {
+    /**
+     * Maximum depth to traverse when inspecting nested objects.
+     * @default Infinity (no depth limit)
+     */
+    depth?: number;
+    /**
+     * Whether to use syntax highlighting colors for inspected values.
+     * @default Inherited from global `colors` setting
+     */
+    colors?: boolean;
+    /**
+     * Whether to use compact formatting for objects and arrays.
+     * @default `true` (compact formatting)
+     */
+    compact?: boolean;
+  };
+
+  /**
+   * Enable word wrapping for long messages.
+   *
+   * When enabled, long messages will be wrapped at the specified width,
+   * with continuation lines aligned to the message column position.
+   *
+   * @example
+   * ```typescript
+   * // Basic word wrapping at 80 characters
+   * wordWrap: true
+   *
+   * // Custom wrap width
+   * wordWrap: 120
+   *
+   * // Disable word wrapping (default)
+   * wordWrap: false
+   * ```
+   *
+   * @default `false` (no word wrapping)
+   * @since 1.0.0
+   */
+  wordWrap?: boolean | number;
+}
+
+/**
+ * Creates a beautiful console formatter optimized for local development.
+ *
+ * This formatter provides a Signale-inspired visual design with colorful icons,
+ * smart category truncation, dimmed styling, and perfect column alignment.
+ * It's specifically designed for development environments that support true colors
+ * and Unicode characters.
+ *
+ * The formatter features:
+ * - Emoji icons for each log level (🔍 trace, 🐛 debug, ✨ info, etc.)
+ * - True color support with rich color schemes
+ * - Intelligent category truncation for long hierarchical categories
+ * - Optional timestamp display with multiple formats
+ * - Configurable alignment and styling options
+ * - Enhanced value rendering with syntax highlighting
+ *
+ * @param options Configuration options for customizing the formatter behavior.
+ * @returns A text formatter function that can be used with LogTape sinks.
+ *
+ * @example
+ * ```typescript
+ * import { configure } from "@logtape/logtape";
+ * import { getConsoleSink } from "@logtape/logtape";
+ * import { getPrettyFormatter } from "@logtape/pretty";
+ *
+ * await configure({
+ *   sinks: {
+ *     console: getConsoleSink({
+ *       formatter: getPrettyFormatter({
+ *         timestamp: "time",
+ *         categoryWidth: 25,
+ *         icons: {
+ *           info: "📘",
+ *           error: "🔥"
+ *         }
+ *       })
+ *     })
+ *   }
+ * });
+ * ```
+ *
+ * @since 1.0.0
+ */
+export function getPrettyFormatter(
+  options: PrettyFormatterOptions = {},
+): TextFormatter {
+  // Extract options with defaults
+  const {
+    timestamp = "none",
+    timestampColor = "rgb(100,116,139)",
+    timestampStyle = "dim",
+    level: levelFormat = "full",
+    levelColors = {},
+    levelStyle = "underline",
+    icons = true,
+    categorySeparator = "·",
+    categoryColor = "rgb(100,116,139)",
+    categoryColorMap = new Map(),
+    categoryStyle = ["dim", "italic"],
+    categoryWidth = 20,
+    categoryTruncate = "middle",
+    messageColor = "rgb(148,163,184)",
+    messageStyle = "dim",
+    colors: useColors = true,
+    align = true,
+    inspectOptions = {},
+    wordWrap = false,
+  } = options;
+
+  // Resolve icons
+  const iconMap: Record<LogLevel, string> = icons === false
+    ? { trace: "", debug: "", info: "", warning: "", error: "", fatal: "" }
+    : icons === true
+    ? defaultIcons
+    : { ...defaultIcons, ...(icons as Partial<Record<LogLevel, string>>) };
+
+  // Resolve level colors with defaults
+  const resolvedLevelColors: Record<LogLevel, Color> = {
+    trace: defaultColors.trace,
+    debug: defaultColors.debug,
+    info: defaultColors.info,
+    warning: defaultColors.warning,
+    error: defaultColors.error,
+    fatal: defaultColors.fatal,
+    ...levelColors,
+  };
+
+  // Level formatter function
+  const formatLevel = (level: LogLevel): string => {
+    if (typeof levelFormat === "function") {
+      return levelFormat(level);
+    }
+    switch (levelFormat) {
+      case "ABBR":
+        return {
+          trace: "TRC",
+          debug: "DBG",
+          info: "INF",
+          warning: "WRN",
+          error: "ERR",
+          fatal: "FTL",
+        }[level];
+      case "FULL":
+        return level.toUpperCase();
+      case "L":
+        return {
+          trace: "T",
+          debug: "D",
+          info: "I",
+          warning: "W",
+          error: "E",
+          fatal: "F",
+        }[level];
+      case "abbr":
+        return {
+          trace: "trc",
+          debug: "dbg",
+          info: "inf",
+          warning: "wrn",
+          error: "err",
+          fatal: "ftl",
+        }[level];
+      case "full":
+        return level;
+      case "l":
+        return {
+          trace: "t",
+          debug: "d",
+          info: "i",
+          warning: "w",
+          error: "e",
+          fatal: "f",
+        }[level];
+      default:
+        return level;
+    }
+  };
+
+  // Resolve timestamp formatter - support all TextFormatterOptions formats
+  let timestampFn: ((ts: number) => string | null) | null = null;
+  if (timestamp === "none" || timestamp === "disabled") {
+    timestampFn = null;
+  } else if (timestamp === "date-time-timezone") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace("T", " ").replace("Z", " +00:00");
+    };
+  } else if (timestamp === "date-time-tz") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace("T", " ").replace("Z", " +00");
+    };
+  } else if (timestamp === "date-time") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace("T", " ").replace("Z", "");
+    };
+  } else if (timestamp === "time-timezone") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace(/.*T/, "").replace("Z", " +00:00");
+    };
+  } else if (timestamp === "time-tz") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace(/.*T/, "").replace("Z", " +00");
+    };
+  } else if (timestamp === "time") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace(/.*T/, "").replace("Z", "");
+    };
+  } else if (timestamp === "date") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString().replace(/T.*/, "");
+    };
+  } else if (timestamp === "rfc3339") {
+    timestampFn = (ts: number) => {
+      const date = new Date(ts);
+      return date.toISOString();
+    };
+  } else if (typeof timestamp === "function") {
+    timestampFn = timestamp;
+  }
+
+  // Configure word wrap settings
+  const wordWrapEnabled = wordWrap !== false;
+  const wordWrapWidth = typeof wordWrap === "number" ? wordWrap : 80;
+
+  // Prepare category color patterns for matching
+  const categoryPatterns = prepareCategoryPatterns(categoryColorMap);
+
+  // Calculate level width based on format
+  const allLevels: LogLevel[] = [
+    "trace",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "fatal",
+  ];
+  const levelWidth = Math.max(...allLevels.map((l) => formatLevel(l).length));
+
+  return (record: LogRecord): string => {
+    // Format message with values - handle color reset/reapply for interpolated values
+    let message = "";
+    const messageColorCode = useColors ? colorToAnsi(messageColor) : "";
+    const messageStyleCode = useColors ? styleToAnsi(messageStyle) : "";
+    const messagePrefix = useColors
+      ? `${messageStyleCode}${messageColorCode}`
+      : "";
+
+    for (let i = 0; i < record.message.length; i++) {
+      if (i % 2 === 0) {
+        message += record.message[i];
+      } else {
+        const value = record.message[i];
+        const inspected = inspect(value, {
+          colors: useColors,
+          ...inspectOptions,
+        });
+        // Reset formatting before interpolated value, then reapply after
+        if (useColors && (messageColorCode || messageStyleCode)) {
+          message += `${RESET}${inspected}${messagePrefix}`;
+        } else {
+          message += inspected;
+        }
+      }
+    }
+
+    // Format parts
+    const icon = iconMap[record.level] || "";
+    const level = formatLevel(record.level);
+    const categoryStr = truncateCategory(
+      record.category,
+      typeof categoryWidth === "number" ? categoryWidth : 30,
+      categorySeparator,
+      categoryTruncate,
+    );
+
+    // Determine category color (with prefix matching)
+    const finalCategoryColor = useColors
+      ? (matchCategoryColor(record.category, categoryPatterns) || categoryColor)
+      : null;
+
+    // Apply colors and styling
+    const formattedIcon = icon;
+    let formattedLevel = level;
+    let formattedCategory = categoryStr;
+    let formattedMessage = message;
+    let formattedTimestamp = "";
+
+    if (useColors) {
+      // Apply level color and style
+      const levelColorCode = colorToAnsi(resolvedLevelColors[record.level]);
+      const levelStyleCode = styleToAnsi(levelStyle);
+      formattedLevel = `${levelStyleCode}${levelColorCode}${level}${RESET}`;
+
+      // Apply category color and style (with prefix matching)
+      const categoryColorCode = colorToAnsi(finalCategoryColor);
+      const categoryStyleCode = styleToAnsi(categoryStyle);
+      formattedCategory =
+        `${categoryStyleCode}${categoryColorCode}${categoryStr}${RESET}`;
+
+      // Apply message color and style (already handled in message building above)
+      formattedMessage = `${messagePrefix}${message}${RESET}`;
+    }
+
+    // Format timestamp if needed
+    if (timestampFn) {
+      const ts = timestampFn(record.timestamp);
+      if (ts !== null) {
+        if (useColors) {
+          const timestampColorCode = colorToAnsi(timestampColor);
+          const timestampStyleCode = styleToAnsi(timestampStyle);
+          formattedTimestamp =
+            `${timestampStyleCode}${timestampColorCode}${ts}${RESET}  `;
+        } else {
+          formattedTimestamp = `${ts}  `;
+        }
+      }
+    }
+
+    // Build the final output with alignment
+    if (align) {
+      // Calculate padding accounting for ANSI escape sequences
+      const levelColorLength = useColors
+        ? (colorToAnsi(resolvedLevelColors[record.level]).length +
+          styleToAnsi(levelStyle).length + RESET.length)
+        : 0;
+      const categoryColorLength = useColors
+        ? (colorToAnsi(finalCategoryColor).length +
+          styleToAnsi(categoryStyle).length + RESET.length)
+        : 0;
+
+      const paddedLevel = formattedLevel.padEnd(levelWidth + levelColorLength);
+      const paddedCategory = formattedCategory.padEnd(
+        (typeof categoryWidth === "number" ? categoryWidth : 30) +
+          categoryColorLength,
+      );
+
+      let result =
+        `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
+
+      // Apply word wrapping if enabled
+      if (wordWrapEnabled) {
+        result = wrapText(result, wordWrapWidth, message);
+      }
+
+      return result + "\n";
+    } else {
+      let result =
+        `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
+
+      // Apply word wrapping if enabled
+      if (wordWrapEnabled) {
+        result = wrapText(result, wordWrapWidth, message);
+      }
+
+      return result + "\n";
+    }
+  };
+}
+
+/**
+ * A pre-configured beautiful console formatter for local development.
+ *
+ * This is a ready-to-use instance of the pretty formatter with sensible defaults
+ * for most development scenarios. It provides immediate visual enhancement to
+ * your logs without requiring any configuration.
+ *
+ * Features enabled by default:
+ * - Emoji icons for all log levels
+ * - True color support with rich color schemes
+ * - Dimmed text styling for better readability
+ * - Smart category truncation (20 characters max)
+ * - Perfect column alignment
+ * - No timestamp display (cleaner for development)
+ *
+ * For custom configuration, use {@link getPrettyFormatter} instead.
+ *
+ * @example
+ * ```typescript
+ * import { configure } from "@logtape/logtape";
+ * import { getConsoleSink } from "@logtape/logtape";
+ * import { prettyFormatter } from "@logtape/pretty";
+ *
+ * await configure({
+ *   sinks: {
+ *     console: getConsoleSink({
+ *       formatter: prettyFormatter
+ *     })
+ *   }
+ * });
+ * ```
+ *
+ * @since 1.0.0
+ */
+export const prettyFormatter: TextFormatter = getPrettyFormatter();
