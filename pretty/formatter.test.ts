@@ -525,9 +525,9 @@ test("Word wrapping disabled by default", () => {
   assertStringIncludes(lines[0], longMessage);
 });
 
-test("Word wrapping with default width (80)", () => {
+test("Word wrapping with 80", () => {
   const formatter = getPrettyFormatter({
-    wordWrap: true,
+    wordWrap: 80,
     colors: false,
     align: false,
   });
@@ -655,6 +655,34 @@ test("getPrettyFormatter() with consistent icon spacing", () => {
       warningIndent,
       errorIndent,
       "Warning and error should have same indentation",
+    );
+  }
+});
+
+test("getPrettyFormatter() with automatic width detection", () => {
+  const formatter = getPrettyFormatter({
+    wordWrap: true, // Auto-detect width
+    colors: false,
+  });
+
+  const longMessage =
+    "This is a long message that should wrap at the detected terminal width";
+  const record = createLogRecord("info", ["test"], [longMessage]);
+  const result = formatter(record);
+
+  // Should have wrapped at some reasonable width
+  const lines = result.split("\n").filter((line) => line.length > 0);
+  assert(lines.length >= 1, "Should have at least one line");
+
+  // If wrapping occurred, continuation lines should be properly indented
+  if (lines.length > 1) {
+    const firstLine = lines[0];
+    const continuationLine = lines[1];
+
+    assert(firstLine.includes("✨"), "First line should contain icon");
+    assert(
+      continuationLine.startsWith(" "),
+      "Continuation line should be indented",
     );
   }
 });

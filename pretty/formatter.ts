@@ -8,6 +8,7 @@ import { inspect as nodeInspect } from "node:util";
 import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
 import { wrapText } from "./wordwrap.ts";
 import { getDisplayWidth } from "./wcwidth.ts";
+import { getOptimalWordWrapWidth } from "./terminal.ts";
 
 /**
  * ANSI escape codes for styling
@@ -604,9 +605,14 @@ export interface PrettyFormatterOptions
    * When enabled, long messages will be wrapped at the specified width,
    * with continuation lines aligned to the message column position.
    *
+   * - `true`: Auto-detect terminal width when attached to a terminal,
+   *   fallback to 80 columns when not in a terminal or detection fails
+   * - `number`: Use the specified width in columns
+   * - `false`: Disable word wrapping
+   *
    * @example
    * ```typescript
-   * // Basic word wrapping at 80 characters
+   * // Auto-detect terminal width (recommended)
    * wordWrap: true
    *
    * // Custom wrap width
@@ -813,7 +819,16 @@ export function getPrettyFormatter(
 
   // Configure word wrap settings
   const wordWrapEnabled = wordWrap !== false;
-  const wordWrapWidth = typeof wordWrap === "number" ? wordWrap : 80;
+  let wordWrapWidth: number;
+
+  if (typeof wordWrap === "number") {
+    wordWrapWidth = wordWrap;
+  } else if (wordWrap === true) {
+    // Auto-detect terminal width
+    wordWrapWidth = getOptimalWordWrapWidth(80);
+  } else {
+    wordWrapWidth = 80; // Default fallback
+  }
 
   // Prepare category color patterns for matching
   const categoryPatterns = prepareCategoryPatterns(categoryColorMap);

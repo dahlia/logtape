@@ -1,12 +1,11 @@
-import type { TsDownConfig } from "@alcalzone/tsdown";
+import { defineConfig } from "tsdown";
 
-const config: TsDownConfig = {
-  entryPoints: ["./mod.ts"],
-  outDir: "./dist",
-  formats: ["esm", "cjs"],
+export default defineConfig({
+  entry: "mod.ts",
+  dts: {
+    sourcemap: true,
+  },
+  format: ["esm", "cjs"],
   platform: "node",
-  target: "es2022",
-  declaration: true,
-};
-
-export default config;
+  unbundle: true,
+});
