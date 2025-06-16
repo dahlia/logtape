@@ -187,7 +187,7 @@ test("getPrettyFormatter() all log levels", () => {
     "error",
     "fatal",
   ];
-  const expectedIcons = ["🔍", "🐛", "✨", "⚠️", "❌", "💀"];
+  const expectedIcons = ["🔍", "🐛", "✨", "⚡", "❌", "💀"];
 
   levels.forEach((level, i) => {
     const record = createLogRecord(level, ["test"], [`${level} message`]);
@@ -212,7 +212,7 @@ test("getPrettyFormatter() alignment", () => {
   // With alignment, warning (longer) should have more padding before the category
   // Just check that both outputs contain the expected content
   assertMatch(outputs[0], /✨ info.*app.*Short/); // Default level format is "full"
-  assertMatch(outputs[1], /⚠️.*warning.*app.*Longer level/); // Default level format is "full"
+  assertMatch(outputs[1], /⚡.*warning.*app.*Longer level/); // Default level format is "full"
 });
 
 test("getPrettyFormatter() no alignment", () => {
@@ -599,4 +599,62 @@ test("Word wrapping with proper indentation", () => {
     contentLines.length >= 2,
     "Should have at least 2 lines from wrapping",
   );
+});
+
+test("getPrettyFormatter() with consistent icon spacing", () => {
+  // Test with custom icons of different display widths
+  const formatter = getPrettyFormatter({
+    icons: {
+      info: "ℹ️", // 2 width emoji
+      warning: "!", // 1 width character
+      error: "🚨🚨", // 4 width (2 emojis)
+    },
+    colors: false,
+    align: true,
+    wordWrap: 50,
+  });
+
+  const longMessage = "This is a long message that should wrap consistently";
+
+  const infoRecord = createLogRecord("info", ["test"], [longMessage]);
+  const warningRecord = createLogRecord("warning", ["test"], [longMessage]);
+  const errorRecord = createLogRecord("error", ["test"], [longMessage]);
+
+  const infoResult = formatter(infoRecord);
+  const warningResult = formatter(warningRecord);
+  const errorResult = formatter(errorRecord);
+
+  // Split into lines and get continuation lines
+  const infoLines = infoResult.split("\n").filter((line) => line.length > 0);
+  const warningLines = warningResult.split("\n").filter((line) =>
+    line.length > 0
+  );
+  const errorLines = errorResult.split("\n").filter((line) => line.length > 0);
+
+  // All should have multiple lines due to wrapping
+  assert(infoLines.length > 1, "Info should wrap to multiple lines");
+  assert(warningLines.length > 1, "Warning should wrap to multiple lines");
+  assert(errorLines.length > 1, "Error should wrap to multiple lines");
+
+  // Check that continuation lines are indented to the same position
+  // despite different icon widths
+  if (
+    infoLines.length > 1 && warningLines.length > 1 && errorLines.length > 1
+  ) {
+    const infoIndent = infoLines[1].search(/\S/);
+    const warningIndent = warningLines[1].search(/\S/);
+    const errorIndent = errorLines[1].search(/\S/);
+
+    // All continuation lines should start at the same position
+    assertEquals(
+      infoIndent,
+      warningIndent,
+      "Info and warning should have same indentation",
+    );
+    assertEquals(
+      warningIndent,
+      errorIndent,
+      "Warning and error should have same indentation",
+    );
+  }
 });

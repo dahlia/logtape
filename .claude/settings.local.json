@@ -35,7 +35,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(rg:*)",
       "Bash(ls)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ]
   },
   "enableAllProjectMcpServers": false

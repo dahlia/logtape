@@ -7,6 +7,7 @@ import type {
 import { inspect as nodeInspect } from "node:util";
 import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
 import { wrapText } from "./wordwrap.ts";
+import { getDisplayWidth } from "./wcwidth.ts";
 
 /**
  * ANSI escape codes for styling
@@ -196,10 +197,43 @@ const defaultIcons: Record<LogLevel, string> = {
   trace: "🔍",
   debug: "🐛",
   info: "✨",
-  warning: "⚠️ ",
+  warning: "⚡",
   error: "❌",
   fatal: "💀",
 };
+
+/**
+ * Normalize icon spacing to ensure consistent column alignment.
+ *
+ * All icons will be padded with spaces to match the width of the widest icon,
+ * ensuring consistent prefix alignment across all log levels.
+ *
+ * @param iconMap The icon mapping to normalize
+ * @returns A new icon map with consistent spacing
+ */
+function normalizeIconSpacing(
+  iconMap: Record<LogLevel, string>,
+): Record<LogLevel, string> {
+  // Calculate the maximum display width among all icons
+  const maxWidth = Math.max(
+    ...Object.values(iconMap).map((icon) => getDisplayWidth(icon)),
+  );
+
+  // Normalize each icon to the maximum width by adding spaces
+  const normalizedMap: Record<LogLevel, string> = {} as Record<
+    LogLevel,
+    string
+  >;
+  for (
+    const [level, icon] of Object.entries(iconMap) as Array<[LogLevel, string]>
+  ) {
+    const currentWidth = getDisplayWidth(icon);
+    const spacesToAdd = maxWidth - currentWidth;
+    normalizedMap[level] = icon + " ".repeat(spacesToAdd);
+  }
+
+  return normalizedMap;
+}
 
 /**
  * Platform-specific inspect function. Uses Node.js `util.inspect()` which
@@ -658,11 +692,14 @@ export function getPrettyFormatter(
   } = options;
 
   // Resolve icons
-  const iconMap: Record<LogLevel, string> = icons === false
+  const baseIconMap: Record<LogLevel, string> = icons === false
     ? { trace: "", debug: "", info: "", warning: "", error: "", fatal: "" }
     : icons === true
     ? defaultIcons
     : { ...defaultIcons, ...(icons as Partial<Record<LogLevel, string>>) };
+
+  // Normalize icon spacing for consistent alignment
+  const iconMap = normalizeIconSpacing(baseIconMap);
 
   // Resolve level colors with defaults
   const resolvedLevelColors: Record<LogLevel, Color> = {
