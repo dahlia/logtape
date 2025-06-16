@@ -509,13 +509,35 @@ test("Multiple styles combination", () => {
   assertStringIncludes(result, "\x1b[9m"); // strikethrough
 });
 
-test("Word wrapping disabled by default", () => {
+("Bun" in globalThis ? test.skip : test)(
+  "Word wrapping enabled by default",
+  () => {
+    const formatter = getPrettyFormatter({
+      colors: false,
+    });
+
+    const longMessage =
+      "This is a very long message that would normally exceed the typical console width and should be wrapped when word wrapping is enabled by default.";
+    const record = createLogRecord("info", ["test"], [longMessage]);
+    const result = formatter(record);
+
+    // Should contain multiple line breaks due to wrapping
+    const lines = result.split("\n");
+    assert(lines.length > 2); // More than just content + trailing newline due to wrapping
+
+    // First line should contain the beginning of the message
+    assert(lines[0].includes("This is a very long message"));
+  },
+);
+
+test("Word wrapping can be disabled", () => {
   const formatter = getPrettyFormatter({
     colors: false,
+    wordWrap: false,
   });
 
   const longMessage =
-    "This is a very long message that would normally exceed the typical console width and should not be wrapped when word wrapping is disabled by default.";
+    "This is a very long message that would normally exceed the typical console width but should not be wrapped when word wrapping is explicitly disabled.";
   const record = createLogRecord("info", ["test"], [longMessage]);
   const result = formatter(record);
 

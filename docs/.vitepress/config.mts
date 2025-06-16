@@ -27,6 +27,12 @@ const jsrRef_otel = await jsrRef({
   cachePath: ".jsr-cache-otel.json",
 });
 
+const jsrRef_pretty = await jsrRef({
+  package: "@logtape/pretty",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-pretty.json",
+});
+
 const jsrRef_redaction = await jsrRef({
   package: "@logtape/redaction",
   version: jsrRefVersion,
@@ -171,6 +177,7 @@ export default defineConfig({
       md.use(jsrRef_logtape);
       md.use(jsrRef_file);
       md.use(jsrRef_otel);
+      md.use(jsrRef_pretty);
       md.use(jsrRef_redaction);
       md.use(jsrRef_sentry);
       md.use(jsrRef_syslog);

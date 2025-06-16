@@ -66,6 +66,82 @@ It formats log records like this:
 
 [JSON Lines]: https://jsonlines.org/
 
+### Pretty formatter
+
+*This API is available since LogTape 1.0.0.*
+
+The pretty formatter provides a beautiful, development-friendly console output
+with colorful icons, smart truncation, and perfect alignment. It's inspired by
+[Signale] and specifically designed for local development environments that
+support true colors and Unicode characters.
+
+To use the pretty formatter, you need to install the *@logtape/pretty* package:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/pretty
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/pretty
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/pretty
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/pretty
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/pretty
+~~~~
+
+:::
+
+The package provides a pre-configured `prettyFormatter` for immediate use:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getConsoleSink } from "@logtape/logtape/sink";
+import { prettyFormatter } from "@logtape/pretty";
+
+await configure({
+  sinks: {
+    console: getConsoleSink({ formatter: prettyFormatter }),
+  },
+  loggers: [
+    { category: [], sinks: ["console"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+It formats log records like this:
+
+~~~~ ansi
+✨ [4m[38;2;52;211;153minfo[0m    [2m[3m[38;2;100;116;139mlogtape·meta[0m         [2m[38;2;148;163;184mLogTape loggers are configured.  Note that LogTape itself uses the
+                                meta logger, which has category [0m[ [32m'logtape'[39m, [32m'meta'[39m ][2m[38;2;148;163;184m.  The meta
+                                logger purposes to log internal errors such as sink exceptions.  If
+                                you are seeing this message, the meta logger is automatically
+                                configured.  It's recommended to configure the meta logger with a
+                                separate sink so that you can easily notice if logging itself fails
+                                or is misconfigured.  To turn off this message, configure the meta
+                                logger with higher log levels than [0m[32m'info'[39m[2m[38;2;148;163;184m.  See also
+                                <https://logtape.org/manual/categories#meta-logger>.[0m
+🔍 [4m[38;2;167;139;250mtrace[0m   [2m[3m[38;2;100;116;139mmyapp·module[0m         [2m[38;2;148;163;184mThis is a trace log.[0m
+🐛 [4m[38;2;96;165;250mdebug[0m   [2m[3m[38;2;100;116;139mmyapp·module[0m         [2m[38;2;148;163;184mThis is a debug log with value: [0m{ foo: [33m123[39m }[2m[38;2;148;163;184m[0m
+✨ [4m[38;2;52;211;153minfo[0m    [2m[3m[38;2;100;116;139mmyapp[0m                [2m[38;2;148;163;184mThis is a very long informational log[0m
+⚡ [4m[38;2;251;191;36mwarning[0m [2m[3m[38;2;100;116;139mmyapp[0m                [2m[38;2;148;163;184mThis is a warning.[0m
+❌ [4m[38;2;248;113;113merror[0m   [2m[3m[38;2;100;116;139mmyapp·module[0m         [2m[38;2;148;163;184mThis is an error with exception: [0mError: This is an exception.[2m[38;2;148;163;184m
+                                    at file:///tmp/test.ts:23:10[2m[38;2;148;163;184m[0m
+💀 [4m[38;2;220;38;38mfatal[0m   [2m[3m[38;2;100;116;139mmyapp[0m                [2m[38;2;148;163;184mThis is a fatal error.[0m
+~~~~
+
+
+[Signale]: https://github.com/klaudiosinani/signale
+
 
 Configuring text formatters
 ---------------------------
@@ -302,6 +378,173 @@ The properties format. This can be one of the following:
     `properties` key).
 
 The default is `"nest:properties"`.
+
+### Pretty formatter
+
+*This API is available since LogTape 1.0.0.*
+
+You can customize the pretty formatter by calling the `getPrettyFormatter()`
+function with a `PrettyFormatterOptions` object. This formatter requires the
+*@logtape/pretty* package to be installed.
+
+#### `~PrettyFormatterOptions.timestamp`
+
+The timestamp format. The available options are the same as the
+[`timestamp`](#textformatteroptions-timestamp) option of the default text
+formatter.
+
+The default is `"none"`.
+
+#### `~PrettyFormatterOptions.timestampColor`
+
+The color for timestamp display. Supports true color RGB values, hex colors,
+or ANSI color names. Set to `null` to disable timestamp coloring.
+
+Examples: `"#888888"`, `"rgb(128,128,128)"`, `"cyan"`, `null`.
+
+The default is `"rgb(100,116,139)"`.
+
+#### `~PrettyFormatterOptions.timestampStyle`
+
+The visual style applied to timestamp text. Controls text appearance like
+boldness, dimming, etc. Supports single styles, multiple styles combined,
+or no styling.
+
+Examples: `"dim"`, `"bold"`, `["bold", "underline"]`, `["dim", "italic"]`, `null`.
+
+The default is `"dim"`.
+
+#### `~PrettyFormatterOptions.icons`
+
+Icon configuration for each log level. Controls the emoji/symbol displayed
+before each log entry.
+
+ - `true`: Use built-in emoji set (🔍 trace, 🐛 debug, ✨ info, ⚡ warning, ❌ error, 💀 fatal)
+ - `false`: Disable all icons
+ - Object: Custom icon mapping (e.g., `{ info: "📘", error: "🔥" }`)
+
+The default is `true`.
+
+#### `~PrettyFormatterOptions.levelColors`
+
+Custom colors for each log level. Allows fine-grained control over level
+appearance. Each level can have its own color scheme.
+
+Example: `{ info: "#00ff00", error: "#ff0000", warning: "orange", debug: null }`.
+
+The default uses a built-in color scheme.
+
+#### `~PrettyFormatterOptions.levelStyle`
+
+Visual style applied to log level text. Controls the appearance of the level
+indicator (e.g., "info", "error").
+
+Examples: `"bold"`, `"underline"`, `["bold", "underline"]`, `null`.
+
+The default is `"underline"`.
+
+#### `~PrettyFormatterOptions.categorySeparator`
+
+Character(s) used to separate category hierarchy levels. Categories are
+hierarchical and this separator joins them for display.
+
+Examples: `"·"`, `"."`, `":"`, `" > "`, `"::"`.
+
+The default is `"·"`.
+
+#### `~PrettyFormatterOptions.categoryWidth`
+
+Maximum display width for category names. Controls layout consistency by
+limiting category width. Long categories are truncated according to
+`categoryTruncate` strategy.
+
+The default is `20`.
+
+#### `~PrettyFormatterOptions.categoryTruncate`
+
+Strategy for truncating long category names when they exceed `categoryWidth`.
+
+ - `"middle"`: Keep first and last parts (e.g., `"app…middleware"`)
+ - `"end"`: Truncate at end (e.g., `"app·server·http…"`)
+ - `false`: No truncation
+
+The default is `"middle"`.
+
+#### `~PrettyFormatterOptions.categoryColor`
+
+Default color for category display. Used as fallback when no specific color
+is found in `categoryColorMap`.
+
+The default is `"rgb(100,116,139)"`.
+
+#### `~PrettyFormatterOptions.categoryColorMap`
+
+Category-specific color mapping based on prefixes. Maps category prefixes
+(as arrays) to colors for visual grouping. More specific (longer) prefixes
+take precedence over shorter ones.
+
+Example:
+~~~~ typescript
+new Map([
+  [["app", "auth"], "#ff6b6b"],     // app.auth.* -> red
+  [["app", "db"], "#4ecdc4"],       // app.db.* -> teal
+  [["app"], "#45b7d1"],             // app.* (fallback) -> blue
+])
+~~~~
+
+#### `~PrettyFormatterOptions.categoryStyle`
+
+Visual style applied to category text.
+
+The default is `["dim", "italic"]`.
+
+#### `~PrettyFormatterOptions.messageColor`
+
+Color for log message text content. Does not affect structured values,
+which use syntax highlighting.
+
+The default is `"rgb(148,163,184)"`.
+
+#### `~PrettyFormatterOptions.messageStyle`
+
+Visual style applied to log message text.
+
+The default is `"dim"`.
+
+#### `~PrettyFormatterOptions.colors`
+
+Global color control for the entire formatter. Master switch to enable/disable
+all color output. When disabled, produces clean monochrome output.
+
+The default is `true`.
+
+#### `~PrettyFormatterOptions.align`
+
+Column alignment for consistent visual layout. When enabled, ensures all log
+components align consistently across multiple log entries.
+
+The default is `true`.
+
+#### `~PrettyFormatterOptions.wordWrap`
+
+Text wrapping configuration. When enabled, long messages will be wrapped at
+the specified width, with continuation lines aligned to the message column.
+
+ - `true`: Auto-detect terminal width
+ - `false`: Disable wrapping
+ - Number: Custom wrap width in columns
+
+The default is `true`.
+
+#### `~PrettyFormatterOptions.inspectOptions`
+
+Configuration for structured value inspection and rendering. Controls how
+objects, arrays, and other complex values are displayed within log messages.
+
+Supported options:
+ - `depth`: Maximum depth to traverse when inspecting nested objects
+ - `colors`: Whether to use syntax highlighting colors for inspected values
+ - `compact`: Whether to use compact formatting for objects and arrays
 
 
 Pattern-based redaction

@@ -8,29 +8,6 @@ Version 1.0.0
 
 To be released.
 
- -  Added *@logtape/pretty* package for beautiful console formatting designed
-    for local development. [[#46]]
-
-     -  Added `getPrettyFormatter()` function to create visually appealing log
-        formatters with colorful icons, smart category truncation, and perfect
-        column alignment.
-     -  Added `prettyFormatter` constant for quick setup with sensible defaults.
-     -  Added `PrettyFormatterOptions` interface for extensive customization.
-     -  Features Signale-inspired design with emojis for each log level:
-        🔍 trace, 🐛 debug, ✨ info, ⚠️ warning, ❌ error, 💀 fatal.
-     -  Includes smart category truncation that preserves important context
-        while maintaining layout (e.g., "app.server...middleware").
-     -  Supports true color terminals with rich color schemes and dimmed text
-        for enhanced readability.
-     -  Provides optional timestamp display, custom icons, color control, and
-        flexible layout options.
-     -  Supports multiple text styles combination (e.g., `["bold", "underline"]`)
-        for level, category, message, and timestamp formatting.
-     -  Includes word wrapping feature with proper indentation alignment
-        to maintain visual consistency for long messages.
-     -  Optimized for development environments with focus on visual clarity
-        and developer experience.
-
  -  Added `getLogLevels()` function to retrieve all available log levels.
 
  -  Added `LogMethod` type for better type inference of logger methods.
@@ -89,14 +66,39 @@ To be released.
      -  Includes PowerShell-based test verification for actual Event Log
         integration.
 
+ -  Added *@logtape/pretty* package for beautiful console formatting designed
+    for local development. [[#46], [#51]]
+
+     -  Added `getPrettyFormatter()` function to create visually appealing log
+        formatters with colorful icons, smart category truncation, and perfect
+        column alignment.
+     -  Added `prettyFormatter` constant for quick setup with sensible defaults.
+     -  Added `PrettyFormatterOptions` interface for extensive customization.
+     -  Features Signale-inspired design with emojis for each log level:
+        🔍 trace, 🐛 debug, ✨ info, ⚠️ warning, ❌ error, 💀 fatal.
+     -  Includes smart category truncation that preserves important context
+        while maintaining layout (e.g., "app.server...middleware").
+     -  Supports true color terminals with rich color schemes and dimmed text
+        for enhanced readability.
+     -  Provides optional timestamp display, custom icons, color control, and
+        flexible layout options.
+     -  Supports multiple text styles combination (e.g., `["bold", "underline"]`)
+        for level, category, message, and timestamp formatting.
+     -  Includes word wrapping feature with proper indentation alignment
+        to maintain visual consistency for long messages.
+     -  Optimized for development environments with focus on visual clarity
+        and developer experience.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.
 
+[#46]: https://github.com/dahlia/logtape/issues/46
 [#47]: https://github.com/dahlia/logtape/issues/47
 [#48]: https://github.com/dahlia/logtape/issues/48
 [#49]: https://github.com/dahlia/logtape/pull/49
 [#50]: https://github.com/dahlia/logtape/pull/50
+[#51]: https://github.com/dahlia/logtape/pull/51
 
 
 Version 0.12.0

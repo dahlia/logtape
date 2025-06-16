@@ -90,6 +90,9 @@ importers:
       '@logtape/otel':
         specifier: 'workspace:'
         version: link:../otel
+      '@logtape/pretty':
+        specifier: 'workspace:'
+        version: link:../pretty
       '@logtape/redaction':
         specifier: 'workspace:'
         version: link:../redaction

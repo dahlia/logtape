@@ -286,7 +286,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"rgb(100,116,139)"` (slate gray)
    */
-  timestampColor?: Color;
+  readonly timestampColor?: Color;
 
   /**
    * Visual style applied to timestamp text.
@@ -306,7 +306,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"dim"`
    */
-  timestampStyle?: Style;
+  readonly timestampStyle?: Style;
 
   /**
    * Custom colors for each log level.
@@ -327,7 +327,7 @@ export interface PrettyFormatterOptions
    *
    * @default Built-in color scheme (purple trace, blue debug, green info, amber warning, red error, dark red fatal)
    */
-  levelColors?: Partial<Record<LogLevel, Color>>;
+  readonly levelColors?: Partial<Record<LogLevel, Color>>;
 
   /**
    * Visual style applied to log level text.
@@ -345,9 +345,9 @@ export interface PrettyFormatterOptions
    * levelStyle: null                      // No additional styling
    * ```
    *
-   * @default `null` (no additional styling)
+   * @default `"underline"`
    */
-  levelStyle?: Style;
+  readonly levelStyle?: Style;
 
   /**
    * Icon configuration for each log level.
@@ -372,7 +372,7 @@ export interface PrettyFormatterOptions
    *
    * @default `true` (use default emoji icons)
    */
-  icons?: boolean | Partial<Record<LogLevel, string>>;
+  readonly icons?: boolean | Partial<Record<LogLevel, string>>;
 
   /**
    * Character(s) used to separate category hierarchy levels.
@@ -391,7 +391,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"·"` (interpunct)
    */
-  categorySeparator?: string;
+  readonly categorySeparator?: string;
 
   /**
    * Default color for category display.
@@ -409,7 +409,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"rgb(100,116,139)"` (slate gray)
    */
-  categoryColor?: Color;
+  readonly categoryColor?: Color;
 
   /**
    * Category-specific color mapping based on prefixes.
@@ -428,7 +428,7 @@ export interface PrettyFormatterOptions
    * ])
    * ```
    */
-  categoryColorMap?: CategoryColorMap;
+  readonly categoryColorMap?: CategoryColorMap;
 
   /**
    * Visual style applied to category text.
@@ -448,7 +448,7 @@ export interface PrettyFormatterOptions
    *
    * @default `["dim", "italic"]` (dimmed for subtle appearance)
    */
-  categoryStyle?: Style;
+  readonly categoryStyle?: Style;
 
   /**
    * Maximum display width for category names.
@@ -456,19 +456,9 @@ export interface PrettyFormatterOptions
    * Controls layout consistency by limiting category width.
    * Long categories are truncated according to `categoryTruncate` strategy.
    *
-   * - Number: Fixed character width limit
-   * - `"auto"`: No width limit, categories display at full length
-   *
-   * @example
-   * ```typescript
-   * categoryWidth: 20           // Limit to 20 characters
-   * categoryWidth: 30           // Limit to 30 characters
-   * categoryWidth: "auto"       // No limit
-   * ```
-   *
-   * @default `20` (20 character limit)
+   * @default `20`
    */
-  categoryWidth?: number | "auto";
+  readonly categoryWidth?: number;
 
   /**
    * Strategy for truncating long category names.
@@ -489,7 +479,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"middle"` (smart context-preserving truncation)
    */
-  categoryTruncate?: TruncationStrategy;
+  readonly categoryTruncate?: TruncationStrategy;
 
   /**
    * Color for log message text content.
@@ -507,7 +497,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"rgb(148,163,184)"` (light slate gray)
    */
-  messageColor?: Color;
+  readonly messageColor?: Color;
 
   /**
    * Visual style applied to log message text.
@@ -527,7 +517,7 @@ export interface PrettyFormatterOptions
    *
    * @default `"dim"` (dimmed for subtle readability)
    */
-  messageStyle?: Style;
+  readonly messageStyle?: Style;
 
   /**
    * Global color control for the entire formatter.
@@ -544,7 +534,7 @@ export interface PrettyFormatterOptions
    *
    * @default `true` (colors enabled)
    */
-  colors?: boolean;
+  readonly colors?: boolean;
 
   /**
    * Column alignment for consistent visual layout.
@@ -561,7 +551,7 @@ export interface PrettyFormatterOptions
    *
    * @default `true` (alignment enabled)
    */
-  align?: boolean;
+  readonly align?: boolean;
 
   /**
    * Configuration for structured value inspection and rendering.
@@ -580,22 +570,24 @@ export interface PrettyFormatterOptions
    *
    * @default `{}` (use built-in defaults: depth=unlimited, colors=auto, compact=true)
    */
-  inspectOptions?: {
+  readonly inspectOptions?: {
     /**
      * Maximum depth to traverse when inspecting nested objects.
      * @default Infinity (no depth limit)
      */
-    depth?: number;
+    readonly depth?: number;
+
     /**
      * Whether to use syntax highlighting colors for inspected values.
      * @default Inherited from global `colors` setting
      */
-    colors?: boolean;
+    readonly colors?: boolean;
+
     /**
      * Whether to use compact formatting for objects and arrays.
      * @default `true` (compact formatting)
      */
-    compact?: boolean;
+    readonly compact?: boolean;
   };
 
   /**
@@ -621,10 +613,10 @@ export interface PrettyFormatterOptions
    * wordWrap: false
    * ```
    *
-   * @default `false` (no word wrapping)
+   * @default `true` (auto-detect terminal width)
    * @since 1.0.0
    */
-  wordWrap?: boolean | number;
+  readonly wordWrap?: boolean | number;
 }
 
 /**
@@ -649,7 +641,7 @@ export interface PrettyFormatterOptions
  * @example
  * ```typescript
  * import { configure } from "@logtape/logtape";
- * import { getConsoleSink } from "@logtape/logtape";
+ * import { getConsoleSink } from "@logtape/logtape/sink";
  * import { getPrettyFormatter } from "@logtape/pretty";
  *
  * await configure({
@@ -693,7 +685,7 @@ export function getPrettyFormatter(
     colors: useColors = true,
     align = true,
     inspectOptions = {},
-    wordWrap = false,
+    wordWrap = true,
   } = options;
 
   // Resolve icons
@@ -837,7 +829,7 @@ export function getPrettyFormatter(
     const level = formatLevel(record.level);
     const categoryStr = truncateCategory(
       record.category,
-      typeof categoryWidth === "number" ? categoryWidth : 30,
+      categoryWidth,
       categorySeparator,
       categoryTruncate,
     );
@@ -952,8 +944,7 @@ export function getPrettyFormatter(
 
       const paddedLevel = formattedLevel.padEnd(levelWidth + levelColorLength);
       const paddedCategory = formattedCategory.padEnd(
-        (typeof categoryWidth === "number" ? categoryWidth : 30) +
-          categoryColorLength,
+        categoryWidth + categoryColorLength,
       );
 
       let result =
@@ -1007,7 +998,7 @@ export function getPrettyFormatter(
  * @example
  * ```typescript
  * import { configure } from "@logtape/logtape";
- * import { getConsoleSink } from "@logtape/logtape";
+ * import { getConsoleSink } from "@logtape/logtape/sink";
  * import { prettyFormatter } from "@logtape/pretty";
  *
  * await configure({

@@ -1,44 +1,55 @@
-# @logtape/pretty
+<!-- deno-fmt-ignore-file -->
 
-Beautiful console formatter for [LogTape] - Perfect for local development!
+Beautiful text formatter for LogTape
+====================================
 
-[@logtape/pretty] provides a visually appealing formatter inspired by [Signale], designed to make your development logs easier to read and debug. With colorful icons, smart truncation, and perfect alignment, your logs have never looked better.
+[![JSR][JSR badge]][JSR]
+[![npm][npm badge]][npm]
 
-[LogTape]: https://github.com/dahlia/logtape
-[@logtape/pretty]: https://github.com/dahlia/logtape/tree/main/pretty
+Beautiful text formatter for [LogTape]—perfect for local development!
+This package provides a visually appealing formatter inspired by [Signale],
+designed to make your development logs easier to read and debug.
+
+[JSR]: https://jsr.io/@logtape/pretty
+[JSR badge]: https://jsr.io/badges/@logtape/pretty
+[npm]: https://www.npmjs.com/package/@logtape/pretty
+[npm badge]: https://img.shields.io/npm/v/@logtape/pretty?logo=npm
+[LogTape]: https://logtape.org/
 [Signale]: https://github.com/klaudiosinani/signale
 
-## Features
 
-- 🎨 **Beautiful Design**: Inspired by Signale with colorful icons and clean layout
-- 🌈 **True Color Support**: Rich colors for modern terminals
-- ✂️ **Smart Truncation**: Intelligent category truncation to maintain layout
-- 📐 **Perfect Alignment**: Columns align beautifully for easy scanning
-- 🎯 **Development Focused**: Optimized for local development experience
-- 🚀 **Zero Dependencies**: Lightweight and fast
+Features
+--------
 
-## Installation
+ -  *Beautiful design*: Inspired by Signale with colorful icons and clean layout
+ -  *True color support*: Rich colors for modern terminals
+ -  *Smart truncation*: Intelligent category truncation to maintain layout
+ -  *Perfect alignment*: Columns align beautifully for easy scanning
+ -  *Development focused*: Optimized for local development experience
+ -  *Word wrapping*: Automatic text wrapping with proper indentation
+ -  *Zero dependencies*: Lightweight and fast
 
-### Deno
-```typescript
-import { prettyFormatter } from "@logtape/pretty";
-```
 
-### Node.js
-```bash
-npm install @logtape/pretty
-```
+Installation
+------------
 
-### Bun
-```bash
-bun add @logtape/pretty
-```
+This package is available on [JSR] and [npm].  You can install it for various
+JavaScript runtimes and package managers:
 
-## Quick Start
+~~~~ sh
+deno add jsr:@logtape/pretty  # for Deno
+npm  add     @logtape/pretty  # for npm
+pnpm add     @logtape/pretty  # for pnpm
+yarn add     @logtape/pretty  # for Yarn
+bun  add     @logtape/pretty  # for Bun
+~~~~
 
-```typescript
-import { configure } from "@logtape/logtape";
-import { getConsoleSink } from "@logtape/logtape/sink";
+
+Quick start
+-----------
+
+~~~~ typescript
+import { configure, getConsoleSink, getLogger } from "@logtape/logtape";
 import { prettyFormatter } from "@logtape/pretty";
 
 await configure({
@@ -48,11 +59,7 @@ await configure({
     })
   },
   loggers: [
-    {
-      category: "my-app",
-      level: "debug",
-      sinks: ["console"]
-    }
+    { category: "my-app", lowestLevel: "debug", sinks: ["console"] }
   ]
 });
 
@@ -62,68 +69,77 @@ logger.info`Server started on port ${3000}`;
 logger.debug`Connected to database`;
 logger.warn`Cache size exceeding 80% capacity`;
 logger.error`Failed to process request: ${{ error: "timeout" }}`;
-```
+~~~~
 
-## Output Example
+Output example:
 
-```
-✨ info    my-app.server       Server started on port 3000
-🐛 debug   my-app.database     Connected to PostgreSQL
-⚠️  warn    my-app.cache        Cache size exceeding 80% capacity
-❌ error   my-app...handler    Failed to process request: { error: 'timeout' }
-```
+![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
 
-## Configuration
+~~~~
+✨ info    my-app               Server started on port 3000
+🐛 debug   my-app               Connected to database
+⚡ warning my-app               Cache size exceeding 80% capacity
+❌ error   my-app               Failed to process request: { error: 'timeout' }
+~~~~
 
-### Basic Options
 
-```typescript
+Configuration
+-------------
+
+### Basic options
+
+~~~~ typescript
 import { getPrettyFormatter } from "@logtape/pretty";
 
 const formatter = getPrettyFormatter({
   // Show timestamp
-  timestamp: "time",  // "time" | "datetime" | false
-  
+  timestamp: "time",  // "time" | "date-time" | "date" | "rfc3339" | etc.
+
   // Customize icons
   icons: {
-    info: "ℹ️ ",
+    info: "ℹ️",
     error: "🔥"
   },
-  
+
   // Control colors
   colors: true,
-  dimMessage: true,
-  dimCategory: true,
-  
+
   // Category display
   categoryWidth: 20,
-  categoryTruncate: "middle"  // "middle" | "end" | false
+  categoryTruncate: "middle",  // "middle" | "end" | false
+
+  // Word wrapping
+  wordWrap: true  // true | false | number
 });
-```
+~~~~
 
-### Timestamp Options
+### Timestamp options
 
-```typescript
+~~~~ typescript
 // No timestamp (default)
-getPrettyFormatter({ timestamp: false })
+getPrettyFormatter({ timestamp: "none" })
 
 // Time only (HH:MM:SS)
 getPrettyFormatter({ timestamp: "time" })
 // Output: 12:34:56  ✨ info    app    Message
 
 // Date and time
-getPrettyFormatter({ timestamp: "datetime" })
+getPrettyFormatter({ timestamp: "date-time" })
 // Output: 2024-01-15 12:34:56  ✨ info    app    Message
 
+// RFC 3339 format
+getPrettyFormatter({ timestamp: "rfc3339" })
+// Output: 2024-01-15T12:34:56.789Z  ✨ info    app    Message
+
 // Custom formatter
-getPrettyFormatter({ 
+getPrettyFormatter({
   timestamp: (ts) => new Date(ts).toLocaleTimeString()
 })
-```
+~~~~
 
-### Icon Customization
+### Icon customization
 
-```typescript
+~~~~ typescript
 // Disable all icons
 getPrettyFormatter({ icons: false })
 
@@ -133,7 +149,7 @@ getPrettyFormatter({
     info: "📘",
     warning: "🔶",
     error: "🚨",
-    fatal: "☠️ "
+    fatal: "☠️"
   }
 })
 
@@ -141,54 +157,110 @@ getPrettyFormatter({
 // trace: 🔍
 // debug: 🐛
 // info: ✨
-// warning: ⚠️
+// warning: ⚡
 // error: ❌
 // fatal: 💀
-```
+~~~~
 
-### Category Truncation
+### Category truncation
 
-```typescript
+~~~~ typescript
 // Fixed width with middle truncation (default)
 getPrettyFormatter({
   categoryWidth: 20,
   categoryTruncate: "middle"
 })
-// "app.server.http.middleware" → "app...middleware"
+// "app·server·http·middleware" → "app…middleware"
 
 // End truncation
 getPrettyFormatter({
   categoryWidth: 20,
   categoryTruncate: "end"
 })
-// "app.server.http.middleware" → "app.server.http..."
+// "app·server·http·middleware" → "app·server·http…"
 
 // No truncation
 getPrettyFormatter({
   categoryTruncate: false
 })
-```
 
-### Color Control
+// Custom category separator
+getPrettyFormatter({
+  categorySeparator: "."  // Default is "·"
+})
+~~~~
 
-```typescript
+### Color and style control
+
+~~~~ typescript
 // Disable colors (for CI/CD environments)
 getPrettyFormatter({ colors: false })
 
-// Control dimming
+// Customize colors
 getPrettyFormatter({
-  dimMessage: false,    // Full brightness messages
-  dimCategory: false    // Full brightness categories
+  timestampColor: "#888888",
+  levelColors: {
+    info: "#00ff00",
+    error: "#ff0000"
+  },
+  categoryColor: "rgb(100,150,200)",
+  messageColor: "#ffffff"
 })
-```
 
-## Advanced Usage
+// Apply styles
+getPrettyFormatter({
+  timestampStyle: "dim",
+  levelStyle: ["bold", "underline"],
+  categoryStyle: ["dim", "italic"],
+  messageStyle: "dim"
+})
 
-### Multiple Formatters
+// Category color mapping
+getPrettyFormatter({
+  categoryColorMap: new Map([
+    [["app", "auth"], "#ff6b6b"],     // app·auth·* -> red
+    [["app", "db"], "#4ecdc4"],       // app·db·* -> teal
+    [["app"], "#45b7d1"],             // app·* (fallback) -> blue
+    [["lib"], "#96ceb4"],             // lib·* -> green
+  ])
+})
+~~~~
+
+### Word wrapping
+
+~~~~ typescript
+// Auto-detect terminal width
+getPrettyFormatter({ wordWrap: true })
+
+// Custom wrap width
+getPrettyFormatter({ wordWrap: 120 })
+
+// Disable word wrapping
+getPrettyFormatter({ wordWrap: false })
+~~~~
+
+### Inspect options
+
+~~~~ typescript
+// Control how objects are displayed
+getPrettyFormatter({
+  inspectOptions: {
+    depth: 3,         // Show 3 levels of nesting
+    colors: false,    // Disable value syntax highlighting
+    compact: true,    // Use compact object display
+  }
+})
+~~~~
+
+
+Advanced usage
+--------------
+
+### Multiple formatters
 
 Use different formatters for different environments:
 
-```typescript
+~~~~ typescript
 import { configure } from "@logtape/logtape";
 import { getConsoleSink } from "@logtape/logtape/sink";
 import { prettyFormatter } from "@logtape/pretty";
@@ -203,34 +275,37 @@ await configure({
     })
   }
 });
-```
+~~~~
 
-### CI/CD Friendly
+### CI/CD friendly
 
 Automatically detect CI environments and adjust:
 
-```typescript
+~~~~ typescript
 const isCI = process.env.CI === "true";
 
 const formatter = getPrettyFormatter({
   colors: !isCI,
   icons: !isCI,
-  timestamp: isCI ? "datetime" : false
+  timestamp: isCI ? "date-time" : "none"
 });
-```
+~~~~
 
-## Design Philosophy
+
+Design philosophy
+-----------------
 
 @logtape/pretty is designed specifically for local development, prioritizing:
 
-- **Visual Clarity**: Easy to scan and find important information
-- **Minimal Noise**: Only show what's necessary
-- **Developer Joy**: Make logs beautiful and enjoyable to read
+ -  *Visual clarity*: Easy to scan and find important information
+ -  *Minimal noise*: Only show what's necessary
+ -  *Developer joy*: Make logs beautiful and enjoyable to read
 
-## License
 
-MIT © 2024 Hong Minhee
+Docs
+----
 
----
+For detailed documentation, see the [pretty formatter manual]. For the API
+references, see <https://jsr.io/@logtape/pretty>.
 
-Made with ❤️ for developers who appreciate beautiful logs.
+[pretty formatter manual]: https://logtape.org/manual/formatters#pretty-formatter
