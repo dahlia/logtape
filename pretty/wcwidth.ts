@@ -9,6 +9,10 @@
  * Based on Unicode 15.1.0 character width tables.
  */
 
+// Pre-compiled regex for ANSI escape sequences
+// deno-lint-ignore no-control-regex
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+
 /**
  * Remove all ANSI escape sequences from a string.
  *
@@ -16,7 +20,7 @@
  * @returns String with ANSI escape sequences removed
  */
 export function stripAnsi(text: string): string {
-  return text.replace(/\[[0-9;]*m/g, "");
+  return text.replace(ANSI_PATTERN, "");
 }
 
 /**
@@ -85,6 +89,208 @@ export function wcwidth(code: number): number {
   return 1;
 }
 
+// Zero-width character ranges (sorted for binary search)
+const ZERO_WIDTH_RANGES: Array<[number, number]> = [
+  [0x0300, 0x036F], // Combining Diacritical Marks
+  [0x0483, 0x0489], // Hebrew combining marks
+  [0x0591, 0x05BD], // Arabic combining marks
+  [0x05C1, 0x05C2],
+  [0x05C4, 0x05C5],
+  [0x0610, 0x061A], // More Arabic combining marks
+  [0x064B, 0x065F],
+  [0x06D6, 0x06DC],
+  [0x06DF, 0x06E4],
+  [0x06E7, 0x06E8],
+  [0x06EA, 0x06ED],
+  [0x0730, 0x074A],
+  [0x07A6, 0x07B0],
+  [0x07EB, 0x07F3],
+  [0x0816, 0x0819],
+  [0x081B, 0x0823],
+  [0x0825, 0x0827],
+  [0x0829, 0x082D],
+  [0x0859, 0x085B],
+  [0x08D3, 0x08E1],
+  [0x08E3, 0x0902],
+  [0x0941, 0x0948],
+  [0x0951, 0x0957],
+  [0x0962, 0x0963],
+  [0x09C1, 0x09C4],
+  [0x09E2, 0x09E3],
+  [0x0A01, 0x0A02],
+  [0x0A41, 0x0A42],
+  [0x0A47, 0x0A48],
+  [0x0A4B, 0x0A4D],
+  [0x0A70, 0x0A71],
+  [0x0A81, 0x0A82],
+  [0x0AC1, 0x0AC5],
+  [0x0AC7, 0x0AC8],
+  [0x0AE2, 0x0AE3],
+  [0x0AFA, 0x0AFF],
+  [0x0B41, 0x0B44],
+  [0x0B55, 0x0B56],
+  [0x0B62, 0x0B63],
+  [0x0C3E, 0x0C40],
+  [0x0C46, 0x0C48],
+  [0x0C4A, 0x0C4D],
+  [0x0C55, 0x0C56],
+  [0x0C62, 0x0C63],
+  [0x0CCC, 0x0CCD],
+  [0x0CE2, 0x0CE3],
+  [0x0D00, 0x0D01],
+  [0x0D3B, 0x0D3C],
+  [0x0D62, 0x0D63],
+  [0x0DD2, 0x0DD4],
+  [0x0E34, 0x0E3A],
+  [0x0E47, 0x0E4E],
+  [0x0EB4, 0x0EBC],
+  [0x0EC8, 0x0ECD],
+  [0x0F18, 0x0F19],
+  [0x0F71, 0x0F7E],
+  [0x0F80, 0x0F84],
+  [0x0F86, 0x0F87],
+  [0x0F8D, 0x0F97],
+  [0x0F99, 0x0FBC],
+  [0x102D, 0x1030],
+  [0x1032, 0x1037],
+  [0x1039, 0x103A],
+  [0x103D, 0x103E],
+  [0x1058, 0x1059],
+  [0x105E, 0x1060],
+  [0x1071, 0x1074],
+  [0x1085, 0x1086],
+  [0x135D, 0x135F],
+  [0x1712, 0x1714],
+  [0x1732, 0x1734],
+  [0x1752, 0x1753],
+  [0x1772, 0x1773],
+  [0x17B4, 0x17B5],
+  [0x17B7, 0x17BD],
+  [0x17C9, 0x17D3],
+  [0x180B, 0x180D],
+  [0x1885, 0x1886],
+  [0x1920, 0x1922],
+  [0x1927, 0x1928],
+  [0x1939, 0x193B],
+  [0x1A17, 0x1A18],
+  [0x1A58, 0x1A5E],
+  [0x1A65, 0x1A6C],
+  [0x1A73, 0x1A7C],
+  [0x1AB0, 0x1ABE],
+  [0x1B00, 0x1B03],
+  [0x1B36, 0x1B3A],
+  [0x1B6B, 0x1B73],
+  [0x1B80, 0x1B81],
+  [0x1BA2, 0x1BA5],
+  [0x1BA8, 0x1BA9],
+  [0x1BAB, 0x1BAD],
+  [0x1BE8, 0x1BE9],
+  [0x1BEF, 0x1BF1],
+  [0x1C2C, 0x1C33],
+  [0x1C36, 0x1C37],
+  [0x1CD0, 0x1CD2],
+  [0x1CD4, 0x1CE0],
+  [0x1CE2, 0x1CE8],
+  [0x1CF8, 0x1CF9],
+  [0x1DC0, 0x1DF9],
+  [0x1DFB, 0x1DFF],
+  [0x200B, 0x200F], // Zero-width spaces
+  [0x202A, 0x202E], // Bidirectional format characters
+  [0x2060, 0x2064], // Word joiner, etc.
+  [0x2066, 0x206F], // More bidirectional
+  [0xFE00, 0xFE0F], // Variation selectors
+  [0xFE20, 0xFE2F], // Combining half marks
+];
+
+// Single zero-width characters
+const ZERO_WIDTH_SINGLES = new Set([
+  0x05BF,
+  0x05C7,
+  0x0670,
+  0x0711,
+  0x07FD,
+  0x093A,
+  0x093C,
+  0x094D,
+  0x0981,
+  0x09BC,
+  0x09CD,
+  0x09FE,
+  0x0A3C,
+  0x0A51,
+  0x0A75,
+  0x0ABC,
+  0x0ACD,
+  0x0B01,
+  0x0B3C,
+  0x0B3F,
+  0x0B4D,
+  0x0B82,
+  0x0BC0,
+  0x0BCD,
+  0x0C00,
+  0x0C04,
+  0x0C81,
+  0x0CBC,
+  0x0CBF,
+  0x0CC6,
+  0x0D41,
+  0x0D44,
+  0x0D4D,
+  0x0D81,
+  0x0DCA,
+  0x0DD6,
+  0x0E31,
+  0x0EB1,
+  0x0F35,
+  0x0F37,
+  0x0F39,
+  0x0FC6,
+  0x1082,
+  0x108D,
+  0x109D,
+  0x17C6,
+  0x17DD,
+  0x18A9,
+  0x1932,
+  0x1A1B,
+  0x1A56,
+  0x1A60,
+  0x1A62,
+  0x1A7F,
+  0x1B34,
+  0x1B3C,
+  0x1B42,
+  0x1BE6,
+  0x1BED,
+  0x1CED,
+  0x1CF4,
+  0xFEFF,
+]);
+
+/**
+ * Binary search to check if a value is within any range
+ */
+function isInRanges(code: number, ranges: Array<[number, number]>): boolean {
+  let left = 0;
+  let right = ranges.length - 1;
+
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    const [start, end] = ranges[mid];
+
+    if (code >= start && code <= end) {
+      return true;
+    } else if (code < start) {
+      right = mid - 1;
+    } else {
+      left = mid + 1;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Check if a character is zero-width (combining marks, etc.)
  * Based on wcwidth's zero-width table.
@@ -93,184 +299,7 @@ export function wcwidth(code: number): number {
  * @returns True if the character has zero display width
  */
 function isZeroWidth(code: number): boolean {
-  return (
-    // Combining Diacritical Marks
-    (code >= 0x0300 && code <= 0x036F) ||
-    // Hebrew combining marks
-    (code >= 0x0483 && code <= 0x0489) ||
-    // Arabic combining marks
-    (code >= 0x0591 && code <= 0x05BD) ||
-    code === 0x05BF ||
-    (code >= 0x05C1 && code <= 0x05C2) ||
-    (code >= 0x05C4 && code <= 0x05C5) ||
-    code === 0x05C7 ||
-    // More Arabic combining marks
-    (code >= 0x0610 && code <= 0x061A) ||
-    (code >= 0x064B && code <= 0x065F) ||
-    code === 0x0670 ||
-    (code >= 0x06D6 && code <= 0x06DC) ||
-    (code >= 0x06DF && code <= 0x06E4) ||
-    (code >= 0x06E7 && code <= 0x06E8) ||
-    (code >= 0x06EA && code <= 0x06ED) ||
-    code === 0x0711 ||
-    (code >= 0x0730 && code <= 0x074A) ||
-    (code >= 0x07A6 && code <= 0x07B0) ||
-    (code >= 0x07EB && code <= 0x07F3) ||
-    code === 0x07FD ||
-    // Various other combining marks
-    (code >= 0x0816 && code <= 0x0819) ||
-    (code >= 0x081B && code <= 0x0823) ||
-    (code >= 0x0825 && code <= 0x0827) ||
-    (code >= 0x0829 && code <= 0x082D) ||
-    (code >= 0x0859 && code <= 0x085B) ||
-    (code >= 0x08D3 && code <= 0x08E1) ||
-    (code >= 0x08E3 && code <= 0x0902) ||
-    code === 0x093A ||
-    code === 0x093C ||
-    (code >= 0x0941 && code <= 0x0948) ||
-    code === 0x094D ||
-    (code >= 0x0951 && code <= 0x0957) ||
-    (code >= 0x0962 && code <= 0x0963) ||
-    code === 0x0981 ||
-    code === 0x09BC ||
-    (code >= 0x09C1 && code <= 0x09C4) ||
-    code === 0x09CD ||
-    (code >= 0x09E2 && code <= 0x09E3) ||
-    (code >= 0x09FE && code <= 0x09FE) ||
-    (code >= 0x0A01 && code <= 0x0A02) ||
-    code === 0x0A3C ||
-    (code >= 0x0A41 && code <= 0x0A42) ||
-    (code >= 0x0A47 && code <= 0x0A48) ||
-    (code >= 0x0A4B && code <= 0x0A4D) ||
-    code === 0x0A51 ||
-    (code >= 0x0A70 && code <= 0x0A71) ||
-    code === 0x0A75 ||
-    (code >= 0x0A81 && code <= 0x0A82) ||
-    code === 0x0ABC ||
-    (code >= 0x0AC1 && code <= 0x0AC5) ||
-    (code >= 0x0AC7 && code <= 0x0AC8) ||
-    code === 0x0ACD ||
-    (code >= 0x0AE2 && code <= 0x0AE3) ||
-    (code >= 0x0AFA && code <= 0x0AFF) ||
-    code === 0x0B01 ||
-    code === 0x0B3C ||
-    code === 0x0B3F ||
-    (code >= 0x0B41 && code <= 0x0B44) ||
-    code === 0x0B4D ||
-    (code >= 0x0B55 && code <= 0x0B56) ||
-    (code >= 0x0B62 && code <= 0x0B63) ||
-    code === 0x0B82 ||
-    code === 0x0BC0 ||
-    code === 0x0BCD ||
-    code === 0x0C00 ||
-    code === 0x0C04 ||
-    (code >= 0x0C3E && code <= 0x0C40) ||
-    (code >= 0x0C46 && code <= 0x0C48) ||
-    (code >= 0x0C4A && code <= 0x0C4D) ||
-    (code >= 0x0C55 && code <= 0x0C56) ||
-    (code >= 0x0C62 && code <= 0x0C63) ||
-    code === 0x0C81 ||
-    code === 0x0CBC ||
-    code === 0x0CBF ||
-    code === 0x0CC6 ||
-    (code >= 0x0CCC && code <= 0x0CCD) ||
-    (code >= 0x0CE2 && code <= 0x0CE3) ||
-    (code >= 0x0D00 && code <= 0x0D01) ||
-    (code >= 0x0D3B && code <= 0x0D3C) ||
-    code === 0x0D41 ||
-    (code >= 0x0D44 && code <= 0x0D44) ||
-    code === 0x0D4D ||
-    (code >= 0x0D62 && code <= 0x0D63) ||
-    code === 0x0D81 ||
-    code === 0x0DCA ||
-    (code >= 0x0DD2 && code <= 0x0DD4) ||
-    code === 0x0DD6 ||
-    code === 0x0E31 ||
-    (code >= 0x0E34 && code <= 0x0E3A) ||
-    (code >= 0x0E47 && code <= 0x0E4E) ||
-    code === 0x0EB1 ||
-    (code >= 0x0EB4 && code <= 0x0EBC) ||
-    (code >= 0x0EC8 && code <= 0x0ECD) ||
-    (code >= 0x0F18 && code <= 0x0F19) ||
-    code === 0x0F35 ||
-    code === 0x0F37 ||
-    code === 0x0F39 ||
-    (code >= 0x0F71 && code <= 0x0F7E) ||
-    (code >= 0x0F80 && code <= 0x0F84) ||
-    (code >= 0x0F86 && code <= 0x0F87) ||
-    (code >= 0x0F8D && code <= 0x0F97) ||
-    (code >= 0x0F99 && code <= 0x0FBC) ||
-    code === 0x0FC6 ||
-    (code >= 0x102D && code <= 0x1030) ||
-    (code >= 0x1032 && code <= 0x1037) ||
-    (code >= 0x1039 && code <= 0x103A) ||
-    (code >= 0x103D && code <= 0x103E) ||
-    (code >= 0x1058 && code <= 0x1059) ||
-    (code >= 0x105E && code <= 0x1060) ||
-    (code >= 0x1071 && code <= 0x1074) ||
-    code === 0x1082 ||
-    (code >= 0x1085 && code <= 0x1086) ||
-    code === 0x108D ||
-    code === 0x109D ||
-    (code >= 0x135D && code <= 0x135F) ||
-    (code >= 0x1712 && code <= 0x1714) ||
-    (code >= 0x1732 && code <= 0x1734) ||
-    (code >= 0x1752 && code <= 0x1753) ||
-    (code >= 0x1772 && code <= 0x1773) ||
-    (code >= 0x17B4 && code <= 0x17B5) ||
-    (code >= 0x17B7 && code <= 0x17BD) ||
-    code === 0x17C6 ||
-    (code >= 0x17C9 && code <= 0x17D3) ||
-    code === 0x17DD ||
-    (code >= 0x180B && code <= 0x180D) ||
-    (code >= 0x1885 && code <= 0x1886) ||
-    code === 0x18A9 ||
-    (code >= 0x1920 && code <= 0x1922) ||
-    (code >= 0x1927 && code <= 0x1928) ||
-    code === 0x1932 ||
-    (code >= 0x1939 && code <= 0x193B) ||
-    (code >= 0x1A17 && code <= 0x1A18) ||
-    code === 0x1A1B ||
-    code === 0x1A56 ||
-    (code >= 0x1A58 && code <= 0x1A5E) ||
-    code === 0x1A60 ||
-    code === 0x1A62 ||
-    (code >= 0x1A65 && code <= 0x1A6C) ||
-    (code >= 0x1A73 && code <= 0x1A7C) ||
-    code === 0x1A7F ||
-    (code >= 0x1AB0 && code <= 0x1ABE) ||
-    (code >= 0x1B00 && code <= 0x1B03) ||
-    code === 0x1B34 ||
-    (code >= 0x1B36 && code <= 0x1B3A) ||
-    code === 0x1B3C ||
-    code === 0x1B42 ||
-    (code >= 0x1B6B && code <= 0x1B73) ||
-    (code >= 0x1B80 && code <= 0x1B81) ||
-    (code >= 0x1BA2 && code <= 0x1BA5) ||
-    (code >= 0x1BA8 && code <= 0x1BA9) ||
-    (code >= 0x1BAB && code <= 0x1BAD) ||
-    code === 0x1BE6 ||
-    (code >= 0x1BE8 && code <= 0x1BE9) ||
-    code === 0x1BED ||
-    (code >= 0x1BEF && code <= 0x1BF1) ||
-    (code >= 0x1C2C && code <= 0x1C33) ||
-    (code >= 0x1C36 && code <= 0x1C37) ||
-    (code >= 0x1CD0 && code <= 0x1CD2) ||
-    (code >= 0x1CD4 && code <= 0x1CE0) ||
-    (code >= 0x1CE2 && code <= 0x1CE8) ||
-    code === 0x1CED ||
-    code === 0x1CF4 ||
-    (code >= 0x1CF8 && code <= 0x1CF9) ||
-    (code >= 0x1DC0 && code <= 0x1DF9) ||
-    (code >= 0x1DFB && code <= 0x1DFF) ||
-    (code >= 0x200B && code <= 0x200F) || // Zero-width spaces
-    (code >= 0x202A && code <= 0x202E) || // Bidirectional format characters
-    (code >= 0x2060 && code <= 0x2064) || // Word joiner, etc.
-    (code >= 0x2066 && code <= 0x206F) || // More bidirectional
-    code === 0xFEFF || // Zero-width no-break space
-    (code >= 0xFE00 && code <= 0xFE0F) || // Variation selectors
-    (code >= 0xFE20 && code <= 0xFE2F) // Combining half marks
-  );
+  return ZERO_WIDTH_SINGLES.has(code) || isInRanges(code, ZERO_WIDTH_RANGES);
 }
 
 /**
@@ -281,6 +310,7 @@ function isZeroWidth(code: number): boolean {
  * @returns True if the character has width 2
  */
 function isWideCharacter(code: number): boolean {
+  // cSpell: disable
   return (
     // Based on wcwidth table_wide.py for Unicode 15.1.0
     (code >= 0x1100 && code <= 0x115F) || // Hangul Jamo
@@ -380,4 +410,5 @@ function isWideCharacter(code: number): boolean {
     (code >= 0x20000 && code <= 0x2FFFD) || // CJK Extension B
     (code >= 0x30000 && code <= 0x3FFFD) // CJK Extension C
   );
+  // cSpell: enable
 }

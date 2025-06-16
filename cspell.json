@@ -25,6 +25,7 @@
     "twoslash",
     "typeof",
     "unbundle",
-    "venv"
+    "venv",
+    "wcwidth"
   ]
 }

@@ -96,6 +96,10 @@ type CategoryPattern = {
  */
 export type Style = keyof typeof styles | (keyof typeof styles)[] | null;
 
+// Pre-compiled regex patterns for color parsing
+const RGB_PATTERN = /^rgb\((\d+),(\d+),(\d+)\)$/;
+const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
 /**
  * Helper function to convert color to ANSI escape code
  */
@@ -104,14 +108,16 @@ function colorToAnsi(color: Color): string {
   if (color in ansiColors) {
     return ansiColors[color as keyof typeof ansiColors];
   }
+
   // Handle rgb() format
-  const rgbMatch = color.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
+  const rgbMatch = color.match(RGB_PATTERN);
   if (rgbMatch) {
     const [, r, g, b] = rgbMatch;
     return `\x1b[38;2;${r};${g};${b}m`;
   }
+
   // Handle hex format (#rrggbb or #rgb)
-  const hexMatch = color.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  const hexMatch = color.match(HEX_PATTERN);
   if (hexMatch) {
     let hex = hexMatch[1];
     // Convert 3-digit hex to 6-digit
@@ -123,6 +129,7 @@ function colorToAnsi(color: Color): string {
     const b = parseInt(hex.substr(4, 2), 16);
     return `\x1b[38;2;${r};${g};${b}m`;
   }
+
   return "";
 }
 
@@ -215,25 +222,17 @@ const defaultIcons: Record<LogLevel, string> = {
 function normalizeIconSpacing(
   iconMap: Record<LogLevel, string>,
 ): Record<LogLevel, string> {
-  // Calculate the maximum display width among all icons
+  const entries = Object.entries(iconMap) as Array<[LogLevel, string]>;
   const maxWidth = Math.max(
-    ...Object.values(iconMap).map((icon) => getDisplayWidth(icon)),
+    ...entries.map(([, icon]) => getDisplayWidth(icon)),
   );
 
-  // Normalize each icon to the maximum width by adding spaces
-  const normalizedMap: Record<LogLevel, string> = {} as Record<
-    LogLevel,
-    string
-  >;
-  for (
-    const [level, icon] of Object.entries(iconMap) as Array<[LogLevel, string]>
-  ) {
-    const currentWidth = getDisplayWidth(icon);
-    const spacesToAdd = maxWidth - currentWidth;
-    normalizedMap[level] = icon + " ".repeat(spacesToAdd);
-  }
-
-  return normalizedMap;
+  return Object.fromEntries(
+    entries.map(([level, icon]) => [
+      level,
+      icon + " ".repeat(maxWidth - getDisplayWidth(icon)),
+    ]),
+  ) as Record<LogLevel, string>;
 }
 
 /**
@@ -718,103 +717,91 @@ export function getPrettyFormatter(
     ...levelColors,
   };
 
-  // Level formatter function
+  // Level formatter function with optimized mappings
+  const levelMappings: Record<string, Record<LogLevel, string>> = {
+    "ABBR": {
+      trace: "TRC",
+      debug: "DBG",
+      info: "INF",
+      warning: "WRN",
+      error: "ERR",
+      fatal: "FTL",
+    },
+    "L": {
+      trace: "T",
+      debug: "D",
+      info: "I",
+      warning: "W",
+      error: "E",
+      fatal: "F",
+    },
+    "abbr": {
+      trace: "trc",
+      debug: "dbg",
+      info: "inf",
+      warning: "wrn",
+      error: "err",
+      fatal: "ftl",
+    },
+    "l": {
+      trace: "t",
+      debug: "d",
+      info: "i",
+      warning: "w",
+      error: "e",
+      fatal: "f",
+    },
+  };
+
   const formatLevel = (level: LogLevel): string => {
     if (typeof levelFormat === "function") {
       return levelFormat(level);
     }
-    switch (levelFormat) {
-      case "ABBR":
-        return {
-          trace: "TRC",
-          debug: "DBG",
-          info: "INF",
-          warning: "WRN",
-          error: "ERR",
-          fatal: "FTL",
-        }[level];
-      case "FULL":
-        return level.toUpperCase();
-      case "L":
-        return {
-          trace: "T",
-          debug: "D",
-          info: "I",
-          warning: "W",
-          error: "E",
-          fatal: "F",
-        }[level];
-      case "abbr":
-        return {
-          trace: "trc",
-          debug: "dbg",
-          info: "inf",
-          warning: "wrn",
-          error: "err",
-          fatal: "ftl",
-        }[level];
-      case "full":
-        return level;
-      case "l":
-        return {
-          trace: "t",
-          debug: "d",
-          info: "i",
-          warning: "w",
-          error: "e",
-          fatal: "f",
-        }[level];
-      default:
-        return level;
-    }
+
+    if (levelFormat === "FULL") return level.toUpperCase();
+    if (levelFormat === "full") return level;
+
+    return levelMappings[levelFormat]?.[level] ?? level;
   };
 
-  // Resolve timestamp formatter - support all TextFormatterOptions formats
+  // Timestamp formatters lookup table
+  const timestampFormatters: Record<string, (ts: number) => string> = {
+    "date-time-timezone": (ts) => {
+      const iso = new Date(ts).toISOString();
+      return iso.replace("T", " ").replace("Z", " +00:00");
+    },
+    "date-time-tz": (ts) => {
+      const iso = new Date(ts).toISOString();
+      return iso.replace("T", " ").replace("Z", " +00");
+    },
+    "date-time": (ts) => {
+      const iso = new Date(ts).toISOString();
+      return iso.replace("T", " ").replace("Z", "");
+    },
+    "time-timezone": (ts) => {
+      const iso = new Date(ts).toISOString();
+      return iso.replace(/.*T/, "").replace("Z", " +00:00");
+    },
+    "time-tz": (ts) => {
+      const iso = new Date(ts).toISOString();
+      return iso.replace(/.*T/, "").replace("Z", " +00");
+    },
+    "time": (ts) => {
+      const iso = new Date(ts).toISOString();
+      return iso.replace(/.*T/, "").replace("Z", "");
+    },
+    "date": (ts) => new Date(ts).toISOString().replace(/T.*/, ""),
+    "rfc3339": (ts) => new Date(ts).toISOString(),
+  };
+
+  // Resolve timestamp formatter
   let timestampFn: ((ts: number) => string | null) | null = null;
   if (timestamp === "none" || timestamp === "disabled") {
     timestampFn = null;
-  } else if (timestamp === "date-time-timezone") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace("T", " ").replace("Z", " +00:00");
-    };
-  } else if (timestamp === "date-time-tz") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace("T", " ").replace("Z", " +00");
-    };
-  } else if (timestamp === "date-time") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace("T", " ").replace("Z", "");
-    };
-  } else if (timestamp === "time-timezone") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace(/.*T/, "").replace("Z", " +00:00");
-    };
-  } else if (timestamp === "time-tz") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace(/.*T/, "").replace("Z", " +00");
-    };
-  } else if (timestamp === "time") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace(/.*T/, "").replace("Z", "");
-    };
-  } else if (timestamp === "date") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString().replace(/T.*/, "");
-    };
-  } else if (timestamp === "rfc3339") {
-    timestampFn = (ts: number) => {
-      const date = new Date(ts);
-      return date.toISOString();
-    };
   } else if (typeof timestamp === "function") {
     timestampFn = timestamp;
+  } else {
+    timestampFn = timestampFormatters[timestamp as string] ?? null;
   }
 
   // Configure word wrap settings
