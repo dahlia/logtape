@@ -90,6 +90,9 @@ importers:
       '@logtape/otel':
         specifier: 'workspace:'
         version: link:../otel
+      '@logtape/pretty':
+        specifier: 'workspace:'
+        version: link:../pretty
       '@logtape/redaction':
         specifier: 'workspace:'
         version: link:../redaction
@@ -212,6 +215,25 @@ importers:
       '@std/dotenv':
         specifier: 'catalog:'
         version: '@jsr/std__dotenv@0.225.5'
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  pretty:
+    dependencies:
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)

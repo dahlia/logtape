@@ -31,7 +31,12 @@
       "WebFetch(domain:bun.sh)",
       "Bash(pnpm build:*)",
       "Bash(powershell:*)",
-      "Bash(bun test:*)"
+      "Bash(bun test:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(rg:*)",
+      "Bash(ls)",
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ]
   },
   "enableAllProjectMcpServers": false

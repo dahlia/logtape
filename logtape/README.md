@@ -90,6 +90,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/cloudwatch-logs*](cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
 | [*@logtape/file*](file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
 | [*@logtape/otel*](otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
+| [*@logtape/pretty*](pretty/)                     | [JSR][jsr:@logtape/pretty]           | [npm][npm:@logtape/pretty]           | Beautiful text formatter   |
 | [*@logtape/redaction*](redaction/)               | [JSR][jsr:@logtape/redaction]        | [npm][npm:@logtape/redaction]        | Data redaction             |
 | [*@logtape/sentry*](sentry/)                     | [JSR][jsr:@logtape/sentry]           | [npm][npm:@logtape/sentry]           | [Sentry] sink              |
 | [*@logtape/syslog*](syslog/)                     | [JSR][jsr:@logtape/syslog]           | [npm][npm:@logtape/syslog]           | Syslog sink                |
@@ -106,6 +107,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
 [jsr:@logtape/otel]: https://jsr.io/@logtape/otel
 [npm:@logtape/otel]: https://www.npmjs.com/package/@logtape/otel
+[jsr:@logtape/pretty]: https://jsr.io/@logtape/pretty
+[npm:@logtape/pretty]: https://www.npmjs.com/package/@logtape/pretty
 [jsr:@logtape/redaction]: https://jsr.io/@logtape/redaction
 [npm:@logtape/redaction]: https://www.npmjs.com/package/@logtape/redaction
 [jsr:@logtape/sentry]: https://jsr.io/@logtape/sentry

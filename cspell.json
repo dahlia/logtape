@@ -10,6 +10,7 @@
     "eventvwr",
     "filesink",
     "hongminhee",
+    "interpunct",
     "koffi",
     "logtape",
     "LPCSTR",
@@ -24,6 +25,7 @@
     "twoslash",
     "typeof",
     "unbundle",
-    "venv"
+    "venv",
+    "wcwidth"
   ]
 }

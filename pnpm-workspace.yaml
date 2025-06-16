@@ -2,6 +2,7 @@ packages:
 - logtape
 - file
 - otel
+- pretty
 - redaction
 - sentry
 - syslog

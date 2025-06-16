@@ -3,6 +3,7 @@
     "./logtape",
     "./file",
     "./otel",
+    "./pretty",
     "./redaction",
     "./sentry",
     "./syslog",
@@ -63,6 +64,12 @@
       ],
       "command": "deno task -f @logtape/otel build"
     },
+    "build:pretty": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/pretty build"
+    },
     "build:redaction": {
       "dependencies": [
         "build:logtape"
@@ -98,6 +105,7 @@
         "build:file",
         "build:logtape",
         "build:otel",
+        "build:pretty",
         "build:redaction",
         "build:sentry",
         "build:syslog",
@@ -118,6 +126,12 @@
         "build:logtape"
       ],
       "command": "cd logtape/ && node --experimental-transform-types --test"
+    },
+    "test:node:pretty": {
+      "dependencies": [
+        "build:pretty"
+      ],
+      "command": "cd pretty/ && node --experimental-transform-types --test"
     },
     "test:node:redaction": {
       "dependencies": [
@@ -147,6 +161,7 @@
       "dependencies": [
         "test:node:file",
         "test:node:logtape",
+        "test:node:pretty",
         "test:node:redaction",
         "test:node:syslog",
         "test:node:cloudwatch-logs",
@@ -164,6 +179,12 @@
         "build:logtape"
       ],
       "command": "cd logtape/ && bun test"
+    },
+    "test:bun:pretty": {
+      "dependencies": [
+        "build:pretty"
+      ],
+      "command": "cd pretty/ && bun test"
     },
     "test:bun:redaction": {
       "dependencies": [
@@ -193,6 +214,7 @@
       "dependencies": [
         "test:bun:file",
         "test:bun:logtape",
+        "test:bun:pretty",
         "test:bun:redaction",
         "test:bun:syslog",
         "test:bun:cloudwatch-logs",
