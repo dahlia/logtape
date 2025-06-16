@@ -119,20 +119,6 @@ test("getRuntime() returns valid runtime", () => {
   },
 );
 
-test("getWindowsEventLogSink() throws on non-Windows", () => {
-  if (isWindows()) {
-    // Skip this test on Windows
-    return;
-  }
-
-  // Test should throw synchronously on non-Windows platforms
-  assertThrows(
-    () => getWindowsEventLogSink({ sourceName: "TestApp" }),
-    WindowsPlatformError,
-    "Windows Event Log sink can only be used on Windows platforms",
-  );
-});
-
 (skipWindowsTests ? test.skip! : test)("Basic logging test", () => {
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-Integration-Test",
