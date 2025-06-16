@@ -84,19 +84,24 @@ LogTape is a monorepo that contains several packages.  The main package is
 packages provide additional features and integrations.  The following is a
 list of the packages in the LogTape monorepo:
 
-| Package                            | JSR                           | npm                           | Description                |
-|------------------------------------|-------------------------------|-------------------------------|----------------------------|
-| *@logtape/logtape*                 | [JSR][jsr:@logtape/logtape]   | [npm][npm:@logtape/logtape]   | Core logging functionality |
-| [*@logtape/file*](file/)           | [JSR][jsr:@logtape/file]      | [npm][npm:@logtape/file]      | File sinks                 |
-| [*@logtape/otel*](otel/)           | [JSR][jsr:@logtape/otel]      | [npm][npm:@logtape/otel]      | [OpenTelemetry] sink       |
-| [*@logtape/redaction*](redaction/) | [JSR][jsr:@logtape/redaction] | [npm][npm:@logtape/redaction] | Data redaction             |
-| [*@logtape/sentry*](sentry/)       | [JSR][jsr:@logtape/sentry]    | [npm][npm:@logtape/sentry]    | [Sentry] sink              |
-| [*@logtape/syslog*](syslog/)       | [JSR][jsr:@logtape/syslog]    | [npm][npm:@logtape/syslog]    | Syslog sink                |
+| Package                                          | JSR                                  | npm                                  | Description                |
+|--------------------------------------------------|--------------------------------------|--------------------------------------|----------------------------|
+| *@logtape/logtape*                               | [JSR][jsr:@logtape/logtape]          | [npm][npm:@logtape/logtape]          | Core logging functionality |
+| [*@logtape/cloudwatch-logs*](cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
+| [*@logtape/file*](file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
+| [*@logtape/otel*](otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
+| [*@logtape/redaction*](redaction/)               | [JSR][jsr:@logtape/redaction]        | [npm][npm:@logtape/redaction]        | Data redaction             |
+| [*@logtape/sentry*](sentry/)                     | [JSR][jsr:@logtape/sentry]           | [npm][npm:@logtape/sentry]           | [Sentry] sink              |
+| [*@logtape/syslog*](syslog/)                     | [JSR][jsr:@logtape/syslog]           | [npm][npm:@logtape/syslog]           | Syslog sink                |
+| [*@logtape/windows-eventlog*](windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink     |
 
+[AWS CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/
 [OpenTelemetry]: https://opentelemetry.io/
 [Sentry]: https://sentry.io/
 [jsr:@logtape/logtape]: https://jsr.io/@logtape/logtape
 [npm:@logtape/logtape]: https://www.npmjs.com/package/@logtape/logtape
+[jsr:@logtape/cloudwatch-logs]: https://jsr.io/@logtape/cloudwatch-logs
+[npm:@logtape/cloudwatch-logs]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
 [npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
 [jsr:@logtape/otel]: https://jsr.io/@logtape/otel
@@ -107,6 +112,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/sentry]: https://www.npmjs.com/package/@logtape/sentry
 [jsr:@logtape/syslog]: https://jsr.io/@logtape/syslog
 [npm:@logtape/syslog]: https://www.npmjs.com/package/@logtape/syslog
+[jsr:@logtape/windows-eventlog]: https://jsr.io/@logtape/windows-eventlog
+[npm:@logtape/windows-eventlog]: https://www.npmjs.com/package/@logtape/windows-eventlog
 
 
 Docs
