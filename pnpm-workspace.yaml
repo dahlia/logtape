@@ -1,20 +1,26 @@
 packages:
-- logtape
-- file
-- otel
-- redaction
-- sentry
-- syslog
-- cloudwatch-logs
-- docs
+  - logtape
+  - file
+  - otel
+  - redaction
+  - sentry
+  - syslog
+  - cloudwatch-logs
+  - windows-eventlog
+  - docs
 
 catalog:
-  "@alinea/suite": ^0.6.3
-  "@david/which-runtime": "jsr:^0.2.1"
-  "@std/assert": "jsr:^1.0.13"
-  "@std/async": "jsr:^1.0.13"
-  "@std/dotenv": "jsr:^0.225.5"
-  "@std/path": "jsr:^1.1.0"
+  '@alinea/suite': ^0.6.3
+  '@david/which-runtime': jsr:^0.2.1
+  '@std/assert': jsr:^1.0.13
+  '@std/async': jsr:^1.0.13
+  '@std/dotenv': jsr:^0.225.5
+  '@std/path': jsr:^1.1.0
   consolemock: ^1.1.0
   tsdown: ^0.12.7
   typescript: ^5.8.3
+
+ignoredBuiltDependencies:
+  - ffi-napi
+  - koffi
+  - ref-napi

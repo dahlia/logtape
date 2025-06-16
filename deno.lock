@@ -18,9 +18,11 @@
     "npm:@opentelemetry/sdk-logs@0.202": "0.202.0_@opentelemetry+api@1.9.0",
     "npm:@opentelemetry/semantic-conventions@^1.34.0": "1.34.0",
     "npm:@sentry/core@^9.28.1": "9.28.1",
+    "npm:@types/bun@^1.2.16": "1.2.16",
     "npm:@types/node@*": "22.15.15",
     "npm:aws-sdk-client-mock@4": "4.1.0",
     "npm:consolemock@^1.1.0": "1.1.0",
+    "npm:koffi@^2.10.0": "2.11.0",
     "npm:tsdown@0.12.7": "0.12.7_rolldown@1.0.0-beta.11-commit.f051675",
     "npm:tsdown@~0.12.7": "0.12.7_rolldown@1.0.0-beta.11-commit.f051675"
   },
@@ -1193,6 +1195,12 @@
         "tslib"
       ]
     },
+    "@types/bun@1.2.16": {
+      "integrity": "sha512-1aCZJ/6nSiViw339RsaNhkNoEloLaPzZhxMOYEa7OzRzO41IGg5n/7I43/ZIAW/c+Q6cT12Vf7fOZOoVIzb5BQ==",
+      "dependencies": [
+        "bun-types"
+      ]
+    },
     "@types/node@22.15.15": {
       "integrity": "sha512-R5muMcZob3/Jjchn5LcO8jdKwSCbzqmPB6ruBxMcf9kbxtniZHP327s6C37iOfuw8mbKK3cAQa7sEl7afLrQ8A==",
       "dependencies": [
@@ -1240,6 +1248,12 @@
     },
     "bowser@2.11.0": {
       "integrity": "sha512-AlcaJBi/pqqJBIQ8U9Mcpc9i8Aqxn88Skv5d+xBX006BY5u8N3mGLHa5Lgppa7L/HfwgwLgZ6NYs+Ag6uUmJRA=="
+    },
+    "bun-types@1.2.16": {
+      "integrity": "sha512-ciXLrHV4PXax9vHvUrkvun9VPVGOVwbbbBF/Ev1cXz12lyEZMoJpIJABOfPcN9gDJRaiKF9MVbSygLg4NXu3/A==",
+      "dependencies": [
+        "@types/node@22.15.15"
+      ]
     },
     "cac@6.7.14": {
       "integrity": "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ=="
@@ -1379,6 +1393,10 @@
     },
     "just-extend@6.2.0": {
       "integrity": "sha512-cYofQu2Xpom82S6qD778jBDpwvvy39s1l/hrYij2u9AMdQcGRpaBu6kY4mVhuno5kJVi1DAz4aiphA2WI1/OAw=="
+    },
+    "koffi@2.11.0": {
+      "integrity": "sha512-AJ6MHz9Z8OIftKu322jrKJFvy/rZTdCD4b7F457WrK71rxYV7O5PSdWsJDN0p3rY1BZaPeLHVwyt4i2Xyk8wJg==",
+      "scripts": true
     },
     "lodash.get@4.4.2": {
       "integrity": "sha512-z+Uw/vLuy6gQe8cfaFWD7p0wVv8fJl3mbzXh33RS+0oW2wvUqiRXiQ69gLWSLpgB5/6sU+r6BlQR0MBILadqTQ==",
@@ -1675,6 +1693,13 @@
         "packageJson": {
           "dependencies": [
             "npm:@sentry/core@^9.28.1"
+          ]
+        }
+      },
+      "windows-eventlog": {
+        "packageJson": {
+          "dependencies": [
+            "npm:koffi@^2.10.0"
           ]
         }
       }

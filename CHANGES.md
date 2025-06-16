@@ -32,7 +32,7 @@ To be released.
      -  Returns a sink with `AsyncDisposable` support that waits for all
         pending operations on disposal.
 
- -  Added `@logtape/cloudwatch-logs` package for AWS CloudWatch Logs
+ -  Added *@logtape/cloudwatch-logs* package for AWS CloudWatch Logs
     integration. [[#48], [#49]]
 
      -  Added `getCloudWatchLogsSink()` function to send logs to AWS CloudWatch
@@ -47,12 +47,33 @@ To be released.
         `jsonLinesFormatter()` for enhanced CloudWatch Logs Insights querying
         capabilities with dot notation support.
 
+ -  Added *@logtape/windows-eventlog* package for Windows Event Log
+    integration. [[#47], [#50]]
+
+     -  Added `getWindowsEventLogSink()` function to send logs to Windows Event
+        Log.
+     -  Added `WindowsEventLogSinkOptions` interface for configuration.
+     -  Cross-runtime support: Works with Deno, Node.js, and Bun on Windows.
+     -  Uses runtime-optimized FFI implementations: Deno FFI, koffi for Node.js,
+        and Bun FFI for maximum performance.
+     -  Supports all LogTape log levels with proper Event Log type mapping
+        (Error, Warning, Information).
+     -  Includes structured logging support with formatted context information.
+     -  Added `validateWindowsPlatform()` function for platform validation.
+     -  Added `WindowsPlatformError` and `WindowsEventLogError` for proper error
+        handling.
+     -  Platform-restricted installation (Windows only) for safety.
+     -  Includes PowerShell-based test verification for actual Event Log
+        integration.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.
 
+[#47]: https://github.com/dahlia/logtape/issues/47
 [#48]: https://github.com/dahlia/logtape/issues/48
 [#49]: https://github.com/dahlia/logtape/pull/49
+[#50]: https://github.com/dahlia/logtape/pull/50
 
 
 Version 0.12.0
