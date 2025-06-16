@@ -1,12 +1,6 @@
 import type { LogLevel } from "@logtape/logtape";
 
 /**
- * Windows Event Log names supported by the sink.
- * @since 1.0.0
- */
-export type WindowsLogName = "Application" | "System";
-
-/**
  * Configuration options for the Windows Event Log sink.
  * @since 1.0.0
  */
@@ -18,16 +12,6 @@ export interface WindowsEventLogSinkOptions {
    * @example "MyApplication"
    */
   readonly sourceName: string;
-
-  /**
-   * The target Windows Event Log to write to.
-   *
-   * - "Application": Standard application log (most common)
-   * - "System": System-level log (requires admin privileges)
-   *
-   * @default "Application"
-   */
-  readonly logName?: WindowsLogName;
 
   /**
    * The server name to write logs to. Use this for remote logging.

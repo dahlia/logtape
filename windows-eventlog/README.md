@@ -82,7 +82,6 @@ await configure({
   sinks: {
     eventlog: getWindowsEventLogSink({
       sourceName: "MyApplication",
-      logName: "Application",  // Default log name
       eventIdMapping: {
         error: 1001,
         warning: 2001,
@@ -95,6 +94,11 @@ await configure({
   ],
 });
 ~~~~
+
+> [!NOTE]
+> The Windows Event Log sink always writes to the `Application` log.
+> This is the standard location for application events and does not require
+> administrator privileges.
 
 
 Runtime support

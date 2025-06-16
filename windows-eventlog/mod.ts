@@ -28,7 +28,6 @@
  *
  * const sink = getWindowsEventLogSink({
  *   sourceName: "MyApp",
- *   logName: "Application",
  *   eventIdMapping: {
  *     error: 1001,
  *     warning: 2001,
@@ -45,7 +44,7 @@
 export { getWindowsEventLogSink } from "#wineventlog";
 
 // Re-export types
-export type { WindowsEventLogSinkOptions, WindowsLogName } from "./types.ts";
+export type { WindowsEventLogSinkOptions } from "./types.ts";
 
 // Re-export errors for error handling
 export { WindowsEventLogError, WindowsPlatformError } from "./types.ts";

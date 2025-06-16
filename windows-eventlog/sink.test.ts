@@ -105,7 +105,6 @@ test("getRuntime() returns valid runtime", () => {
   () => {
     const options: WindowsEventLogSinkOptions = {
       sourceName: "LogTape-Test-Advanced",
-      logName: "Application",
       eventIdMapping: {
         error: 1001,
         warning: 2001,

@@ -71,8 +71,7 @@ function formatContext(record: LogRecord): string {
  * import { getWindowsEventLogSink } from "@logtape/windows-eventlog";
  *
  * const sink = getWindowsEventLogSink({
- *   sourceName: "MyApp",
- *   logName: "Application"
+ *   sourceName: "MyApp"
  * });
  * ```
  *
@@ -86,7 +85,6 @@ export function getWindowsEventLogSink(
 
   const {
     sourceName,
-    logName: _logName = "Application",
     eventIdMapping = {},
   } = options;
 

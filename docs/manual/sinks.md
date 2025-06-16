@@ -1048,6 +1048,10 @@ Bun
 
 ### Advanced configuration
 
+The Windows Event Log sink always writes to the Windows `Application` log.
+This is the standard location for application events and does not require
+administrator privileges.
+
 You can customize the sink behavior with additional options:
 
 ~~~~ typescript twoslash
@@ -1058,7 +1062,6 @@ await configure({
   sinks: {
     eventlog: getWindowsEventLogSink({
       sourceName: "MyApplication",
-      logName: "Application",  // Default log name
       eventIdMapping: {
         error: 1001,
         warning: 2001,
