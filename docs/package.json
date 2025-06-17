@@ -18,7 +18,7 @@
     "@shikijs/vitepress-twoslash": "^1.17.6",
     "@teidesu/deno-types": "^1.46.3",
     "@types/bun": "^1.1.9",
-    "@types/node": "^22.5.5",
+    "@types/node": "^22.15.31",
     "markdown-it-deflist": "^3.0.0",
     "markdown-it-jsr-ref": "^0.4.2",
     "vitepress": "^1.3.4",

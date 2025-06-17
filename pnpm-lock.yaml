@@ -124,7 +124,7 @@ importers:
         specifier: ^1.1.9
         version: 1.2.15
       '@types/node':
-        specifier: ^22.5.5
+        specifier: ^22.15.31
         version: 22.15.31
       markdown-it-deflist:
         specifier: ^3.0.0

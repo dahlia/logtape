@@ -191,6 +191,128 @@ in the API reference for more details.
 [`Writable.toWeb()`]: https://nodejs.org/api/stream.html#streamwritabletowebstreamwritable
 
 
+Non-blocking sinks
+------------------
+
+*This API is available since LogTape 1.0.0.*
+
+For production environments where logging overhead must be minimized, both
+console and stream sinks support a `nonBlocking` option that buffers log
+records and flushes them in the background. This prevents logging operations
+from blocking the main thread.
+
+### Console sink with non-blocking mode
+
+The console sink can be configured to work in non-blocking mode:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    // Simple non-blocking mode with default settings
+    console: getConsoleSink({ nonBlocking: true }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+You can also customize the buffer size and flush interval:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink({
+      nonBlocking: {
+        bufferSize: 1000,    // Flush after 1000 records
+        flushInterval: 50    // Flush every 50ms
+      }
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Stream sink with non-blocking mode
+
+Similarly, the stream sink supports non-blocking mode:
+
+::: code-group
+
+~~~~ typescript twoslash [Deno]
+// @noErrors: 2345
+import { configure, getStreamSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    stream: getStreamSink(Deno.stderr.writable, {
+      nonBlocking: {
+        bufferSize: 500,
+        flushInterval: 100
+      }
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+~~~~ typescript twoslash [Node.js]
+// @noErrors: 2345
+import { configure, getStreamSink } from "@logtape/logtape";
+import stream from "node:stream";
+
+await configure({
+  sinks: {
+    stream: getStreamSink(
+      stream.Writable.toWeb(process.stderr),
+      { nonBlocking: true }
+    ),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+:::
+
+### Important considerations
+
+When using non-blocking sinks:
+
+Disposal
+:   Non-blocking sinks implement `Disposable` (console) or `AsyncDisposable`
+    (stream) to ensure all buffered logs are flushed on cleanup.  Usually,
+    they are automatically disposed when the application exits or when
+    the configuration is reset.  However, you may need to
+    [explicitly dispose](#example-disposal) them to ensure all logs are flushed
+    on some platforms (e.g., Cloudflare Workers).
+
+Error handling
+:   Errors during background flushing are silently ignored to avoid disrupting
+    the application. Ensure your logging destination is reliable.
+
+Performance trade-offs
+:   While non-blocking mode reduces main thread blocking, it introduces a small
+    memory overhead for buffering and may delay log visibility by up to the
+    flush interval.
+
+Use cases
+:   Non-blocking mode is ideal for:
+
+     -  High-throughput applications where logging latency matters
+     -  Production environments where performance is critical
+     -  Applications that log frequently but can tolerate slight delays
+
+    It may not be suitable when:
+
+     -  Immediate log visibility is required (e.g., debugging)
+     -  Memory usage must be strictly controlled
+     -  You need guaranteed log delivery on crashes
+
+
 File sink
 ---------
 

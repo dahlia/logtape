@@ -70,16 +70,6 @@ storage:
 
 ~~~~ typescript twoslash
 // @noErrors: 2307
-import { type ContextLocalStorage } from "@logtape/logtape";
-class AsyncLocalStorage<T> implements ContextLocalStorage<T> {
-  getStore(): T | undefined {
-    return undefined;
-  }
-  run<R>(store: T, callback: () => R): R {
-    return callback();
-  }
-}
-// ---cut-before---
 import { AsyncLocalStorage } from "node:async_hooks";
 import { configure, getLogger } from "@logtape/logtape";
 
