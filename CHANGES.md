@@ -12,20 +12,24 @@ To be released.
 
  -  Added `LogMethod` type for better type inference of logger methods.
 
- -  Added `nonBlocking` option to `getConsoleSink()` and `getStreamSink()` for
-    high-performance logging scenarios. When enabled, log records are buffered
-    and flushed in the background, preventing blocking of the main thread.
+ -  Added `nonBlocking` option to `getConsoleSink()`, `getStreamSink()`,
+    `getFileSink()`, and `getRotatingFileSink()` for high-performance logging
+    scenarios. When enabled, log records are buffered and flushed in the
+    background, preventing blocking of the main thread.
 
-     -  Both `ConsoleSinkOptions` and `StreamSinkOptions` now accept
-        `nonBlocking?: boolean | { bufferSize?: number; flushInterval?: number }`
-        option.
-     -  Default buffer size is 100 records and default flush interval is 100ms.
+     -  Console and stream sinks accept `nonBlocking?: boolean | {
+        bufferSize?: number; flushInterval?: number }` option.
+     -  File sinks accept `nonBlocking?: boolean` option.
+     -  Default buffer size is 100 records for console/stream sinks and
+        background flushing for file sinks.
+     -  Default flush interval is 100ms for console/stream sinks.
      -  Console sink returns `Sink & Disposable` in non-blocking mode.
-     -  Stream sink remains `Sink & AsyncDisposable` in non-blocking mode.
+     -  Stream and file sinks return `Sink & AsyncDisposable` in non-blocking mode.
      -  Buffer-full flushes are now asynchronous (non-blocking) instead of 
         synchronous to maintain performance during high-volume logging.
-     -  Automatic buffer overflow protection prevents unbounded memory growth
-        by dropping oldest records when buffer exceeds 2x the configured size.
+     -  Console and stream sinks include automatic buffer overflow protection
+        that prevents unbounded memory growth by dropping oldest records when
+        buffer exceeds 2x the configured size.
      -  Errors during background flushing are silently ignored to prevent
         application disruption.
 

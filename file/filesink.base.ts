@@ -31,6 +31,16 @@ export type FileSinkOptions = StreamSinkOptions & {
    * @since 0.12.0
    */
   flushInterval?: number;
+
+  /**
+   * Enable non-blocking mode with background flushing.
+   * When enabled, flush operations are performed asynchronously to prevent
+   * blocking the main thread during file I/O operations.
+   *
+   * @default `false`
+   * @since 1.0.0
+   */
+  nonBlocking?: boolean;
 };
 
 /**
@@ -65,18 +75,48 @@ export interface FileSinkDriver<TFile> {
 }
 
 /**
+ * A platform-specific async file sink driver.
+ * @typeParam TFile The type of the file descriptor.
+ * @since 1.0.0
+ */
+export interface AsyncFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
+  /**
+   * Asynchronously flush the file to ensure that all data is written to the disk.
+   * @param fd The file descriptor.
+   */
+  flush(fd: TFile): Promise<void>;
+
+  /**
+   * Asynchronously close the file.
+   * @param fd The file descriptor.
+   */
+  close(fd: TFile): Promise<void>;
+}
+
+/**
  * Get a platform-independent file sink.
  *
  * @typeParam TFile The type of the file descriptor.
  * @param path A path to the file to write to.
  * @param options The options for the sink and the file driver.
  * @returns A sink that writes to the file.  The sink is also a disposable
- *          object that closes the file when disposed.
+ *          object that closes the file when disposed. If `nonBlocking` is enabled,
+ *          returns a sink that also implements {@link AsyncDisposable}.
  */
 export function getBaseFileSink<TFile>(
   path: string,
   options: FileSinkOptions & FileSinkDriver<TFile>,
-): Sink & Disposable {
+): Sink & Disposable;
+export function getBaseFileSink<TFile>(
+  path: string,
+  options: FileSinkOptions & AsyncFileSinkDriver<TFile>,
+): Sink & AsyncDisposable;
+export function getBaseFileSink<TFile>(
+  path: string,
+  options:
+    & FileSinkOptions
+    & (FileSinkDriver<TFile> | AsyncFileSinkDriver<TFile>),
+): Sink & (Disposable | AsyncDisposable) {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
@@ -85,18 +125,79 @@ export function getBaseFileSink<TFile>(
   let buffer: string = "";
   let lastFlushTimestamp: number = Date.now();
 
-  function flushBuffer(): void {
-    if (fd == null) return;
-    if (buffer.length > 0) {
-      options.writeSync(fd, encoder.encode(buffer));
-      buffer = "";
-      options.flushSync(fd);
+  if (!options.nonBlocking) {
+    // Blocking mode implementation
+    // deno-lint-ignore no-inner-declarations
+    function flushBuffer(): void {
+      if (fd == null) return;
+      if (buffer.length > 0) {
+        options.writeSync(fd, encoder.encode(buffer));
+        buffer = "";
+        options.flushSync(fd);
+        lastFlushTimestamp = Date.now();
+      }
+    }
+
+    const sink: Sink & Disposable = (record: LogRecord) => {
+      if (fd == null) fd = options.openSync(path);
+      buffer += formatter(record);
+
+      const shouldFlushBySize = buffer.length >= bufferSize;
+      const shouldFlushByTime = flushInterval > 0 &&
+        (record.timestamp - lastFlushTimestamp) >= flushInterval;
+
+      if (shouldFlushBySize || shouldFlushByTime) {
+        flushBuffer();
+      }
+    };
+    sink[Symbol.dispose] = () => {
+      if (fd !== null) {
+        flushBuffer();
+        options.closeSync(fd);
+      }
+    };
+    return sink;
+  }
+
+  // Non-blocking mode implementation
+  const asyncOptions = options as AsyncFileSinkDriver<TFile>;
+  let disposed = false;
+  let activeFlush: Promise<void> | null = null;
+  let flushTimer: ReturnType<typeof setInterval> | null = null;
+
+  async function flushBuffer(): Promise<void> {
+    if (fd == null || buffer.length === 0) return;
+
+    const data = buffer;
+    buffer = "";
+    try {
+      asyncOptions.writeSync(fd, encoder.encode(data));
+      await asyncOptions.flush(fd);
       lastFlushTimestamp = Date.now();
+    } catch {
+      // Silently ignore errors in non-blocking mode
     }
   }
 
-  const sink: Sink & Disposable = (record: LogRecord) => {
-    if (fd == null) fd = options.openSync(path);
+  function scheduleFlush(): void {
+    if (activeFlush || disposed) return;
+
+    activeFlush = flushBuffer().finally(() => {
+      activeFlush = null;
+    });
+  }
+
+  function startFlushTimer(): void {
+    if (flushTimer !== null || disposed) return;
+
+    flushTimer = setInterval(() => {
+      scheduleFlush();
+    }, flushInterval);
+  }
+
+  const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
+    if (disposed) return;
+    if (fd == null) fd = asyncOptions.openSync(path);
     buffer += formatter(record);
 
     const shouldFlushBySize = buffer.length >= bufferSize;
@@ -104,16 +205,29 @@ export function getBaseFileSink<TFile>(
       (record.timestamp - lastFlushTimestamp) >= flushInterval;
 
     if (shouldFlushBySize || shouldFlushByTime) {
-      flushBuffer();
+      scheduleFlush();
+    } else if (flushTimer === null && flushInterval > 0) {
+      startFlushTimer();
     }
   };
-  sink[Symbol.dispose] = () => {
+
+  nonBlockingSink[Symbol.asyncDispose] = async () => {
+    disposed = true;
+    if (flushTimer !== null) {
+      clearInterval(flushTimer);
+      flushTimer = null;
+    }
+    await flushBuffer();
     if (fd !== null) {
-      flushBuffer();
-      options.closeSync(fd);
+      try {
+        await asyncOptions.close(fd);
+      } catch {
+        // Writer might already be closed or errored
+      }
     }
   };
-  return sink;
+
+  return nonBlockingSink;
 }
 
 /**
@@ -151,6 +265,27 @@ export interface RotatingFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
 }
 
 /**
+ * A platform-specific async rotating file sink driver.
+ * @since 1.0.0
+ */
+export interface AsyncRotatingFileSinkDriver<TFile>
+  extends AsyncFileSinkDriver<TFile> {
+  /**
+   * Get the size of the file.
+   * @param path A path to the file.
+   * @returns The `size` of the file in bytes, in an object.
+   */
+  statSync(path: string): { size: number };
+
+  /**
+   * Rename a file.
+   * @param oldPath A path to the file to rename.
+   * @param newPath A path to be renamed to.
+   */
+  renameSync(oldPath: string, newPath: string): void;
+}
+
+/**
  * Get a platform-independent rotating file sink.
  *
  * This sink writes log records to a file, and rotates the file when it reaches
@@ -161,12 +296,23 @@ export interface RotatingFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
  * @param path A path to the file to write to.
  * @param options The options for the sink and the file driver.
  * @returns A sink that writes to the file.  The sink is also a disposable
- *          object that closes the file when disposed.
+ *          object that closes the file when disposed. If `nonBlocking` is enabled,
+ *          returns a sink that also implements {@link AsyncDisposable}.
  */
 export function getBaseRotatingFileSink<TFile>(
   path: string,
   options: RotatingFileSinkOptions & RotatingFileSinkDriver<TFile>,
-): Sink & Disposable {
+): Sink & Disposable;
+export function getBaseRotatingFileSink<TFile>(
+  path: string,
+  options: RotatingFileSinkOptions & AsyncRotatingFileSinkDriver<TFile>,
+): Sink & AsyncDisposable;
+export function getBaseRotatingFileSink<TFile>(
+  path: string,
+  options:
+    & RotatingFileSinkOptions
+    & (RotatingFileSinkDriver<TFile> | AsyncRotatingFileSinkDriver<TFile>),
+): Sink & (Disposable | AsyncDisposable) {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const maxSize = options.maxSize ?? 1024 * 1024;
@@ -182,6 +328,7 @@ export function getBaseRotatingFileSink<TFile>(
   }
   let fd = options.openSync(path);
   let lastFlushTimestamp: number = Date.now();
+  let buffer: string = "";
 
   function shouldRollover(bytes: Uint8Array): boolean {
     return offset + bytes.length > maxSize;
@@ -202,20 +349,80 @@ export function getBaseRotatingFileSink<TFile>(
     fd = options.openSync(path);
   }
 
-  function flushBuffer(): void {
-    if (buffer.length > 0) {
-      const bytes = encoder.encode(buffer);
-      buffer = "";
+  if (!options.nonBlocking) {
+    // Blocking mode implementation
+    // deno-lint-ignore no-inner-declarations
+    function flushBuffer(): void {
+      if (buffer.length > 0) {
+        const bytes = encoder.encode(buffer);
+        buffer = "";
+        if (shouldRollover(bytes)) performRollover();
+        options.writeSync(fd, bytes);
+        options.flushSync(fd);
+        offset += bytes.length;
+        lastFlushTimestamp = Date.now();
+      }
+    }
+
+    const sink: Sink & Disposable = (record: LogRecord) => {
+      buffer += formatter(record);
+
+      const shouldFlushBySize = buffer.length >= bufferSize;
+      const shouldFlushByTime = flushInterval > 0 &&
+        (record.timestamp - lastFlushTimestamp) >= flushInterval;
+
+      if (shouldFlushBySize || shouldFlushByTime) {
+        flushBuffer();
+      }
+    };
+    sink[Symbol.dispose] = () => {
+      flushBuffer();
+      options.closeSync(fd);
+    };
+    return sink;
+  }
+
+  // Non-blocking mode implementation
+  const asyncOptions = options as AsyncRotatingFileSinkDriver<TFile>;
+  let disposed = false;
+  let activeFlush: Promise<void> | null = null;
+  let flushTimer: ReturnType<typeof setInterval> | null = null;
+
+  async function flushBuffer(): Promise<void> {
+    if (buffer.length === 0) return;
+
+    const data = buffer;
+    buffer = "";
+    try {
+      const bytes = encoder.encode(data);
       if (shouldRollover(bytes)) performRollover();
-      options.writeSync(fd, bytes);
-      options.flushSync(fd);
+      asyncOptions.writeSync(fd, bytes);
+      await asyncOptions.flush(fd);
       offset += bytes.length;
       lastFlushTimestamp = Date.now();
+    } catch {
+      // Silently ignore errors in non-blocking mode
     }
   }
 
-  let buffer: string = "";
-  const sink: Sink & Disposable = (record: LogRecord) => {
+  function scheduleFlush(): void {
+    if (activeFlush || disposed) return;
+
+    activeFlush = flushBuffer().finally(() => {
+      activeFlush = null;
+    });
+  }
+
+  function startFlushTimer(): void {
+    if (flushTimer !== null || disposed) return;
+
+    flushTimer = setInterval(() => {
+      scheduleFlush();
+    }, flushInterval);
+  }
+
+  const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
+    if (disposed) return;
     buffer += formatter(record);
 
     const shouldFlushBySize = buffer.length >= bufferSize;
@@ -223,12 +430,25 @@ export function getBaseRotatingFileSink<TFile>(
       (record.timestamp - lastFlushTimestamp) >= flushInterval;
 
     if (shouldFlushBySize || shouldFlushByTime) {
-      flushBuffer();
+      scheduleFlush();
+    } else if (flushTimer === null && flushInterval > 0) {
+      startFlushTimer();
     }
   };
-  sink[Symbol.dispose] = () => {
-    flushBuffer();
-    options.closeSync(fd);
+
+  nonBlockingSink[Symbol.asyncDispose] = async () => {
+    disposed = true;
+    if (flushTimer !== null) {
+      clearInterval(flushTimer);
+      flushTimer = null;
+    }
+    await flushBuffer();
+    try {
+      await asyncOptions.close(fd);
+    } catch {
+      // Writer might already be closed or errored
+    }
   };
-  return sink;
+
+  return nonBlockingSink;
 }

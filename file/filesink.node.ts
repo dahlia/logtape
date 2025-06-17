@@ -1,6 +1,8 @@
 import type { Sink } from "@logtape/logtape";
 import fs from "node:fs";
+import { promisify } from "node:util";
 import {
+  type AsyncRotatingFileSinkDriver,
   type FileSinkOptions,
   getBaseFileSink,
   getBaseRotatingFileSink,
@@ -23,6 +25,16 @@ export const nodeDriver: RotatingFileSinkDriver<number | void> = {
 };
 
 /**
+ * A Node.js-specific async file sink driver.
+ * @since 1.0.0
+ */
+export const nodeAsyncDriver: AsyncRotatingFileSinkDriver<number | void> = {
+  ...nodeDriver,
+  flush: promisify(fs.fsync),
+  close: promisify(fs.close),
+};
+
+/**
  * Get a file sink.
  *
  * Note that this function is unavailable in the browser.
@@ -30,12 +42,24 @@ export const nodeDriver: RotatingFileSinkDriver<number | void> = {
  * @param path A path to the file to write to.
  * @param options The options for the sink.
  * @returns A sink that writes to the file.  The sink is also a disposable
- *          object that closes the file when disposed.
+ *          object that closes the file when disposed. If `nonBlocking` is enabled,
+ *          returns a sink that also implements {@link AsyncDisposable}.
  */
 export function getFileSink(
   path: string,
+  options?: FileSinkOptions,
+): Sink & Disposable;
+export function getFileSink(
+  path: string,
+  options: FileSinkOptions & { nonBlocking: true },
+): Sink & AsyncDisposable;
+export function getFileSink(
+  path: string,
   options: FileSinkOptions = {},
-): Sink & Disposable {
+): Sink & (Disposable | AsyncDisposable) {
+  if (options.nonBlocking) {
+    return getBaseFileSink(path, { ...options, ...nodeAsyncDriver });
+  }
   return getBaseFileSink(path, { ...options, ...nodeDriver });
 }
 
@@ -52,12 +76,24 @@ export function getFileSink(
  * @param path A path to the file to write to.
  * @param options The options for the sink and the file driver.
  * @returns A sink that writes to the file.  The sink is also a disposable
- *          object that closes the file when disposed.
+ *          object that closes the file when disposed. If `nonBlocking` is enabled,
+ *          returns a sink that also implements {@link AsyncDisposable}.
  */
 export function getRotatingFileSink(
   path: string,
+  options?: RotatingFileSinkOptions,
+): Sink & Disposable;
+export function getRotatingFileSink(
+  path: string,
+  options: RotatingFileSinkOptions & { nonBlocking: true },
+): Sink & AsyncDisposable;
+export function getRotatingFileSink(
+  path: string,
   options: RotatingFileSinkOptions = {},
-): Sink & Disposable {
+): Sink & (Disposable | AsyncDisposable) {
+  if (options.nonBlocking) {
+    return getBaseRotatingFileSink(path, { ...options, ...nodeAsyncDriver });
+  }
   return getBaseRotatingFileSink(path, { ...options, ...nodeDriver });
 }
 

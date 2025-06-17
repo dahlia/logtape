@@ -56,6 +56,7 @@
     "@alinea/suite": "catalog:",
     "@david/which-runtime": "catalog:",
     "@std/assert": "catalog:",
+    "@std/async": "catalog:",
     "@std/path": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"

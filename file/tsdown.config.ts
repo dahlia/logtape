@@ -12,7 +12,7 @@ export default defineConfig({
     onLog(level, log, defaultHandler) {
       if (
         level === "warn" && log.code === "UNRESOLVED_IMPORT" &&
-        ["node:fs", "#filesink"].includes(log.exporter ?? "")
+        ["node:fs", "node:util", "#filesink"].includes(log.exporter ?? "")
       ) {
         return;
       }
