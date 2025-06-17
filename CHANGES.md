@@ -22,6 +22,10 @@ To be released.
      -  Default buffer size is 100 records and default flush interval is 100ms.
      -  Console sink returns `Sink & Disposable` in non-blocking mode.
      -  Stream sink remains `Sink & AsyncDisposable` in non-blocking mode.
+     -  Buffer-full flushes are now asynchronous (non-blocking) instead of 
+        synchronous to maintain performance during high-volume logging.
+     -  Automatic buffer overflow protection prevents unbounded memory growth
+        by dropping oldest records when buffer exceeds 2x the configured size.
      -  Errors during background flushing are silently ignored to prevent
         application disruption.
 

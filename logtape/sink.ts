@@ -259,7 +259,7 @@ export function getStreamSink(
   }
 
   // Non-blocking mode implementation
-  const nonBlockingConfig = typeof options.nonBlocking === "boolean"
+  const nonBlockingConfig = options.nonBlocking === true
     ? {}
     : options.nonBlocking;
   const bufferSize = nonBlockingConfig.bufferSize ?? 100;
@@ -269,6 +269,7 @@ export function getStreamSink(
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let disposed = false;
   let activeFlush: Promise<void> | null = null;
+  const maxBufferSize = bufferSize * 2; // Overflow protection
 
   async function flush(): Promise<void> {
     if (buffer.length === 0) return;
@@ -303,6 +304,11 @@ export function getStreamSink(
 
   const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
+
+    // Buffer overflow protection: drop oldest records if buffer is too large
+    if (buffer.length >= maxBufferSize) {
+      buffer.shift(); // Remove oldest record
+    }
 
     buffer.push(record);
 
@@ -442,7 +448,7 @@ export function getConsoleSink(
   }
 
   // Non-blocking mode implementation
-  const nonBlockingConfig = typeof options.nonBlocking === "boolean"
+  const nonBlockingConfig = options.nonBlocking === true
     ? {}
     : options.nonBlocking;
   const bufferSize = nonBlockingConfig.bufferSize ?? 100;
@@ -451,6 +457,8 @@ export function getConsoleSink(
   const buffer: LogRecord[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let disposed = false;
+  let flushScheduled = false;
+  const maxBufferSize = bufferSize * 2; // Overflow protection
 
   function flush(): void {
     if (buffer.length === 0) return;
@@ -465,6 +473,16 @@ export function getConsoleSink(
     }
   }
 
+  function scheduleFlush(): void {
+    if (flushScheduled) return;
+
+    flushScheduled = true;
+    setTimeout(() => {
+      flushScheduled = false;
+      flush();
+    }, 0);
+  }
+
   function startFlushTimer(): void {
     if (flushTimer !== null || disposed) return;
 
@@ -476,10 +494,15 @@ export function getConsoleSink(
   const nonBlockingSink: Sink & Disposable = (record: LogRecord) => {
     if (disposed) return;
 
+    // Buffer overflow protection: drop oldest records if buffer is too large
+    if (buffer.length >= maxBufferSize) {
+      buffer.shift(); // Remove oldest record
+    }
+
     buffer.push(record);
 
     if (buffer.length >= bufferSize) {
-      flush();
+      scheduleFlush();
     } else if (flushTimer === null) {
       startFlushTimer();
     }

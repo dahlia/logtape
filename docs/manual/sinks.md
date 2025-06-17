@@ -294,10 +294,18 @@ Error handling
 :   Errors during background flushing are silently ignored to avoid disrupting
     the application. Ensure your logging destination is reliable.
 
-Performance trade-offs
-:   While non-blocking mode reduces main thread blocking, it introduces a small
-    memory overhead for buffering and may delay log visibility by up to the
-    flush interval.
+Buffer overflow protection
+:   To prevent unbounded memory growth during high-volume logging, both sinks
+    implement overflow protection. When the internal buffer exceeds twice the
+    configured buffer size, the oldest log records are automatically dropped
+    to make room for new ones.
+
+Performance characteristics
+:   - **Buffer-full flushes**: When the buffer reaches capacity, flushes are 
+      scheduled asynchronously (non-blocking) rather than executed immediately
+    - **Memory overhead**: Small, bounded by the overflow protection mechanism
+    - **Latency**: Log visibility may be delayed by up to the flush interval
+    - **Throughput**: Significantly higher than blocking mode for high-volume scenarios
 
 Use cases
 :   Non-blocking mode is ideal for:
@@ -305,12 +313,14 @@ Use cases
      -  High-throughput applications where logging latency matters
      -  Production environments where performance is critical
      -  Applications that log frequently but can tolerate slight delays
+     -  Scenarios where occasional log loss is acceptable for performance
 
     It may not be suitable when:
 
      -  Immediate log visibility is required (e.g., debugging)
      -  Memory usage must be strictly controlled
-     -  You need guaranteed log delivery on crashes
+     -  You need guaranteed log delivery without any loss
+     -  Low-volume logging where the overhead isn't justified
 
 
 File sink

@@ -230,6 +230,92 @@ test("getStreamSink() with nonBlocking - flush on dispose", async () => {
   );
 });
 
+test("getStreamSink() with nonBlocking - buffer overflow protection", async () => {
+  let buffer: string = "";
+  const decoder = new TextDecoder();
+  let recordsReceived = 0;
+  const sink = getStreamSink(
+    new WritableStream({
+      write(chunk: Uint8Array) {
+        const text = decoder.decode(chunk);
+        buffer += text;
+        // Count how many log records we actually receive
+        recordsReceived += text.split("\n").filter((line) =>
+          line.trim() !== ""
+        ).length;
+        return Promise.resolve();
+      },
+    }),
+    {
+      nonBlocking: {
+        bufferSize: 3,
+        flushInterval: 50, // Short interval to ensure flushes happen
+      },
+    },
+  );
+
+  // Add many more records than maxBufferSize (6) very rapidly
+  // This should trigger multiple flushes and potentially overflow protection
+  for (let i = 0; i < 20; i++) {
+    sink(trace);
+  }
+
+  // Wait for all flushes to complete
+  await delay(200);
+
+  // Force final flush
+  await sink[Symbol.asyncDispose]();
+
+  // Due to overflow protection, we should receive fewer than 20 records
+  // The exact number depends on timing, but some should be dropped
+  assert(
+    recordsReceived < 20,
+    `Expected < 20 records due to potential overflow, got ${recordsReceived}`,
+  );
+  assert(recordsReceived > 0, "Expected some records to be logged");
+});
+
+test("getStreamSink() with nonBlocking - high volume non-blocking behavior", async () => {
+  let buffer: string = "";
+  const decoder = new TextDecoder();
+  const sink = getStreamSink(
+    new WritableStream({
+      write(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk);
+        return Promise.resolve();
+      },
+    }),
+    {
+      nonBlocking: {
+        bufferSize: 3,
+        flushInterval: 50,
+      },
+    },
+  );
+
+  // Simulate rapid logging - this should not block
+  const startTime = performance.now();
+  for (let i = 0; i < 100; i++) {
+    sink(trace);
+  }
+  const endTime = performance.now();
+
+  // Adding logs should be very fast (non-blocking)
+  const duration = endTime - startTime;
+  assert(
+    duration < 100,
+    `Adding 100 logs took ${duration}ms, should be much faster`,
+  );
+
+  // Wait for flushes to complete
+  await delay(200);
+
+  // Should have logged some records
+  assert(buffer.length > 0, "Expected some records to be logged");
+
+  await sink[Symbol.asyncDispose]();
+});
+
 test("getConsoleSink()", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
@@ -458,7 +544,8 @@ test("getConsoleSink() with nonBlocking - custom buffer config", async () => {
   sink(debug);
   assertEquals(mock.history().length, 0); // Not flushed yet
 
-  sink(info); // This should trigger immediate flush (buffer size = 3)
+  sink(info); // This should trigger scheduled flush (buffer size = 3)
+  await delay(10); // Wait for scheduled flush to execute
   assertEquals(mock.history().length, 3); // Flushed due to buffer size
 
   // Add more records
@@ -523,6 +610,69 @@ test("getConsoleSink() with nonBlocking - error handling", async () => {
   await delay(150);
 
   // Dispose - should not throw
+  (sink as Sink & Disposable)[Symbol.dispose]();
+});
+
+test("getConsoleSink() with nonBlocking - buffer overflow protection", async () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const sink = getConsoleSink({
+    console: mock,
+    nonBlocking: {
+      bufferSize: 5,
+      flushInterval: 1000, // Long interval to prevent automatic flushing
+    },
+  });
+
+  // Add more records than 2x buffer size (which should trigger overflow protection)
+  for (let i = 0; i < 12; i++) {
+    sink(trace);
+  }
+
+  // Should have dropped oldest records, keeping buffer size manageable
+  // Wait a bit for any scheduled flushes
+  await delay(10);
+
+  // Force flush by disposing
+  (sink as Sink & Disposable)[Symbol.dispose]();
+
+  // Should have logged records, but not more than maxBufferSize (10)
+  const historyLength = mock.history().length;
+  assert(historyLength <= 10, `Expected <= 10 records, got ${historyLength}`);
+  assert(historyLength > 0, "Expected some records to be logged");
+});
+
+test("getConsoleSink() with nonBlocking - high volume non-blocking behavior", async () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const sink = getConsoleSink({
+    console: mock,
+    nonBlocking: {
+      bufferSize: 3,
+      flushInterval: 50,
+    },
+  });
+
+  // Simulate rapid logging - this should not block
+  const startTime = performance.now();
+  for (let i = 0; i < 100; i++) {
+    sink(trace);
+  }
+  const endTime = performance.now();
+
+  // Adding logs should be very fast (non-blocking)
+  const duration = endTime - startTime;
+  assert(
+    duration < 100,
+    `Adding 100 logs took ${duration}ms, should be much faster`,
+  );
+
+  // Wait for flushes to complete
+  await delay(200);
+
+  // Should have logged some records
+  assert(mock.history().length > 0, "Expected some records to be logged");
+
   (sink as Sink & Disposable)[Symbol.dispose]();
 });
 
