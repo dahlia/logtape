@@ -12,6 +12,19 @@ To be released.
 
  -  Added `LogMethod` type for better type inference of logger methods.
 
+ -  Added `nonBlocking` option to `getConsoleSink()` and `getStreamSink()` for
+    high-performance logging scenarios. When enabled, log records are buffered
+    and flushed in the background, preventing blocking of the main thread.
+
+     -  Both `ConsoleSinkOptions` and `StreamSinkOptions` now accept
+        `nonBlocking?: boolean | { bufferSize?: number; flushInterval?: number }`
+        option.
+     -  Default buffer size is 100 records and default flush interval is 100ms.
+     -  Console sink returns `Sink & Disposable` in non-blocking mode.
+     -  Stream sink remains `Sink & AsyncDisposable` in non-blocking mode.
+     -  Errors during background flushing are silently ignored to prevent
+        application disruption.
+
  -  Added `withBuffer()` function to create buffered sinks that collect log
     records in memory and flush them to the underlying sink when the buffer is
     full or after a specified time interval.

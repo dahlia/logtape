@@ -167,6 +167,7 @@ export default defineConfig({
               "dom.iterable",
               "esnext",
               "@teidesu/deno-types/full",
+              "node",
             ],
           },
         },

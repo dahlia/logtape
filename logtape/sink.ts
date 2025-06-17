@@ -173,6 +173,42 @@ export interface StreamSinkOptions {
    * The text encoder to use.  Defaults to an instance of {@link TextEncoder}.
    */
   encoder?: { encode(text: string): Uint8Array };
+
+  /**
+   * Enable non-blocking mode with optional buffer configuration.
+   * When enabled, log records are buffered and flushed in the background.
+   *
+   * @example Simple non-blocking mode
+   * ```typescript
+   * getStreamSink(stream, { nonBlocking: true });
+   * ```
+   *
+   * @example Custom buffer configuration
+   * ```typescript
+   * getStreamSink(stream, {
+   *   nonBlocking: {
+   *     bufferSize: 1000,
+   *     flushInterval: 50
+   *   }
+   * });
+   * ```
+   *
+   * @default `false`
+   * @since 1.0.0
+   */
+  nonBlocking?: boolean | {
+    /**
+     * Maximum number of records to buffer before flushing.
+     * @default `100`
+     */
+    bufferSize?: number;
+
+    /**
+     * Interval in milliseconds between automatic flushes.
+     * @default `100`
+     */
+    flushInterval?: number;
+  };
 }
 
 /**
@@ -206,18 +242,92 @@ export function getStreamSink(
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const writer = stream.getWriter();
-  let lastPromise = Promise.resolve();
-  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
-    const bytes = encoder.encode(formatter(record));
-    lastPromise = lastPromise
-      .then(() => writer.ready)
-      .then(() => writer.write(bytes));
+
+  if (!options.nonBlocking) {
+    let lastPromise = Promise.resolve();
+    const sink: Sink & AsyncDisposable = (record: LogRecord) => {
+      const bytes = encoder.encode(formatter(record));
+      lastPromise = lastPromise
+        .then(() => writer.ready)
+        .then(() => writer.write(bytes));
+    };
+    sink[Symbol.asyncDispose] = async () => {
+      await lastPromise;
+      await writer.close();
+    };
+    return sink;
+  }
+
+  // Non-blocking mode implementation
+  const nonBlockingConfig = typeof options.nonBlocking === "boolean"
+    ? {}
+    : options.nonBlocking;
+  const bufferSize = nonBlockingConfig.bufferSize ?? 100;
+  const flushInterval = nonBlockingConfig.flushInterval ?? 100;
+
+  const buffer: LogRecord[] = [];
+  let flushTimer: ReturnType<typeof setInterval> | null = null;
+  let disposed = false;
+  let activeFlush: Promise<void> | null = null;
+
+  async function flush(): Promise<void> {
+    if (buffer.length === 0) return;
+
+    const records = buffer.splice(0);
+    for (const record of records) {
+      try {
+        const bytes = encoder.encode(formatter(record));
+        await writer.ready;
+        await writer.write(bytes);
+      } catch {
+        // Silently ignore errors in non-blocking mode to avoid disrupting the application
+      }
+    }
+  }
+
+  function scheduleFlush(): void {
+    if (activeFlush) return;
+
+    activeFlush = flush().finally(() => {
+      activeFlush = null;
+    });
+  }
+
+  function startFlushTimer(): void {
+    if (flushTimer !== null || disposed) return;
+
+    flushTimer = setInterval(() => {
+      scheduleFlush();
+    }, flushInterval);
+  }
+
+  const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
+    if (disposed) return;
+
+    buffer.push(record);
+
+    if (buffer.length >= bufferSize) {
+      scheduleFlush();
+    } else if (flushTimer === null) {
+      startFlushTimer();
+    }
   };
-  sink[Symbol.asyncDispose] = async () => {
-    await lastPromise;
-    await writer.close();
+
+  nonBlockingSink[Symbol.asyncDispose] = async () => {
+    disposed = true;
+    if (flushTimer !== null) {
+      clearInterval(flushTimer);
+      flushTimer = null;
+    }
+    await flush();
+    try {
+      await writer.close();
+    } catch {
+      // Writer might already be closed or errored
+    }
   };
-  return sink;
+
+  return nonBlockingSink;
 }
 
 type ConsoleMethod = "debug" | "info" | "log" | "warn" | "error";
@@ -253,15 +363,54 @@ export interface ConsoleSinkOptions {
    * The console to log to.  Defaults to {@link console}.
    */
   console?: Console;
+
+  /**
+   * Enable non-blocking mode with optional buffer configuration.
+   * When enabled, log records are buffered and flushed in the background.
+   *
+   * @example Simple non-blocking mode
+   * ```typescript
+   * getConsoleSink({ nonBlocking: true });
+   * ```
+   *
+   * @example Custom buffer configuration
+   * ```typescript
+   * getConsoleSink({
+   *   nonBlocking: {
+   *     bufferSize: 1000,
+   *     flushInterval: 50
+   *   }
+   * });
+   * ```
+   *
+   * @default `false`
+   * @since 1.0.0
+   */
+  nonBlocking?: boolean | {
+    /**
+     * Maximum number of records to buffer before flushing.
+     * @default `100`
+     */
+    bufferSize?: number;
+
+    /**
+     * Interval in milliseconds between automatic flushes.
+     * @default `100`
+     */
+    flushInterval?: number;
+  };
 }
 
 /**
  * A console sink factory that returns a sink that logs to the console.
  *
  * @param options The options for the sink.
- * @returns A sink that logs to the console.
+ * @returns A sink that logs to the console. If `nonBlocking` is enabled,
+ *          returns a sink that also implements {@link Disposable}.
  */
-export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
+export function getConsoleSink(
+  options: ConsoleSinkOptions = {},
+): Sink | (Sink & Disposable) {
   const formatter = options.formatter ?? defaultConsoleFormatter;
   const levelMap: Record<LogLevel, ConsoleMethod> = {
     trace: "debug",
@@ -273,7 +422,8 @@ export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
     ...(options.levelMap ?? {}),
   };
   const console = options.console ?? globalThis.console;
-  return (record: LogRecord) => {
+
+  const baseSink = (record: LogRecord) => {
     const args = formatter(record);
     const method = levelMap[record.level];
     if (method === undefined) {
@@ -286,6 +436,65 @@ export function getConsoleSink(options: ConsoleSinkOptions = {}): Sink {
       console[method](...args);
     }
   };
+
+  if (!options.nonBlocking) {
+    return baseSink;
+  }
+
+  // Non-blocking mode implementation
+  const nonBlockingConfig = typeof options.nonBlocking === "boolean"
+    ? {}
+    : options.nonBlocking;
+  const bufferSize = nonBlockingConfig.bufferSize ?? 100;
+  const flushInterval = nonBlockingConfig.flushInterval ?? 100;
+
+  const buffer: LogRecord[] = [];
+  let flushTimer: ReturnType<typeof setInterval> | null = null;
+  let disposed = false;
+
+  function flush(): void {
+    if (buffer.length === 0) return;
+
+    const records = buffer.splice(0);
+    for (const record of records) {
+      try {
+        baseSink(record);
+      } catch {
+        // Silently ignore errors in non-blocking mode to avoid disrupting the application
+      }
+    }
+  }
+
+  function startFlushTimer(): void {
+    if (flushTimer !== null || disposed) return;
+
+    flushTimer = setInterval(() => {
+      flush();
+    }, flushInterval);
+  }
+
+  const nonBlockingSink: Sink & Disposable = (record: LogRecord) => {
+    if (disposed) return;
+
+    buffer.push(record);
+
+    if (buffer.length >= bufferSize) {
+      flush();
+    } else if (flushTimer === null) {
+      startFlushTimer();
+    }
+  };
+
+  nonBlockingSink[Symbol.dispose] = () => {
+    disposed = true;
+    if (flushTimer !== null) {
+      clearInterval(flushTimer);
+      flushTimer = null;
+    }
+    flush();
+  };
+
+  return nonBlockingSink;
 }
 
 /**

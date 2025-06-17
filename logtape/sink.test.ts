@@ -1,4 +1,5 @@
 import { suite } from "@alinea/suite";
+import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { assertInstanceOf } from "@std/assert/instance-of";
 import { assertThrows } from "@std/assert/throws";
@@ -63,6 +64,168 @@ test("getStreamSink()", async () => {
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
+`,
+  );
+});
+
+test("getStreamSink() with nonBlocking - simple boolean", async () => {
+  let buffer: string = "";
+  const decoder = new TextDecoder();
+  const sink = getStreamSink(
+    new WritableStream({
+      write(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk);
+        return Promise.resolve();
+      },
+    }),
+    { nonBlocking: true },
+  );
+
+  // Check that it returns AsyncDisposable
+  assertInstanceOf(sink, Function);
+  assert(Symbol.asyncDispose in sink);
+
+  // Add records - they should not be written immediately
+  sink(trace);
+  sink(debug);
+  assertEquals(buffer, ""); // Not written yet
+
+  // Wait for flush interval (default 100ms)
+  await delay(150);
+  assertEquals(
+    buffer,
+    `2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+`,
+  );
+
+  await sink[Symbol.asyncDispose]();
+});
+
+test("getStreamSink() with nonBlocking - custom buffer config", async () => {
+  let buffer: string = "";
+  const decoder = new TextDecoder();
+  const sink = getStreamSink(
+    new WritableStream({
+      write(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk);
+        return Promise.resolve();
+      },
+    }),
+    {
+      nonBlocking: {
+        bufferSize: 2,
+        flushInterval: 50,
+      },
+    },
+  );
+
+  // Add records up to buffer size
+  sink(trace);
+  assertEquals(buffer, ""); // Not flushed yet
+
+  sink(debug); // This should trigger immediate flush (buffer size = 2)
+  await delay(10); // Small delay for async flush
+  assertEquals(
+    buffer,
+    `2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+`,
+  );
+
+  // Add more records
+  const prevLength = buffer.length;
+  sink(info);
+  assertEquals(buffer.length, prevLength); // Not flushed yet
+
+  // Wait for flush interval
+  await delay(60);
+  assertEquals(
+    buffer.substring(prevLength),
+    `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
+`,
+  );
+
+  await sink[Symbol.asyncDispose]();
+});
+
+test("getStreamSink() with nonBlocking - no operations after dispose", async () => {
+  let buffer: string = "";
+  const decoder = new TextDecoder();
+  const sink = getStreamSink(
+    new WritableStream({
+      write(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk);
+        return Promise.resolve();
+      },
+    }),
+    { nonBlocking: true },
+  );
+
+  // Dispose immediately
+  await sink[Symbol.asyncDispose]();
+
+  // Try to add records after dispose
+  sink(trace);
+  sink(debug);
+
+  // No records should be written
+  assertEquals(buffer, "");
+});
+
+test("getStreamSink() with nonBlocking - error handling", async () => {
+  const sink = getStreamSink(
+    new WritableStream({
+      write() {
+        return Promise.reject(new Error("Write error"));
+      },
+    }),
+    { nonBlocking: true },
+  );
+
+  // Should not throw when adding records
+  sink(trace);
+  sink(info);
+  sink(error);
+
+  // Wait for flush - errors should be silently ignored
+  await delay(150);
+
+  // Dispose - should not throw
+  await sink[Symbol.asyncDispose]();
+});
+
+test("getStreamSink() with nonBlocking - flush on dispose", async () => {
+  let buffer: string = "";
+  const decoder = new TextDecoder();
+  const sink = getStreamSink(
+    new WritableStream({
+      write(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk);
+        return Promise.resolve();
+      },
+    }),
+    {
+      nonBlocking: {
+        bufferSize: 100,
+        flushInterval: 5000, // Very long interval
+      },
+    },
+  );
+
+  // Add records
+  sink(trace);
+  sink(debug);
+  sink(info);
+  assertEquals(buffer, ""); // Not flushed yet due to large buffer and long interval
+
+  // Dispose should flush all remaining records
+  await sink[Symbol.asyncDispose]();
+  assertEquals(
+    buffer,
+    `2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
 `,
   );
 });
@@ -257,6 +420,112 @@ test("getConsoleSink()", () => {
   ]);
 });
 
+test("getConsoleSink() with nonBlocking - simple boolean", async () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const sink = getConsoleSink({ console: mock, nonBlocking: true });
+
+  // Check that it returns a Disposable
+  assertInstanceOf(sink, Function);
+  assert(Symbol.dispose in sink);
+
+  // Add records - they should not be logged immediately
+  sink(trace);
+  sink(debug);
+  assertEquals(mock.history().length, 0); // Not logged yet
+
+  // Wait for flush interval (default 100ms)
+  await delay(150);
+  assertEquals(mock.history().length, 2); // Now they should be logged
+
+  // Dispose the sink
+  (sink as Sink & Disposable)[Symbol.dispose]();
+});
+
+test("getConsoleSink() with nonBlocking - custom buffer config", async () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const sink = getConsoleSink({
+    console: mock,
+    nonBlocking: {
+      bufferSize: 3,
+      flushInterval: 50,
+    },
+  });
+
+  // Add records up to buffer size
+  sink(trace);
+  sink(debug);
+  assertEquals(mock.history().length, 0); // Not flushed yet
+
+  sink(info); // This should trigger immediate flush (buffer size = 3)
+  assertEquals(mock.history().length, 3); // Flushed due to buffer size
+
+  // Add more records
+  sink(warning);
+  assertEquals(mock.history().length, 3); // Not flushed yet
+
+  // Wait for flush interval
+  await delay(60);
+  assertEquals(mock.history().length, 4); // Flushed due to interval
+
+  // Dispose and check remaining records are flushed
+  sink(error);
+  sink(fatal);
+  (sink as Sink & Disposable)[Symbol.dispose]();
+  assertEquals(mock.history().length, 6); // All records flushed on dispose
+});
+
+test("getConsoleSink() with nonBlocking - no operations after dispose", () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const sink = getConsoleSink({ console: mock, nonBlocking: true });
+
+  // Dispose immediately
+  (sink as Sink & Disposable)[Symbol.dispose]();
+
+  // Try to add records after dispose
+  sink(trace);
+  sink(debug);
+
+  // No records should be logged
+  assertEquals(mock.history().length, 0);
+});
+
+test("getConsoleSink() with nonBlocking - error handling", async () => {
+  const errorConsole = {
+    ...console,
+    debug: () => {
+      throw new Error("Console error");
+    },
+    info: () => {
+      throw new Error("Console error");
+    },
+    warn: () => {
+      throw new Error("Console error");
+    },
+    error: () => {
+      throw new Error("Console error");
+    },
+  };
+
+  const sink = getConsoleSink({
+    console: errorConsole,
+    nonBlocking: true,
+  });
+
+  // Should not throw when adding records
+  sink(trace);
+  sink(info);
+  sink(error);
+
+  // Wait for flush - errors should be silently ignored
+  await delay(150);
+
+  // Dispose - should not throw
+  (sink as Sink & Disposable)[Symbol.dispose]();
+});
+
 test("withBuffer() - buffer size limit", async () => {
   const buffer: LogRecord[] = [];
   const sink = withBuffer(buffer.push.bind(buffer), { bufferSize: 3 });
@@ -381,7 +650,7 @@ test("withBuffer() - disposes underlying AsyncDisposable sink", async () => {
 
   await bufferedSink[Symbol.asyncDispose]();
 
-  assertEquals(disposed, true); // Underlying sink should be disposed
+  assert(disposed); // Underlying sink should be disposed
 });
 
 test("withBuffer() - disposes underlying Disposable sink", async () => {
@@ -399,7 +668,7 @@ test("withBuffer() - disposes underlying Disposable sink", async () => {
 
   await bufferedSink[Symbol.asyncDispose]();
 
-  assertEquals(disposed, true); // Underlying sink should be disposed
+  assert(disposed); // Underlying sink should be disposed
 });
 
 test("withBuffer() - handles non-disposable sink gracefully", async () => {
@@ -414,7 +683,7 @@ test("withBuffer() - handles non-disposable sink gracefully", async () => {
   await bufferedSink[Symbol.asyncDispose]();
 
   // This test passes if no error is thrown
-  assertEquals(true, true);
+  assert(true);
 });
 
 test("withBuffer() - edge case: bufferSize 1", async () => {
@@ -597,7 +866,7 @@ test("withBuffer() - edge case: underlying AsyncDisposable throws error", async 
   } catch (error) {
     assertInstanceOf(error, Error);
     assertEquals(error.message, "Dispose error");
-    assertEquals(disposed, true); // Should still be disposed
+    assert(disposed); // Should still be disposed
     assertEquals(buffer.length, 1); // Buffer should have been flushed before dispose error
   }
 });
@@ -834,5 +1103,5 @@ test("fromAsyncSink() - empty async sink", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Test passes if no errors thrown
-  assertEquals(true, true);
+  assert(true);
 });
