@@ -77,7 +77,7 @@ To be released.
      -  Features Signale-inspired design with emojis for each log level:
         🔍 trace, 🐛 debug, ✨ info, ⚠️ warning, ❌ error, 💀 fatal.
      -  Includes smart category truncation that preserves important context
-        while maintaining layout (e.g., "app.server...middleware").
+        while maintaining layout (e.g., `app·server…middleware`).
      -  Supports true color terminals with rich color schemes and dimmed text
         for enhanced readability.
      -  Provides optional timestamp display, custom icons, color control, and
