@@ -17,7 +17,7 @@ summary(() => {
     const tempFile = join(tmpdir(), `logtape-bench-${Date.now()}.log`);
     await logtape.configure({
       sinks: {
-        file: getFileSink(tempFile),
+        file: getFileSink(tempFile, { nonBlocking: true }),
       },
       loggers: [
         { category: [], sinks: ["file"] },

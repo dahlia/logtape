@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@graphql-hive/logger": "npm:@graphql-hive/logger@^1.0.0",
     "@types/bunyan": "npm:@types/bunyan@^1.8.11",
     "@types/signale": "npm:@types/signale@^1.4.7",
     "bunyan": "npm:bunyan@^1.8.15",
@@ -13,6 +14,7 @@
   },
   "tasks": {
     "null": "deno run -A null.ts",
-    "file": "deno run -A file.ts"
+    "console": "deno run -A console.ts | grep -v 'Test log message.'",
+    "file": "deno run -A --unstable-worker-options file.ts"
   }
 }

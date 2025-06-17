@@ -38,6 +38,9 @@ importers:
 
   benchmarks:
     dependencies:
+      '@graphql-hive/logger':
+        specifier: ^1.0.0
+        version: 1.0.0
       '@logtape/file':
         specifier: 'workspace:'
         version: link:../file
@@ -837,6 +840,10 @@ packages:
 
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
+
+  '@graphql-hive/logger@1.0.0':
+    resolution: {integrity: sha512-66kcaBS2td3wA9aUAnKCkDfOiuV8CzTOI1kKmiHzsWiSvrFIrqeOgXd+gb9mTAFl9MFuQTaJfS6qb/jnSv+eOQ==}
+    engines: {node: '>=18.0.0'}
 
   '@iconify-json/simple-icons@1.2.38':
     resolution: {integrity: sha512-mvMeFQgVjoHanQE9Q7ihmriEXAorjLZW+crUgQspDjFpzWuQp2RZMTppl1MN6TQztMVTsNFgF6LDKsp+v1RYRg==}
@@ -3827,6 +3834,8 @@ snapshots:
       '@floating-ui/core': 1.7.1
 
   '@floating-ui/utils@0.2.9': {}
+
+  '@graphql-hive/logger@1.0.0': {}
 
   '@iconify-json/simple-icons@1.2.38':
     dependencies:
