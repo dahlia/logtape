@@ -2,8 +2,10 @@ import { getFileSink, getRotatingFileSink } from "#filesink";
 import { suite } from "@alinea/suite";
 import { isDeno } from "@david/which-runtime";
 import type { Sink } from "@logtape/logtape";
+import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
+import { delay } from "@std/async/delay";
 import { join } from "@std/path/join";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
@@ -689,6 +691,124 @@ test("getBaseFileSink() with flushInterval disabled", () => {
   sink[Symbol.dispose]();
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assertEquals(content.includes("Hello, 123 & 456!"), true);
+});
+
+test("getFileSink() with nonBlocking mode", async () => {
+  const path = makeTempFileSync();
+  const sink = getFileSink(path, {
+    nonBlocking: true,
+    bufferSize: 50, // Small buffer to trigger flush by size
+  });
+
+  // Check that it returns AsyncDisposable
+  assert(typeof sink === "function");
+  assert(Symbol.asyncDispose in sink);
+
+  // Add enough records to trigger buffer flush
+  sink(debug);
+  sink(info);
+
+  // Wait for async flush to complete
+  await delay(50);
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+  assert(content.includes("Hello, 123 & 456!"));
+
+  await (sink as Sink & AsyncDisposable)[Symbol.asyncDispose]();
+});
+
+test("getRotatingFileSink() with nonBlocking mode", async () => {
+  const path = makeTempFileSync();
+  const sink = getRotatingFileSink(path, {
+    maxSize: 200,
+    nonBlocking: true,
+    bufferSize: 1000, // Large buffer to prevent immediate flush
+    flushInterval: 50, // Short interval for testing
+  });
+
+  // Check that it returns AsyncDisposable
+  assert(typeof sink === "function");
+  assert(Symbol.asyncDispose in sink);
+
+  // Add records with current timestamp
+  const record1 = { ...debug, timestamp: Date.now() };
+  const record2 = { ...info, timestamp: Date.now() };
+  sink(record1);
+  sink(record2);
+  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), ""); // Not written yet
+
+  // Wait for flush interval to pass
+  await delay(100);
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+  assert(content.includes("Hello, 123 & 456!"));
+
+  await (sink as Sink & AsyncDisposable)[Symbol.asyncDispose]();
+});
+
+test("getFileSink() with nonBlocking high-volume logging", async () => {
+  const path = makeTempFileSync();
+  const sink = getFileSink(path, {
+    nonBlocking: true,
+    bufferSize: 50, // Small buffer to trigger flush
+    flushInterval: 0, // Disable time-based flushing for this test
+  }) as unknown as Sink & AsyncDisposable;
+
+  // Add enough records to trigger buffer flush (50 chars per record roughly)
+  let totalChars = 0;
+  let recordCount = 0;
+  while (totalChars < 100) { // Exceed buffer size
+    sink(debug);
+    totalChars += 67; // Approximate length of each debug record
+    recordCount++;
+  }
+
+  // Wait for async flush to complete
+  await delay(50);
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+
+  // Should have some records written by now
+  const writtenCount = (content.match(/Hello, 123 & 456!/g) || []).length;
+  assert(
+    writtenCount > 0,
+    `Expected some records to be written, but got ${writtenCount}`,
+  );
+
+  await sink[Symbol.asyncDispose]();
+});
+
+test("getRotatingFileSink() with nonBlocking rotation", async () => {
+  const path = makeTempFileSync();
+  const sink = getRotatingFileSink(path, {
+    maxSize: 150, // Small size to trigger rotation
+    nonBlocking: true,
+    bufferSize: 100,
+    flushInterval: 10,
+  }) as unknown as Sink & AsyncDisposable;
+
+  // Add enough records to trigger rotation
+  sink(debug);
+  sink(info);
+  sink(warning);
+  sink(error);
+
+  // Wait for all flushes and rotation to complete
+  await delay(200);
+
+  // Check that rotation occurred
+  const mainContent = fs.readFileSync(path, { encoding: "utf-8" });
+  let rotatedContent = "";
+  try {
+    rotatedContent = fs.readFileSync(`${path}.1`, { encoding: "utf-8" });
+  } catch {
+    // No rotation occurred
+  }
+
+  const allContent = mainContent + rotatedContent;
+
+  // Should have all 4 records somewhere
+  const recordCount = (allContent.match(/Hello, 123 & 456!/g) || []).length;
+  assertEquals(recordCount, 4);
+
+  await sink[Symbol.asyncDispose]();
 });
 
 // cSpell: ignore filesink

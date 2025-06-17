@@ -381,6 +381,13 @@ in the API reference for more details.
 > automatically flush buffered logs after a specified time interval.
 > Set `flushInterval: 0` to disable time-based flushing, or `bufferSize: 0` to
 > disable buffering entirely for immediate writes.
+>
+> File sinks also support non-blocking mode through the `~FileSinkOptions.nonBlocking`
+> option. When enabled, flush operations are performed asynchronously to prevent
+> blocking the main thread during file I/O operations. In non-blocking mode,
+> the sink returns `Sink & AsyncDisposable` instead of `Sink & Disposable`.
+> Errors during background flushing are silently ignored to prevent
+> application disruption.
 
 > [!NOTE]
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
@@ -463,8 +470,10 @@ For more details, see `getRotatingFileSink()` function and
 > Like regular file sinks, rotating file sinks support buffering through the
 > `~FileSinkOptions.bufferSize` option (default: 8192 characters) and time-based
 > flushing through the `~FileSinkOptions.flushInterval` option (default: 5000ms)
-> to prevent log loss during unexpected process termination. These options work
-> the same way as in regular file sinks.
+> to prevent log loss during unexpected process termination. They also support
+> non-blocking mode through the `~FileSinkOptions.nonBlocking` option for
+> asynchronous flush operations. These options work the same way as in regular
+> file sinks.
 
 > [!NOTE]
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
