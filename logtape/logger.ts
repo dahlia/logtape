@@ -1343,46 +1343,77 @@ export function parseMessageTemplate(
   template: string,
   properties: Record<string, unknown>,
 ): readonly unknown[] {
-  const message: unknown[] = [];
-  let part = "";
-  for (let i = 0; i < template.length; i++) {
-    const char = template.charAt(i);
-    const nextChar = template.charAt(i + 1);
+  const length = template.length;
+  if (length === 0) return [""];
 
-    if (char === "{" && nextChar === "{") {
-      // Escaped { character
-      part = part + char;
-      i++;
-    } else if (char === "}" && nextChar === "}") {
-      // Escaped } character
-      part = part + char;
-      i++;
-    } else if (char === "{") {
-      // Start of a placeholder
-      message.push(part);
-      part = "";
-    } else if (char === "}") {
-      // End of a placeholder
+  // Fast path: no placeholders
+  if (!template.includes("{")) return [template];
+
+  const message: unknown[] = [];
+  let startIndex = 0;
+
+  for (let i = 0; i < length; i++) {
+    const char = template[i];
+
+    if (char === "{") {
+      const nextChar = i + 1 < length ? template[i + 1] : "";
+
+      if (nextChar === "{") {
+        // Escaped { character - skip and continue
+        i++; // Skip the next {
+        continue;
+      }
+
+      // Find the closing }
+      const closeIndex = template.indexOf("}", i + 1);
+      if (closeIndex === -1) {
+        // No closing } found, treat as literal text
+        continue;
+      }
+
+      // Add text before placeholder
+      const beforeText = template.slice(startIndex, i);
+      message.push(beforeText.replace(/{{/g, "{").replace(/}}/g, "}"));
+
+      // Extract and process placeholder key
+      const key = template.slice(i + 1, closeIndex);
+
+      // Resolve property value
       let prop: unknown;
-      if (part.match(/^\s*\*\s*$/)) {
-        prop = part in properties
-          ? properties[part]
+
+      // Check for wildcard patterns
+      const trimmedKey = key.trim();
+      if (trimmedKey === "*") {
+        // This is a wildcard pattern
+        prop = key in properties
+          ? properties[key]
           : "*" in properties
           ? properties["*"]
           : properties;
-      } else if (part.match(/^\s|\s$/)) {
-        prop = part in properties ? properties[part] : properties[part.trim()];
       } else {
-        prop = properties[part];
+        // Regular property lookup with possible whitespace handling
+        if (key !== trimmedKey) {
+          // Key has leading/trailing whitespace
+          prop = key in properties ? properties[key] : properties[trimmedKey];
+        } else {
+          // Key has no leading/trailing whitespace
+          prop = properties[key];
+        }
       }
+
       message.push(prop);
-      part = "";
-    } else {
-      // Default case
-      part = part + char;
+      i = closeIndex; // Move to the }
+      startIndex = i + 1;
+    } else if (char === "}" && i + 1 < length && template[i + 1] === "}") {
+      // Escaped } character - skip
+      i++; // Skip the next }
     }
   }
-  message.push(part);
+
+  // Add remaining text
+  const remainingText = template.slice(startIndex);
+  message.push(remainingText.replace(/{{/g, "{").replace(/}}/g, "}"));
+
   return message;
 }
 
