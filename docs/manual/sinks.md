@@ -301,7 +301,7 @@ Buffer overflow protection
     to make room for new ones.
 
 Performance characteristics
-:   - **Buffer-full flushes**: When the buffer reaches capacity, flushes are 
+:   - **Buffer-full flushes**: When the buffer reaches capacity, flushes are
       scheduled asynchronously (non-blocking) rather than executed immediately
     - **Memory overhead**: Small, bounded by the overflow protection mechanism
     - **Latency**: Log visibility may be delayed by up to the flush interval
@@ -329,7 +329,7 @@ File sink
 > [!NOTE]
 > File sink is unavailable in the browser environment.
 
-LogTape provides a file sink through a separate package *@logtape/file*:
+LogTape provides file sinks through a separate package *@logtape/file*:
 
 ::: code-group
 
@@ -355,7 +355,12 @@ bun add @logtape/file
 
 :::
 
-Here's an example of a file sink that writes log messages to a file:
+The package provides two main file sink implementations:
+
+### Standard file sink
+
+The standard file sink provides comprehensive control over buffering behavior
+and supports both blocking and non-blocking modes:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
@@ -364,14 +369,16 @@ import { configure } from "@logtape/logtape";
 
 await configure({
   sinks: {
-    file: getFileSink("my-app.log", { lazy: true }),
+    file: getFileSink("my-app.log", {
+      lazy: true,
+      bufferSize: 8192,
+      flushInterval: 5000,
+      nonBlocking: true,
+    }),
   },
   // Omitted for brevity
 });
 ~~~~
-
-See also `getFileSink()` function and `FileSinkOptions` interface
-in the API reference for more details.
 
 > [!TIP]
 > File sinks support buffering for improved performance through
@@ -389,9 +396,67 @@ in the API reference for more details.
 > Errors during background flushing are silently ignored to prevent
 > application disruption.
 
+### High-performance stream file sink
+
+*This API is available since LogTape 1.0.0.*
+
+For high-performance scenarios where you need optimal I/O throughput, use the
+stream-based file sink. This implementation uses Node.js [`PassThrough`] streams
+for superior performance in high-volume logging situations:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { getStreamFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    file: getStreamFileSink("my-app.log", {
+      highWaterMark: 32768,  // 32KB buffer for high-volume logging
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+[`PassThrough`]: https://nodejs.org/api/stream.html#class-streampassthrough
+
+#### When to use the stream file sink
+
+Use `getStreamFileSink()` when you need:
+
+ -  *High-performance file logging* for production applications
+ -  *Non-blocking I/O behavior* for real-time applications
+ -  *Automatic backpressure handling* for high-volume scenarios
+ -  *Simple file output* without complex buffering configuration
+
+#### Performance characteristics
+
+ -  *Optimized for high-volume logging* scenarios
+ -  *Non-blocking*: Uses asynchronous I/O that doesn't block the main thread
+ -  *Memory efficient*: Automatic backpressure prevents memory buildup
+ -  *Stream-based*: Leverages Node.js native stream optimizations
+
+#### Stream vs. standard file sink comparison
+
+| Feature         | Stream File Sink                              | Standard File Sink                                           |
+|-----------------|-----------------------------------------------|--------------------------------------------------------------|
+| *Performance*   | Higher throughput, optimized for volume       | Good performance with configurable buffering                 |
+| *Configuration* | Simple (just `highWaterMark` and `formatter`) | Comprehensive (buffer size, flush intervals, blocking modes) |
+| *Buffering*     | Automatic via PassThrough streams             | Manual control with size and time-based flushing             |
+| *Use case*      | High-volume production logging                | General-purpose with fine-grained control                    |
+
+For more control over buffering behavior and advanced options like non-blocking
+modes, lazy loading, and custom flush intervals, use the standard `getFileSink()`
+function instead.
+
+See also `getFileSink()` and `getStreamFileSink()` functions along with
+`FileSinkOptions` and `StreamFileSinkOptions` interfaces in the API reference
+for more details.
+
 > [!NOTE]
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
-> flag to use the file sink.
+> flag to use file sinks.
 
 
 Rotating file sink

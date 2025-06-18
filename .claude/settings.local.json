@@ -39,7 +39,8 @@
       "Bash(cat:*)",
       "Bash(git ls-tree:*)",
       "Bash(pnpm file:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl:*)"
     ]
   },
   "enableAllProjectMcpServers": false

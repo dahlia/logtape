@@ -6,13 +6,13 @@ export default defineConfig({
     sourcemap: true,
   },
   format: ["esm", "cjs"],
-  platform: "neutral",
+  platform: "node",
   unbundle: true,
   inputOptions: {
     onLog(level, log, defaultHandler) {
       if (
         level === "warn" && log.code === "UNRESOLVED_IMPORT" &&
-        ["node:fs", "node:util", "#filesink"].includes(log.exporter ?? "")
+        log.exporter === "#filesink"
       ) {
         return;
       }

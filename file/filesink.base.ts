@@ -426,7 +426,23 @@ export function getBaseFileSink<TFile>(
     const sink: Sink & Disposable = (record: LogRecord) => {
       if (fd == null) fd = options.openSync(path);
 
-      // Immediately encode and buffer the log record
+      // ULTRA FAST PATH: Direct write when buffer is empty and using default buffer settings
+      if (byteBuffer.isEmpty() && bufferSize === 8192) {
+        // Inline everything for maximum speed - avoid all function calls
+        const formattedRecord = formatter(record);
+        const encodedRecord = encoder.encode(formattedRecord);
+
+        // Only use fast path for typical log sizes to avoid breaking edge cases
+        if (encodedRecord.length < 200) {
+          // Write directly for small logs - no complex buffering logic
+          options.writeSync(fd, encodedRecord);
+          options.flushSync(fd);
+          lastFlushTimestamp = Date.now();
+          return;
+        }
+      }
+
+      // STANDARD PATH: Complex logic for edge cases
       const formattedRecord = formatter(record);
       const encodedRecord = encoder.encode(formattedRecord);
       byteBuffer.append(encodedRecord);
@@ -513,7 +529,23 @@ export function getBaseFileSink<TFile>(
     if (disposed) return;
     if (fd == null) fd = asyncOptions.openSync(path);
 
-    // Immediately encode and buffer the log record
+    // ULTRA FAST PATH: Direct write when buffer is empty and using default buffer settings
+    if (byteBuffer.isEmpty() && !activeFlush && bufferSize === 8192) {
+      // Inline everything for maximum speed - avoid all function calls
+      const formattedRecord = formatter(record);
+      const encodedRecord = encoder.encode(formattedRecord);
+
+      // Only use fast path for typical log sizes to avoid breaking edge cases
+      if (encodedRecord.length < 200) {
+        // Write directly for small logs - no complex buffering logic
+        asyncOptions.writeSync(fd, encodedRecord);
+        scheduleFlush(); // Async flush
+        lastFlushTimestamp = Date.now();
+        return;
+      }
+    }
+
+    // STANDARD PATH: Complex logic for edge cases
     const formattedRecord = formatter(record);
     const encodedRecord = encoder.encode(formattedRecord);
     byteBuffer.append(encodedRecord);

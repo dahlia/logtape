@@ -25,13 +25,29 @@ To be released.
      -  Default flush interval is 100ms for console/stream sinks.
      -  Console sink returns `Sink & Disposable` in non-blocking mode.
      -  Stream and file sinks return `Sink & AsyncDisposable` in non-blocking mode.
-     -  Buffer-full flushes are now asynchronous (non-blocking) instead of 
+     -  Buffer-full flushes are now asynchronous (non-blocking) instead of
         synchronous to maintain performance during high-volume logging.
      -  Console and stream sinks include automatic buffer overflow protection
         that prevents unbounded memory growth by dropping oldest records when
         buffer exceeds 2x the configured size.
      -  Errors during background flushing are silently ignored to prevent
         application disruption.
+
+ -  Added `getStreamFileSink()` function in *@logtape/file* package for
+    high-performance file logging using Node.js PassThrough streams.
+
+     -  Added `StreamFileSinkOptions` interface for configuring stream-based
+        file sink behavior.
+     -  Uses PassThrough streams piped to WriteStreams for optimal I/O performance
+        with automatic backpressure management and non-blocking writes.
+     -  Optimized for high-volume logging scenarios with superior throughput
+        compared to standard file sinks.
+     -  Simple configuration with `highWaterMark` (default: 16384 bytes) and
+        optional custom `formatter` options.
+     -  Automatic stream cleanup and proper resource disposal via `Disposable`
+        interface.
+     -  Ideal for production applications requiring high-performance file logging
+        without complex buffering configuration.
 
  -  Added `withBuffer()` function to create buffered sinks that collect log
     records in memory and flush them to the underlying sink when the buffer is
