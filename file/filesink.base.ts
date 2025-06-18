@@ -6,6 +6,67 @@ import {
 } from "@logtape/logtape";
 
 /**
+ * High-performance byte buffer for batching log records.
+ * Eliminates string concatenation overhead by storing pre-encoded bytes.
+ */
+class ByteRingBuffer {
+  private buffers: Uint8Array[] = [];
+  private totalSize: number = 0;
+
+  /**
+   * Append pre-encoded log record bytes to the buffer.
+   * @param data The encoded log record as bytes.
+   */
+  append(data: Uint8Array): void {
+    this.buffers.push(data);
+    this.totalSize += data.length;
+  }
+
+  /**
+   * Get the current total size of buffered data in bytes.
+   * @returns The total size in bytes.
+   */
+  size(): number {
+    return this.totalSize;
+  }
+
+  /**
+   * Get the number of buffered records.
+   * @returns The number of records in the buffer.
+   */
+  count(): number {
+    return this.buffers.length;
+  }
+
+  /**
+   * Flush all buffered data and return it as an array of byte arrays.
+   * This clears the internal buffer.
+   * @returns Array of buffered byte arrays ready for writev() operations.
+   */
+  flush(): Uint8Array[] {
+    const result = [...this.buffers];
+    this.clear();
+    return result;
+  }
+
+  /**
+   * Clear the buffer without returning data.
+   */
+  clear(): void {
+    this.buffers.length = 0;
+    this.totalSize = 0;
+  }
+
+  /**
+   * Check if the buffer is empty.
+   * @returns True if the buffer contains no data.
+   */
+  isEmpty(): boolean {
+    return this.buffers.length === 0;
+  }
+}
+
+/**
  * Options for the {@link getBaseFileSink} function.
  */
 export type FileSinkOptions = StreamSinkOptions & {
@@ -62,6 +123,14 @@ export interface FileSinkDriver<TFile> {
   writeSync(fd: TFile, chunk: Uint8Array): void;
 
   /**
+   * Write multiple chunks of data to the file in a single operation.
+   * This is optional - if not implemented, falls back to multiple writeSync calls.
+   * @param fd The file descriptor.
+   * @param chunks Array of data chunks to write.
+   */
+  writeManySync?(fd: TFile, chunks: Uint8Array[]): void;
+
+  /**
    * Flush the file to ensure that all data is written to the disk.
    * @param fd The file descriptor.
    */
@@ -80,6 +149,14 @@ export interface FileSinkDriver<TFile> {
  * @since 1.0.0
  */
 export interface AsyncFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
+  /**
+   * Asynchronously write multiple chunks of data to the file in a single operation.
+   * This is optional - if not implemented, falls back to multiple writeSync calls.
+   * @param fd The file descriptor.
+   * @param chunks Array of data chunks to write.
+   */
+  writeMany?(fd: TFile, chunks: Uint8Array[]): Promise<void>;
+
   /**
    * Asynchronously flush the file to ensure that all data is written to the disk.
    * @param fd The file descriptor.
@@ -119,30 +196,41 @@ export function getBaseFileSink<TFile>(
 ): Sink & (Disposable | AsyncDisposable) {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
-  const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
+  const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 bytes
   const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
   let fd = options.lazy ? null : options.openSync(path);
-  let buffer: string = "";
+  const byteBuffer = new ByteRingBuffer();
   let lastFlushTimestamp: number = Date.now();
 
   if (!options.nonBlocking) {
     // Blocking mode implementation
     // deno-lint-ignore no-inner-declarations
     function flushBuffer(): void {
-      if (fd == null) return;
-      if (buffer.length > 0) {
-        options.writeSync(fd, encoder.encode(buffer));
-        buffer = "";
-        options.flushSync(fd);
-        lastFlushTimestamp = Date.now();
+      if (fd == null || byteBuffer.isEmpty()) return;
+
+      const chunks = byteBuffer.flush();
+      if (options.writeManySync && chunks.length > 1) {
+        // Use batch write if available
+        options.writeManySync(fd, chunks);
+      } else {
+        // Fallback to individual writes
+        for (const chunk of chunks) {
+          options.writeSync(fd, chunk);
+        }
       }
+      options.flushSync(fd);
+      lastFlushTimestamp = Date.now();
     }
 
     const sink: Sink & Disposable = (record: LogRecord) => {
       if (fd == null) fd = options.openSync(path);
-      buffer += formatter(record);
 
-      const shouldFlushBySize = buffer.length >= bufferSize;
+      // Immediately encode and buffer the log record
+      const formattedRecord = formatter(record);
+      const encodedRecord = encoder.encode(formattedRecord);
+      byteBuffer.append(encodedRecord);
+
+      const shouldFlushBySize = byteBuffer.size() >= bufferSize;
       const shouldFlushByTime = flushInterval > 0 &&
         (record.timestamp - lastFlushTimestamp) >= flushInterval;
 
@@ -166,12 +254,19 @@ export function getBaseFileSink<TFile>(
   let flushTimer: ReturnType<typeof setInterval> | null = null;
 
   async function flushBuffer(): Promise<void> {
-    if (fd == null || buffer.length === 0) return;
+    if (fd == null || byteBuffer.isEmpty()) return;
 
-    const data = buffer;
-    buffer = "";
+    const chunks = byteBuffer.flush();
     try {
-      asyncOptions.writeSync(fd, encoder.encode(data));
+      if (asyncOptions.writeMany && chunks.length > 1) {
+        // Use async batch write if available
+        await asyncOptions.writeMany(fd, chunks);
+      } else {
+        // Fallback to individual writes
+        for (const chunk of chunks) {
+          asyncOptions.writeSync(fd, chunk);
+        }
+      }
       await asyncOptions.flush(fd);
       lastFlushTimestamp = Date.now();
     } catch {
@@ -198,9 +293,13 @@ export function getBaseFileSink<TFile>(
   const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
     if (fd == null) fd = asyncOptions.openSync(path);
-    buffer += formatter(record);
 
-    const shouldFlushBySize = buffer.length >= bufferSize;
+    // Immediately encode and buffer the log record
+    const formattedRecord = formatter(record);
+    const encodedRecord = encoder.encode(formattedRecord);
+    byteBuffer.append(encodedRecord);
+
+    const shouldFlushBySize = byteBuffer.size() >= bufferSize;
     const shouldFlushByTime = flushInterval > 0 &&
       (record.timestamp - lastFlushTimestamp) >= flushInterval;
 

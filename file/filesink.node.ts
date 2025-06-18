@@ -18,6 +18,15 @@ export const nodeDriver: RotatingFileSinkDriver<number | void> = {
     return fs.openSync(path, "a");
   },
   writeSync: fs.writeSync,
+  writeManySync(fd: number, chunks: Uint8Array[]): void {
+    if (chunks.length === 0) return;
+    if (chunks.length === 1) {
+      fs.writeSync(fd, chunks[0]);
+      return;
+    }
+    // Use writev for multiple chunks
+    fs.writevSync(fd, chunks);
+  },
   flushSync: fs.fsyncSync,
   closeSync: fs.closeSync,
   statSync: fs.statSync,
@@ -30,6 +39,15 @@ export const nodeDriver: RotatingFileSinkDriver<number | void> = {
  */
 export const nodeAsyncDriver: AsyncRotatingFileSinkDriver<number | void> = {
   ...nodeDriver,
+  async writeMany(fd: number, chunks: Uint8Array[]): Promise<void> {
+    if (chunks.length === 0) return;
+    if (chunks.length === 1) {
+      await promisify(fs.write)(fd, chunks[0]);
+      return;
+    }
+    // Use async writev for multiple chunks
+    await promisify(fs.writev)(fd, chunks);
+  },
   flush: promisify(fs.fsync),
   close: promisify(fs.close),
 };
