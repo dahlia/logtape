@@ -10,7 +10,7 @@ interface LogMessage {
 
 interface LogBatchMessage {
   type: "logBatch";
-  chunks: Uint8Array[];
+  messages: string[];
 }
 
 interface InitMessage {
@@ -35,6 +35,7 @@ type WorkerMessage =
 
 let writer: FileWriteStream | undefined;
 const writePromises: Promise<unknown>[] = [];
+const encoder = new TextEncoder();
 
 async function handleMessage(message: WorkerMessage) {
   switch (message.type) {
@@ -70,26 +71,23 @@ async function handleMessage(message: WorkerMessage) {
       break;
     case "logBatch":
       if (writer) {
-        // Process batch more efficiently - create all promises first
-        const batchPromises = message.chunks.map((chunk) =>
-          Promise.resolve(writer!.write(chunk)).catch((err) => {
-            parentPort!.postMessage({
-              type: "error",
-              error: (err as Error).message,
-            });
-          })
-        );
+        // Efficiently encode all strings in batch
+        const combinedString = message.messages.join("");
+        const chunk = encoder.encode(combinedString);
 
-        writePromises.push(...batchPromises);
-
-        // Clean up completed promises in batch
-        Promise.allSettled(batchPromises).then(() => {
-          batchPromises.forEach((promise) => {
-            const index = writePromises.indexOf(promise);
-            if (index > -1) {
-              writePromises.splice(index, 1);
-            }
+        const promise = Promise.resolve(writer.write(chunk)).catch((err) => {
+          parentPort!.postMessage({
+            type: "error",
+            error: (err as Error).message,
           });
+        });
+
+        writePromises.push(promise);
+        promise.finally(() => {
+          const index = writePromises.indexOf(promise);
+          if (index > -1) {
+            writePromises.splice(index, 1);
+          }
         });
       }
       break;

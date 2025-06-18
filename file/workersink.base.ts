@@ -8,20 +8,20 @@ import type { FileSinkOptions } from "./filesink.base.ts";
 
 export interface WorkerFileSinkOptions extends FileSinkOptions {
   /**
-   * Buffer size for batching log records before sending to worker.
-   * @default 1000
+   * Buffer size in bytes for batching log messages before sending to worker.
+   * @default 65536
    */
   bufferSize?: number;
 
   /**
    * Maximum time in milliseconds to wait before flushing the buffer.
-   * @default 10
+   * @default 100
    */
   flushInterval?: number;
 
   /**
-   * Maximum buffer size before forcing a flush regardless of timing.
-   * @default 5000
+   * Maximum buffer size in bytes before forcing a flush regardless of timing.
+   * @default 262144
    */
   maxBufferSize?: number;
 }
@@ -32,18 +32,18 @@ export function getWorkerFileSink(
 ): Sink & AsyncDisposable {
   const {
     formatter = defaultTextFormatter,
-    bufferSize = 1000,
-    flushInterval = 10,
-    maxBufferSize = 5000,
+    bufferSize = 8192, // 8KB for more frequent flushing
+    flushInterval = 50, // 50ms for faster response
+    maxBufferSize = 32768, // 32KB max buffer
     ...workerOptions
   } = options;
 
   const worker = spawnWorker();
-  const encoder = new TextEncoder();
-  let buffer: Uint8Array[] = []; // Pre-encoded chunks for better performance
+  let buffer: string[] = []; // Store formatted strings to send to worker
+  let bufferLength = 0; // Track total length of strings in buffer
   let flushTimer: number | undefined;
   let isInitialized = false;
-  let pendingFlushes: Uint8Array[][] = []; // Store flushes during initialization
+  let pendingFlushes: string[][] = []; // Store flushes during initialization
 
   const initPromise = new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -56,8 +56,8 @@ export function getWorkerFileSink(
         isInitialized = true;
 
         // Send any pending flushes
-        pendingFlushes.forEach((chunks) => {
-          worker.postMessage({ type: "logBatch", chunks });
+        pendingFlushes.forEach((messages) => {
+          worker.postMessage({ type: "logBatch", messages });
         });
         pendingFlushes = [];
 
@@ -91,10 +91,11 @@ export function getWorkerFileSink(
     // Swap buffer to allow new logs while flushing
     const toFlush = buffer;
     buffer = [];
+    bufferLength = 0;
 
     // Send immediately if initialized, otherwise queue it
     if (isInitialized) {
-      worker.postMessage({ type: "logBatch", chunks: toFlush });
+      worker.postMessage({ type: "logBatch", messages: toFlush });
     } else {
       pendingFlushes.push(toFlush);
     }
@@ -107,18 +108,17 @@ export function getWorkerFileSink(
   };
 
   const sink = (record: LogRecord) => {
-    // Pre-encode immediately to avoid repeated encoding
-    const chunk = encoder.encode(formatter(record));
-    buffer.push(chunk);
+    // Format to string in main thread, let worker handle encoding
+    const formatted = formatter(record);
+    buffer.push(formatted);
+    bufferLength += formatted.length;
 
     // Always buffer, even during initialization for maximum performance
-    // Flush immediately if buffer is full
-    if (buffer.length >= maxBufferSize) {
+    // Flush immediately if buffer size exceeds maximum
+    if (bufferLength >= maxBufferSize) {
       flushBuffer();
-    } else if (
-      buffer.length >= bufferSize && buffer.length % bufferSize === 0
-    ) {
-      // Only schedule flush at exact buffer size intervals to reduce timer overhead
+    } else if (bufferLength >= bufferSize && !flushTimer) {
+      // Schedule flush only if no timer is already set
       scheduleFlush();
     }
   };
@@ -135,8 +135,9 @@ export function getWorkerFileSink(
 
       // Flush any remaining buffer
       if (buffer.length > 0) {
-        worker.postMessage({ type: "logBatch", chunks: buffer });
+        worker.postMessage({ type: "logBatch", messages: buffer });
         buffer = [];
+        bufferLength = 0;
       }
 
       // Use a separate promise for flush confirmation

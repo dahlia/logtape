@@ -36,7 +36,10 @@
       "Bash(rg:*)",
       "Bash(ls)",
       "Bash(sed:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(pnpm file:*)",
+      "Bash(timeout 60 deno task:*)",
+      "Bash(ls:*)"
     ]
   },
   "enableAllProjectMcpServers": false
