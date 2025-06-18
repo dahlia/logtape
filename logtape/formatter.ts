@@ -718,6 +718,58 @@ export interface JsonLinesFormatterOptions {
 export function getJsonLinesFormatter(
   options: JsonLinesFormatterOptions = {},
 ): TextFormatter {
+  // Most common configuration - optimize for the default case
+  if (!options.categorySeparator && !options.message && !options.properties) {
+    // Ultra-minimalist path - eliminate all possible overhead
+    return (record: LogRecord): string => {
+      // Direct benchmark pattern match (most common case first)
+      if (record.message.length === 3) {
+        return JSON.stringify({
+          "@timestamp": new Date(record.timestamp).toISOString(),
+          level: record.level === "warning"
+            ? "WARN"
+            : record.level.toUpperCase(),
+          message: record.message[0] + JSON.stringify(record.message[1]) +
+            record.message[2],
+          logger: record.category.join("."),
+          properties: record.properties,
+        });
+      }
+
+      // Single message (second most common)
+      if (record.message.length === 1) {
+        return JSON.stringify({
+          "@timestamp": new Date(record.timestamp).toISOString(),
+          level: record.level === "warning"
+            ? "WARN"
+            : record.level.toUpperCase(),
+          message: record.message[0],
+          logger: record.category.join("."),
+          properties: record.properties,
+        });
+      }
+
+      // Complex messages (fallback)
+      let msg = record.message[0] as string;
+      for (let i = 1; i < record.message.length; i++) {
+        msg += (i & 1) ? JSON.stringify(record.message[i]) : record.message[i];
+      }
+
+      return JSON.stringify({
+        "@timestamp": new Date(record.timestamp).toISOString(),
+        level: record.level === "warning" ? "WARN" : record.level.toUpperCase(),
+        message: msg,
+        logger: record.category.join("."),
+        properties: record.properties,
+      });
+    };
+  }
+
+  // Pre-compile configuration for non-default cases
+  const isTemplateMessage = options.message === "template";
+  const propertiesOption = options.properties ?? "nest:properties";
+
+  // Pre-compile category joining strategy
   let joinCategory: (category: readonly string[]) => string | readonly string[];
   if (typeof options.categorySeparator === "function") {
     joinCategory = options.categorySeparator;
@@ -727,34 +779,11 @@ export function getJsonLinesFormatter(
       category.join(separator);
   }
 
-  let getMessage: TextFormatter;
-  if (options.message === "template") {
-    getMessage = (record: LogRecord): string => {
-      if (typeof record.rawMessage === "string") {
-        return record.rawMessage;
-      }
-      let msg = "";
-      for (let i = 0; i < record.rawMessage.length; i++) {
-        msg += i % 2 < 1 ? record.rawMessage[i] : "{}";
-      }
-      return msg;
-    };
-  } else {
-    getMessage = (record: LogRecord): string => {
-      let msg = "";
-      for (let i = 0; i < record.message.length; i++) {
-        msg += i % 2 < 1
-          ? record.message[i]
-          : JSON.stringify(record.message[i]);
-      }
-      return msg;
-    };
-  }
-
-  const propertiesOption = options.properties ?? "nest:properties";
+  // Pre-compile properties handling strategy
   let getProperties: (
     properties: Record<string, unknown>,
   ) => Record<string, unknown>;
+
   if (propertiesOption === "flatten") {
     getProperties = (properties) => properties;
   } else if (propertiesOption.startsWith("prepend:")) {
@@ -782,6 +811,38 @@ export function getJsonLinesFormatter(
         JSON.stringify(propertiesOption)
       }. It must be "flatten", "prepend:<prefix>", or "nest:<key>".`,
     );
+  }
+
+  // Pre-compile message rendering function
+  let getMessage: (record: LogRecord) => string;
+
+  if (isTemplateMessage) {
+    getMessage = (record: LogRecord): string => {
+      if (typeof record.rawMessage === "string") {
+        return record.rawMessage;
+      }
+      let msg = "";
+      for (let i = 0; i < record.rawMessage.length; i++) {
+        msg += i % 2 < 1 ? record.rawMessage[i] : "{}";
+      }
+      return msg;
+    };
+  } else {
+    getMessage = (record: LogRecord): string => {
+      const msgLen = record.message.length;
+
+      if (msgLen === 1) {
+        return record.message[0] as string;
+      }
+
+      let msg = "";
+      for (let i = 0; i < msgLen; i++) {
+        msg += (i % 2 < 1)
+          ? record.message[i]
+          : JSON.stringify(record.message[i]);
+      }
+      return msg;
+    };
   }
 
   return (record: LogRecord): string => {

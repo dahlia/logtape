@@ -40,7 +40,8 @@
       "Bash(git ls-tree:*)",
       "Bash(pnpm file:*)",
       "Bash(ls:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(deno bench:*)"
     ]
   },
   "enableAllProjectMcpServers": false
