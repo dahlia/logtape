@@ -18,6 +18,13 @@ export const denoDriver: RotatingFileSinkDriver<Deno.FsFile> = {
   writeSync(fd, chunk) {
     fd.writeSync(chunk);
   },
+  writeManySync(fd: Deno.FsFile, chunks: Uint8Array[]): void {
+    // Deno doesn't have writev, but we can optimize by writing all chunks
+    // then doing a single sync operation
+    for (const chunk of chunks) {
+      fd.writeSync(chunk);
+    }
+  },
   flushSync(fd) {
     fd.syncSync();
   },
@@ -34,6 +41,13 @@ export const denoDriver: RotatingFileSinkDriver<Deno.FsFile> = {
  */
 export const denoAsyncDriver: AsyncRotatingFileSinkDriver<Deno.FsFile> = {
   ...denoDriver,
+  async writeMany(fd: Deno.FsFile, chunks: Uint8Array[]): Promise<void> {
+    // Deno doesn't have async writev, but we can write all chunks
+    // then do a single async sync
+    for (const chunk of chunks) {
+      await fd.write(chunk);
+    }
+  },
   async flush(fd) {
     await fd.sync();
   },

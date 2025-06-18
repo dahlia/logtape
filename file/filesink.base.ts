@@ -6,12 +6,197 @@ import {
 } from "@logtape/logtape";
 
 /**
+ * Adaptive flush strategy that dynamically adjusts buffer thresholds
+ * based on recent flush patterns for optimal performance.
+ */
+class AdaptiveFlushStrategy {
+  private recentFlushSizes: number[] = [];
+  private recentFlushTimes: number[] = [];
+  private avgFlushSize: number;
+  private avgFlushInterval: number;
+  private readonly maxHistorySize = 10;
+  private readonly baseThreshold: number;
+
+  constructor(baseThreshold: number, baseInterval: number) {
+    this.baseThreshold = baseThreshold;
+    this.avgFlushSize = baseThreshold;
+    this.avgFlushInterval = baseInterval;
+  }
+
+  /**
+   * Record a flush event for pattern analysis.
+   * @param size The size of data flushed in bytes.
+   * @param timeSinceLastFlush Time since last flush in milliseconds.
+   */
+  recordFlush(size: number, timeSinceLastFlush: number): void {
+    this.recentFlushSizes.push(size);
+    this.recentFlushTimes.push(timeSinceLastFlush);
+
+    // Keep only recent history
+    if (this.recentFlushSizes.length > this.maxHistorySize) {
+      this.recentFlushSizes.shift();
+      this.recentFlushTimes.shift();
+    }
+
+    // Update averages
+    this.updateAverages();
+  }
+
+  /**
+   * Determine if buffer should be flushed based on adaptive strategy.
+   * @param currentSize Current buffer size in bytes.
+   * @param timeSinceLastFlush Time since last flush in milliseconds.
+   * @returns True if buffer should be flushed.
+   */
+  shouldFlush(currentSize: number, timeSinceLastFlush: number): boolean {
+    const adaptiveThreshold = this.calculateAdaptiveThreshold();
+    const adaptiveInterval = this.calculateAdaptiveInterval();
+
+    return currentSize >= adaptiveThreshold ||
+      (adaptiveInterval > 0 && timeSinceLastFlush >= adaptiveInterval);
+  }
+
+  private updateAverages(): void {
+    if (this.recentFlushSizes.length === 0) return;
+
+    this.avgFlushSize =
+      this.recentFlushSizes.reduce((sum, size) => sum + size, 0) /
+      this.recentFlushSizes.length;
+
+    this.avgFlushInterval =
+      this.recentFlushTimes.reduce((sum, time) => sum + time, 0) /
+      this.recentFlushTimes.length;
+  }
+
+  private calculateAdaptiveThreshold(): number {
+    // Adjust threshold based on recent patterns
+    // Higher average flush sizes suggest larger batches are beneficial
+    const adaptiveFactor = Math.min(
+      2.0,
+      Math.max(0.5, this.avgFlushSize / this.baseThreshold),
+    );
+
+    return Math.max(
+      Math.min(4096, this.baseThreshold / 2),
+      Math.min(64 * 1024, this.baseThreshold * adaptiveFactor),
+    );
+  }
+
+  private calculateAdaptiveInterval(): number {
+    // If base interval is 0, time-based flushing is disabled
+    if (this.avgFlushInterval <= 0) return 0;
+
+    // Adjust interval based on recent flush frequency
+    // More frequent flushes suggest lower latency is preferred
+    if (this.recentFlushTimes.length < 3) return this.avgFlushInterval;
+
+    const variance = this.calculateVariance(this.recentFlushTimes);
+    const stabilityFactor = Math.min(2.0, Math.max(0.5, 1000 / variance));
+
+    return Math.max(
+      1000,
+      Math.min(10000, this.avgFlushInterval * stabilityFactor),
+    );
+  }
+
+  private calculateVariance(values: number[]): number {
+    if (values.length < 2) return 1000; // Default variance
+
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squaredDiffs = values.map((val) => Math.pow(val - mean, 2));
+    return squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length;
+  }
+}
+
+/**
+ * Memory pool for reusing Uint8Array buffers to minimize GC pressure.
+ * Maintains a pool of pre-allocated buffers for efficient reuse.
+ */
+class BufferPool {
+  private pool: Uint8Array[] = [];
+  private readonly maxPoolSize = 50; // Keep a reasonable pool size
+  private readonly maxBufferSize = 64 * 1024; // Don't pool very large buffers
+
+  /**
+   * Acquire a buffer from the pool or create a new one.
+   * @param size The minimum size needed for the buffer.
+   * @returns A Uint8Array that can be used for encoding.
+   */
+  acquire(size: number): Uint8Array {
+    // Don't pool very large buffers to avoid memory waste
+    if (size > this.maxBufferSize) {
+      return new Uint8Array(size);
+    }
+
+    // Try to find a suitable buffer from the pool
+    for (let i = this.pool.length - 1; i >= 0; i--) {
+      const buffer = this.pool[i];
+      if (buffer.length >= size) {
+        // Remove from pool and return
+        this.pool.splice(i, 1);
+        return buffer.subarray(0, size);
+      }
+    }
+
+    // No suitable buffer found, create a new one
+    // Create slightly larger buffer to improve reuse chances
+    const actualSize = Math.max(size, 1024); // Minimum 1KB
+    return new Uint8Array(actualSize);
+  }
+
+  /**
+   * Return a buffer to the pool for future reuse.
+   * @param buffer The buffer to return to the pool.
+   */
+  release(buffer: Uint8Array): void {
+    // Don't pool if we're at capacity or buffer is too large
+    if (
+      this.pool.length >= this.maxPoolSize || buffer.length > this.maxBufferSize
+    ) {
+      return;
+    }
+
+    // Don't pool very small buffers as they're cheap to allocate
+    if (buffer.length < 256) {
+      return;
+    }
+
+    // Add to pool for reuse
+    this.pool.push(buffer);
+  }
+
+  /**
+   * Clear the pool to free memory. Useful for cleanup.
+   */
+  clear(): void {
+    this.pool.length = 0;
+  }
+
+  /**
+   * Get current pool statistics for monitoring.
+   * @returns Object with pool size and buffer count.
+   */
+  getStats(): { poolSize: number; totalBuffers: number } {
+    return {
+      poolSize: this.pool.reduce((sum, buf) => sum + buf.length, 0),
+      totalBuffers: this.pool.length,
+    };
+  }
+}
+
+/**
  * High-performance byte buffer for batching log records.
  * Eliminates string concatenation overhead by storing pre-encoded bytes.
+ * Uses memory pooling to reduce GC pressure.
  */
 class ByteRingBuffer {
   private buffers: Uint8Array[] = [];
   private totalSize: number = 0;
+  private bufferPool: BufferPool;
+
+  constructor(bufferPool: BufferPool) {
+    this.bufferPool = bufferPool;
+  }
 
   /**
    * Append pre-encoded log record bytes to the buffer.
@@ -40,7 +225,7 @@ class ByteRingBuffer {
 
   /**
    * Flush all buffered data and return it as an array of byte arrays.
-   * This clears the internal buffer.
+   * This clears the internal buffer and returns used buffers to the pool.
    * @returns Array of buffered byte arrays ready for writev() operations.
    */
   flush(): Uint8Array[] {
@@ -51,8 +236,13 @@ class ByteRingBuffer {
 
   /**
    * Clear the buffer without returning data.
+   * Returns buffers to the pool for reuse.
    */
   clear(): void {
+    // Return buffers to pool for reuse
+    for (const buffer of this.buffers) {
+      this.bufferPool.release(buffer);
+    }
     this.buffers.length = 0;
     this.totalSize = 0;
   }
@@ -199,7 +389,11 @@ export function getBaseFileSink<TFile>(
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 bytes
   const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
   let fd = options.lazy ? null : options.openSync(path);
-  const byteBuffer = new ByteRingBuffer();
+
+  // Initialize memory pool and buffer systems
+  const bufferPool = new BufferPool();
+  const byteBuffer = new ByteRingBuffer(bufferPool);
+  const adaptiveStrategy = new AdaptiveFlushStrategy(bufferSize, flushInterval);
   let lastFlushTimestamp: number = Date.now();
 
   if (!options.nonBlocking) {
@@ -207,6 +401,10 @@ export function getBaseFileSink<TFile>(
     // deno-lint-ignore no-inner-declarations
     function flushBuffer(): void {
       if (fd == null || byteBuffer.isEmpty()) return;
+
+      const flushSize = byteBuffer.size();
+      const currentTime = Date.now();
+      const timeSinceLastFlush = currentTime - lastFlushTimestamp;
 
       const chunks = byteBuffer.flush();
       if (options.writeManySync && chunks.length > 1) {
@@ -219,7 +417,10 @@ export function getBaseFileSink<TFile>(
         }
       }
       options.flushSync(fd);
-      lastFlushTimestamp = Date.now();
+
+      // Record flush for adaptive strategy
+      adaptiveStrategy.recordFlush(flushSize, timeSinceLastFlush);
+      lastFlushTimestamp = currentTime;
     }
 
     const sink: Sink & Disposable = (record: LogRecord) => {
@@ -230,12 +431,21 @@ export function getBaseFileSink<TFile>(
       const encodedRecord = encoder.encode(formattedRecord);
       byteBuffer.append(encodedRecord);
 
-      const shouldFlushBySize = byteBuffer.size() >= bufferSize;
-      const shouldFlushByTime = flushInterval > 0 &&
-        (record.timestamp - lastFlushTimestamp) >= flushInterval;
-
-      if (shouldFlushBySize || shouldFlushByTime) {
+      // Check for immediate flush conditions
+      if (bufferSize <= 0) {
+        // No buffering - flush immediately
         flushBuffer();
+      } else {
+        // Use adaptive strategy for intelligent flushing
+        const timeSinceLastFlush = record.timestamp - lastFlushTimestamp;
+        const shouldFlush = adaptiveStrategy.shouldFlush(
+          byteBuffer.size(),
+          timeSinceLastFlush,
+        );
+
+        if (shouldFlush) {
+          flushBuffer();
+        }
       }
     };
     sink[Symbol.dispose] = () => {
@@ -243,6 +453,8 @@ export function getBaseFileSink<TFile>(
         flushBuffer();
         options.closeSync(fd);
       }
+      // Clean up buffer pool
+      bufferPool.clear();
     };
     return sink;
   }
@@ -256,6 +468,10 @@ export function getBaseFileSink<TFile>(
   async function flushBuffer(): Promise<void> {
     if (fd == null || byteBuffer.isEmpty()) return;
 
+    const flushSize = byteBuffer.size();
+    const currentTime = Date.now();
+    const timeSinceLastFlush = currentTime - lastFlushTimestamp;
+
     const chunks = byteBuffer.flush();
     try {
       if (asyncOptions.writeMany && chunks.length > 1) {
@@ -268,7 +484,10 @@ export function getBaseFileSink<TFile>(
         }
       }
       await asyncOptions.flush(fd);
-      lastFlushTimestamp = Date.now();
+
+      // Record flush for adaptive strategy
+      adaptiveStrategy.recordFlush(flushSize, timeSinceLastFlush);
+      lastFlushTimestamp = currentTime;
     } catch {
       // Silently ignore errors in non-blocking mode
     }
@@ -299,14 +518,23 @@ export function getBaseFileSink<TFile>(
     const encodedRecord = encoder.encode(formattedRecord);
     byteBuffer.append(encodedRecord);
 
-    const shouldFlushBySize = byteBuffer.size() >= bufferSize;
-    const shouldFlushByTime = flushInterval > 0 &&
-      (record.timestamp - lastFlushTimestamp) >= flushInterval;
-
-    if (shouldFlushBySize || shouldFlushByTime) {
+    // Check for immediate flush conditions
+    if (bufferSize <= 0) {
+      // No buffering - flush immediately
       scheduleFlush();
-    } else if (flushTimer === null && flushInterval > 0) {
-      startFlushTimer();
+    } else {
+      // Use adaptive strategy for intelligent flushing
+      const timeSinceLastFlush = record.timestamp - lastFlushTimestamp;
+      const shouldFlush = adaptiveStrategy.shouldFlush(
+        byteBuffer.size(),
+        timeSinceLastFlush,
+      );
+
+      if (shouldFlush) {
+        scheduleFlush();
+      } else if (flushTimer === null && flushInterval > 0) {
+        startFlushTimer();
+      }
     }
   };
 
@@ -324,6 +552,8 @@ export function getBaseFileSink<TFile>(
         // Writer might already be closed or errored
       }
     }
+    // Clean up buffer pool
+    bufferPool.clear();
   };
 
   return nonBlockingSink;
