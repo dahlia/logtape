@@ -23,6 +23,8 @@
     "console": "node --experimental-transform-types --expose-gc console.ts | grep -v 'Test log message.'",
     "console:bun": "bun --expose-gc console.ts | grep -v 'Test log message.'",
     "file": "node --experimental-transform-types --expose-gc file.ts",
-    "file:bun": "bun --expose-gc file.ts"
+    "file:bun": "bun --expose-gc file.ts",
+    "json": "node --experimental-transform-types --expose-gc json.ts",
+    "json:bun": "bun --expose-gc json.ts"
   }
 }
