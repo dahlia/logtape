@@ -9,19 +9,19 @@ import type { FileSinkOptions } from "./filesink.base.ts";
 export interface WorkerFileSinkOptions extends FileSinkOptions {
   /**
    * Buffer size for batching log records before sending to worker.
-   * @default 100
+   * @default 1000
    */
   bufferSize?: number;
 
   /**
    * Maximum time in milliseconds to wait before flushing the buffer.
-   * @default 100
+   * @default 10
    */
   flushInterval?: number;
 
   /**
    * Maximum buffer size before forcing a flush regardless of timing.
-   * @default 1000
+   * @default 5000
    */
   maxBufferSize?: number;
 }
@@ -32,17 +32,18 @@ export function getWorkerFileSink(
 ): Sink & AsyncDisposable {
   const {
     formatter = defaultTextFormatter,
-    bufferSize = 100,
-    flushInterval = 100,
-    maxBufferSize = 1000,
+    bufferSize = 1000,
+    flushInterval = 10,
+    maxBufferSize = 5000,
     ...workerOptions
   } = options;
 
   const worker = spawnWorker();
   const encoder = new TextEncoder();
-  let buffer: LogRecord[] = [];
+  let buffer: Uint8Array[] = []; // Pre-encoded chunks for better performance
   let flushTimer: number | undefined;
   let isInitialized = false;
+  let pendingFlushes: Uint8Array[][] = []; // Store flushes during initialization
 
   const initPromise = new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -53,6 +54,13 @@ export function getWorkerFileSink(
       if (e.data.type === "inited") {
         clearTimeout(timeout);
         isInitialized = true;
+
+        // Send any pending flushes
+        pendingFlushes.forEach((chunks) => {
+          worker.postMessage({ type: "logBatch", chunks });
+        });
+        pendingFlushes = [];
+
         resolve();
       } else if (e.data.type === "error") {
         clearTimeout(timeout);
@@ -78,15 +86,18 @@ export function getWorkerFileSink(
       flushTimer = undefined;
     }
 
-    if (buffer.length === 0 || !isInitialized) return;
+    if (buffer.length === 0) return;
 
     // Swap buffer to allow new logs while flushing
     const toFlush = buffer;
     buffer = [];
 
-    // Convert to chunks and send as batch
-    const chunks = toFlush.map((record) => encoder.encode(formatter(record)));
-    worker.postMessage({ type: "logBatch", chunks });
+    // Send immediately if initialized, otherwise queue it
+    if (isInitialized) {
+      worker.postMessage({ type: "logBatch", chunks: toFlush });
+    } else {
+      pendingFlushes.push(toFlush);
+    }
   };
 
   const scheduleFlush = () => {
@@ -96,14 +107,18 @@ export function getWorkerFileSink(
   };
 
   const sink = (record: LogRecord) => {
-    // Add to buffer immediately (very fast)
-    buffer.push(record);
+    // Pre-encode immediately to avoid repeated encoding
+    const chunk = encoder.encode(formatter(record));
+    buffer.push(chunk);
 
+    // Always buffer, even during initialization for maximum performance
     // Flush immediately if buffer is full
     if (buffer.length >= maxBufferSize) {
       flushBuffer();
-    } else if (buffer.length >= bufferSize) {
-      // Schedule flush for next tick
+    } else if (
+      buffer.length >= bufferSize && buffer.length % bufferSize === 0
+    ) {
+      // Only schedule flush at exact buffer size intervals to reduce timer overhead
       scheduleFlush();
     }
   };
@@ -120,10 +135,7 @@ export function getWorkerFileSink(
 
       // Flush any remaining buffer
       if (buffer.length > 0) {
-        const chunks = buffer.map((record) =>
-          encoder.encode(formatter(record))
-        );
-        worker.postMessage({ type: "logBatch", chunks });
+        worker.postMessage({ type: "logBatch", chunks: buffer });
         buffer = [];
       }
 

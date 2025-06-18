@@ -63,24 +63,27 @@ async function handleMessage(message: WorkerMessage) {
       break;
     case "logBatch":
       if (writer) {
-        // Write all chunks in the batch
-        for (const chunk of message.chunks) {
-          const promise = Promise.resolve(writer.write(chunk)).catch(
-            (err) => {
-              self.postMessage({
-                type: "error",
-                error: (err as Error).message,
-              });
-            },
-          );
-          writePromises.push(promise);
-          promise.finally(() => {
+        // Process batch more efficiently - create all promises first
+        const batchPromises = message.chunks.map((chunk) =>
+          Promise.resolve(writer!.write(chunk)).catch((err) => {
+            self.postMessage({
+              type: "error",
+              error: (err as Error).message,
+            });
+          })
+        );
+
+        writePromises.push(...batchPromises);
+
+        // Clean up completed promises in batch
+        Promise.allSettled(batchPromises).then(() => {
+          batchPromises.forEach((promise) => {
             const index = writePromises.indexOf(promise);
             if (index > -1) {
               writePromises.splice(index, 1);
             }
           });
-        }
+        });
       }
       break;
     case "flush":
