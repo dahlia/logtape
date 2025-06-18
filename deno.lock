@@ -3,10 +3,13 @@
   "specifiers": {
     "jsr:@alinea/suite@~0.6.3": "0.6.3",
     "jsr:@david/which-runtime@~0.2.1": "0.2.1",
+    "jsr:@std/assert@0.223": "0.223.0",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/async@^1.0.13": "1.0.13",
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
+    "jsr:@std/fs@0.223": "0.223.0",
     "jsr:@std/internal@^1.0.6": "1.0.8",
+    "jsr:@std/path@0.223": "0.223.0",
     "jsr:@std/path@^1.1.0": "1.1.0",
     "npm:@aws-sdk/client-cloudwatch-logs@3": "3.828.0",
     "npm:@dotenvx/dotenvx@^1.44.2": "1.44.2_picomatch@4.0.2",
@@ -33,6 +36,9 @@
     "@david/which-runtime@0.2.1": {
       "integrity": "2a304e36b1122ebfe384d45de8fe0fb2bfe54a0a5a2a596efbfc81f54a47a62d"
     },
+    "@std/assert@0.223.0": {
+      "integrity": "eb8d6d879d76e1cc431205bd346ed4d88dc051c6366365b1af47034b0670be24"
+    },
     "@std/assert@1.0.13": {
       "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
       "dependencies": [
@@ -45,8 +51,21 @@
     "@std/dotenv@0.225.5": {
       "integrity": "9ce6f9d0ec3311f74a32535aa1b8c62ed88b1ab91b7f0815797d77a6f60c922f"
     },
+    "@std/fs@0.223.0": {
+      "integrity": "3b4b0550b2c524cbaaa5a9170c90e96cbb7354e837ad1bdaf15fc9df1ae9c31c",
+      "dependencies": [
+        "jsr:@std/assert@0.223",
+        "jsr:@std/path@0.223"
+      ]
+    },
     "@std/internal@1.0.8": {
       "integrity": "fc66e846d8d38a47cffd274d80d2ca3f0de71040f855783724bb6b87f60891f5"
+    },
+    "@std/path@0.223.0": {
+      "integrity": "593963402d7e6597f5a6e620931661053572c982fc014000459edc1f93cc3989",
+      "dependencies": [
+        "jsr:@std/assert@0.223"
+      ]
     },
     "@std/path@1.1.0": {
       "integrity": "ddc94f8e3c275627281cbc23341df6b8bcc874d70374f75fec2533521e3d6886"
@@ -1661,6 +1680,16 @@
             "npm:@aws-sdk/client-cloudwatch-logs@3",
             "npm:@dotenvx/dotenvx@^1.44.2",
             "npm:aws-sdk-client-mock@4"
+          ]
+        }
+      },
+      "file": {
+        "dependencies": [
+          "npm:@types/bun@^1.2.16"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/bun@^1.2.16"
           ]
         }
       },

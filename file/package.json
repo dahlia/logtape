@@ -47,6 +47,27 @@
       "import": "./dist/filesink.node.js",
       "require": "./dist/filesink.node.cjs",
       "types": "./dist/filesink.node.d.ts"
+    },
+    "#workersink": {
+      "bun": "./dist/workersink.bun.js",
+      "deno": "./dist/workersink.deno.js",
+      "import": "./dist/workersink.node.js",
+      "require": "./dist/workersink.node.cjs",
+      "types": "./dist/workersink.node.d.ts"
+    },
+    "#worker_spawn": {
+      "bun": "./dist/worker_spawn.bun.js",
+      "deno": "./dist/worker_spawn.deno.js",
+      "import": "./dist/worker_spawn.node.js",
+      "require": "./dist/worker_spawn.node.cjs",
+      "types": "./dist/worker_spawn.node.d.ts"
+    },
+    "#worker_factory": {
+      "bun": "./dist/worker_factory.bun.js",
+      "deno": "./dist/worker_factory.deno.js",
+      "import": "./dist/worker_factory.node.js",
+      "require": "./dist/worker_factory.node.cjs",
+      "types": "./dist/worker_factory.node.d.ts"
     }
   },
   "peerDependencies": {
@@ -58,6 +79,7 @@
     "@std/assert": "catalog:",
     "@std/async": "catalog:",
     "@std/path": "catalog:",
+    "@types/bun": "^1.2.16",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

@@ -160,6 +160,9 @@ importers:
       '@std/path':
         specifier: 'catalog:'
         version: '@jsr/std__path@1.1.0'
+      '@types/bun':
+        specifier: ^1.2.16
+        version: 1.2.16
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -1585,6 +1588,9 @@ packages:
   '@types/bun@1.2.15':
     resolution: {integrity: sha512-U1ljPdBEphF0nw1MIk0hI7kPg7dFdPyM7EenHsp6W5loNHl7zqy6JQf/RKCgnUn2KDzUpkBwHPnEJEjII594bA==}
 
+  '@types/bun@1.2.16':
+    resolution: {integrity: sha512-1aCZJ/6nSiViw339RsaNhkNoEloLaPzZhxMOYEa7OzRzO41IGg5n/7I43/ZIAW/c+Q6cT12Vf7fOZOoVIzb5BQ==}
+
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
 
@@ -1824,6 +1830,9 @@ packages:
 
   bun-types@1.2.15:
     resolution: {integrity: sha512-NarRIaS+iOaQU1JPfyKhZm4AsUOrwUOqRNHY0XxI8GI8jYxiLXLcdjYMG9UKS+fwWasc1uw1htV9AX24dD+p4w==}
+
+  bun-types@1.2.16:
+    resolution: {integrity: sha512-ciXLrHV4PXax9vHvUrkvun9VPVGOVwbbbBF/Ev1cXz12lyEZMoJpIJABOfPcN9gDJRaiKF9MVbSygLg4NXu3/A==}
 
   byte-size@9.0.1:
     resolution: {integrity: sha512-YLe9x3rabBrcI0cueCdLS2l5ONUKywcRpTs02B8KP9/Cimhj7o3ZccGrPnRvcbyHMbb7W79/3MUJl7iGgTXKEw==}
@@ -4447,6 +4456,10 @@ snapshots:
     dependencies:
       bun-types: 1.2.15
 
+  '@types/bun@1.2.16':
+    dependencies:
+      bun-types: 1.2.16
+
   '@types/connect@3.4.38':
     dependencies:
       '@types/node': 22.15.31
@@ -4711,6 +4724,10 @@ snapshots:
       balanced-match: 1.0.2
 
   bun-types@1.2.15:
+    dependencies:
+      '@types/node': 22.15.31
+
+  bun-types@1.2.16:
     dependencies:
       '@types/node': 22.15.31
 

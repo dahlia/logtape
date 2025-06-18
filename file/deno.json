@@ -4,7 +4,11 @@
   "license": "MIT",
   "exports": "./mod.ts",
   "imports": {
-    "#filesink": "./filesink.jsr.ts"
+    "@types/bun": "npm:@types/bun@^1.2.16",
+    "#filesink": "./filesink.jsr.ts",
+    "#workersink": "./workersink.deno.ts",
+    "#worker_spawn": "./worker_spawn.deno.ts",
+    "#worker_factory": "./worker_factory.deno.ts"
   },
   "exclude": [
     "coverage/",

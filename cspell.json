@@ -15,6 +15,7 @@
     "logtape",
     "LPCSTR",
     "Minhee",
+    "mitata",
     "npmjs",
     "popd",
     "pushd",
@@ -26,6 +27,7 @@
     "typeof",
     "unbundle",
     "venv",
-    "wcwidth"
+    "wcwidth",
+    "workersink"
   ]
 }
