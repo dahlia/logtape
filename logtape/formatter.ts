@@ -209,6 +209,130 @@ export interface TextFormatterOptions {
   format?: (values: FormattedValues) => string;
 }
 
+// Optimized helper functions for timestamp formatting
+function padZero(num: number): string {
+  return num < 10 ? `0${num}` : `${num}`;
+}
+
+function padThree(num: number): string {
+  return num < 10 ? `00${num}` : num < 100 ? `0${num}` : `${num}`;
+}
+
+// Pre-optimized timestamp formatter functions
+const timestampFormatters = {
+  "date-time-timezone": (ts: number): string => {
+    const d = new Date(ts);
+    const year = d.getUTCFullYear();
+    const month = padZero(d.getUTCMonth() + 1);
+    const day = padZero(d.getUTCDate());
+    const hour = padZero(d.getUTCHours());
+    const minute = padZero(d.getUTCMinutes());
+    const second = padZero(d.getUTCSeconds());
+    const ms = padThree(d.getUTCMilliseconds());
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms} +00:00`;
+  },
+  "date-time-tz": (ts: number): string => {
+    const d = new Date(ts);
+    const year = d.getUTCFullYear();
+    const month = padZero(d.getUTCMonth() + 1);
+    const day = padZero(d.getUTCDate());
+    const hour = padZero(d.getUTCHours());
+    const minute = padZero(d.getUTCMinutes());
+    const second = padZero(d.getUTCSeconds());
+    const ms = padThree(d.getUTCMilliseconds());
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms} +00`;
+  },
+  "date-time": (ts: number): string => {
+    const d = new Date(ts);
+    const year = d.getUTCFullYear();
+    const month = padZero(d.getUTCMonth() + 1);
+    const day = padZero(d.getUTCDate());
+    const hour = padZero(d.getUTCHours());
+    const minute = padZero(d.getUTCMinutes());
+    const second = padZero(d.getUTCSeconds());
+    const ms = padThree(d.getUTCMilliseconds());
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms}`;
+  },
+  "time-timezone": (ts: number): string => {
+    const d = new Date(ts);
+    const hour = padZero(d.getUTCHours());
+    const minute = padZero(d.getUTCMinutes());
+    const second = padZero(d.getUTCSeconds());
+    const ms = padThree(d.getUTCMilliseconds());
+    return `${hour}:${minute}:${second}.${ms} +00:00`;
+  },
+  "time-tz": (ts: number): string => {
+    const d = new Date(ts);
+    const hour = padZero(d.getUTCHours());
+    const minute = padZero(d.getUTCMinutes());
+    const second = padZero(d.getUTCSeconds());
+    const ms = padThree(d.getUTCMilliseconds());
+    return `${hour}:${minute}:${second}.${ms} +00`;
+  },
+  "time": (ts: number): string => {
+    const d = new Date(ts);
+    const hour = padZero(d.getUTCHours());
+    const minute = padZero(d.getUTCMinutes());
+    const second = padZero(d.getUTCSeconds());
+    const ms = padThree(d.getUTCMilliseconds());
+    return `${hour}:${minute}:${second}.${ms}`;
+  },
+  "date": (ts: number): string => {
+    const d = new Date(ts);
+    const year = d.getUTCFullYear();
+    const month = padZero(d.getUTCMonth() + 1);
+    const day = padZero(d.getUTCDate());
+    return `${year}-${month}-${day}`;
+  },
+  "rfc3339": (ts: number): string => new Date(ts).toISOString(),
+  "none": (): null => null,
+} as const;
+
+// Pre-computed level renderers for common cases
+const levelRenderersCache = {
+  ABBR: levelAbbreviations,
+  abbr: {
+    trace: "trc",
+    debug: "dbg",
+    info: "inf",
+    warning: "wrn",
+    error: "err",
+    fatal: "ftl",
+  } as const,
+  FULL: {
+    trace: "TRACE",
+    debug: "DEBUG",
+    info: "INFO",
+    warning: "WARNING",
+    error: "ERROR",
+    fatal: "FATAL",
+  } as const,
+  full: {
+    trace: "trace",
+    debug: "debug",
+    info: "info",
+    warning: "warning",
+    error: "error",
+    fatal: "fatal",
+  } as const,
+  L: {
+    trace: "T",
+    debug: "D",
+    info: "I",
+    warning: "W",
+    error: "E",
+    fatal: "F",
+  } as const,
+  l: {
+    trace: "t",
+    debug: "d",
+    info: "i",
+    warning: "w",
+    error: "e",
+    fatal: "f",
+  } as const,
+} as const;
+
 /**
  * Get a text formatter with the specified options.  Although it's flexible
  * enough to create a custom formatter, if you want more control, you can
@@ -229,61 +353,81 @@ export interface TextFormatterOptions {
 export function getTextFormatter(
   options: TextFormatterOptions = {},
 ): TextFormatter {
-  const timestampRenderer =
-    options.timestamp == null || options.timestamp === "date-time-timezone"
-      ? (ts: number): string =>
-        new Date(ts).toISOString().replace("T", " ").replace("Z", " +00:00")
-      : options.timestamp === "date-time-tz"
-      ? (ts: number): string =>
-        new Date(ts).toISOString().replace("T", " ").replace("Z", " +00")
-      : options.timestamp === "date-time"
-      ? (ts: number): string =>
-        new Date(ts).toISOString().replace("T", " ").replace("Z", "")
-      : options.timestamp === "time-timezone"
-      ? (ts: number): string =>
-        new Date(ts).toISOString().replace(/.*T/, "").replace("Z", " +00:00")
-      : options.timestamp === "time-tz"
-      ? (ts: number): string =>
-        new Date(ts).toISOString().replace(/.*T/, "").replace("Z", " +00")
-      : options.timestamp === "time"
-      ? (ts: number): string =>
-        new Date(ts).toISOString().replace(/.*T/, "").replace("Z", "")
-      : options.timestamp === "date"
-      ? (ts: number): string => new Date(ts).toISOString().replace(/T.*/, "")
-      : options.timestamp === "rfc3339"
-      ? (ts: number): string => new Date(ts).toISOString()
-      : options.timestamp === "none" || options.timestamp === "disabled"
-      ? () => null
-      : options.timestamp;
+  // Pre-compute timestamp formatter with optimized lookup
+  const timestampRenderer = (() => {
+    const tsOption = options.timestamp;
+    if (tsOption == null) {
+      return timestampFormatters["date-time-timezone"];
+    } else if (tsOption === "disabled") {
+      return timestampFormatters["none"];
+    } else if (
+      typeof tsOption === "string" && tsOption in timestampFormatters
+    ) {
+      return timestampFormatters[tsOption as keyof typeof timestampFormatters];
+    } else {
+      return tsOption as (ts: number) => string | null;
+    }
+  })();
+
   const categorySeparator = options.category ?? "·";
   const valueRenderer = options.value ?? inspect;
-  const levelRenderer = options.level == null || options.level === "ABBR"
-    ? (level: LogLevel): string => levelAbbreviations[level]
-    : options.level === "abbr"
-    ? (level: LogLevel): string => levelAbbreviations[level].toLowerCase()
-    : options.level === "FULL"
-    ? (level: LogLevel): string => level.toUpperCase()
-    : options.level === "full"
-    ? (level: LogLevel): string => level
-    : options.level === "L"
-    ? (level: LogLevel): string => level.charAt(0).toUpperCase()
-    : options.level === "l"
-    ? (level: LogLevel): string => level.charAt(0)
-    : options.level;
+
+  // Pre-compute level renderer for better performance
+  const levelRenderer = (() => {
+    const levelOption = options.level;
+    if (levelOption == null || levelOption === "ABBR") {
+      return (level: LogLevel): string => levelRenderersCache.ABBR[level];
+    } else if (levelOption === "abbr") {
+      return (level: LogLevel): string => levelRenderersCache.abbr[level];
+    } else if (levelOption === "FULL") {
+      return (level: LogLevel): string => levelRenderersCache.FULL[level];
+    } else if (levelOption === "full") {
+      return (level: LogLevel): string => levelRenderersCache.full[level];
+    } else if (levelOption === "L") {
+      return (level: LogLevel): string => levelRenderersCache.L[level];
+    } else if (levelOption === "l") {
+      return (level: LogLevel): string => levelRenderersCache.l[level];
+    } else {
+      return levelOption;
+    }
+  })();
+
   const formatter: (values: FormattedValues) => string = options.format ??
     (({ timestamp, level, category, message }: FormattedValues) =>
       `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}: ${message}`);
+
   return (record: LogRecord): string => {
-    let message = "";
-    for (let i = 0; i < record.message.length; i++) {
-      if (i % 2 === 0) message += record.message[i];
-      else message += valueRenderer(record.message[i]);
+    // Optimized message building
+    const msgParts = record.message;
+    const msgLen = msgParts.length;
+
+    let message: string;
+    if (msgLen === 1) {
+      // Fast path for simple messages with no interpolation
+      message = msgParts[0] as string;
+    } else if (msgLen <= 6) {
+      // Fast path for small messages - direct concatenation
+      message = "";
+      for (let i = 0; i < msgLen; i++) {
+        message += (i % 2 === 0) ? msgParts[i] : valueRenderer(msgParts[i]);
+      }
+    } else {
+      // Optimized path for larger messages - array join
+      const parts: string[] = new Array(msgLen);
+      for (let i = 0; i < msgLen; i++) {
+        parts[i] = (i % 2 === 0)
+          ? msgParts[i] as string
+          : valueRenderer(msgParts[i]);
+      }
+      message = parts.join("");
     }
+
     const timestamp = timestampRenderer(record.timestamp);
     const level = levelRenderer(record.level);
     const category = typeof categorySeparator === "function"
       ? categorySeparator(record.category)
       : record.category.join(categorySeparator);
+
     const values: FormattedValues = {
       timestamp,
       level,
