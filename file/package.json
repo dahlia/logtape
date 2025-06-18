@@ -34,19 +34,25 @@
   "types": "./dist/mod.d.ts",
   "exports": {
     ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
       "import": "./dist/mod.js",
-      "require": "./dist/mod.cjs",
-      "types": "./dist/mod.d.ts"
+      "require": "./dist/mod.cjs"
     },
     "./package.json": "./package.json"
   },
   "imports": {
     "#filesink": {
+      "types": {
+        "import": "./dist/filesink.node.d.ts",
+        "require": "./dist/filesink.node.d.cts"
+      },
       "bun": "./dist/filesink.node.js",
       "deno": "./dist/filesink.deno.js",
       "import": "./dist/filesink.node.js",
-      "require": "./dist/filesink.node.cjs",
-      "types": "./dist/filesink.node.d.ts"
+      "require": "./dist/filesink.node.cjs"
     }
   },
   "peerDependencies": {

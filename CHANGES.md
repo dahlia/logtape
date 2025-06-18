@@ -101,6 +101,21 @@ To be released.
 [#51]: https://github.com/dahlia/logtape/pull/51
 
 
+Version 0.12.1
+--------------
+
+Released on June 19, 2025.
+
+ -  Fixed module resolution issues in CommonJS environments and bundlers
+    like Vite by properly configuring conditional exports for types.
+
+     -  Updated all package.json exports to use conditional `types` exports with
+        separate `.d.ts` files for ESM imports and `.d.cts` files for CommonJS
+        requires.
+     -  This resolves runtime errors in frameworks like SvelteKit that require
+        proper CommonJS modules for modules imported in CommonJS contexts.
+
+
 Version 0.12.0
 --------------
 
