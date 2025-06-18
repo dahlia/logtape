@@ -41,7 +41,10 @@
       "Bash(pnpm file:*)",
       "Bash(ls:*)",
       "Bash(curl:*)",
-      "Bash(deno bench:*)"
+      "Bash(deno bench:*)",
+      "Bash(pnpm run:*)",
+      "Bash(bun:*)",
+      "Bash(deno:*)"
     ]
   },
   "enableAllProjectMcpServers": false
