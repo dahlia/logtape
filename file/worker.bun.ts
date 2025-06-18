@@ -7,6 +7,11 @@ interface LogMessage {
   chunk: Uint8Array;
 }
 
+interface LogBatchMessage {
+  type: "logBatch";
+  chunks: Uint8Array[];
+}
+
 interface InitMessage {
   type: "init";
   options: FileSinkOptions & { path: string };
@@ -20,7 +25,12 @@ interface CloseMessage {
   type: "close";
 }
 
-type WorkerMessage = InitMessage | LogMessage | FlushMessage | CloseMessage;
+type WorkerMessage =
+  | InitMessage
+  | LogMessage
+  | LogBatchMessage
+  | FlushMessage
+  | CloseMessage;
 
 let writer: FileWriteStream | undefined;
 const writePromises: Promise<unknown>[] = [];
@@ -49,6 +59,28 @@ async function handleMessage(message: WorkerMessage) {
             writePromises.splice(index, 1);
           }
         });
+      }
+      break;
+    case "logBatch":
+      if (writer) {
+        // Write all chunks in the batch
+        for (const chunk of message.chunks) {
+          const promise = Promise.resolve(writer.write(chunk)).catch(
+            (err) => {
+              self.postMessage({
+                type: "error",
+                error: (err as Error).message,
+              });
+            },
+          );
+          writePromises.push(promise);
+          promise.finally(() => {
+            const index = writePromises.indexOf(promise);
+            if (index > -1) {
+              writePromises.splice(index, 1);
+            }
+          });
+        }
       }
       break;
     case "flush":
