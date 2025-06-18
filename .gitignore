@@ -2,7 +2,7 @@
 .env/
 .dnt-import-map.json
 coverage/
+logtape-*-*.tgz
 node_modules/
 npm/
 */dist/
-*/logtape-*-*.tgz

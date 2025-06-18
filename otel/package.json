@@ -31,9 +31,12 @@
   "types": "./dist/mod.d.ts",
   "exports": {
     ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
       "import": "./dist/mod.js",
-      "require": "./dist/mod.cjs",
-      "types": "./dist/mod.d.ts"
+      "require": "./dist/mod.cjs"
     },
     "./package.json": "./package.json"
   },
