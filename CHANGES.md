@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.12.1
 --------------
 
-To be released.
+Released on June 19, 2025.
 
  -  Fixed module resolution issues in CommonJS environments and bundlers
     like Vite by properly configuring conditional exports for types.
