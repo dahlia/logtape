@@ -67,8 +67,8 @@ importers:
   benchmarks:
     dependencies:
       '@graphql-hive/logger':
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: 1.0.0-alpha-b59321b772f970ee1e46d2ffc249e59427634cb7
+        version: 1.0.0-alpha-b59321b772f970ee1e46d2ffc249e59427634cb7(pino@9.7.0)(winston@3.17.0)
       '@logtape/file':
         specifier: 'workspace:'
         version: link:../file
@@ -878,9 +878,17 @@ packages:
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
 
-  '@graphql-hive/logger@1.0.0':
-    resolution: {integrity: sha512-66kcaBS2td3wA9aUAnKCkDfOiuV8CzTOI1kKmiHzsWiSvrFIrqeOgXd+gb9mTAFl9MFuQTaJfS6qb/jnSv+eOQ==}
+  '@graphql-hive/logger@1.0.0-alpha-b59321b772f970ee1e46d2ffc249e59427634cb7':
+    resolution: {integrity: sha512-IVLOIonkPnyn5DSGMBMt6zT59vb1nP20/hDPmGmw9FAgOhexFcIfwtR3qg2YPCNmXnTNfP9DdhNOWdia8oGo+A==}
     engines: {node: '>=18.0.0'}
+    peerDependencies:
+      pino: ^9.6.0
+      winston: '*'
+    peerDependenciesMeta:
+      pino:
+        optional: true
+      winston:
+        optional: true
 
   '@iconify-json/simple-icons@1.2.38':
     resolution: {integrity: sha512-mvMeFQgVjoHanQE9Q7ihmriEXAorjLZW+crUgQspDjFpzWuQp2RZMTppl1MN6TQztMVTsNFgF6LDKsp+v1RYRg==}
@@ -3875,7 +3883,10 @@ snapshots:
 
   '@floating-ui/utils@0.2.9': {}
 
-  '@graphql-hive/logger@1.0.0': {}
+  '@graphql-hive/logger@1.0.0-alpha-b59321b772f970ee1e46d2ffc249e59427634cb7(pino@9.7.0)(winston@3.17.0)':
+    optionalDependencies:
+      pino: 9.7.0
+      winston: 3.17.0
 
   '@iconify-json/simple-icons@1.2.38':
     dependencies:

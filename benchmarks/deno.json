@@ -1,6 +1,6 @@
 {
   "imports": {
-    "@graphql-hive/logger": "npm:@graphql-hive/logger@^1.0.0",
+    "@graphql-hive/logger": "npm:@graphql-hive/logger@1.0.0-alpha-b59321b772f970ee1e46d2ffc249e59427634cb7",
     "@types/bunyan": "npm:@types/bunyan@^1.8.11",
     "@types/signale": "npm:@types/signale@^1.4.7",
     "bunyan": "npm:bunyan@^1.8.15",
