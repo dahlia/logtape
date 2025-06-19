@@ -33,7 +33,10 @@
     ".": {
       "import": "./dist/mod.js",
       "require": "./dist/mod.cjs",
-      "types": "./dist/mod.d.ts"
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -43,9 +46,13 @@
       "deno": "./dist/sink.deno.js",
       "import": "./dist/sink.node.js",
       "require": "./dist/sink.node.cjs",
-      "types": "./dist/sink.node.d.ts"
+      "types": {
+        "import": "./dist/sink.node.d.ts",
+        "require": "./dist/sink.node.d.cts"
+      }
     }
   },
+  "sideEffects": false,
   "files": [
     "dist/"
   ],

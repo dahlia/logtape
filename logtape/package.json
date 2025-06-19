@@ -64,6 +64,7 @@
       "default": "./dist/util.js"
     }
   },
+  "sideEffects": false,
   "devDependencies": {
     "@alinea/suite": "catalog:",
     "@std/assert": "catalog:",

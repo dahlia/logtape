@@ -43,6 +43,7 @@
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "peerDependencies": {
     "@logtape/logtape": "workspace:"
   },

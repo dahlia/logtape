@@ -55,6 +55,7 @@
       "require": "./dist/filesink.node.cjs"
     }
   },
+  "sideEffects": false,
   "peerDependencies": {
     "@logtape/logtape": "workspace:"
   },

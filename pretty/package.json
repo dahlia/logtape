@@ -42,10 +42,14 @@
     ".": {
       "import": "./dist/mod.js",
       "require": "./dist/mod.cjs",
-      "types": "./dist/mod.d.ts"
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      }
     },
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "peerDependencies": {
     "@logtape/logtape": "workspace:"
   },
