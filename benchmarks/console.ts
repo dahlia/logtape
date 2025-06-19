@@ -14,7 +14,7 @@ summary(() => {
   bench("LogTape", async function* () {
     await logtape.configure({
       sinks: {
-        console: logtape.getConsoleSink({ nonBlocking: true }),
+        console: logtape.getConsoleSink({ nonBlocking: false }),
       },
       loggers: [
         { category: [], sinks: ["console"] },
