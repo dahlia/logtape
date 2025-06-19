@@ -1,7 +1,7 @@
 {
   "type": "module",
   "dependencies": {
-    "@graphql-hive/logger": "^1.0.0",
+    "@graphql-hive/logger": "1.0.0-alpha-b59321b772f970ee1e46d2ffc249e59427634cb7",
     "@logtape/file": "workspace:",
     "@logtape/logtape": "workspace:",
     "bunyan": "^1.8.15",

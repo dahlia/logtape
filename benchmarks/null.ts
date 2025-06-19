@@ -103,27 +103,10 @@ summary(() => {
   });
 
   bench("Hive Logger", function* () {
-    type AttributeValue =
-      | string
-      | number
-      | boolean
-      | {
-        [key: string | number]: AttributeValue;
-      }
-      | AttributeValue[]
-      // deno-lint-ignore ban-types
-      | Object
-      | null
-      | undefined
-      // deno-lint-ignore no-explicit-any
-      | any;
-    type Attributes = AttributeValue[] | {
-      [key: string | number]: AttributeValue;
-    };
     class NullLogWriter implements hiveLogger.LogWriter {
       write(
         _level: hiveLogger.LogLevel,
-        _attrs: Attributes,
+        _attrs: hiveLogger.Attributes,
         _msg: string,
       ) {
       }

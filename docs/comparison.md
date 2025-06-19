@@ -218,13 +218,13 @@ all runtimes, often by a significant margin.
 
 This measures the overhead when logs are disabled:
 
-| Library     | Node.js | Deno    | Bun     |
-|-------------|--------:|--------:|--------:|
-| Hive Logger | 158     | 2,390   | 157     |
-| **LogTape** | **163** | **178** | **187** |
-| log4js      | 279     | 274     | 261     |
-| Pino        | 570     | 1,060   | 715     |
-| winston     | 701     | 757     | 569     |
+| Library             | Node.js |    Deno |     Bun |
+| ------------------- | ------: | ------: | ------: |
+| Hive Logger (alpha) |     158 |   2,390 |     157 |
+| **LogTape**         | **163** | **178** | **187** |
+| log4js              |     279 |     274 |     261 |
+| Pino                |     570 |   1,060 |     715 |
+| winston             |     701 |     757 |     569 |
 
 When logging is disabled, LogTape has minimal overhead, making it ideal for
 performance-critical applications.
