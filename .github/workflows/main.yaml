@@ -105,7 +105,11 @@ jobs:
         pnpm install
         jq -r '.workspace | .[]' deno.json | while read pkg; do
           pushd "$pkg"
-          pkgname="$(jq -r '.name + "@" + .version' deno.json)"
+          if [[ "$(jq -r '.name' deno.json)" = "null" ]]; then
+            popd
+            continue
+          fi
+          pkgname="$(jq -r '.name + "@" + .version | split("+")[0]' deno.json)"
           if pnpm view "$pkgname"; then
             echo "Package $pkgname already exists, skipping publish."
             popd
