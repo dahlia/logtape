@@ -3,7 +3,7 @@ Comparison with other logging libraries
 
 When choosing a logging library for your JavaScript or TypeScript project,
 you might wonder how LogTape compares to established alternatives like winston,
-pino, or bunyan.  This guide provides a comprehensive comparison to help you
+Pino, or bunyan.  This guide provides a comprehensive comparison to help you
 make an informed decision.
 
 
@@ -91,7 +91,7 @@ Here's how LogTape compares to other popular logging libraries:[^1]
 | Library     | Version    | Minified + gzipped | Dependencies | Tree-shakable |
 |-------------|------------|-------------------:|-------------:|:-------------:|
 | **LogTape** | **0.12.1** | **5.3 KB**         |        **0** |      ✅       |
-| pino        | 9.7.0      | 3.1 KB             |            1 |      ❌       |
+| Pino        | 9.7.0      | 3.1 KB             |            1 |      ❌       |
 | bunyan      | 1.8.15     | 5.7 KB             |            0 |      ❌       |
 | log4js      | 6.9.1      | 12.9 KB            |            5 |      ❌       |
 | Signale     | 1.4.0      | 16.4 KB            |           23 |      ❌       |
@@ -144,7 +144,7 @@ Modern JavaScript applications run in diverse environments.  LogTape is
 designed to work seamlessly across all major JavaScript runtimes, while
 other libraries have varying degrees of compatibility:[^2]
 
-| Runtime             | LogTape   | winston  | pino  | bunyan   | log4js  | Signale  |
+| Runtime             | LogTape   | winston  | Pino  | bunyan   | log4js  | Signale  |
 |---------------------|:---------:|:--------:|:-----:|:--------:|:-------:|:--------:|
 | **Node.js**         |    ✅    |    ✅     |  ✅   |   ✅     |   ✅    |    ✅    |
 | **Deno**            |    ✅    |    ⚠️     |  ⚠️   |   ⚠️     |   ⚠️    |    ⚠️    |
@@ -205,7 +205,7 @@ comprehensive benchmarks across different runtimes:
 | Library     | Node.js | Deno    | Bun     | Average |
 |-------------|--------:|--------:|--------:|--------:|
 | **LogTape** | **214** | **236** | **225** | **225** |
-| pino        | 326     | 302     | 874     | 501     |
+| Pino        | 326     | 302     | 874     | 501     |
 | winston     | 2,050   | 3,370   | 1,770   | 2,397   |
 | bunyan      | 2,390   | 3,260   | 2,020   | 2,557   |
 | log4js      | 3,600   | 4,430   | 3,540   | 3,857   |
@@ -223,7 +223,7 @@ This measures the overhead when logs are disabled:
 | Hive Logger | 158     | 2,390   | 157     |
 | **LogTape** | **163** | **178** | **187** |
 | log4js      | 279     | 274     | 261     |
-| pino        | 570     | 1,060   | 715     |
+| Pino        | 570     | 1,060   | 715     |
 | winston     | 701     | 757     | 569     |
 
 When logging is disabled, LogTape has minimal overhead, making it ideal for
@@ -235,7 +235,7 @@ Feature comparison
 
 ### Core logging features
 
-| Feature                     | LogTape  | winston  |  pino   | bunyan  |  log4js | Signale |
+| Feature                     | LogTape  | winston  |  Pino   | bunyan  |  log4js | Signale |
 |-----------------------------|:--------:|:--------:|:-------:|:-------:|:-------:|:-------:|
 | **Log levels**              |    6     |    6     |    6    |    6    |    6    |  Custom |
 | **Child loggers**           |    ✅    |    ✅    |    ✅   |    ✅   |    ✅   |    ❌   |
@@ -286,7 +286,7 @@ logger.info`User ${userId} logged in at ${timestamp}`;
 ~~~~ typescript
 // Other libraries require:
 logger.info("User %s logged in at %s", userId, timestamp); // winston
-logger.info({ userId, timestamp }, "User logged in");      // pino
+logger.info({ userId, timestamp }, "User logged in");      // Pino
 ~~~~
 
 #### Hierarchical categories with inheritance
@@ -373,7 +373,7 @@ Use case recommendations
     extensive documentation
  -  *File logging performance* — Optimized for high-volume file writing
 
-### Choose pino when:
+### Choose Pino when:
 
  -  *Smallest possible bundle* — 3.1KB if bundle size is critical
  -  *JSON-first logging* — Structured logging is the primary requirement

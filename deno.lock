@@ -2148,6 +2148,17 @@
       "npm:tsdown@~0.12.7"
     ],
     "members": {
+      "adaptor-pino": {
+        "dependencies": [
+          "npm:pino-abstract-transport@2"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:pino-abstract-transport@2",
+            "npm:pino@^9.7.0"
+          ]
+        }
+      },
       "benchmarks": {
         "dependencies": [
           "npm:@graphql-hive/logger@1",

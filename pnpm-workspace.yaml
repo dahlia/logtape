@@ -1,5 +1,6 @@
 packages:
 - logtape
+- adaptor-pino
 - file
 - otel
 - pretty

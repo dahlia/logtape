@@ -1,6 +1,7 @@
 {
   "workspace": [
     "./logtape",
+    "./adaptor-pino",
     "./file",
     "./otel",
     "./pretty",
@@ -101,6 +102,12 @@
       ],
       "command": "deno task -f @logtape/windows-eventlog build"
     },
+    "build:adaptor-pino": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/adaptor-pino build"
+    },
     "build": {
       "dependencies": [
         "build:file",
@@ -111,7 +118,8 @@
         "build:sentry",
         "build:syslog",
         "build:cloudwatch-logs",
-        "build:windows-eventlog"
+        "build:windows-eventlog",
+        "build:adaptor-pino"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
@@ -158,6 +166,12 @@
       ],
       "command": "cd windows-eventlog/ && node --experimental-transform-types --test"
     },
+    "test:node:adaptor-pino": {
+      "dependencies": [
+        "build:adaptor-pino"
+      ],
+      "command": "cd adaptor-pino/ && node --experimental-transform-types --test"
+    },
     "test:node": {
       "dependencies": [
         "test:node:file",
@@ -166,7 +180,8 @@
         "test:node:redaction",
         "test:node:syslog",
         "test:node:cloudwatch-logs",
-        "test:node:windows-eventlog"
+        "test:node:windows-eventlog",
+        "test:node:adaptor-pino"
       ]
     },
     "test:bun:file": {
@@ -211,6 +226,12 @@
       ],
       "command": "cd windows-eventlog/ && bun test --timeout 10000"
     },
+    "test:bun:adaptor-pino": {
+      "dependencies": [
+        "build:adaptor-pino"
+      ],
+      "command": "cd adaptor-pino/ && bun test"
+    },
     "test:bun": {
       "dependencies": [
         "test:bun:file",
@@ -219,7 +240,8 @@
         "test:bun:redaction",
         "test:bun:syslog",
         "test:bun:cloudwatch-logs",
-        "test:bun:windows-eventlog"
+        "test:bun:windows-eventlog",
+        "test:bun:adaptor-pino"
       ]
     },
     "test-all": {

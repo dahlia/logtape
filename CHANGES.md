@@ -126,6 +126,22 @@ To be released.
      -  Optimized for development environments with focus on visual clarity
         and developer experience.
 
+ -  Added *@logtape/adaptor-pino* package for integrating LogTape with Pino
+    logging infrastructure.  [[#52]]
+
+     -  Added `getPinoSink()` function to forward LogTape log records to Pino
+        loggers.
+     -  Added `PinoSinkOptions` interface for configuring the adapter behavior.
+     -  Added `CategoryOptions` interface for customizing category formatting in
+        Pino log messages.
+     -  Supports configurable category display with position (`start`/`end`),
+        decorators (`[]`, `()`, `<>`, `{}`, `:`, `-`, `|`, `/`, or none), and
+        custom separators for multi-part categories.
+     -  Maps LogTape log levels to equivalent Pino levels.
+     -  Preserves LogTape's structured logging properties as Pino fields.
+     -  Enables seamless adoption of LogTape-enabled libraries in applications
+        using Pino without requiring logging infrastructure changes.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.
@@ -136,6 +152,7 @@ To be released.
 [#49]: https://github.com/dahlia/logtape/pull/49
 [#50]: https://github.com/dahlia/logtape/pull/50
 [#51]: https://github.com/dahlia/logtape/pull/51
+[#52]: https://github.com/dahlia/logtape/issues/52
 
 
 Version 0.12.1

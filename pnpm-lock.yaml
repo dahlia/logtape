@@ -36,6 +36,34 @@ catalogs:
 
 importers:
 
+  adaptor-pino:
+    dependencies:
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
+      '@std/async':
+        specifier: 'catalog:'
+        version: '@jsr/std__async@1.0.13'
+      pino:
+        specifier: ^9.7.0
+        version: 9.7.0
+      pino-abstract-transport:
+        specifier: ^2.0.0
+        version: 2.0.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
   benchmarks:
     dependencies:
       '@graphql-hive/logger':
@@ -121,6 +149,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20240909.0
         version: 4.20250610.0
+      '@logtape/adaptor-pino':
+        specifier: 'workspace:'
+        version: link:../adaptor-pino
       '@logtape/cloudwatch-logs':
         specifier: 'workspace:'
         version: link:../cloudwatch-logs
@@ -178,6 +209,9 @@ importers:
       markdown-it-jsr-ref:
         specifier: ^0.4.2
         version: 0.4.2
+      pino:
+        specifier: ^9.7.0
+        version: 9.7.0
       vitepress:
         specifier: ^1.3.4
         version: 1.6.3(@algolia/client-search@5.27.0)(@types/node@22.15.31)(postcss@8.5.4)(search-insights@2.17.3)(typescript@5.8.3)

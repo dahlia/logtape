@@ -65,6 +65,12 @@ const jsrRef_windows_eventlog = await jsrRef({
   cachePath: ".jsr-cache-windows-eventlog.json",
 });
 
+const jsrRef_adaptor_pino = await jsrRef({
+  package: "@logtape/adaptor-pino",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-adaptor-pino.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -106,6 +112,7 @@ const MANUAL = {
     { text: "Text formatters", link: "/manual/formatters" },
     { text: "Data redaction", link: "/manual/redaction" },
     { text: "Using in libraries", link: "/manual/library" },
+    { text: "Adaptors", link: "/manual/adaptors" },
     { text: "Testing", link: "/manual/testing" },
   ],
 };
@@ -188,6 +195,7 @@ export default defineConfig({
       md.use(jsrRef_syslog);
       md.use(jsrRef_cloudwatch_logs);
       md.use(jsrRef_windows_eventlog);
+      md.use(jsrRef_adaptor_pino);
     },
   },
   sitemap: {
