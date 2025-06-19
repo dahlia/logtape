@@ -1,6 +1,8 @@
 import { transformerTwoslash } from "@shikijs/vitepress-twoslash";
 import deflist from "markdown-it-deflist";
+import footnote from "markdown-it-footnote";
 import { jsrRef } from "markdown-it-jsr-ref";
+import process from "node:process";
 import { defineConfig } from "vitepress";
 import llmstxt from "vitepress-plugin-llms";
 
@@ -126,6 +128,7 @@ export default defineConfig({
 
     sidebar: [
       { text: "What is LogTape?", link: "/intro" },
+      { text: "Comparison", link: "/comparison" },
       { text: "Changelog", link: "/changelog" },
       MANUAL,
     ],
@@ -175,6 +178,7 @@ export default defineConfig({
     ],
     config(md) {
       md.use(deflist);
+      md.use(footnote);
       md.use(jsrRef_logtape);
       md.use(jsrRef_file);
       md.use(jsrRef_otel);
