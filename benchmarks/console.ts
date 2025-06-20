@@ -19,7 +19,7 @@ function mocklog(which: "stdout" | "console.info") {
     const origWrite = process.stdout.write.bind(process.stdout);
     process.stdout.write = (chunk: any, cb: any) => {
       invokations++;
-      return origWrite(chunk);
+      return origWrite(chunk, cb);
     };
     unmock = () => {
       process.stdout.write = origWrite;
