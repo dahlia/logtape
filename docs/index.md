@@ -4,50 +4,73 @@ layout: home
 
 hero:
   name: "LogTape"
-  text: "Simple logging library with<br/>zero dependencies"
-  tagline: For every JavaScript runtime
+  text: "Unobtrusive logging<br/>for modern JavaScript"
+  tagline: "Zero dependencies. Universal runtime. Optimized performance."
   image:
     src: /logtape.svg
     alt: LogTape
   actions:
   - theme: brand
-    text: Install
-    link: /manual/install
+    text: Get Started
+    link: /manual/start
   - theme: alt
-    text: What is LogTape?
+    text: Why LogTape?
     link: /intro
   - theme: alt
-    text: Quick start
-    link: /manual/start
+    text: Compare Libraries
+    link: /comparison
 
 features:
-- icon: 🈚
-  title: Zero dependencies
-  details: LogTape has zero dependencies. You can use LogTape without worrying about the dependencies of LogTape.
-- icon: 📚
-  title: Library support
-  details: LogTape is designed to be used in libraries as well as applications. You can use LogTape in libraries to provide logging capabilities to users of the libraries.
-  link: /manual/library
-- icon: 🔌
-  title: Runtime diversity
+- icon: 🎯
+  title: The only truly unobtrusive logger
   details: >-
-    LogTape supports <a href="https://deno.com/">Deno</a>, <a
-    href="https://nodejs.org/">Node.js</a>, <a href="https://bun.sh/">Bun</a>,
-    edge functions, and browsers. You can use LogTape in various environments
-    without changing the code.
+    Add logging to your libraries without bothering your users.
+    No configuration? No logs. It's that simple and respectful.
+  link: /manual/library
+- icon: ⚡
+  title: Zero performance impact
+  details: >-
+    Log as much as you want during development, then deploy with confidence.
+    When logging is off, there's virtually no overhead at all.
+- icon: 🌍
+  title: Universal runtime support
+  details: >-
+    Write once, run everywhere. Works great in Node.js, Deno, Bun, web browsers,
+    and edge functions. No polyfills, no surprises.
   link: /manual/install
-- icon: 🗃️
-  title: Structured logging
-  details: You can log messages with structured data.
-  link: /manual/struct
-- icon: 🌲
-  title: Hierarchical categories
-  details: LogTape uses a hierarchical category system to manage loggers. You can control the verbosity of log messages by setting the log level of loggers at different levels of the category hierarchy.
+- icon: ✨
+  title: Zero maintenance burden
+  details: >-
+    Install once and forget about it. No dependencies to babysit, no security alerts
+    to stress about. Just 5.3KB of pure simplicity.
+- icon: 🔍
+  title: Smart context management
+  details: >-
+    Track requests and user sessions effortlessly. Bind data to specific loggers
+    or let it flow automatically through your call stack.
+  link: /manual/contexts
+- icon: 🔧
+  title: Easy to extend
+  details: >-
+    Need custom logging behavior? Just write a simple function.
+    No complicated inheritance or confusing APIs to wrestle with.
+  link: /manual/sinks
+- icon: 🤝
+  title: Plays well with others
+  details: >-
+    Works with OpenTelemetry, Sentry, CloudWatch Logs, syslog, and friends.
+    Plus adapters for winston and pino if you're migrating.
+- icon: 📁
+  title: Organize with nested categories
+  details: >-
+    Each library gets its own namespace like <code>["my-lib", "feature"]</code>.
+    Perfect isolation with automatic inheritance. No more log conflicts between dependencies.
   link: /manual/categories
-- icon: ✒️
-  title: Template literals
-  details: LogTape supports template literals for log messages. You can use template literals to log messages with placeholders and values.
-  link: /manual/start#how-to-log
+- icon: 🔥
+  title: Modern JavaScript, done right
+  details: >-
+    TypeScript types included, no extra packages needed. Supports both ESM and CommonJS.
+    Works beautifully with <code>async</code>/<code>await</code> and all the modern patterns you love.
 ---
 
 <!-- cSpell: ignore struct -->

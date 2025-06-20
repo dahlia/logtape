@@ -41,3 +41,80 @@ main dl dd {
   margin-top: .25rem;
   margin-bottom: 1rem;
 }
+
+/* Hero Typography Enhancement */
+.VPHero .text {
+  letter-spacing: -0.02em;
+  line-height: 1.15 !important;
+  font-weight: 700;
+}
+
+/* Prevent orphaned words in hero text - replace with space on desktop */
+@media (min-width: 641px) {
+  .VPHero .text br {
+    display: inline;
+  }
+  
+  .VPHero .text br::before {
+    content: " ";
+    white-space: pre;
+  }
+}
+
+@media (max-width: 640px) {
+  .VPHero .text br {
+    display: block;
+  }
+}
+
+/* Enhance the tagline with brand colors */
+.VPHero .tagline {
+  font-size: 1.35rem !important;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  margin-top: 1.75rem !important;
+  color: var(--vp-c-text-2);
+  position: relative;
+}
+
+/* Remove the accent line - looked like a bug */
+
+/* Better spacing and centering */
+.VPHero .main {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* Subtle emphasis for key words */
+.VPHero .text strong {
+  color: var(--vp-c-brand-1);
+  font-weight: 800;
+}
+
+/* Enhanced mobile responsiveness */
+@media (max-width: 768px) {
+  .VPHero .tagline {
+    font-size: 1.2rem !important;
+    padding: 0 1.5rem;
+    letter-spacing: 0.01em;
+  }
+  
+  .VPHero .text {
+    font-size: 2.5rem !important;
+    line-height: 1.2 !important;
+  }
+  
+  /* Removed accent line */
+}
+
+@media (max-width: 480px) {
+  .VPHero .text {
+    font-size: 2rem !important;
+    padding: 0 1rem;
+  }
+  
+  .VPHero .tagline {
+    font-size: 1.1rem !important;
+  }
+}

@@ -44,7 +44,12 @@
       "Bash(deno bench:*)",
       "Bash(pnpm run:*)",
       "Bash(bun:*)",
-      "Bash(deno:*)"
+      "Bash(deno:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_press_key"
     ]
   },
   "enableAllProjectMcpServers": false

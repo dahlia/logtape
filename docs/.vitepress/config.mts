@@ -134,6 +134,7 @@ export default defineConfig({
     nav: [
       { text: "Home", link: "/" },
       { text: "What is LogTape?", link: "/intro" },
+      { text: "Comparison", link: "/comparison" },
       MANUAL,
       { text: "API reference", link: "https://jsr.io/@logtape/logtape" },
       ...extraNav,
