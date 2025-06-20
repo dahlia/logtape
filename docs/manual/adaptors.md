@@ -191,7 +191,7 @@ await configure({
 });
 ~~~~
 
-### Using the install() function
+### Using the `install()` function
 
 The `install()` function provides a convenient middle ground between automatic
 setup and manual configuration:
