@@ -71,6 +71,12 @@ const jsrRef_adaptor_pino = await jsrRef({
   cachePath: ".jsr-cache-adaptor-pino.json",
 });
 
+const jsrRef_adaptor_winston = await jsrRef({
+  package: "@logtape/adaptor-winston",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-adaptor-winston.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -196,6 +202,7 @@ export default defineConfig({
       md.use(jsrRef_cloudwatch_logs);
       md.use(jsrRef_windows_eventlog);
       md.use(jsrRef_adaptor_pino);
+      md.use(jsrRef_adaptor_winston);
     },
   },
   sitemap: {

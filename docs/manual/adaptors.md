@@ -208,7 +208,12 @@ const customLogger = winston.createLogger({
 install(customLogger, {
   category: { position: "start", decorator: "[]" },
   levelsMap: {
-    "trace": "debug"  // Map LogTape trace to winston debug
+    "trace": "silly",
+    "debug": "debug",
+    "info": "verbose",
+    "warning": "info",
+    "error": "warn",
+    "fatal": "error",
   }
 });
 ~~~~

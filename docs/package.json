@@ -4,6 +4,7 @@
     "@biomejs/biome": "^1.8.3",
     "@cloudflare/workers-types": "^4.20240909.0",
     "@logtape/adaptor-pino": "workspace:",
+    "@logtape/adaptor-winston": "workspace:",
     "@logtape/cloudwatch-logs": "workspace:",
     "@logtape/file": "workspace:",
     "@logtape/logtape": "workspace:",
@@ -25,7 +26,8 @@
     "markdown-it-jsr-ref": "^0.4.2",
     "pino": "^9.7.0",
     "vitepress": "^1.3.4",
-    "vitepress-plugin-llms": "^1.1.0"
+    "vitepress-plugin-llms": "^1.1.0",
+    "winston": "^3.17.0"
   },
   "scripts": {
     "dev": "cd ../ && pnpm run --filter '!{docs}' -r build && cd docs/ && vitepress dev",

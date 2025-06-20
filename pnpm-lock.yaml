@@ -180,6 +180,9 @@ importers:
       '@logtape/adaptor-pino':
         specifier: 'workspace:'
         version: link:../adaptor-pino
+      '@logtape/adaptor-winston':
+        specifier: 'workspace:'
+        version: link:../adaptor-winston
       '@logtape/cloudwatch-logs':
         specifier: 'workspace:'
         version: link:../cloudwatch-logs
@@ -246,6 +249,9 @@ importers:
       vitepress-plugin-llms:
         specifier: ^1.1.0
         version: 1.5.0
+      winston:
+        specifier: ^3.17.0
+        version: 3.17.0
 
   file:
     dependencies:
