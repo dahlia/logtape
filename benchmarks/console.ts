@@ -135,9 +135,9 @@ summary(() => {
 
 let reportOutput = "";
 await run({
-  // print(s) {
-  //   reportOutput += `${s}\n`;
-  // },
+  print(s) {
+    reportOutput += `${s}\n`;
+  },
 });
 
 process.on("exit", () => {
