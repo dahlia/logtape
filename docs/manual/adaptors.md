@@ -1,6 +1,8 @@
 Adapters
 ========
 
+*This API is available since LogTape 1.0.0.*
+
 LogTape adapters enable seamless integration between LogTape-enabled libraries
 and applications using existing logging infrastructure. They bridge the gap
 between LogTape's library-friendly design and established logging ecosystems.

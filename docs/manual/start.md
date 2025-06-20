@@ -39,6 +39,42 @@ export function myFunc(value: number): void {
 For detailed information, see [*Configuration*](./config.md).
 
 
+Already using another logging library?
+--------------------------------------
+
+*This API is available since LogTape 1.0.0.*
+
+If your application already uses an existing logging library (winston, Pino,
+log4js, etc.) and you want to use LogTape-enabled libraries without completely
+migrating your logging setup, LogTape adapters provide a seamless solution.
+
+Adapters allow you to:
+
+ -  Use LogTape-enabled libraries with your existing logging infrastructure
+ -  Maintain consistent log formatting and routing across your application
+ -  Gradually migrate to LogTape without disrupting your current setup
+ -  Leverage your existing log management and monitoring systems
+
+Instead of configuring LogTape directly, you can use an adapter to forward
+all LogTape logs to your existing logger:
+
+~~~~ typescript twoslash
+// @noErrors
+import { install } from "@logtape/adaptor-winston";  // or @logtape/adaptor-pino
+import winston from "winston";
+
+const logger = winston.createLogger({
+  // your existing winston configuration
+});
+
+// That's it! All LogTape logs will now route through winston
+install(logger);
+~~~~
+
+For detailed information about available adapters and configuration options,
+see [*Adapters* section](./adaptors.md).
+
+
 How to log
 ----------
 
