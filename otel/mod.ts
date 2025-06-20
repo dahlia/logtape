@@ -23,8 +23,41 @@ import {
   SimpleLogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
-import process from "node:process";
 import metadata from "./deno.json" with { type: "json" };
+
+/**
+ * Gets an environment variable value across different JavaScript runtimes.
+ * @param name The environment variable name.
+ * @returns The environment variable value, or undefined if not found.
+ */
+function getEnvironmentVariable(name: string): string | undefined {
+  // Deno runtime
+  if (typeof Deno !== "undefined" && Deno.env) {
+    try {
+      return Deno.env.get(name);
+    } catch {
+      // Deno.env.get() can throw if permissions are not granted
+      return undefined;
+    }
+  }
+
+  // Node.js/Bun runtime
+  if (
+    typeof globalThis !== "undefined" && "process" in globalThis &&
+    // @ts-ignore: process exists in Node.js/Bun
+    typeof globalThis.process !== "undefined" &&
+    // @ts-ignore: process.env exists in Node.js/Bun
+    typeof globalThis.process.env === "object" &&
+    // @ts-ignore: process.env exists in Node.js/Bun
+    globalThis.process.env !== null
+  ) {
+    // @ts-ignore: process.env exists in Node.js/Bun
+    return globalThis.process.env[name];
+  }
+
+  // Browser/other environments - no environment variables available
+  return undefined;
+}
 
 /**
  * The OpenTelemetry logger provider.
@@ -127,7 +160,7 @@ export function getOpenTelemetrySink(
     const resource = defaultResource().merge(
       resourceFromAttributes({
         [ATTR_SERVICE_NAME]: options.serviceName ??
-          process.env.OTEL_SERVICE_NAME,
+          getEnvironmentVariable("OTEL_SERVICE_NAME"),
       }),
     );
     loggerProvider = new LoggerProvider({ resource });

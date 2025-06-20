@@ -54,6 +54,8 @@
     "@opentelemetry/semantic-conventions": "^1.34.0"
   },
   "devDependencies": {
+    "@alinea/suite": "catalog:",
+    "@std/assert": "catalog:",
     "@std/dotenv": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
@@ -61,6 +63,9 @@
   "scripts": {
     "build": "tsdown",
     "prepack": "tsdown",
-    "prepublish": "tsdown"
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno task test"
   }
 }

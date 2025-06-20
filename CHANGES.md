@@ -165,6 +165,16 @@ To be released.
      -  Enables seamless adoption of LogTape-enabled libraries in applications
         using winston without requiring logging infrastructure changes.
 
+ -  Fixed browser support for *@logtape/otel* package by removing direct
+    `node:process` dependency.  [[#53]]
+
+     -  Replaced `node:process` import with cross-runtime environment variable
+        access that works in Deno, Node.js, and browsers.
+     -  Changed tsdown platform setting from `"node"` to `"neutral"` to enable
+        browser compatibility.
+     -  The `getOpenTelemetrySink()` function now works in all JavaScript
+        runtimes without throwing module resolution errors.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.
@@ -176,6 +186,7 @@ To be released.
 [#50]: https://github.com/dahlia/logtape/pull/50
 [#51]: https://github.com/dahlia/logtape/pull/51
 [#52]: https://github.com/dahlia/logtape/issues/52
+[#53]: https://github.com/dahlia/logtape/issues/53
 
 
 Version 0.12.1

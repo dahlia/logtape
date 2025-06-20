@@ -6,6 +6,6 @@ export default defineConfig({
     sourcemap: true,
   },
   format: ["esm", "cjs"],
-  platform: "node",
+  platform: "neutral",
   unbundle: true,
 });
