@@ -17,6 +17,7 @@ function mocklog(which: "stdout" | "console.info") {
   let unmock: () => void;
   if (which === "stdout") {
     const origWrite = process.stdout.write.bind(process.stdout);
+    // deno-lint-ignore no-explicit-any
     process.stdout.write = (chunk: any, cb: any) => {
       invokations++;
       return origWrite(chunk, cb);
@@ -26,6 +27,7 @@ function mocklog(which: "stdout" | "console.info") {
     };
   } else {
     const origInfo = globalThis.console.info.bind(globalThis.console);
+    // deno-lint-ignore no-explicit-any
     globalThis.console.info = (...args: any[]) => {
       invokations++;
       return origInfo(...args);
@@ -47,7 +49,7 @@ function mocklog(which: "stdout" | "console.info") {
         throw new Error(
           `${
             iterations - invokations
-          } invokations missing, out of ${iterations} iterations.`
+          } invokations missing, out of ${iterations} iterations.`,
         );
       }
     },
