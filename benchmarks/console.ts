@@ -55,31 +55,6 @@ function mocklog(which: "stdout" | "console.info") {
   };
 }
 
-function counter() {
-  let iterations = 0;
-  let invokations = 0;
-  return {
-    iter(cb: () => void) {
-      return () => {
-        iterations++;
-        cb();
-      };
-    },
-    invok() {
-      invokations++;
-    },
-    check() {
-      if (iterations > invokations) {
-        throw new Error(
-          `${
-            iterations - invokations
-          } invokations missing, out of ${iterations} iterations.`
-        );
-      }
-    },
-  };
-}
-
 summary(() => {
   bench("LogTape", async function* () {
     const { count, unmock, check } = mocklog("console.info");
@@ -160,9 +135,9 @@ summary(() => {
 
 let reportOutput = "";
 await run({
-  print(s) {
-    reportOutput += `${s}\n`;
-  },
+  // print(s) {
+  //   reportOutput += `${s}\n`;
+  // },
 });
 
 process.on("exit", () => {
