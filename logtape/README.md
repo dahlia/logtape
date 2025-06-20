@@ -87,6 +87,8 @@ list of the packages in the LogTape monorepo:
 | Package                                          | JSR                                  | npm                                  | Description                |
 |--------------------------------------------------|--------------------------------------|--------------------------------------|----------------------------|
 | *@logtape/logtape*                               | [JSR][jsr:@logtape/logtape]          | [npm][npm:@logtape/logtape]          | Core logging functionality |
+| [*@logtape/adaptor-pino*](adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
+| [*@logtape/adaptor-winston*](adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
 | [*@logtape/cloudwatch-logs*](cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
 | [*@logtape/file*](file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
 | [*@logtape/otel*](otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
@@ -98,9 +100,15 @@ list of the packages in the LogTape monorepo:
 
 [AWS CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/
 [OpenTelemetry]: https://opentelemetry.io/
+[Pino]: https://github.com/pinojs/pino
 [Sentry]: https://sentry.io/
+[winston]: https://github.com/winstonjs/winston
 [jsr:@logtape/logtape]: https://jsr.io/@logtape/logtape
 [npm:@logtape/logtape]: https://www.npmjs.com/package/@logtape/logtape
+[jsr:@logtape/adaptor-pino]: https://jsr.io/@logtape/adaptor-pino
+[npm:@logtape/adaptor-pino]: https://www.npmjs.com/package/@logtape/adaptor-pino
+[jsr:@logtape/adaptor-winston]: https://jsr.io/@logtape/adaptor-winston
+[npm:@logtape/adaptor-winston]: https://www.npmjs.com/package/@logtape/adaptor-winston
 [jsr:@logtape/cloudwatch-logs]: https://jsr.io/@logtape/cloudwatch-logs
 [npm:@logtape/cloudwatch-logs]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
