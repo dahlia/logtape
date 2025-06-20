@@ -2159,6 +2159,17 @@
           ]
         }
       },
+      "adaptor-winston": {
+        "dependencies": [
+          "npm:winston@^3.17.0"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:winston-transport@^4.9.0",
+            "npm:winston@^3.17.0"
+          ]
+        }
+      },
       "benchmarks": {
         "dependencies": [
           "npm:@graphql-hive/logger@1",

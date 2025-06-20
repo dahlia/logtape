@@ -1,6 +1,7 @@
 packages:
 - logtape
 - adaptor-pino
+- adaptor-winston
 - file
 - otel
 - pretty

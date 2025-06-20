@@ -142,6 +142,29 @@ To be released.
      -  Enables seamless adoption of LogTape-enabled libraries in applications
         using Pino without requiring logging infrastructure changes.
 
+ -  Added *@logtape/adaptor-winston* package for integrating LogTape with
+    winston logging infrastructure.  [[#52]]
+
+     -  Added `getWinstonSink()` function to forward LogTape log records to
+        winston loggers.
+     -  Added `WinstonSinkOptions` interface for configuring the adapter
+        behavior.
+     -  Added `CategoryOptions` interface for customizing category formatting in
+        winston log messages.
+     -  Added `install()` function for convenient auto-configuration with
+        optional custom winston logger and configuration options.
+     -  Added `install.ts` module for automatic setup via simple import.
+     -  Supports configurable category display with position (`start`/`end`),
+        decorators (`[]`, `()`, `<>`, `{}`, `:`, `-`, `|`, `/`, or none), and
+        custom separators for multi-part categories.
+     -  Maps LogTape log levels to equivalent winston levels with customizable
+        level mapping.
+     -  Supports custom value formatters for interpolated values in log
+        messages.
+     -  Preserves LogTape's structured logging properties as winston fields.
+     -  Enables seamless adoption of LogTape-enabled libraries in applications
+        using winston without requiring logging infrastructure changes.
+
  -  Removed the deprecated `LoggerConfig.level` property.  Use
     `LoggerConfig.lowestLevel` instead for setting the minimum log level, or
     use `LoggerConfig.filters` for more advanced filtering.

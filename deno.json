@@ -2,6 +2,7 @@
   "workspace": [
     "./logtape",
     "./adaptor-pino",
+    "./adaptor-winston",
     "./file",
     "./otel",
     "./pretty",
@@ -108,6 +109,12 @@
       ],
       "command": "deno task -f @logtape/adaptor-pino build"
     },
+    "build:adaptor-winston": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/adaptor-winston build"
+    },
     "build": {
       "dependencies": [
         "build:file",
@@ -119,7 +126,8 @@
         "build:syslog",
         "build:cloudwatch-logs",
         "build:windows-eventlog",
-        "build:adaptor-pino"
+        "build:adaptor-pino",
+        "build:adaptor-winston"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
@@ -172,6 +180,12 @@
       ],
       "command": "cd adaptor-pino/ && node --experimental-transform-types --test"
     },
+    "test:node:adaptor-winston": {
+      "dependencies": [
+        "build:adaptor-winston"
+      ],
+      "command": "cd adaptor-winston/ && node --experimental-transform-types --test"
+    },
     "test:node": {
       "dependencies": [
         "test:node:file",
@@ -181,7 +195,8 @@
         "test:node:syslog",
         "test:node:cloudwatch-logs",
         "test:node:windows-eventlog",
-        "test:node:adaptor-pino"
+        "test:node:adaptor-pino",
+        "test:node:adaptor-winston"
       ]
     },
     "test:bun:file": {
@@ -232,6 +247,12 @@
       ],
       "command": "cd adaptor-pino/ && bun test"
     },
+    "test:bun:adaptor-winston": {
+      "dependencies": [
+        "build:adaptor-winston"
+      ],
+      "command": "cd adaptor-winston/ && bun test"
+    },
     "test:bun": {
       "dependencies": [
         "test:bun:file",
@@ -241,7 +262,8 @@
         "test:bun:syslog",
         "test:bun:cloudwatch-logs",
         "test:bun:windows-eventlog",
-        "test:bun:adaptor-pino"
+        "test:bun:adaptor-pino",
+        "test:bun:adaptor-winston"
       ]
     },
     "test-all": {

@@ -107,13 +107,117 @@ await configure({
 ~~~~
 
 
+winston adapter
+---------------
+
+*This API is available since LogTape 1.0.0.*
+
+The *@logtape/adaptor-winston* forwards LogTape log records to [winston] loggers,
+providing flexible level mapping and category formatting options:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/adaptor-winston
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/adaptor-winston
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/adaptor-winston
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/adaptor-winston
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/adaptor-winston
+~~~~
+
+:::
+
+[winston]: https://github.com/winstonjs/winston
+
+### Quick setup
+
+The simplest way to integrate LogTape with winston is using the auto-installer:
+
+~~~~ typescript twoslash
+import "@logtape/adaptor-winston/install";
+
+// All LogTape logs will now be routed to winston's default logger
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+logger.info("This will be logged through winston");
+~~~~
+
+### Manual configuration
+
+For more control, you can configure LogTape to use winston as a sink:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getWinstonSink } from "@logtape/adaptor-winston";
+import winston from "winston";
+
+const winstonLogger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: "app.log" })
+  ]
+});
+
+await configure({
+  sinks: {
+    winston: getWinstonSink(winstonLogger, {
+      category: {
+        position: "start",
+        decorator: "[]",
+        separator: "."
+      }
+    })
+  },
+  loggers: [
+    { category: "my-library", sinks: ["winston"] }
+  ]
+});
+~~~~
+
+### Using the install() function
+
+The `install()` function provides a convenient middle ground between automatic
+setup and manual configuration:
+
+~~~~ typescript twoslash
+import winston from "winston";
+import { install } from "@logtape/adaptor-winston";
+
+const customLogger = winston.createLogger({
+  transports: [new winston.transports.File({ filename: "app.log" })]
+});
+
+// Install with custom logger and options
+install(customLogger, {
+  category: { position: "start", decorator: "[]" },
+  levelsMap: {
+    "trace": "debug"  // Map LogTape trace to winston debug
+  }
+});
+~~~~
+
+
 Planned adapters
 ----------------
 
 The following adapters are planned for future releases:
-
-winston adapter (*@logtape/adaptor-winston*)
-:   Integration with the popular Winston logging library
 
 log4js adapter (*@logtape/adaptor-log4js*)
 :   Integration with log4js for applications using log4j-style logging

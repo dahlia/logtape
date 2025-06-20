@@ -93,9 +93,9 @@ export function getPinoSink<
   UseOnlyCustomLevels extends boolean,
 >(
   logger: Logger<CustomLevels, UseOnlyCustomLevels>,
-  options?: PinoSinkOptions,
+  options: PinoSinkOptions = {},
 ): Sink {
-  const categoryOptions = !options?.category
+  const categoryOptions = !options.category
     ? undefined
     : typeof options.category === "object"
     ? options.category
