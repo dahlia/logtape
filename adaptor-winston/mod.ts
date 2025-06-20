@@ -447,6 +447,11 @@ export function install(
       winston: getWinstonSink(logger, sinkOptions),
     },
     loggers: [
+      {
+        category: ["logtape", "meta"],
+        sinks: ["winston"],
+        lowestLevel: "warning",
+      },
       { category: [], sinks: ["winston"] },
     ],
   });

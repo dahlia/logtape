@@ -84,6 +84,8 @@ bun add @logtape/adaptor-pino
 
 [Pino]: https://getpino.io/
 
+### Manual configuration
+
 The adapter provides a `getPinoSink()` function that creates a LogTape sink
 that forwards log records to a Pino logger. This allows you to configure LogTape
 to use Pino as a sink, enabling LogTape-enabled libraries to log directly to
@@ -94,17 +96,64 @@ import { configure } from "@logtape/logtape";
 import { getPinoSink } from "@logtape/adaptor-pino";
 import { pino } from "pino";
 
-const logger = pino();
+const logger = pino({
+  level: "info",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true
+    }
+  }
+});
 
 await configure({
   sinks: {
-    pino: getPinoSink(logger)
+    pino: getPinoSink(logger, {
+      category: {
+        position: "start",
+        decorator: "[]",
+        separator: "."
+      }
+    })
   },
   loggers: [
     { category: "my-library", sinks: ["pino"] }
   ]
 });
 ~~~~
+
+### Using the [`install()`] function
+
+The [`install()`] function provides a convenient way to automatically configure
+LogTape to route all logs to a Pino logger:
+
+~~~~ typescript twoslash
+import { pino } from "pino";
+import { install } from "@logtape/adaptor-pino";
+
+const pinoLogger = pino({
+  level: "info",
+  transport: {
+    target: "pino-pretty"
+  }
+});
+
+// Install with custom logger and options
+install(pinoLogger, {
+  category: {
+    position: "start",
+    decorator: "[]",
+    separator: "."
+  }
+});
+
+// Now any LogTape-enabled library will log through Pino
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+logger.info("This will be logged through Pino");
+~~~~
+
+[`install()`]: https://jsr.io/@logtape/adaptor-pino/doc/~/install
 
 
 winston adapter

@@ -134,6 +134,8 @@ To be released.
      -  Added `PinoSinkOptions` interface for configuring the adapter behavior.
      -  Added `CategoryOptions` interface for customizing category formatting in
         Pino log messages.
+     -  Added `install()` function for convenient auto-configuration with
+        custom Pino logger and configuration options.
      -  Supports configurable category display with position (`start`/`end`),
         decorators (`[]`, `()`, `<>`, `{}`, `:`, `-`, `|`, `/`, or none), and
         custom separators for multi-part categories.

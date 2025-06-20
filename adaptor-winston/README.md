@@ -56,7 +56,7 @@ For custom winston loggers or configuration options, see the [Usage](#usage) sec
 Usage
 -----
 
-### Using the install() function
+### Using the `install()` function
 
 If you need a custom winston logger or configuration options, you can use
 the `install()` function:

@@ -33,14 +33,66 @@ bun  add     @logtape/adaptor-pino  # for Bun
 Usage
 -----
 
-Configure LogTape to use the Pino adapter in your application:
+### Using the install() function
+
+The simplest way to integrate LogTape with Pino is to use the `install()` function:
+
+~~~~ typescript
+import pino from "pino";
+import { install } from "@logtape/adaptor-pino";
+
+// With a custom Pino logger
+const pinoLogger = pino({
+  level: "info",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true
+    }
+  }
+});
+
+install(pinoLogger);
+
+// That's it! All LogTape logs will now be routed to your Pino logger
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+logger.info("This will be logged through Pino");
+~~~~
+
+You can also pass configuration options:
+
+~~~~ typescript
+import { install } from "@logtape/adaptor-pino";
+
+// With custom options
+install(pinoLogger, {
+  category: {
+    position: "start",
+    decorator: "[]",
+    separator: "."
+  }
+});
+~~~~
+
+### Manual configuration
+
+For full control over the Pino integration, configure LogTape manually:
 
 ~~~~ typescript
 import { configure } from "@logtape/logtape";
 import { getPinoSink } from "@logtape/adaptor-pino";
 import pino from "pino";
 
-const pinoLogger = pino();
+const pinoLogger = pino({
+  level: "info",
+  transport: {
+    target: "pino-pretty",
+    options: {
+      colorize: true
+    }
+  }
+});
 
 await configure({
   sinks: {

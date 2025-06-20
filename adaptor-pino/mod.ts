@@ -1,5 +1,5 @@
 import type { Logger } from "pino";
-import type { LogRecord, Sink } from "@logtape/logtape";
+import { configureSync, type LogRecord, type Sink } from "@logtape/logtape";
 
 /**
  * Options for configuring the Pino sink adapter.
@@ -175,4 +175,76 @@ export function getPinoSink<
         return logger.fatal(record.properties, message, interpolationValues);
     }
   };
+}
+
+/**
+ * Automatically configures LogTape to route all logs to a Pino logger.
+ *
+ * This is a convenience function that automatically sets up LogTape to forward
+ * all log records to a Pino logger instance.
+ *
+ * @example Basic auto-configuration
+ * ```typescript
+ * import pino from "pino";
+ * import { install } from "@logtape/adaptor-pino";
+ *
+ * const pinoLogger = pino();
+ *
+ * // Automatically route all LogTape logs to the Pino logger
+ * install(pinoLogger);
+ *
+ * // Now any LogTape-enabled library will log through Pino
+ * import { getLogger } from "@logtape/logtape";
+ * const logger = getLogger("my-app");
+ * logger.info("This will be logged through Pino");
+ * ```
+ *
+ * @example Auto-configuration with custom options
+ * ```typescript
+ * import pino from "pino";
+ * import { install } from "@logtape/adaptor-pino";
+ *
+ * const pinoLogger = pino({
+ *   level: "info",
+ *   transport: {
+ *     target: "pino-pretty"
+ *   }
+ * });
+ *
+ * install(pinoLogger, {
+ *   category: {
+ *     position: "start",
+ *     decorator: "[]",
+ *     separator: "."
+ *   }
+ * });
+ * ```
+ *
+ * @typeParam CustomLevels The custom log levels supported by the Pino logger.
+ * @typeParam UseOnlyCustomLevels Whether to use only custom levels defined
+ *                                in the Pino logger.
+ * @param logger The Pino logger instance to forward logs to.
+ * @param options Configuration options for the sink adapter.
+ * @since 1.0.0
+ */
+export function install<
+  CustomLevels extends string,
+  UseOnlyCustomLevels extends boolean,
+>(
+  logger: Logger<CustomLevels, UseOnlyCustomLevels>,
+  options: PinoSinkOptions = {},
+): void {
+  configureSync({
+    sinks: {
+      pino: getPinoSink(logger, options),
+    },
+    loggers: [
+      {
+        category: ["logtape", "meta"],
+        sinks: ["pino"],
+        lowestLevel: "warning",
+      },
+      { category: [], sinks: ["pino"] },
+    ],
+  });
 }
