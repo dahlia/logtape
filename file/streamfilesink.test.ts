@@ -6,7 +6,7 @@ import { assertEquals } from "@std/assert/equals";
 import { delay } from "@std/async/delay";
 import { join } from "@std/path/join";
 import fs from "node:fs";
-import { tmpdir } from "node:os";
+import { platform, tmpdir } from "node:os";
 import { debug, error, fatal, info, warning } from "../logtape/fixtures.ts";
 
 const test = suite(import.meta);
@@ -265,7 +265,7 @@ test("getStreamFileSink() memory efficiency", async () => {
   }
 
   sink[Symbol.dispose]();
-  await delay(200);
+  await delay(platform() === "win32" ? 1000 : 200);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
