@@ -4,6 +4,10 @@ import footnote from "markdown-it-footnote";
 import { jsrRef } from "markdown-it-jsr-ref";
 import process from "node:process";
 import { defineConfig } from "vitepress";
+import {
+  groupIconMdPlugin,
+  groupIconVitePlugin,
+} from "vitepress-plugin-group-icons";
 import llmstxt from "vitepress-plugin-llms";
 
 const jsrRefVersion =
@@ -117,8 +121,10 @@ const MANUAL = {
     { text: "Filters", link: "/manual/filters" },
     { text: "Text formatters", link: "/manual/formatters" },
     { text: "Data redaction", link: "/manual/redaction" },
-    { text: "Using in libraries", link: "/manual/library" },
     { text: "Adaptors", link: "/manual/adaptors" },
+    { text: "Integration", link: "/manual/integrations" },
+    { text: "Using in libraries", link: "/manual/library" },
+    { text: "Debugging", link: "/manual/debug" },
     { text: "Testing", link: "/manual/testing" },
   ],
 };
@@ -183,7 +189,7 @@ export default defineConfig({
               "dom",
               "dom.iterable",
               "esnext",
-              "@teidesu/deno-types/full",
+              "@types/deno",
               "node",
             ],
           },
@@ -193,6 +199,7 @@ export default defineConfig({
     config(md) {
       md.use(deflist);
       md.use(footnote);
+      md.use(groupIconMdPlugin);
       md.use(jsrRef_logtape);
       md.use(jsrRef_file);
       md.use(jsrRef_otel);
@@ -211,6 +218,7 @@ export default defineConfig({
   },
   vite: {
     plugins: [
+      groupIconVitePlugin(),
       llmstxt(),
     ],
   },
