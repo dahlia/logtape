@@ -49,16 +49,6 @@ To be released.
      -  Ideal for production applications requiring high-performance file logging
         without complex buffering configuration.
 
- -  Added `withBuffer()` function to create buffered sinks that collect log
-    records in memory and flush them to the underlying sink when the buffer is
-    full or after a specified time interval.
-
-     -  Added `BufferSinkOptions` interface for configuring buffer behavior.
-     -  `withBuffer()` accepts `bufferSize` (default: 10 records) and
-        `flushInterval` (default: 5000ms) options.
-     -  Buffered sinks automatically flush when buffer is full, time interval
-        elapses, or the sink is disposed.
-     -  Returns a sink with `AsyncDisposable` support for proper cleanup.
 
  -  Added `fromAsyncSink()` function to convert async sinks to regular sinks
     with proper async handling.
