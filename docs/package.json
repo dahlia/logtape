@@ -19,7 +19,7 @@
     "@sentry/node": "^9.28.1",
     "@shikijs/vitepress-twoslash": "^1.17.6",
     "@sveltejs/kit": "^2.22.0",
-    "@types/bun": "^1.1.9",
+    "@types/bun": "^1.2.15",
     "@types/deno": "^2.3.0",
     "@types/express": "^5.0.3",
     "@types/koa": "^2.15.0",

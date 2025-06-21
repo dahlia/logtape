@@ -83,6 +83,14 @@ await configure({
 });
 ~~~~
 
+> [!NOTE]
+> Without the `~Config.contextLocalStorage` option, LogTape will not support
+> implicit contexts—`withContext()` will not inject the implicit context
+> into the log messages, and `getLogger()` will not inherit the implicit context
+> from the parent context.  Also, it will log a warning message to the meta
+> logger (`["logtape", "meta"]`) about the missing
+> `~Config.contextLocalStorage` option.
+
 [`node:async_hooks`]: https://nodejs.org/api/async_context.html
 [TC39 Async Context proposal]: https://tc39.es/proposal-async-context/
 [`AsyncLocalStorage`]: https://nodejs.org/api/async_context.html#class-asynclocalstorage

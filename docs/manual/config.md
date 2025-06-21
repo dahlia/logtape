@@ -166,7 +166,7 @@ Here's how you might do that:
 import { getFileSink } from "@logtape/file";
 import { configure, getConsoleSink } from "@logtape/logtape";
 // ---cut-before---
-const isDevelopment = Deno.env.get("DENO_DEPLOYMENT_ID") == null;
+const isDevelopment = process.env.NODE_ENV === "development";
 
 await configure({
   sinks: {

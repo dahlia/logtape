@@ -213,7 +213,7 @@ await configure({
 });
 ~~~~
 
-In this example, the database logger will inherit the `aboveAndInfo` filter from
+In this example, the database logger will inherit the `infoAndAbove` filter from
 the parent logger, so it will log all levels from `"info"` up.
 
 > [!TIP]

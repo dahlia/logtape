@@ -10,9 +10,11 @@ Reset configuration
 You can reset the configuration of LogTape to its initial state.  This is
 useful when you want to reset the configuration between tests.  For example,
 the following code shows how to reset the configuration after a test
-(regardless of whether the test passes or fails) in Deno:
+(regardless of whether the test passes or fails):
 
-~~~~ typescript twoslash
+::: code-group
+
+~~~~ typescript [Deno] twoslash
 // @noErrors: 2345
 import { configure, reset } from "@logtape/logtape";
 
@@ -30,6 +32,28 @@ Deno.test("my test", async (t) => {
   });
 });
 ~~~~
+
+~~~~ typescript [Node.js] twoslash
+// @noErrors: 2345
+import { configure, reset } from "@logtape/logtape";
+import { afterEach, beforeEach, describe, it } from "node:test";
+
+describe("my test", async (t) => {
+  beforeEach(async () => {
+    await configure({ /* ... */ });
+  });
+
+  afterEach(async () => {
+    await reset();  // [!code highlight]
+  });
+
+  it("is a sub-test", () => {
+    // Run the test
+  });
+});
+~~~~
+
+:::
 
 
 Buffer sink

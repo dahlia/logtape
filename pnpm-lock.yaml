@@ -4,6 +4,36 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@alinea/suite':
+      specifier: ^0.6.3
+      version: 0.6.3
+    '@david/which-runtime':
+      specifier: jsr:^0.2.1
+      version: 0.2.1
+    '@std/assert':
+      specifier: jsr:^1.0.13
+      version: 1.0.13
+    '@std/async':
+      specifier: jsr:^1.0.13
+      version: 1.0.13
+    '@std/dotenv':
+      specifier: jsr:^0.225.5
+      version: 0.225.5
+    '@std/path':
+      specifier: jsr:^1.1.0
+      version: 1.1.0
+    consolemock:
+      specifier: ^1.1.0
+      version: 1.1.0
+    tsdown:
+      specifier: ^0.12.7
+      version: 0.12.7
+    typescript:
+      specifier: ^5.8.3
+      version: 5.8.3
+
 importers:
 
   adaptor-pino:
@@ -196,7 +226,7 @@ importers:
         specifier: ^2.22.0
         version: 2.22.0(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.7)(vite@5.4.19(@types/node@22.15.31)))(svelte@5.34.7)(vite@5.4.19(@types/node@22.15.31))
       '@types/bun':
-        specifier: ^1.1.9
+        specifier: ^1.2.15
         version: 1.2.15
       '@types/deno':
         specifier: ^2.3.0

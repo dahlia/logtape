@@ -17,6 +17,11 @@ LogTape has two distinct approaches to redact sensitive data:
 [Both approaches have their strengths and use cases.](#comparing-redaction-approaches)
 This guide will help you understand when and how to use each.
 
+> [!WARNING]
+> No redaction system is perfect. Even with redaction in place, be cautious about
+> what information you log. It's better to avoid logging sensitive data in the
+> first place when possible.
+
 
 Installation
 ------------
@@ -394,10 +399,5 @@ Best practices
 
      - Make sure your team understands which data is being redacted and how
      - Include redaction strategies in your security documentation
-
-> [!WARNING]
-> No redaction system is perfect. Even with redaction in place, be cautious about
-> what information you log. It's better to avoid logging sensitive data in the
-> first place when possible.
 
 <!-- cSpell: ignore johndoe -->
