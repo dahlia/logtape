@@ -1476,26 +1476,6 @@ Configuration
     See also the [*Synchronous configuration*
     section](./config.md#synchronous-configuration).
 
-Performance
-:   Async operations can be slower than synchronous ones.
-    Consider using `withBuffer()` to batch operations:
-
-    ~~~~ typescript twoslash
-    // @noErrors: 2345
-    import { type AsyncSink, fromAsyncSink, withBuffer } from "@logtape/logtape";
-
-    const asyncSink: AsyncSink = async (record) => {
-      // Async operation
-    };
-
-    const sink = withBuffer(fromAsyncSink(asyncSink), {
-      bufferSize: 20,
-      flushInterval: 1000,
-    });
-    ~~~~
-
-    See also the [*Buffered sink* section](#buffered-sink) above.
-
 Error handling
 :   Errors in async sinks are caught to prevent breaking
     the promise chain. Make sure to handle errors appropriately within your

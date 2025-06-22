@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.0.0
 -------------
 
-To be released.
+Released on June 22, 2025.
 
  -  Added `getLogLevels()` function to retrieve all available log levels.
 
