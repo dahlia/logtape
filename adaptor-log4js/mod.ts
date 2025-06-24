@@ -1,4 +1,4 @@
-import { configureSync, type LogRecord, type Sink } from "@logtape/logtape";
+import { configure, type LogRecord, type Sink } from "@logtape/logtape";
 import type log4js from "log4js";
 
 /**
@@ -47,73 +47,55 @@ export function getLog4jsSink(
 ): Sink {
   let log4jsModule: typeof log4js | undefined = undefined;
   let defaultLogger: log4js.Logger | undefined = undefined;
-  function getLoggerForRecord(record: LogRecord): log4js.Logger {
+
+  // Helper to dynamically import log4js if not already loaded
+  async function ensureLog4jsModule(): Promise<typeof log4js> {
+    if (!log4jsModule) {
+      // @ts-ignore: dynamic import for runtime
+      log4jsModule = typeof require === "function"
+        ? require("log4js")
+        : (await import("log4js")).default;
+    }
+    return log4jsModule;
+  }
+
+  async function getLoggerForRecord(record: LogRecord): Promise<log4js.Logger> {
     if (options.useCategoryLogger !== false && record.category.length > 0) {
-      if (!log4jsModule) {
-        // @ts-ignore: dynamic import for runtime
-        log4jsModule = typeof require === "function"
-          ? require("log4js")
-          : (await import("log4js")).default;
-      }
-      return log4jsModule.getLogger(record.category.join("."));
+      const mod = await ensureLog4jsModule();
+      return mod.getLogger(record.category.join("."));
     }
     if (logger) return logger;
     if (!defaultLogger) {
-      if (!log4jsModule) {
-        // @ts-ignore: dynamic import for runtime
-        log4jsModule = typeof require === "function"
-          ? require("log4js")
-          : (await import("log4js")).default;
-      }
-      defaultLogger = log4jsModule.getLogger();
+      const mod = await ensureLog4jsModule();
+      defaultLogger = mod.getLogger();
     }
     return defaultLogger;
   }
-  return (record: LogRecord) => {
-    const loggerForRecord = getLoggerForRecord(record);
+  
+  return async (record: LogRecord) => {
+    const loggerForRecord = await getLoggerForRecord(record);
+
     // Map LogTape levels to log4js levels
-    let log4jsLevel: string;
-    switch (record.level) {
-      case "trace":
-        log4jsLevel = "trace";
-        break;
-      case "debug":
-        log4jsLevel = "debug";
-        break;
-      case "info":
-        log4jsLevel = "info";
-        break;
-      case "warning":
-        log4jsLevel = "warn";
-        break;
-      case "error":
-        log4jsLevel = "error";
-        break;
-      case "fatal":
-        log4jsLevel = "fatal";
-        break;
-      default:
-        log4jsLevel = "info";
-    }
-    // Compose message
-    let message = "";
-    const interpolationValues: unknown[] = [];
-    for (let i = 0; i < record.message.length; i += 2) {
-      message += record.message[i];
-      if (i + 1 < record.message.length) {
-        message += "%o";
-        interpolationValues.push(record.message[i + 1]);
-      }
-    }
-    const formattedMessage = interpolationValues.length > 0
-      ? message.replace(/%[so]/g, () => String(interpolationValues.shift()))
-      : message;
-    // Structured logging: pass properties as first arg if present
-    if (record.properties && Object.keys(record.properties).length > 0) {
-      (loggerForRecord as any)[log4jsLevel](record.properties, formattedMessage);
-    } else {
-      (loggerForRecord as any)[log4jsLevel](formattedMessage);
-    }
+    const levelMap: Record<string, string> = {
+      trace: "trace",
+      debug: "debug",
+      info: "info",
+      warning: "warn",
+      error: "error",
+      fatal: "fatal",
+    };
+    const log4jsLevel = levelMap[record.level] ?? "info";
+
+    // Compose message  
+    const formatString = record.message.filter((_, i) => i % 2 === 0).join("");  
+    const args = record.message.filter((_, i) => i % 2 === 1);  
+
+    // Structured logging: pass properties as first arg if present  
+    if (record.properties && Object.keys(record.properties).length > 0) {  
+      (loggerForRecord as any)[log4jsLevel](record.properties, formatString, ...args);  
+    } else {  
+      (loggerForRecord as any)[log4jsLevel](formatString, ...args);  
+    } 
   };
 }
 
@@ -143,11 +125,11 @@ export function getLog4jsSink(
  * @param options Configuration options for the sink adapter.
  * @since 1.0.0
  */
-export function install(
+export async function install(
   logger?: log4js.Logger,
   options: Log4jsSinkOptions = {},
 ): void {
-  configureSync({
+  await configure({
     sinks: {
       log4js: getLog4jsSink(logger, options),
     },
