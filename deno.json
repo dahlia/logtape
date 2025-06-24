@@ -3,6 +3,7 @@
     "./logtape",
     "./adaptor-pino",
     "./adaptor-winston",
+    "./adaptor-bunyan",
     "./file",
     "./otel",
     "./pretty",
