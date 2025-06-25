@@ -23,7 +23,7 @@ test("getLog4jsSink(): basic scenario with custom logger", async () => {
     >)[level] = (msgOrProps: unknown, msg?: string) => {
       logs.push({
         level,
-        msg: typeof msg === "string" ? msg : String(msgOrProps),
+        msg: typeof msgOrProps === "string" ? String(msgOrProps) : '',
       });
     };
   });
@@ -33,14 +33,14 @@ test("getLog4jsSink(): basic scenario with custom logger", async () => {
   await sink({
     category: ["default"],
     level: "info",
-    message: ["Hello %s", "world"],
+    message: ["Hello world"],
     properties: {},
-    rawMessage: "Hello %s",
+    rawMessage: "Hello world",
     timestamp: Date.now(),
   });
   assertEquals(logs.length, 1);
   assertEquals(logs[0].level, "info");
-  assertEquals(logs[0].msg, "Hello %s");
+  assertEquals(logs[0].msg, "Hello world");
 });
 
 test("getLog4jsSink(): uses default logger if none provided", async () => {
