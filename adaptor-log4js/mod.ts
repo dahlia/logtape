@@ -50,13 +50,14 @@ export function getLog4jsSink(
 
   // Helper to dynamically import log4js if not already loaded
   async function ensureLog4jsModule(): Promise<typeof log4js> {
-      if (!log4jsModule) {
-        // @ts-ignore: dynamic import for runtime
-        log4jsModule = typeof require === "function"
-          ? require("log4js")
-          : (await import("log4js")).default;
-      }
-      return log4jsModule ? log4jsModule : throw new Error("log4js module not found");
+    if (!log4jsModule) {
+      // @ts-ignore: dynamic import for runtime
+      log4jsModule = typeof require === "function"
+        ? require("log4js")
+        : (await import("log4js")).default;
+    }
+    if (log4jsModule) return log4jsModule;
+    throw new Error("log4js module not found");
   }
 
   async function getLoggerForRecord(record: LogRecord): Promise<log4js.Logger> {
