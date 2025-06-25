@@ -8,10 +8,11 @@ const test = suite(import.meta);
 
 test("getLog4jsSink(): basic scenario with custom logger", async () => {
   const logs: any[] = [];
-  const logger = log4js.createLogger({
+  log4js.configure({
     appenders: { out: { type: "console" } },
     categories: { default: { appenders: ["out"], level: "trace" } },
   });
+  const logger = log4js.getLogger("out");
   // Patch logger to capture logs
   ["info", "debug", "warn", "error", "fatal", "trace"].forEach((level) => {
     logger[level] = (msgOrProps: any, msg?: string) => {

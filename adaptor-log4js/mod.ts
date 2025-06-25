@@ -50,13 +50,13 @@ export function getLog4jsSink(
 
   // Helper to dynamically import log4js if not already loaded
   async function ensureLog4jsModule(): Promise<typeof log4js> {
-    if (!log4jsModule) {
-      // @ts-ignore: dynamic import for runtime
-      log4jsModule = typeof require === "function"
-        ? require("log4js")
-        : (await import("log4js")).default;
-    }
-    return log4jsModule;
+      if (!log4jsModule) {
+        // @ts-ignore: dynamic import for runtime
+        log4jsModule = typeof require === "function"
+          ? require("log4js")
+          : (await import("log4js")).default;
+      }
+      return log4jsModule ? log4jsModule : throw new Error("log4js module not found");
   }
 
   async function getLoggerForRecord(record: LogRecord): Promise<log4js.Logger> {
@@ -128,13 +128,18 @@ export function getLog4jsSink(
 export async function install(
   logger?: log4js.Logger,
   options: Log4jsSinkOptions = {},
-): void {
+): Promise<void> {
   await configure({
     sinks: {
       log4js: getLog4jsSink(logger, options),
     },
     loggers: [
-      { sinks: ["log4js"] },
+      {
+        category: ["logtape", "meta"],
+        sinks: ["log4js"],
+        lowestLevel: "warning",
+      },
+      { category: [], sinks: ["log4js"] },
     ],
   });
 } 
