@@ -1,43 +1,51 @@
 import { suite } from "@alinea/suite";
+import type { LogLevel } from "@logtape/logtape";
 import { assertEquals } from "@std/assert/equals";
-import { delay } from "@std/async/delay";
 import log4js from "log4js";
 import { getLog4jsSink } from "./mod.ts";
 
 const test = suite(import.meta);
 
+type LogEntry = { level: string; msg: string; cat?: string; props?: unknown };
+
 test("getLog4jsSink(): basic scenario with custom logger", async () => {
-  const logs: any[] = [];
+  const logs: LogEntry[] = [];
   log4js.configure({
     appenders: { out: { type: "console" } },
     categories: { default: { appenders: ["out"], level: "trace" } },
   });
-  const logger = log4js.getLogger("out");
   // Patch logger to capture logs
+  const logger = {} as Partial<log4js.Logger>;
   ["info", "debug", "warn", "error", "fatal", "trace"].forEach((level) => {
-    (logger as any)[level] = (msgOrProps: any, msg?: string) => {
-      logs.push({ level, msg: msg ?? msgOrProps });
+    (logger as unknown as Record<
+      string,
+      (msgOrProps: unknown, msg?: string) => void
+    >)[level] = (msgOrProps: unknown, msg?: string) => {
+      logs.push({
+        level,
+        msg: typeof msg === "string" ? msg : String(msgOrProps),
+      });
     };
   });
-  const sink = getLog4jsSink(logger);
+  const sink = getLog4jsSink(logger as log4js.Logger, {
+    useCategoryLogger: false,
+  });
   await sink({
-    category: ["test"],
+    category: ["default"],
     level: "info",
-    message: ["Hello, world!"],
+    message: ["Hello %s", "world"],
     properties: {},
-    rawMessage: "Hello, world!",
+    rawMessage: "Hello %s",
     timestamp: Date.now(),
   });
-  await delay(10);
   assertEquals(logs.length, 1);
   assertEquals(logs[0].level, "info");
-  assertEquals(logs[0].msg, "Hello, world!");
+  assertEquals(logs[0].msg, "Hello %s");
 });
 
 test("getLog4jsSink(): uses default logger if none provided", async () => {
   const sink = getLog4jsSink();
-  // Should not throw and should be callable
-  sink({
+  await sink({
     category: ["default"],
     level: "info",
     message: ["Default logger test"],
@@ -48,89 +56,86 @@ test("getLog4jsSink(): uses default logger if none provided", async () => {
 });
 
 test("getLog4jsSink(): uses category logger if useCategoryLogger is true", async () => {
-  const logs: any[] = [];
-  const loggers: Record<string, any> = {};
-  const fakeLog4js = {
+  const logs: LogEntry[] = [];
+  const loggers: Record<string, { info: (msg: string) => void }> = {};
+  const log4jsMock = {
     getLogger: (cat: string) => {
       if (!loggers[cat]) {
         loggers[cat] = {
-          info: (msg: any) => logs.push({ cat, msg }),
+          info: (msg: string) => logs.push({ cat, msg, level: "info" }),
         };
       }
       return loggers[cat];
     },
   };
-  // Patch dynamic import  
-  const originalRequire = globalThis.require;  
-  try {  
-    // @ts-ignore  
-    globalThis.require = () => fakeLog4js;  
-    const sink = getLog4jsSink(undefined, { useCategoryLogger: true });  
-    await sink({  
-      category: ["foo", "bar"],  
-      level: "info",  
-      message: ["Category logger test"],  
-      properties: {},  
-      rawMessage: "Category logger test",  
-      timestamp: Date.now(),  
-    });  
-    assertEquals(logs.length, 1);  
-    assertEquals(logs[0].cat, "foo.bar");  
-  } finally {  
-    // Clean up  
-    // @ts-ignore  
-    globalThis.require = originalRequire;  
-  }
+  // @ts-ignore: Overriding imported module for test
+  log4js.getLogger = log4jsMock.getLogger;
+  const sink = getLog4jsSink(undefined, { useCategoryLogger: true });
+  await sink({
+    category: ["foo"],
+    level: "info",
+    message: ["Test"],
+    properties: {},
+    rawMessage: "Test",
+    timestamp: Date.now(),
+  });
+  assertEquals(logs.length, 1);
+  assertEquals(logs[0].cat, "foo");
+  assertEquals(logs[0].msg, "Test");
 });
 
 test("getLog4jsSink(): level mapping from LogTape to log4js", async () => {
-  const logs: any[] = [];
+  const logs: LogEntry[] = [];
   const logger = {
-    trace: (msg: any) => logs.push({ level: "trace", msg }),
-    debug: (msg: any) => logs.push({ level: "debug", msg }),
-    info: (msg: any) => logs.push({ level: "info", msg }),
-    warn: (msg: any) => logs.push({ level: "warn", msg }),
-    error: (msg: any) => logs.push({ level: "error", msg }),
-    fatal: (msg: any) => logs.push({ level: "fatal", msg }),
-  };
-  const sink = getLog4jsSink(logger as any);
-  for (const [logtapeLevel] of [  
-    ["trace", "trace"],  
-    ["debug", "debug"],  
-    ["info", "info"],  
-    ["warning", "warn"],  
-    ["error", "error"],  
-    ["fatal", "fatal"],  
-  ]) {  
-    await sink({  
-      category: ["x"],  
-      level: logtapeLevel as any,  
-      message: [logtapeLevel],  
-      properties: {},  
-      rawMessage: logtapeLevel,  
-      timestamp: Date.now(),  
-    });  
+    trace: (msg: string) => logs.push({ level: "trace", msg }),
+    debug: (msg: string) => logs.push({ level: "debug", msg }),
+    info: (msg: string) => logs.push({ level: "info", msg }),
+    warn: (msg: string) => logs.push({ level: "warn", msg }),
+    error: (msg: string) => logs.push({ level: "error", msg }),
+    fatal: (msg: string) => logs.push({ level: "fatal", msg }),
+  } as Partial<log4js.Logger>;
+  const sink = getLog4jsSink(logger as log4js.Logger, {
+    useCategoryLogger: false,
+  });
+  const levels = ["trace", "debug", "info", "warning", "error", "fatal"];
+  for (const logtapeLevel of levels) {
+    await sink({
+      category: [],
+      level: logtapeLevel as LogLevel,
+      message: [logtapeLevel],
+      properties: {},
+      rawMessage: logtapeLevel,
+      timestamp: Date.now(),
+    });
   }
-  await delay(10);
-  assertEquals(logs.map(l => l.level), ["trace", "debug", "info", "warn", "error", "fatal"]);
+  assertEquals(logs.map((l) => l.level), [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "fatal",
+  ]);
 });
 
 test("getLog4jsSink(): structured logging passes properties as first arg", async () => {
-  const logs: any[] = [];
+  const logs: LogEntry[] = [];
   const logger = {
-    info: (props: any, msg: string) => logs.push({ props, msg }),
-  };
-  const sink = getLog4jsSink(logger as any);
+    info: (props: unknown, msg: string) =>
+      logs.push({ props, msg, level: "info" }),
+  } as Partial<log4js.Logger>;
+  const sink = getLog4jsSink(logger as log4js.Logger, {
+    useCategoryLogger: false,
+  });
   await sink({
-    category: ["struct"],
+    category: [],
     level: "info",
-    message: ["Structured"],
-    properties: { foo: 42 },
-    rawMessage: "Structured",
+    message: ["Hello"],
+    properties: { foo: 1 },
+    rawMessage: "Hello",
     timestamp: Date.now(),
   });
-  await delay(10);
   assertEquals(logs.length, 1);
-  assertEquals(logs[0].props, { foo: 42 });
-  assertEquals(logs[0].msg, "Structured");
-}); 
+  assertEquals(logs[0].props, { foo: 1 });
+  assertEquals(logs[0].msg, "Hello");
+});

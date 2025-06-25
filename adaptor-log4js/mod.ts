@@ -72,7 +72,7 @@ export function getLog4jsSink(
     }
     return defaultLogger;
   }
-  
+
   return async (record: LogRecord) => {
     const loggerForRecord = await getLoggerForRecord(record);
 
@@ -87,16 +87,22 @@ export function getLog4jsSink(
     };
     const log4jsLevel = levelMap[record.level] ?? "info";
 
-    // Compose message  
-    const formatString = record.message.filter((_, i) => i % 2 === 0).join("");  
-    const args = record.message.filter((_, i) => i % 2 === 1);  
+    // Compose message
+    const formatString = record.message.filter((_, i) => i % 2 === 0).join("");
+    const args = record.message.filter((_, i) => i % 2 === 1);
 
-    // Structured logging: pass properties as first arg if present  
-    if (record.properties && Object.keys(record.properties).length > 0) {  
-      (loggerForRecord as any)[log4jsLevel](record.properties, formatString, ...args);  
-    } else {  
-      (loggerForRecord as any)[log4jsLevel](formatString, ...args);  
-    } 
+    // Structured logging: pass properties as first arg if present
+    if (record.properties && Object.keys(record.properties).length > 0) {
+      ((loggerForRecord as unknown) as Record<
+        string,
+        (...args: unknown[]) => void
+      >)[log4jsLevel](record.properties, formatString, ...args);
+    } else {
+      ((loggerForRecord as unknown) as Record<
+        string,
+        (...args: unknown[]) => void
+      >)[log4jsLevel](formatString, ...args);
+    }
   };
 }
 
@@ -143,4 +149,4 @@ export async function install(
       { category: [], sinks: ["log4js"] },
     ],
   });
-} 
+}

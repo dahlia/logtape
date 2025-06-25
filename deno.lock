@@ -2148,6 +2148,16 @@
       "npm:tsdown@~0.12.7"
     ],
     "members": {
+      "adaptor-log4js": {
+        "dependencies": [
+          "npm:log4js@^6.9.1"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:log4js@^6.9.1"
+          ]
+        }
+      },
       "adaptor-pino": {
         "dependencies": [
           "npm:pino-abstract-transport@2"
