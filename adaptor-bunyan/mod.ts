@@ -18,7 +18,9 @@ export interface BunyanSinkOptions {
    * If a function, it will be called with the record and should return the child context object.
    * @default false
    */
-  readonly childLogger?: boolean | ((record: LogRecord) => Record<string, unknown>);
+  readonly childLogger?:
+    | boolean
+    | ((record: LogRecord) => Record<string, unknown>);
   /**
    * Custom Bunyan serializers to use when creating the default logger.
    * Ignored if a custom logger is provided.
@@ -91,7 +93,7 @@ export interface CategoryOptions {
 export async function getBunyanSink(
   logger?: bunyan,
   options: BunyanSinkOptions = {},
-): Sink {
+): Promise<Sink> {
   let actualLogger = logger;
   if (!actualLogger) {
     // Dynamically import bunyan if not provided
@@ -204,7 +206,9 @@ export async function getBunyanSink(
       if (typeof options.childLogger === "function") {
         childContext = options.childLogger(record);
       } else {
-        childContext = { category: record.category.join(category?.separator ?? ".") };
+        childContext = {
+          category: record.category.join(category?.separator ?? ".")
+        };
       }
       if (actualLogger) {
         loggerForRecord = actualLogger.child(childContext);
@@ -248,7 +252,7 @@ export async function install(
 ): Promise<void> {
   configureSync({
     sinks: {
-      bunyan: getBunyanSink(logger, options),
+      bunyan: await getBunyanSink(logger, options),
     },
     loggers: [
       {
@@ -259,4 +263,4 @@ export async function install(
       { category: [], sinks: ["bunyan"] },
     ],
   });
-} 
+}

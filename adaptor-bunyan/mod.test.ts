@@ -8,15 +8,17 @@ import { getBunyanSink } from "./mod.ts";
 
 const test = suite(import.meta);
 
+type BunyanLogRecord = Record<string, unknown>;
+
 test("getBunyanSink(): basic scenario", async () => {
-  const logs: any[] = [];
+  const logs: BunyanLogRecord[] = [];
   const bunyanLogger = bunyan.createLogger({
     name: "test",
     streams: [
       {
         type: "raw",
         stream: {
-          write: (rec: any) => logs.push(rec),
+          write: (rec: unknown) => logs.push(rec as BunyanLogRecord),
         },
       },
     ],
@@ -40,14 +42,14 @@ test("getBunyanSink(): basic scenario", async () => {
 });
 
 test("getBunyanSink(): childLogger true uses category as context", async () => {
-  const logs: any[] = [];
+  const logs: BunyanLogRecord[] = [];
   const bunyanLogger = bunyan.createLogger({
     name: "test",
     streams: [
       {
         type: "raw",
         stream: {
-          write: (rec: any) => logs.push(rec),
+          write: (rec: unknown) => logs.push(rec as BunyanLogRecord),
         },
       },
     ],
@@ -67,14 +69,14 @@ test("getBunyanSink(): childLogger true uses category as context", async () => {
 });
 
 test("getBunyanSink(): childLogger function provides custom context", async () => {
-  const logs: any[] = [];
+  const logs: BunyanLogRecord[] = [];
   const bunyanLogger = bunyan.createLogger({
     name: "test",
     streams: [
       {
         type: "raw",
         stream: {
-          write: (rec: any) => logs.push(rec),
+          write: (rec: unknown) => logs.push(rec as BunyanLogRecord),
         },
       },
     ],
@@ -96,18 +98,22 @@ test("getBunyanSink(): childLogger function provides custom context", async () =
 });
 
 test("getBunyanSink(): serializers option is used for default logger", async () => {
-  const logs: any[] = [];
+  const logs: BunyanLogRecord[] = [];
+  const originalCreateLogger = bunyan.createLogger;
+  bunyan.createLogger = function (options: bunyan.LoggerOptions) {
+    options.streams = [{
+      type: "raw",
+      stream: {
+        write: (rec: unknown) => logs.push(rec as BunyanLogRecord),
+      },
+    }];
+    return originalCreateLogger.call(this, options);
+  };
   const sink = await getBunyanSink(undefined, {
     serializers: {
-      value: (v: any) => (typeof v === "object" ? "[redacted]" : v),
+      value: (v: unknown) => (typeof v === "object" ? "[redacted]" : v),
     },
   });
-  // Patch the default logger to capture logs
-  // @ts-ignore
-  sink._logger = {
-    info: (props: any, msg: string) => logs.push({ ...props, msg }),
-    child: function () { return this; },
-  };
   sink({
     category: ["ser"],
     level: "info",
@@ -117,7 +123,8 @@ test("getBunyanSink(): serializers option is used for default logger", async () 
     timestamp: Date.now(),
   });
   await delay(50);
-  // The serializer should have been applied
+  // Restore original createLogger
+  bunyan.createLogger = originalCreateLogger;
   assertEquals(logs.length, 1);
   assertEquals(logs[0].value, "[redacted]");
 });
