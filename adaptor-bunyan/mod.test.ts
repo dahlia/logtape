@@ -21,7 +21,7 @@ test("getBunyanSink(): basic scenario", async () => {
       },
     ],
   });
-  const sink = getBunyanSink(bunyanLogger);
+  const sink = await getBunyanSink(bunyanLogger);
   const before = Date.now();
   sink({
     category: ["test", "category"],
@@ -52,7 +52,7 @@ test("getBunyanSink(): childLogger true uses category as context", async () => {
       },
     ],
   });
-  const sink = getBunyanSink(bunyanLogger, { childLogger: true });
+  const sink = await getBunyanSink(bunyanLogger, { childLogger: true });
   sink({
     category: ["foo", "bar"],
     level: "info",
@@ -79,7 +79,7 @@ test("getBunyanSink(): childLogger function provides custom context", async () =
       },
     ],
   });
-  const sink = getBunyanSink(bunyanLogger, {
+  const sink = await getBunyanSink(bunyanLogger, {
     childLogger: (record) => ({ custom: record.category.join("/") }),
   });
   sink({
@@ -97,7 +97,7 @@ test("getBunyanSink(): childLogger function provides custom context", async () =
 
 test("getBunyanSink(): serializers option is used for default logger", async () => {
   const logs: any[] = [];
-  const sink = getBunyanSink(undefined, {
+  const sink = await getBunyanSink(undefined, {
     serializers: {
       value: (v: any) => (typeof v === "object" ? "[redacted]" : v),
     },
@@ -123,7 +123,7 @@ test("getBunyanSink(): serializers option is used for default logger", async () 
 });
 
 test("getBunyanSink(): works with default logger (no logger provided)", async () => {
-  const sink = getBunyanSink();
+  const sink = await getBunyanSink();
   // Should not throw and should be callable
   sink({
     category: ["default"],

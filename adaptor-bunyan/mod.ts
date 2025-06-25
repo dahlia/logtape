@@ -88,7 +88,7 @@ export interface CategoryOptions {
  * @returns A LogTape sink function that can be used in LogTape configuration.
  * @since 1.0.0
  */
-export function getBunyanSink(
+export async function getBunyanSink(
   logger?: bunyan,
   options: BunyanSinkOptions = {},
 ): Sink {
@@ -206,9 +206,13 @@ export function getBunyanSink(
       } else {
         childContext = { category: record.category.join(category?.separator ?? ".") };
       }
-      loggerForRecord = actualLogger.child(childContext);
+      if (actualLogger) {
+        loggerForRecord = actualLogger.child(childContext);
+      }
     }
-    loggerForRecord[bunyanLevel](record.properties, formattedMessage);
+    if (loggerForRecord) {
+      loggerForRecord[bunyanLevel](record.properties, formattedMessage);
+    }
   };
 }
 
@@ -238,16 +242,21 @@ export function getBunyanSink(
  * @param options Configuration options for the sink adapter.
  * @since 1.0.0
  */
-export function install(
+export async function install(
   logger: bunyan,
   options: BunyanSinkOptions = {},
-): void {
+): Promise<void> {
   configureSync({
     sinks: {
       bunyan: getBunyanSink(logger, options),
     },
     loggers: [
-      { sinks: ["bunyan"] },
+      {
+        category: ["logtape", "meta"],
+        sinks: ["bunyan"],
+        lowestLevel: "warning",
+      },
+      { category: [], sinks: ["bunyan"] },
     ],
   });
 } 
