@@ -15,7 +15,7 @@ test("getLog4jsSink(): basic scenario with custom logger", async () => {
   const logger = log4js.getLogger("out");
   // Patch logger to capture logs
   ["info", "debug", "warn", "error", "fatal", "trace"].forEach((level) => {
-    logger[level] = (msgOrProps: any, msg?: string) => {
+    (logger as any)[level] = (msgOrProps: any, msg?: string) => {
       logs.push({ level, msg: msg ?? msgOrProps });
     };
   });
