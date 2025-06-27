@@ -207,7 +207,7 @@ export async function getBunyanSink(
         childContext = options.childLogger(record);
       } else {
         childContext = {
-          category: record.category.join(category?.separator ?? ".")
+          category: record.category.join(category?.separator ?? "."),
         };
       }
       if (actualLogger) {
