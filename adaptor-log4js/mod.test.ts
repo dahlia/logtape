@@ -20,10 +20,10 @@ test("getLog4jsSink(): basic scenario with custom logger", async () => {
     (logger as unknown as Record<
       string,
       (msgOrProps: unknown, msg?: string) => void
-    >)[level] = (msgOrProps: unknown, msg?: string) => {
+    >)[level] = (msgOrProps: unknown, _msg?: string) => {
       logs.push({
         level,
-        msg: typeof msgOrProps === "string" ? String(msgOrProps) : '',
+        msg: typeof msgOrProps === "string" ? String(msgOrProps) : "",
       });
     };
   });
