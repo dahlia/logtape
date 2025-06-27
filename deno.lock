@@ -2148,6 +2148,16 @@
       "npm:tsdown@~0.12.7"
     ],
     "members": {
+      "adaptor-bunyan": {
+        "dependencies": [
+          "npm:bunyan@^1.8.15"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:bunyan@^1.8.15"
+          ]
+        }
+      },
       "adaptor-pino": {
         "dependencies": [
           "npm:pino-abstract-transport@2"
