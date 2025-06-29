@@ -22,6 +22,7 @@
     "npm:@types/bun@^1.2.16": "1.2.16",
     "npm:@types/bunyan@^1.8.11": "1.8.11",
     "npm:@types/node@*": "22.15.15",
+    "npm:@types/node@24.0.7": "24.0.7",
     "npm:@types/signale@^1.4.7": "1.4.7",
     "npm:aws-sdk-client-mock@4": "4.1.0",
     "npm:bunyan@^1.8.15": "1.8.15",
@@ -547,7 +548,8 @@
       ]
     },
     "@graphql-hive/logger@1.0.0": {
-      "integrity": "sha512-66kcaBS2td3wA9aUAnKCkDfOiuV8CzTOI1kKmiHzsWiSvrFIrqeOgXd+gb9mTAFl9MFuQTaJfS6qb/jnSv+eOQ=="
+      "integrity": "sha512-66kcaBS2td3wA9aUAnKCkDfOiuV8CzTOI1kKmiHzsWiSvrFIrqeOgXd+gb9mTAFl9MFuQTaJfS6qb/jnSv+eOQ==",
+      "deprecated": true
     },
     "@jridgewell/gen-mapping@0.3.8": {
       "integrity": "sha512-imAbBGkb+ebQyxKgzv5Hu2nmROxoDOXHh80evxdoXNOrvAnVx7zimzc1Oo5h9RlfV4vPXaE2iM5pOFbvOCClWA==",
@@ -1240,6 +1242,12 @@
     },
     "@types/node@24.0.0": {
       "integrity": "sha512-yZQa2zm87aRVcqDyH5+4Hv9KYgSdgwX1rFnGvpbzMaC7YAljmhBET93TPiTd3ObwTL+gSpIzPKg5BqVxdCvxKg==",
+      "dependencies": [
+        "undici-types@7.8.0"
+      ]
+    },
+    "@types/node@24.0.7": {
+      "integrity": "sha512-YIEUUr4yf8q8oQoXPpSlnvKNVKDQlPMWrmOcgzoduo7kvA2UF0/BwJ/eMKFTiTtkNL17I0M6Xe2tvwFU7be6iw==",
       "dependencies": [
         "undici-types@7.8.0"
       ]
@@ -2234,6 +2242,11 @@
             "npm:@opentelemetry/semantic-conventions@^1.34.0"
           ]
         }
+      },
+      "pretty": {
+        "dependencies": [
+          "npm:@types/node@24.0.7"
+        ]
       },
       "sentry": {
         "dependencies": [
