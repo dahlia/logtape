@@ -3,6 +3,10 @@
   "version": "1.0.1",
   "license": "MIT",
   "exports": "./mod.ts",
+  "imports": {
+    "#util": "util.deno.ts",
+    "@types/node": "npm:@types/node@24.0.7"
+  },
   "exclude": [
     "dist/",
     "coverage/",

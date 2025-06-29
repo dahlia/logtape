@@ -49,6 +49,30 @@
     },
     "./package.json": "./package.json"
   },
+  "imports": {
+    "#util": {
+      "types": {
+        "import": "./dist/util.d.ts",
+        "require": "./dist/util.d.cts"
+      },
+      "browser": {
+        "import": "./dist/util.js",
+        "require": "./dist/util.cjs"
+      },
+      "node": {
+        "import": "./dist/util.node.js",
+        "require": "./dist/util.node.cjs"
+      },
+      "bun": {
+        "import": "./dist/util.node.js",
+        "require": "./dist/util.node.cjs"
+      },
+      "deno": "./dist/util.deno.js",
+      "import": "./dist/util.js",
+      "require": "./dist/util.cjs",
+      "default": "./dist/util.js"
+    }
+  },
   "sideEffects": false,
   "peerDependencies": {
     "@logtape/logtape": "workspace:"

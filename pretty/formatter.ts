@@ -4,7 +4,7 @@ import type {
   TextFormatter,
   TextFormatterOptions,
 } from "@logtape/logtape";
-import { inspect as nodeInspect } from "node:util";
+import { inspect } from "#util";
 import { getOptimalWordWrapWidth } from "./terminal.ts";
 import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
 import { getDisplayWidth } from "./wcwidth.ts";
@@ -234,29 +234,6 @@ function normalizeIconSpacing(
     ]),
   ) as Record<LogLevel, string>;
 }
-
-/**
- * Platform-specific inspect function. Uses Node.js `util.inspect()` which
- * is available in both Deno and Node.js environments. For browser environments,
- * it falls back to {@link JSON.stringify}.
- *
- * @param value The value to inspect.
- * @param options The options for inspecting the value.
- * @returns The string representation of the value.
- */
-const inspect: (value: unknown, options?: { colors?: boolean }) => string =
-  // @ts-ignore: Browser detection
-  typeof document !== "undefined" ||
-    // @ts-ignore: React Native detection
-    typeof navigator !== "undefined" && navigator.product === "ReactNative"
-    ? (v) => JSON.stringify(v)
-    : (v, opts) =>
-      nodeInspect(v, {
-        maxArrayLength: 10,
-        maxStringLength: 80,
-        compact: true,
-        ...opts,
-      });
 
 /**
  * Configuration options for the pretty formatter.

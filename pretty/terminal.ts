@@ -1,5 +1,5 @@
-import process from "node:process";
-
+// deno-lint-ignore-file no-process-global
+/// <reference types="@types/node" />
 /**
  * @fileoverview
  * Terminal detection and width calculation utilities

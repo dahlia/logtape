@@ -1,11 +1,24 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: "mod.ts",
+  entry: ["mod.ts", "util.ts", "util.deno.ts", "util.node.ts"],
   dts: {
     sourcemap: true,
   },
   format: ["esm", "cjs"],
-  platform: "node",
+  platform: "neutral",
   unbundle: true,
+  inputOptions: {
+    onLog(level, log, defaultHandler) {
+      if (
+        level === "warn" && log.code === "UNRESOLVED_IMPORT" &&
+        ["node:util", "#util"].includes(
+          log.exporter ?? "",
+        )
+      ) {
+        return;
+      }
+      defaultHandler(level, log);
+    },
+  },
 });
