@@ -8,11 +8,17 @@ Version 1.0.1
 
 To be released.
 
+ -  Fixed React Native compatibility issue in *@logtape/pretty* package where
+    top-level Node.js imports caused build failures. Replaced direct `node:util`
+    imports with platform-specific utilities using conditional module loading
+    via *package.json* imports map.  [[#63]]
+
  -  Fixed compatibility issue with Cloudflare Workers where `process.on()` is
     not available, causing configuration to fail with `process.on is not a
     function` error. LogTape now checks for `process.on()` availability before
     attempting to register exit handlers.  [[#64], [#65] by Martin Petrovsky]
 
+[#63]: https://github.com/dahlia/logtape/issues/63
 [#64]: https://github.com/dahlia/logtape/issues/64
 [#65]: https://github.com/dahlia/logtape/pull/65
 
