@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.0.1
 -------------
 
-To be released.
+Released on July 3, 2025.
 
  -  Fixed React Native compatibility issue in *@logtape/pretty* package where
     top-level Node.js imports caused build failures. Replaced direct `node:util`
