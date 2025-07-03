@@ -8,6 +8,14 @@ Version 1.0.1
 
 To be released.
 
+ -  Fixed compatibility issue with Cloudflare Workers where `process.on()` is
+    not available, causing configuration to fail with `process.on is not a
+    function` error. LogTape now checks for `process.on()` availability before
+    attempting to register exit handlers.  [[#64], [#65] by Martin Petrovsky]
+
+[#64]: https://github.com/dahlia/logtape/issues/64
+[#65]: https://github.com/dahlia/logtape/pull/65
+
 
 Version 1.0.0
 -------------
