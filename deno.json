@@ -3,6 +3,7 @@
     "./logtape",
     "./adaptor-pino",
     "./adaptor-winston",
+    "./adaptor-log4js",
     "./file",
     "./otel",
     "./pretty",
