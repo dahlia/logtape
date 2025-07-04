@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.0.2
 -------------
 
-To be released.
+Released on July 4, 2025.
 
  -  Fixed Vercel Edge Functions compatibility issue where LogTape caused Node.js
     API warnings due to `process.on` usage detection. Refactored process access
