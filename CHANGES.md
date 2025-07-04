@@ -8,6 +8,14 @@ Version 1.0.2
 
 To be released.
 
+ -  Fixed Vercel Edge Functions compatibility issue where LogTape caused Node.js
+    API warnings due to `process.on` usage detection. Refactored process access
+    to use type-safe `globalThis` casting instead of `@ts-ignore` directive.
+    [[#66], [#67] by Martin Petrovsky]
+
+[#66]: https://github.com/dahlia/logtape/issues/66
+[#67]: https://github.com/dahlia/logtape/pull/67
+
 
 Version 1.0.1
 -------------
