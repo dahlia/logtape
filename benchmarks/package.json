@@ -27,5 +27,5 @@
     "json": "node --experimental-transform-types --expose-gc json.ts",
     "json:bun": "bun --expose-gc json.ts"
   },
-  "version": "1.0.2"
+  "version": "1.0.3"
 }
