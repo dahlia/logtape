@@ -1,6 +1,7 @@
 .cov/
 .env/
 .dnt-import-map.json
+.test-report.xml
 coverage/
 logtape-*-*.tgz
 node_modules/
