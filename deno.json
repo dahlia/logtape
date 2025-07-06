@@ -21,8 +21,10 @@
   ],
   "lock": false,
   "exclude": [
+    "*/.test-report.xml",
     ".cov/",
     ".github/",
+    ".test-report.xml",
     "coverage/",
     "docs/"
   ],

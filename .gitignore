@@ -1,4 +1,5 @@
 .cov/
 .dnt-import-map.json
+.test-report.xml
 coverage/
 npm/
