@@ -109,7 +109,7 @@ jobs:
           fi
           pnpm build
           if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-            pnpm publish --no-git-checks --access public
+            pnpm publish --no-git-checks --access public --tag latest
           else
             pnpm publish --no-git-checks --access public --tag dev
           fi

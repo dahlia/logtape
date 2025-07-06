@@ -6,7 +6,7 @@ LogTape changelog
 Version 0.12.2
 --------------
 
-To be released.
+Released on July 6, 2025.
 
  -  Fixed a bug where `jsonLinesFormatter` and the formatter returned by
     `getJsonLinesFormatter()` did not output newline characters between
