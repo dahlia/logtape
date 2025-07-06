@@ -8,6 +8,11 @@ Version 0.11.1
 
 To be released.
 
+ -  Fixed a bug where `jsonLinesFormatter` and the formatter returned by
+    `getJsonLinesFormatter()` did not output newline characters between
+    JSON objects, violating the JSON Lines specification that requires
+    one JSON object per line.
+
 
 Version 0.11.0
 --------------
