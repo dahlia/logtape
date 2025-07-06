@@ -8,6 +8,11 @@ Version 1.0.4
 
 To be released.
 
+ -  Fixed a bug where the optimized code paths in `getJsonLinesFormatter()`
+    did not output newline characters between JSON objects, violating the
+    JSON Lines specification. This completes the fix that was partially
+    addressed in version 1.0.3.
+
 
 Version 1.0.3
 -------------
