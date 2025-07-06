@@ -1,6 +1,6 @@
 {
   "name": "@logtape/redaction",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Redact sensitive data from log messages",
   "keywords": [
     "logging",

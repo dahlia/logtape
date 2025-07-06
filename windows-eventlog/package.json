@@ -1,6 +1,6 @@
 {
   "name": "@logtape/windows-eventlog",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Windows Event Log sink for LogTape",
   "license": "MIT",
   "keywords": [
