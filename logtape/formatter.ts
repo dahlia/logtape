@@ -733,7 +733,7 @@ export function getJsonLinesFormatter(
             record.message[2],
           logger: record.category.join("."),
           properties: record.properties,
-        });
+        }) + "\n";
       }
 
       // Single message (second most common)
@@ -746,7 +746,7 @@ export function getJsonLinesFormatter(
           message: record.message[0],
           logger: record.category.join("."),
           properties: record.properties,
-        });
+        }) + "\n";
       }
 
       // Complex messages (fallback)
@@ -761,7 +761,7 @@ export function getJsonLinesFormatter(
         message: msg,
         logger: record.category.join("."),
         properties: record.properties,
-      });
+      }) + "\n";
     };
   }
 

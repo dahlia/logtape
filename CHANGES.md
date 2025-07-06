@@ -9,6 +9,17 @@ Version 1.1.0
 To be released.
 
 
+Version 1.0.4
+-------------
+
+Released on July 6, 2025.
+
+ -  Fixed a bug where the optimized code paths in `getJsonLinesFormatter()`
+    did not output newline characters between JSON objects, violating the
+    JSON Lines specification. This completes the fix that was partially
+    addressed in version 1.0.3.
+
+
 Version 1.0.3
 -------------
 
