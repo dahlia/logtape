@@ -852,7 +852,7 @@ export function getJsonLinesFormatter(
       message: getMessage(record),
       logger: joinCategory(record.category),
       ...getProperties(record.properties),
-    });
+    }) + "\n";
   };
 }
 
