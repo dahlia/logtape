@@ -31,6 +31,7 @@
     "fs"
   ],
   "exclude": [
+    "*/.test-report.xml",
     "*/dist/",
     ".cov/",
     ".github/",

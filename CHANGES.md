@@ -8,6 +8,11 @@ Version 1.0.3
 
 To be released.
 
+ -  Fixed a bug where `jsonLinesFormatter` and the formatter returned by
+    `getJsonLinesFormatter()` did not output newline characters between
+    JSON objects, violating the JSON Lines specification that requires
+    one JSON object per line.
+
 
 Version 1.0.2
 -------------
@@ -221,6 +226,17 @@ Released on June 22, 2025.
 [#53]: https://github.com/dahlia/logtape/issues/53
 
 
+Version 0.12.2
+--------------
+
+Released on July 6, 2025.
+
+ -  Fixed a bug where `jsonLinesFormatter` and the formatter returned by
+    `getJsonLinesFormatter()` did not output newline characters between
+    JSON objects, violating the JSON Lines specification that requires
+    one JSON object per line.
+
+
 Version 0.12.1
 --------------
 
@@ -294,6 +310,17 @@ Released on June 15, 2025.
 [#24]: https://github.com/dahlia/logtape/issues/24
 [#43]: https://github.com/dahlia/logtape/issues/43
 [#44]: https://github.com/dahlia/logtape/issues/44
+
+
+Version 0.11.1
+--------------
+
+Released on July 6, 2025.
+
+ -  Fixed a bug where `jsonLinesFormatter` and the formatter returned by
+    `getJsonLinesFormatter()` did not output newline characters between
+    JSON objects, violating the JSON Lines specification that requires
+    one JSON object per line.
 
 
 Version 0.11.0
