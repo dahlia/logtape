@@ -106,6 +106,57 @@ getLogger(["my-app", "my-module"]).info("bar");
 ~~~~
 
 
+Root logger
+-----------
+
+The root logger is a special logger that acts as the parent of all other loggers
+in the hierarchical category system.  It is represented by an empty array `[]`
+as its category.  This logger is particularly useful for catch-all logging
+configurations where you want to capture logs from all categories without
+knowing the specific categories in advance.
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    // Root logger catches all log messages
+    { category: [], sinks: ["console"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+The root logger will capture logs from all categories in your application and
+any libraries you're using.  This is perfect for scenarios where you want to
+ensure you don't miss any logs without needing to know all the specific
+categories beforehand.
+
+You can also combine the root logger with more specific loggers:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    // Catch-all logger for everything at info level
+    { category: [], sinks: ["console"], lowestLevel: "info" },
+    // More verbose logging for your specific app
+    { category: ["my-app"], sinks: ["console"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+In this configuration, the root logger will handle all log messages at the
+`info` level or higher, while the `["my-app"]` logger will handle messages
+from the `my-app` category at the `debug` level or higher.
+
+
 Child loggers
 -------------
 
