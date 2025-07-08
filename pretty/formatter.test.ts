@@ -1,9 +1,9 @@
 import { suite } from "@alinea/suite";
+import type { LogRecord } from "@logtape/logtape";
 import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { assertMatch } from "@std/assert/match";
 import { assertStringIncludes } from "@std/assert/string-includes";
-import type { LogRecord } from "@logtape/logtape";
 import {
   type CategoryColorMap,
   getPrettyFormatter,
@@ -17,6 +17,7 @@ function createLogRecord(
   category: string[],
   message: LogRecord["message"],
   timestamp: number = Date.now(),
+  properties: Record<string, unknown> = {}
 ): LogRecord {
   // Convert message array to template strings format for rawMessage
   const rawMessage = typeof message === "string"
@@ -28,7 +29,7 @@ function createLogRecord(
     category,
     message,
     rawMessage,
-    properties: {},
+    properties,
     timestamp,
   };
 }
@@ -801,4 +802,20 @@ test("getPrettyFormatter() with multiline interpolated values (no align)", () =>
       );
     }
   }
+});
+
+test("renderStructuredValues set to true", () => {
+  const formatter = getPrettyFormatter({
+    renderStructuredValues: true,
+    inspectOptions: { colors: false }
+  });
+
+  const record = createLogRecord("info", ["test"], ['FooBar'], Date.now(), { foo: 'bar', bar: 'baz' });
+  const result = formatter(record);
+
+  // Should contain multiple lines due to wrapping
+  const lines = result.split("\n");
+  assert(lines.length == 3); // Normal log line + formatted properties + newline
+  assert(lines[1].trim() === "{ foo: 'bar', bar: 'baz' }");
+
 });

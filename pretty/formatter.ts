@@ -568,6 +568,22 @@ export interface PrettyFormatterOptions
   };
 
   /**
+   * Configuration to always render structured data.
+   *
+   * If set to true, any structured data that is logged will
+   * always be rendered. This can be very verbose. Make sure
+   * to configure `inspectOptions` properly for your usecase.
+   *
+   * @example
+   * ```typescript
+   * renderStructuredValues: true
+   * ```
+   *
+   * @default `false`
+   */
+  readonly renderStructuredValues?: boolean;
+
+  /**
    * Enable word wrapping for long messages.
    *
    * When enabled, long messages will be wrapped at the specified width,
@@ -662,6 +678,7 @@ export function getPrettyFormatter(
     colors: useColors = true,
     align = true,
     inspectOptions = {},
+    renderStructuredValues = false,
     wordWrap = true,
   } = options;
 
@@ -875,6 +892,7 @@ export function getPrettyFormatter(
     let formattedCategory = categoryStr;
     let formattedMessage = message;
     let formattedTimestamp = "";
+    let formattedStructuredValues = "";
 
     if (useColors) {
       // Apply level color and style
@@ -907,6 +925,13 @@ export function getPrettyFormatter(
       }
     }
 
+    if (renderStructuredValues) {
+      formattedStructuredValues = inspect(record.properties, {
+        colors: useColors,
+        ...inspectOptions,
+      });
+    }
+
     // Build the final output with alignment
     if (align) {
       // Calculate padding accounting for ANSI escape sequences
@@ -936,6 +961,11 @@ export function getPrettyFormatter(
         );
       }
 
+      if (renderStructuredValues) {
+        const paddedStructuredValues = formattedStructuredValues.padStart(categoryWidth + categoryColorLength + levelWidth);
+        return result + "\n" + paddedStructuredValues + "\n";
+      }
+
       return result + "\n";
     } else {
       let result =
@@ -948,6 +978,10 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           message,
         );
+      }
+
+      if (renderStructuredValues) {
+        return result + "\n" + formattedStructuredValues + "\n";
       }
 
       return result + "\n";
