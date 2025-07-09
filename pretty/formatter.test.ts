@@ -823,6 +823,6 @@ test("renderStructuredValues set to true", () => {
     lines[1].trim(),
     "Deno" in globalThis
       ? '{ foo: "bar", bar: "baz" }'
-      : "{ foo: 'bar', bar: 'baz' }"
+      : "{ foo: 'bar', bar: 'baz' }",
   );
 });

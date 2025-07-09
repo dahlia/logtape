@@ -963,7 +963,9 @@ export function getPrettyFormatter(
       }
 
       if (renderStructuredValues) {
-        const paddedStructuredValues = formattedStructuredValues.padStart(categoryWidth + categoryColorLength + levelWidth);
+        const paddedStructuredValues = formattedStructuredValues.padStart(
+          categoryWidth + categoryColorLength + levelWidth,
+        );
         return result + "\n" + paddedStructuredValues + "\n";
       }
 
