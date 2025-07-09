@@ -109,7 +109,10 @@ const formatter = getPrettyFormatter({
   categoryTruncate: "middle",  // "middle" | "end" | false
 
   // Word wrapping
-  wordWrap: true  // true | false | number
+  wordWrap: true,  // true | false | number
+
+  // Show properties
+  properties: true,
 });
 ~~~~
 
@@ -249,6 +252,15 @@ getPrettyFormatter({
     colors: false,    // Disable value syntax highlighting
     compact: true,    // Use compact object display
   }
+})
+~~~~
+
+### Properties display
+
+~~~~ typescript
+// Show properties below the message
+getPrettyFormatter({
+  properties: true,  // Show properties
 })
 ~~~~
 

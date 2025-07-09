@@ -7,7 +7,7 @@
  * correctly.
  */
 
-import { getDisplayWidth, stripAnsi } from "./wcwidth.ts";
+import { getDisplayWidth } from "./wcwidth.ts";
 
 /**
  * Wrap text at specified width with proper indentation for continuation lines.
@@ -15,13 +15,13 @@ import { getDisplayWidth, stripAnsi } from "./wcwidth.ts";
  *
  * @param text The text to wrap (may contain ANSI escape codes)
  * @param maxWidth Maximum width in terminal columns
- * @param messageContent The plain message content (used to find message start)
+ * @param indentWidth Indentation width for continuation lines
  * @returns Wrapped text with proper indentation
  */
 export function wrapText(
   text: string,
   maxWidth: number,
-  messageContent: string,
+  indentWidth: number,
 ): string {
   if (maxWidth <= 0) return text;
 
@@ -30,19 +30,6 @@ export function wrapText(
   // even if it fits within the width
   if (displayWidth <= maxWidth && !text.includes("\n")) return text;
 
-  // Find where the message content starts in the first line
-  const firstLineWords = messageContent.split(" ");
-  const firstWord = firstLineWords[0];
-  const plainText = stripAnsi(text);
-  const messageStartIndex = plainText.indexOf(firstWord);
-
-  // Calculate the display width of the text up to the message start
-  // This is crucial for proper alignment when emojis are present
-  let indentWidth = 0;
-  if (messageStartIndex >= 0) {
-    const prefixText = plainText.slice(0, messageStartIndex);
-    indentWidth = getDisplayWidth(prefixText);
-  }
   const indent = " ".repeat(Math.max(0, indentWidth));
 
   // Check if text contains newlines (from interpolated values like Error objects)

@@ -1,13 +1,14 @@
-import type {
-  LogLevel,
-  LogRecord,
-  TextFormatter,
-  TextFormatterOptions,
+import {
+  getLogLevels,
+  type LogLevel,
+  type LogRecord,
+  type TextFormatter,
+  type TextFormatterOptions,
 } from "@logtape/logtape";
-import { inspect } from "#util";
+import { inspect, type InspectOptions } from "#util";
 import { getOptimalWordWrapWidth } from "./terminal.ts";
 import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
-import { getDisplayWidth } from "./wcwidth.ts";
+import { getDisplayWidth, stripAnsi } from "./wcwidth.ts";
 import { wrapText } from "./wordwrap.ts";
 
 /**
@@ -568,6 +569,18 @@ export interface PrettyFormatterOptions
   };
 
   /**
+   * Configuration to always render structured data.
+   *
+   * If set to `true`, any structured data that is logged will
+   * always be rendered. This can be very verbose. Make sure
+   * to configure `inspectOptions` properly for your usecase.
+   *
+   * @default `false`
+   * @since 1.1.0
+   */
+  readonly properties?: boolean;
+
+  /**
    * Enable word wrapping for long messages.
    *
    * When enabled, long messages will be wrapped at the specified width,
@@ -662,6 +675,7 @@ export function getPrettyFormatter(
     colors: useColors = true,
     align = true,
     inspectOptions = {},
+    properties = false,
     wordWrap = true,
   } = options;
 
@@ -790,14 +804,7 @@ export function getPrettyFormatter(
   const categoryPatterns = prepareCategoryPatterns(categoryColorMap);
 
   // Calculate level width based on format
-  const allLevels: LogLevel[] = [
-    "trace",
-    "debug",
-    "info",
-    "warning",
-    "error",
-    "fatal",
-  ];
+  const allLevels: LogLevel[] = [...getLogLevels()];
   const levelWidth = Math.max(...allLevels.map((l) => formatLevel(l).length));
 
   return (record: LogRecord): string => {
@@ -926,13 +933,28 @@ export function getPrettyFormatter(
 
       let result =
         `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
+      const indentWidth = getDisplayWidth(
+        stripAnsi(
+          `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
+        ),
+      );
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
         result = wrapText(
           result,
           wordWrapEnabled ? wordWrapWidth : Infinity,
-          message,
+          indentWidth,
+        );
+      }
+
+      if (properties) {
+        result += formatProperties(
+          record,
+          indentWidth,
+          wordWrapEnabled ? wordWrapWidth : Infinity,
+          useColors,
+          inspectOptions,
         );
       }
 
@@ -940,19 +962,56 @@ export function getPrettyFormatter(
     } else {
       let result =
         `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
+      const indentWidth = getDisplayWidth(
+        stripAnsi(
+          `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
+        ),
+      );
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
         result = wrapText(
           result,
           wordWrapEnabled ? wordWrapWidth : Infinity,
-          message,
+          indentWidth,
+        );
+      }
+
+      if (properties) {
+        result += formatProperties(
+          record,
+          indentWidth,
+          wordWrapEnabled ? wordWrapWidth : Infinity,
+          useColors,
+          inspectOptions,
         );
       }
 
       return result + "\n";
     }
   };
+}
+
+function formatProperties(
+  record: LogRecord,
+  indentWidth: number,
+  maxWidth: number,
+  useColors: boolean,
+  inspectOptions: InspectOptions,
+): string {
+  let result = "";
+  for (const prop in record.properties) {
+    const propValue = record.properties[prop];
+    const pad = indentWidth - getDisplayWidth(prop) - 2;
+    result += "\n" + wrapText(
+      `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
+        useColors ? RESET : ""
+      } ${inspect(propValue, { colors: useColors, ...inspectOptions })}`,
+      maxWidth,
+      indentWidth,
+    );
+  }
+  return result;
 }
 
 /**

@@ -8,6 +8,14 @@ Version 1.1.0
 
 To be released.
 
+### @logtape/pretty
+
+ -  Added `PrettyFormatterOptions.properties` option for displaying
+    `LogRecord.properties` (structured data).  [[#69], [#70] by Matthias Feist]
+
+[#69]: https://github.com/dahlia/logtape/issues/69
+[#70]: https://github.com/dahlia/logtape/pull/70
+
 
 Version 1.0.4
 -------------
