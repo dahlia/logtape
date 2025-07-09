@@ -1152,6 +1152,68 @@ await configure({
 });
 ~~~~
 
+### Automatic log stream creation
+
+*This API is available since LogTape 1.1.0.*
+
+The CloudWatch Logs sink can automatically create log streams for you,
+eliminating the need to manually create them before sending logs:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getCloudWatchLogsSink } from "@logtape/cloudwatch-logs";
+
+await configure({
+  sinks: {
+    cloudwatch: getCloudWatchLogsSink({
+      logGroupName: "/aws/lambda/my-function",
+      logStreamName: "my-stream",
+      autoCreateLogStream: true,  // Automatically create the stream if it doesn't exist
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["cloudwatch"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+You can also use dynamic log stream names with templates:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getCloudWatchLogsSink } from "@logtape/cloudwatch-logs";
+
+await configure({
+  sinks: {
+    cloudwatch: getCloudWatchLogsSink({
+      logGroupName: "/aws/lambda/my-function",
+      logStreamNameTemplate: "app-{YYYY-MM-DD}",  // Creates streams like "app-2023-12-01"
+      autoCreateLogStream: true,
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["cloudwatch"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+Supported template placeholders:
+
+`{YYYY}`
+:   4-digit year
+
+`{MM}`
+:   2-digit month (01-12)
+
+`{DD}`
+:   2-digit day (01-31)
+
+`{YYYY-MM-DD}`
+:   Date in YYYY-MM-DD format
+
+`{timestamp}`
+:   Unix timestamp in milliseconds
+
 ### IAM permissions
 
 The CloudWatch Logs sink requires appropriate IAM permissions to send logs.
@@ -1165,6 +1227,27 @@ The minimal required permission is:
       "Effect": "Allow",
       "Action": [
         "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:region:account-id:log-group:log-group-name:*"
+      ]
+    }
+  ]
+}
+~~~~
+
+If you use the automatic log stream creation feature, you'll also need
+the `logs:CreateLogStream` permission:
+
+~~~~ json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:PutLogEvents",
+        "logs:CreateLogStream"
       ],
       "Resource": [
         "arn:aws:logs:region:account-id:log-group:log-group-name:*"
