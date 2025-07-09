@@ -17,7 +17,7 @@ function createLogRecord(
   category: string[],
   message: LogRecord["message"],
   timestamp: number = Date.now(),
-  properties: Record<string, unknown> = {}
+  properties: Record<string, unknown> = {},
 ): LogRecord {
   // Convert message array to template strings format for rawMessage
   const rawMessage = typeof message === "string"
@@ -807,15 +807,17 @@ test("getPrettyFormatter() with multiline interpolated values (no align)", () =>
 test("renderStructuredValues set to true", () => {
   const formatter = getPrettyFormatter({
     renderStructuredValues: true,
-    inspectOptions: { colors: false }
+    inspectOptions: { colors: false },
   });
 
-  const record = createLogRecord("info", ["test"], ['FooBar'], Date.now(), { foo: 'bar', bar: 'baz' });
+  const record = createLogRecord("info", ["test"], ["FooBar"], Date.now(), {
+    foo: "bar",
+    bar: "baz",
+  });
   const result = formatter(record);
 
   // Should contain multiple lines due to wrapping
   const lines = result.split("\n");
   assertEquals(lines.length, 3); // Normal log line + formatted properties + newline
-  assertEquals(lines[1].trim(), "{ foo: 'bar', bar: 'baz' }");
-
+  assertEquals(lines[1].trim(), '{ foo: "bar", bar: "baz" }');
 });
