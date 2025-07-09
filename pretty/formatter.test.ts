@@ -804,9 +804,10 @@ test("getPrettyFormatter() with multiline interpolated values (no align)", () =>
   }
 });
 
-test("renderStructuredValues set to true", () => {
+test("properties set to true", () => {
   const formatter = getPrettyFormatter({
-    renderStructuredValues: true,
+    properties: true,
+    colors: false,
     inspectOptions: { colors: false },
   });
 
@@ -818,11 +819,13 @@ test("renderStructuredValues set to true", () => {
 
   // Should contain multiple lines due to wrapping
   const lines = result.split("\n");
-  assertEquals(lines.length, 3); // Normal log line + formatted properties + newline
+  assertEquals(lines.length, 4); // Normal log line + formatted properties + newline
   assertEquals(
     lines[1].trim(),
-    "Deno" in globalThis
-      ? '{ foo: "bar", bar: "baz" }'
-      : "{ foo: 'bar', bar: 'baz' }",
+    "Deno" in globalThis ? 'foo: "bar"' : "foo: 'bar'",
+  );
+  assertEquals(
+    lines[2].trim(),
+    "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
   );
 });

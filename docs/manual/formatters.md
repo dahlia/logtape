@@ -419,9 +419,10 @@ The default is `"dim"`.
 Icon configuration for each log level. Controls the emoji/symbol displayed
 before each log entry.
 
- - `true`: Use built-in emoji set (🔍 trace, 🐛 debug, ✨ info, ⚡ warning, ❌ error, 💀 fatal)
- - `false`: Disable all icons
- - Object: Custom icon mapping (e.g., `{ info: "📘", error: "🔥" }`)
+ -  `true`: Use built-in emoji set (🔍 trace, 🐛 debug, ✨ info, ⚡ warning,
+    ❌ error, 💀 fatal)
+ -  `false`: Disable all icons
+ -  Object: Custom icon mapping (e.g., `{ info: "📘", error: "🔥" }`)
 
 The default is `true`.
 
@@ -464,9 +465,9 @@ The default is `20`.
 
 Strategy for truncating long category names when they exceed `categoryWidth`.
 
- - `"middle"`: Keep first and last parts (e.g., `"app…middleware"`)
- - `"end"`: Truncate at end (e.g., `"app·server·http…"`)
- - `false`: No truncation
+ -  `"middle"`: Keep first and last parts (e.g., `"app…middleware"`)
+ -  `"end"`: Truncate at end (e.g., `"app·server·http…"`)
+ -  `false`: No truncation
 
 The default is `"middle"`.
 
@@ -530,9 +531,9 @@ The default is `true`.
 Text wrapping configuration. When enabled, long messages will be wrapped at
 the specified width, with continuation lines aligned to the message column.
 
- - `true`: Auto-detect terminal width
- - `false`: Disable wrapping
- - Number: Custom wrap width in columns
+ -  `true`: Auto-detect terminal width
+ -  `false`: Disable wrapping
+ -  Number: Custom wrap width in columns
 
 The default is `true`.
 
@@ -542,9 +543,20 @@ Configuration for structured value inspection and rendering. Controls how
 objects, arrays, and other complex values are displayed within log messages.
 
 Supported options:
- - `depth`: Maximum depth to traverse when inspecting nested objects
- - `colors`: Whether to use syntax highlighting colors for inspected values
- - `compact`: Whether to use compact formatting for objects and arrays
+
+ -  `depth`: Maximum depth to traverse when inspecting nested objects
+ -  `colors`: Whether to use syntax highlighting colors for inspected values
+ -  `compact`: Whether to use compact formatting for objects and arrays
+
+#### `~PrettyFormatterOptions.properties`
+
+**This API is available since LogTape 1.1.0.**
+
+Whether to display properties below the message.  If `true`, properties
+are displayed in a separate section below the message.  If `false`, properties
+are not displayed.
+
+The default is `false`.
 
 
 Pattern-based redaction
