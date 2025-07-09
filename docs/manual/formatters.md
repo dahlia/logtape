@@ -387,7 +387,7 @@ You can customize the pretty formatter by calling the `getPrettyFormatter()`
 function with a `PrettyFormatterOptions` object. This formatter requires the
 *@logtape/pretty* package to be installed.
 
-#### `~PrettyFormatterOptions.timestamp`
+#### `~TextFormatterOptions.timestamp`
 
 The timestamp format. The available options are the same as the
 [`timestamp`](#textformatteroptions-timestamp) option of the default text
@@ -550,7 +550,7 @@ Supported options:
 
 #### `~PrettyFormatterOptions.properties`
 
-**This API is available since LogTape 1.1.0.**
+*This API is available since LogTape 1.1.0.*
 
 Whether to display properties below the message.  If `true`, properties
 are displayed in a separate section below the message.  If `false`, properties
