@@ -819,5 +819,10 @@ test("renderStructuredValues set to true", () => {
   // Should contain multiple lines due to wrapping
   const lines = result.split("\n");
   assertEquals(lines.length, 3); // Normal log line + formatted properties + newline
-  assertEquals(lines[1].trim(), '{ foo: "bar", bar: "baz" }');
+  assertEquals(
+    lines[1].trim(),
+    "Deno" in globalThis
+      ? '{ foo: "bar", bar: "baz" }'
+      : "{ foo: 'bar', bar: 'baz' }"
+  );
 });
