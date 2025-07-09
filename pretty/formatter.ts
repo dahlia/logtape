@@ -580,6 +580,7 @@ export interface PrettyFormatterOptions
    * ```
    *
    * @default `false`
+   * @since 1.1.0
    */
   readonly renderStructuredValues?: boolean;
 
