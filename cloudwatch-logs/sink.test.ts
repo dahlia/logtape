@@ -1,7 +1,9 @@
 import { suite } from "@alinea/suite";
 import {
   CloudWatchLogsClient,
+  CreateLogStreamCommand,
   PutLogEventsCommand,
+  ResourceAlreadyExistsException,
 } from "@aws-sdk/client-cloudwatch-logs";
 import type { LogRecord } from "@logtape/logtape";
 import { jsonLinesFormatter } from "@logtape/logtape";
@@ -80,7 +82,11 @@ test("getCloudWatchLogsSink() flushes when batch size is reached", async () => {
   });
 
   sink(mockLogRecord);
-  sink(mockLogRecord); // Should flush here
+  sink(mockLogRecord); // Should flush here after 2 events
+
+  // Wait a bit to ensure flush happens
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
   sink(mockLogRecord); // Should be in next batch
 
   await sink[Symbol.asyncDispose](); // Should flush remaining
@@ -328,4 +334,211 @@ test("getCloudWatchLogsSink() uses default text formatter when no formatter prov
 
   // Should be plain text, not JSON
   assertEquals(logMessage, 'Hello, "world"!');
+});
+
+// Tests for auto-create log stream functionality
+test("getCloudWatchLogsSink() automatically creates log stream when enabled", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).resolves({});
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamName: "test-stream",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  assertEquals(cwlMock.commandCalls(CreateLogStreamCommand).length, 1);
+  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+
+  const createCall = cwlMock.commandCalls(CreateLogStreamCommand)[0];
+  assertEquals(createCall.args[0].input.logGroupName, "/test/log-group");
+  assertEquals(createCall.args[0].input.logStreamName, "test-stream");
+});
+
+test("getCloudWatchLogsSink() handles ResourceAlreadyExistsException gracefully", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).rejects(
+    new ResourceAlreadyExistsException({
+      message: "Log stream already exists",
+      $metadata: {},
+    }),
+  );
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamName: "existing-stream",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  // Should still send the log event even though stream creation "failed"
+  assertEquals(cwlMock.commandCalls(CreateLogStreamCommand).length, 1);
+  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+});
+
+test("getCloudWatchLogsSink() caches created streams to avoid redundant calls", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).resolves({});
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamName: "test-stream",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  // Send multiple log events with delays to ensure separate batches
+  sink(mockLogRecord);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  sink(mockLogRecord);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  // Should only create the stream once, but send multiple events
+  assertEquals(cwlMock.commandCalls(CreateLogStreamCommand).length, 1);
+  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 3);
+});
+
+test("getCloudWatchLogsSink() does not create stream when autoCreateLogStream is false", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamName: "test-stream",
+    autoCreateLogStream: false,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  // Should not attempt to create stream
+  assertEquals(cwlMock.commandCalls(CreateLogStreamCommand).length, 0);
+  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+});
+
+test("getCloudWatchLogsSink() supports log stream name template", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).resolves({});
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamNameTemplate: "app-{YYYY-MM-DD}",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  assertEquals(cwlMock.commandCalls(CreateLogStreamCommand).length, 1);
+  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+
+  const createCall = cwlMock.commandCalls(CreateLogStreamCommand)[0];
+  const putCall = cwlMock.commandCalls(PutLogEventsCommand)[0];
+
+  // Should use template-generated stream name
+  const streamName = createCall.args[0].input.logStreamName;
+  assertEquals(streamName?.startsWith("app-"), true);
+  assertEquals(streamName?.match(/app-\d{4}-\d{2}-\d{2}/) !== null, true);
+
+  // Both calls should use the same stream name
+  assertEquals(putCall.args[0].input.logStreamName, streamName);
+});
+
+test("getCloudWatchLogsSink() supports timestamp template", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).resolves({});
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamNameTemplate: "stream-{timestamp}",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  const createCall = cwlMock.commandCalls(CreateLogStreamCommand)[0];
+  const streamName = createCall.args[0].input.logStreamName;
+
+  assertEquals(streamName?.startsWith("stream-"), true);
+  assertEquals(streamName?.match(/stream-\d+/) !== null, true);
+});
+
+test("getCloudWatchLogsSink() supports multiple template placeholders", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).resolves({});
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamNameTemplate: "app-{YYYY}-{MM}-{DD}-{timestamp}",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  const createCall = cwlMock.commandCalls(CreateLogStreamCommand)[0];
+  const streamName = createCall.args[0].input.logStreamName;
+
+  assertEquals(streamName?.startsWith("app-"), true);
+  assertEquals(streamName?.match(/app-\d{4}-\d{2}-\d{2}-\d+/) !== null, true);
+});
+
+test("getCloudWatchLogsSink() prefers logStreamNameTemplate over logStreamName", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(CreateLogStreamCommand).resolves({});
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "/test/log-group",
+    logStreamName: "ignored-stream",
+    logStreamNameTemplate: "template-{timestamp}",
+    autoCreateLogStream: true,
+    batchSize: 1,
+    flushInterval: 0,
+  });
+
+  sink(mockLogRecord);
+  await sink[Symbol.asyncDispose]();
+
+  const createCall = cwlMock.commandCalls(CreateLogStreamCommand)[0];
+  const streamName = createCall.args[0].input.logStreamName;
+
+  // Should use template, not direct name
+  assertEquals(streamName?.startsWith("template-"), true);
+  assertEquals(streamName?.includes("ignored-stream"), false);
 });

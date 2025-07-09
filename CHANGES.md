@@ -8,6 +8,24 @@ Version 1.1.0
 
 To be released.
 
+ -  Enhanced AWS CloudWatch Logs sink (`@logtape/cloudwatch-logs`) with
+    automatic log stream creation and dynamic naming capabilities. [[#71]]
+
+    -  Added `CloudWatchLogsSinkOptions.autoCreateLogStream` option to
+       automatically create log streams if they don't exist, eliminating manual
+       stream management requirements.
+
+    -  Added `CloudWatchLogsSinkOptions.logStreamNameTemplate` option for
+       dynamic log stream name generation with support for placeholders:
+       `{YYYY}` (4-digit year), `{MM}` (2-digit month), `{DD}` (2-digit day),
+       `{YYYY-MM-DD}` (date format), and `{timestamp}` (Unix timestamp in
+       milliseconds).
+
+    -  Improved type safety of `CloudWatchLogsSinkOptions` with stricter union
+       types that prevent invalid configuration combinations at compile time.
+
+[#71]: https://github.com/dahlia/logtape/issues/71
+
 
 Version 1.0.4
 -------------
