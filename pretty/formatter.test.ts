@@ -5,9 +5,9 @@ import { assertEquals } from "@std/assert/equals";
 import { assertMatch } from "@std/assert/match";
 import { assertStringIncludes } from "@std/assert/string-includes";
 import {
-  type CategoryColorMap,
-  getPrettyFormatter,
-  prettyFormatter,
+    type CategoryColorMap,
+    getPrettyFormatter,
+    prettyFormatter,
 } from "./formatter.ts";
 
 const test = suite(import.meta);
@@ -826,6 +826,32 @@ test("properties set to true", () => {
   );
   assertEquals(
     lines[2].trim(),
+    "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
+  );
+});
+
+test("newLine set to true", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    messageNewLine: true,
+    inspectOptions: { colors: false },
+  });
+
+  const record = createLogRecord("info", ["test"], ["FooBar"], Date.now(), {
+    foo: "bar",
+    bar: "baz",
+  });
+  const result = formatter(record);
+  // Should contain multiple lines due to wrapping
+  const lines = result.split("\n");
+  assertEquals(lines.length, 5); // Normal log line + 1 for horizontal space + formatted properties + newline
+  assertEquals(
+    lines[2].trim(),
+    "Deno" in globalThis ? 'foo: "bar"' : "foo: 'bar'",
+  );
+  assertEquals(
+    lines[3].trim(),
     "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
   );
 });
