@@ -1,11 +1,11 @@
-import {
-  getLogLevels,
-  type LogLevel,
-  type LogRecord,
-  type TextFormatter,
-  type TextFormatterOptions,
-} from "@logtape/logtape";
 import { inspect, type InspectOptions } from "#util";
+import {
+    getLogLevels,
+    type LogLevel,
+    type LogRecord,
+    type TextFormatter,
+    type TextFormatterOptions,
+} from "@logtape/logtape";
 import { getOptimalWordWrapWidth } from "./terminal.ts";
 import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
 import { getDisplayWidth, stripAnsi } from "./wcwidth.ts";
@@ -476,7 +476,15 @@ export interface PrettyFormatterOptions
    * @default `"rgb(148,163,184)"` (light slate gray)
    */
   readonly messageColor?: Color;
-
+  /**
+   * Visual style applied to save some horizontal space
+   *
+   * Controls whether the message will start after the category, or whether
+   * it will wrap below the categories, where the categories appear as a heading
+   *
+   * @default false
+   */
+  readonly messageNewLine?: boolean;
   /**
    * Visual style applied to log message text.
    *
@@ -672,6 +680,7 @@ export function getPrettyFormatter(
     categoryTruncate = "middle",
     messageColor = "rgb(148,163,184)",
     messageStyle = "dim",
+    messageNewLine = false,
     colors: useColors = true,
     align = true,
     inspectOptions = {},
@@ -822,6 +831,9 @@ export function getPrettyFormatter(
     let message = "";
     const messageColorCode = useColors ? colorToAnsi(messageColor) : "";
     const messageStyleCode = useColors ? styleToAnsi(messageStyle) : "";
+    const messageStart = messageNewLine ? "\n" : "";
+    const messageNewLineIdentation = 4
+    const messageNewLineIdentationProperties = messageNewLine ? messageNewLineIdentation + 2 :undefined
     const messagePrefix = useColors
       ? `${messageStyleCode}${messageColorCode}`
       : "";
@@ -932,12 +944,14 @@ export function getPrettyFormatter(
       );
 
       let result =
-        `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
-      const indentWidth = getDisplayWidth(
-        stripAnsi(
-          `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
-        ),
-      );
+        `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${messageStart}${formattedMessage}`;
+      const indentWidth = !messageNewLine
+        ? getDisplayWidth(
+          stripAnsi(
+            `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
+          ),
+        )
+        : messageNewLineIdentation;
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
@@ -955,18 +969,21 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
           inspectOptions,
+          messageNewLineIdentationProperties
         );
       }
 
       return result + "\n";
     } else {
       let result =
-        `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
-      const indentWidth = getDisplayWidth(
-        stripAnsi(
-          `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
-        ),
-      );
+        `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${messageStart}${formattedMessage}`;
+      const indentWidth = !messageNewLine
+        ? getDisplayWidth(
+          stripAnsi(
+            `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
+          ),
+        )
+        : messageNewLineIdentation;
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
@@ -984,6 +1001,7 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
           inspectOptions,
+          messageNewLineIdentationProperties
         );
       }
 
@@ -998,11 +1016,12 @@ function formatProperties(
   maxWidth: number,
   useColors: boolean,
   inspectOptions: InspectOptions,
+  messageNewLineIdentationProperties?: number
 ): string {
   let result = "";
   for (const prop in record.properties) {
     const propValue = record.properties[prop];
-    const pad = indentWidth - getDisplayWidth(prop) - 2;
+    const pad = messageNewLineIdentationProperties ?? indentWidth - getDisplayWidth(prop);
     result += "\n" + wrapText(
       `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
         useColors ? RESET : ""
