@@ -3,7 +3,7 @@ import { LoggerImpl } from "./logger.ts";
 /**
  * A generic interface for a context-local storage.  It resembles
  * the {@link AsyncLocalStorage} API from Node.js.
- * @typeParam T The type of the context-local store.
+ * @template T The type of the context-local store.
  * @since 0.7.0
  */
 export interface ContextLocalStorage<T> {

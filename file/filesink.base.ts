@@ -296,7 +296,7 @@ export type FileSinkOptions = StreamSinkOptions & {
 
 /**
  * A platform-specific file sink driver.
- * @typeParam TFile The type of the file descriptor.
+ * @template TFile The type of the file descriptor.
  */
 export interface FileSinkDriver<TFile> {
   /**
@@ -335,7 +335,7 @@ export interface FileSinkDriver<TFile> {
 
 /**
  * A platform-specific async file sink driver.
- * @typeParam TFile The type of the file descriptor.
+ * @template TFile The type of the file descriptor.
  * @since 1.0.0
  */
 export interface AsyncFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
@@ -363,7 +363,7 @@ export interface AsyncFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
 /**
  * Get a platform-independent file sink.
  *
- * @typeParam TFile The type of the file descriptor.
+ * @template TFile The type of the file descriptor.
  * @param path A path to the file to write to.
  * @param options The options for the sink and the file driver.
  * @returns A sink that writes to the file.  The sink is also a disposable

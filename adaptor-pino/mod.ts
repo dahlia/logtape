@@ -80,8 +80,8 @@ export interface CategoryOptions {
  * });
  * ```
  *
- * @typeParam CustomLevels The custom log levels supported by the Pino logger.
- * @typeParam UseOnlyCustomLevels Whether to use only custom levels defined
+ * @template CustomLevels The custom log levels supported by the Pino logger.
+ * @template UseOnlyCustomLevels Whether to use only custom levels defined
  *                                in the Pino logger.
  * @param logger The Pino logger instance to forward logs to.
  * @param options Configuration options for the sink adapter.
@@ -220,8 +220,8 @@ export function getPinoSink<
  * });
  * ```
  *
- * @typeParam CustomLevels The custom log levels supported by the Pino logger.
- * @typeParam UseOnlyCustomLevels Whether to use only custom levels defined
+ * @template CustomLevels The custom log levels supported by the Pino logger.
+ * @template UseOnlyCustomLevels Whether to use only custom levels defined
  *                                in the Pino logger.
  * @param logger The Pino logger instance to forward logs to.
  * @param options Configuration options for the sink adapter.
