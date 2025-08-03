@@ -1,0 +1,95 @@
+{
+  "name": "@logtape/pretty",
+  "version": "1.1.0",
+  "description": "Beautiful text formatter for LogTape—perfect for local development",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "logtape",
+    "pretty",
+    "formatter",
+    "console",
+    "development",
+    "signale",
+    "colors",
+    "icons",
+    "emoji"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/pretty/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs",
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "imports": {
+    "#util": {
+      "types": {
+        "import": "./dist/util.d.ts",
+        "require": "./dist/util.d.cts"
+      },
+      "browser": {
+        "import": "./dist/util.js",
+        "require": "./dist/util.cjs"
+      },
+      "node": {
+        "import": "./dist/util.node.js",
+        "require": "./dist/util.node.cjs"
+      },
+      "bun": {
+        "import": "./dist/util.node.js",
+        "require": "./dist/util.node.cjs"
+      },
+      "deno": "./dist/util.deno.js",
+      "import": "./dist/util.js",
+      "require": "./dist/util.cjs",
+      "default": "./dist/util.js"
+    }
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:"
+  },
+  "devDependencies": {
+    "@alinea/suite": "catalog:",
+    "@std/assert": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+  }
+}

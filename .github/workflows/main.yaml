@@ -90,13 +90,13 @@ jobs:
           --arg build "$GITHUB_RUN_NUMBER" \
           --arg commit "${GITHUB_SHA::8}" \
           '.version + "-dev." + $build + "+" + $commit' \
-          logtape/deno.json)"
+          packages/logtape/deno.json)"
         deno run --allow-read --allow-write scripts/update_versions.ts "$v"
         deno task check:versions
     - if: github.ref_type == 'tag'
       run: |
         set -ex
-        [[ "$(jq -r .version logtape/deno.json)" = "$GITHUB_REF_NAME" ]]
+        [[ "$(jq -r .version packages/logtape/deno.json)" = "$GITHUB_REF_NAME" ]]
         deno task check:versions
     - if: github.event_name == 'push'
       run: |

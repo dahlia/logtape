@@ -1,0 +1,28 @@
+{
+  "name": "@logtape/windows-eventlog",
+  "version": "1.1.0",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-ffi --allow-run=powershell --allow-env=TEMP,TMP,TMPDIR,HOSTNAME",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test --timeout 10000"
+    }
+  },
+  "imports": {
+    "#wineventlog": "./src/sink.deno.ts"
+  },
+  "exclude": [
+    "dist/",
+    "node_modules/"
+  ]
+}

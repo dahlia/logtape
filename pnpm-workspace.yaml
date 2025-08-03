@@ -1,15 +1,15 @@
 packages:
-- logtape
-- adaptor-pino
-- adaptor-winston
-- file
-- otel
-- pretty
-- redaction
-- sentry
-- syslog
-- cloudwatch-logs
-- windows-eventlog
+- packages/logtape
+- packages/adaptor-pino
+- packages/adaptor-winston
+- packages/file
+- packages/otel
+- packages/pretty
+- packages/redaction
+- packages/sentry
+- packages/syslog
+- packages/cloudwatch-logs
+- packages/windows-eventlog
 - docs
 - benchmarks
 

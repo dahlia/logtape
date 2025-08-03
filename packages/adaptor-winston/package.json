@@ -1,0 +1,80 @@
+{
+  "name": "@logtape/adaptor-winston",
+  "version": "1.1.0",
+  "description": "winston adapter for LogTape logging library",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "winston",
+    "adapter",
+    "logtape",
+    "sink"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/adaptor-winston/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs"
+    },
+    "./install": {
+      "types": {
+        "import": "./dist/install.d.ts",
+        "require": "./dist/install.d.cts"
+      },
+      "import": "./dist/install.js",
+      "require": "./dist/install.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "./dist/install.*"
+  ],
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@alinea/suite": "catalog:",
+    "@std/assert": "catalog:",
+    "@std/async": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "winston": "^3.17.0",
+    "winston-transport": "^4.9.0"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test --allow-env",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+  }
+}

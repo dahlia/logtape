@@ -2156,28 +2156,6 @@
       "npm:tsdown@~0.12.7"
     ],
     "members": {
-      "adaptor-pino": {
-        "dependencies": [
-          "npm:pino-abstract-transport@2"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:pino-abstract-transport@2",
-            "npm:pino@^9.7.0"
-          ]
-        }
-      },
-      "adaptor-winston": {
-        "dependencies": [
-          "npm:winston@^3.17.0"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:winston-transport@^4.9.0",
-            "npm:winston@^3.17.0"
-          ]
-        }
-      },
       "benchmarks": {
         "dependencies": [
           "npm:@graphql-hive/logger@1",
@@ -2208,7 +2186,29 @@
           ]
         }
       },
-      "cloudwatch-logs": {
+      "packages/adaptor-pino": {
+        "dependencies": [
+          "npm:pino-abstract-transport@2"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:pino-abstract-transport@2",
+            "npm:pino@^9.7.0"
+          ]
+        }
+      },
+      "packages/adaptor-winston": {
+        "dependencies": [
+          "npm:winston@^3.17.0"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:winston-transport@^4.9.0",
+            "npm:winston@^3.17.0"
+          ]
+        }
+      },
+      "packages/cloudwatch-logs": {
         "dependencies": [
           "npm:@aws-sdk/client-cloudwatch-logs@3",
           "npm:@dotenvx/dotenvx@^1.44.2"
@@ -2221,7 +2221,7 @@
           ]
         }
       },
-      "otel": {
+      "packages/otel": {
         "dependencies": [
           "npm:@opentelemetry/api-logs@0.202",
           "npm:@opentelemetry/api@^1.9.0",
@@ -2243,12 +2243,12 @@
           ]
         }
       },
-      "pretty": {
+      "packages/pretty": {
         "dependencies": [
           "npm:@types/node@24.0.7"
         ]
       },
-      "sentry": {
+      "packages/sentry": {
         "dependencies": [
           "npm:@sentry/core@^9.28.1"
         ],
@@ -2258,7 +2258,7 @@
           ]
         }
       },
-      "windows-eventlog": {
+      "packages/windows-eventlog": {
         "packageJson": {
           "dependencies": [
             "npm:koffi@^2.10.0"

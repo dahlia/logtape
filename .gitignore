@@ -8,6 +8,6 @@ coverage/
 logtape-*-*.tgz
 node_modules/
 npm/
+packages/*/dist/
 t.ts
 */.env
-*/dist/

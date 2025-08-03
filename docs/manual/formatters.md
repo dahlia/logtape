@@ -104,8 +104,7 @@ bun add @logtape/pretty
 The package provides a pre-configured `prettyFormatter` for immediate use:
 
 ~~~~ typescript twoslash
-import { configure } from "@logtape/logtape";
-import { getConsoleSink } from "@logtape/logtape/sink";
+import { configure, getConsoleSink  } from "@logtape/logtape";
 import { prettyFormatter } from "@logtape/pretty";
 
 await configure({

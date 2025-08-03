@@ -36,62 +36,6 @@ catalogs:
 
 importers:
 
-  adaptor-pino:
-    dependencies:
-      '@logtape/logtape':
-        specifier: 'workspace:'
-        version: link:../logtape
-    devDependencies:
-      '@alinea/suite':
-        specifier: 'catalog:'
-        version: 0.6.3
-      '@std/assert':
-        specifier: 'catalog:'
-        version: '@jsr/std__assert@1.0.13'
-      '@std/async':
-        specifier: 'catalog:'
-        version: '@jsr/std__async@1.0.13'
-      pino:
-        specifier: ^9.7.0
-        version: 9.7.0
-      pino-abstract-transport:
-        specifier: ^2.0.0
-        version: 2.0.0
-      tsdown:
-        specifier: 'catalog:'
-        version: 0.12.7(typescript@5.8.3)
-      typescript:
-        specifier: 'catalog:'
-        version: 5.8.3
-
-  adaptor-winston:
-    dependencies:
-      '@logtape/logtape':
-        specifier: 'workspace:'
-        version: link:../logtape
-    devDependencies:
-      '@alinea/suite':
-        specifier: 'catalog:'
-        version: 0.6.3
-      '@std/assert':
-        specifier: 'catalog:'
-        version: '@jsr/std__assert@1.0.13'
-      '@std/async':
-        specifier: 'catalog:'
-        version: '@jsr/std__async@1.0.13'
-      tsdown:
-        specifier: 'catalog:'
-        version: 0.12.7(typescript@5.8.3)
-      typescript:
-        specifier: 'catalog:'
-        version: 5.8.3
-      winston:
-        specifier: ^3.17.0
-        version: 3.17.0
-      winston-transport:
-        specifier: ^4.9.0
-        version: 4.9.0
-
   benchmarks:
     dependencies:
       '@graphql-hive/logger':
@@ -99,10 +43,10 @@ importers:
         version: 1.0.0
       '@logtape/file':
         specifier: 'workspace:'
-        version: link:../file
+        version: link:../packages/file
       '@logtape/logtape':
         specifier: 'workspace:'
-        version: link:../logtape
+        version: link:../packages/logtape
       bunyan:
         specifier: ^1.8.15
         version: 1.8.15
@@ -135,37 +79,6 @@ importers:
         specifier: ^1.4.7
         version: 1.4.7
 
-  cloudwatch-logs:
-    dependencies:
-      '@aws-sdk/client-cloudwatch-logs':
-        specifier: ^3.0.0
-        version: 3.828.0
-      '@logtape/logtape':
-        specifier: 'workspace:'
-        version: link:../logtape
-    devDependencies:
-      '@alinea/suite':
-        specifier: 'catalog:'
-        version: 0.6.3
-      '@david/which-runtime':
-        specifier: 'catalog:'
-        version: '@jsr/david__which-runtime@0.2.1'
-      '@dotenvx/dotenvx':
-        specifier: ^1.44.2
-        version: 1.44.2
-      '@std/assert':
-        specifier: 'catalog:'
-        version: '@jsr/std__assert@1.0.13'
-      aws-sdk-client-mock:
-        specifier: ^4.0.0
-        version: 4.1.0
-      tsdown:
-        specifier: 'catalog:'
-        version: 0.12.7(typescript@5.8.3)
-      typescript:
-        specifier: 'catalog:'
-        version: 5.8.3
-
   docs:
     devDependencies:
       '@aws-sdk/client-cloudwatch-logs':
@@ -179,37 +92,37 @@ importers:
         version: 4.20250610.0
       '@logtape/adaptor-pino':
         specifier: 'workspace:'
-        version: link:../adaptor-pino
+        version: link:../packages/adaptor-pino
       '@logtape/adaptor-winston':
         specifier: 'workspace:'
-        version: link:../adaptor-winston
+        version: link:../packages/adaptor-winston
       '@logtape/cloudwatch-logs':
         specifier: 'workspace:'
-        version: link:../cloudwatch-logs
+        version: link:../packages/cloudwatch-logs
       '@logtape/file':
         specifier: 'workspace:'
-        version: link:../file
+        version: link:../packages/file
       '@logtape/logtape':
         specifier: 'workspace:'
-        version: link:../logtape
+        version: link:../packages/logtape
       '@logtape/otel':
         specifier: 'workspace:'
-        version: link:../otel
+        version: link:../packages/otel
       '@logtape/pretty':
         specifier: 'workspace:'
-        version: link:../pretty
+        version: link:../packages/pretty
       '@logtape/redaction':
         specifier: 'workspace:'
-        version: link:../redaction
+        version: link:../packages/redaction
       '@logtape/sentry':
         specifier: 'workspace:'
-        version: link:../sentry
+        version: link:../packages/sentry
       '@logtape/syslog':
         specifier: 'workspace:'
-        version: link:../syslog
+        version: link:../packages/syslog
       '@logtape/windows-eventlog':
         specifier: 'workspace:'
-        version: link:../windows-eventlog
+        version: link:../packages/windows-eventlog
       '@opentelemetry/exporter-logs-otlp-http':
         specifier: ^0.202.0
         version: 0.202.0(@opentelemetry/api@1.9.0)
@@ -268,7 +181,94 @@ importers:
         specifier: ^3.17.0
         version: 3.17.0
 
-  file:
+  packages/adaptor-pino:
+    dependencies:
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
+      '@std/async':
+        specifier: 'catalog:'
+        version: '@jsr/std__async@1.0.13'
+      pino:
+        specifier: ^9.7.0
+        version: 9.7.0
+      pino-abstract-transport:
+        specifier: ^2.0.0
+        version: 2.0.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/adaptor-winston:
+    dependencies:
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
+      '@std/async':
+        specifier: 'catalog:'
+        version: '@jsr/std__async@1.0.13'
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+      winston:
+        specifier: ^3.17.0
+        version: 3.17.0
+      winston-transport:
+        specifier: ^4.9.0
+        version: 4.9.0
+
+  packages/cloudwatch-logs:
+    dependencies:
+      '@aws-sdk/client-cloudwatch-logs':
+        specifier: ^3.0.0
+        version: 3.828.0
+      '@logtape/logtape':
+        specifier: 'workspace:'
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@david/which-runtime':
+        specifier: 'catalog:'
+        version: '@jsr/david__which-runtime@0.2.1'
+      '@dotenvx/dotenvx':
+        specifier: ^1.44.2
+        version: 1.44.2
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
+      aws-sdk-client-mock:
+        specifier: ^4.0.0
+        version: 4.1.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/file:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'
@@ -296,7 +296,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  logtape:
+  packages/logtape:
     devDependencies:
       '@alinea/suite':
         specifier: 'catalog:'
@@ -317,7 +317,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  otel:
+  packages/otel:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'
@@ -360,7 +360,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  pretty:
+  packages/pretty:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'
@@ -379,7 +379,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  redaction:
+  packages/redaction:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'
@@ -398,7 +398,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  sentry:
+  packages/sentry:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'
@@ -417,7 +417,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  syslog:
+  packages/syslog:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'
@@ -439,7 +439,7 @@ importers:
         specifier: 'catalog:'
         version: 5.8.3
 
-  windows-eventlog:
+  packages/windows-eventlog:
     dependencies:
       '@logtape/logtape':
         specifier: 'workspace:'

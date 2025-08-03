@@ -1,16 +1,16 @@
 {
   "workspace": [
-    "./logtape",
-    "./adaptor-pino",
-    "./adaptor-winston",
-    "./file",
-    "./otel",
-    "./pretty",
-    "./redaction",
-    "./sentry",
-    "./syslog",
-    "./cloudwatch-logs",
-    "./windows-eventlog",
+    "./packages/logtape",
+    "./packages/adaptor-pino",
+    "./packages/adaptor-winston",
+    "./packages/file",
+    "./packages/otel",
+    "./packages/pretty",
+    "./packages/redaction",
+    "./packages/sentry",
+    "./packages/syslog",
+    "./packages/cloudwatch-logs",
+    "./packages/windows-eventlog",
     "./benchmarks"
   ],
   "imports": {
@@ -31,20 +31,21 @@
     "fs"
   ],
   "exclude": [
-    "*/.test-report.xml",
-    "*/dist/",
+    "**/.test-report.xml",
     ".cov/",
     ".github/",
     ".test-report.xml",
     "coverage/",
     "docs/",
     "screenshots/",
+    "packages/*/dist/",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml"
   ],
   "fmt": {
     "exclude": [
-      "*/README.md"
+      "README.md",
+      "**/README.md"
     ]
   },
   "tasks": {
@@ -134,140 +135,8 @@
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
     "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-sys --allow-ffi --allow-run=powershell",
-    "test:node:file": {
-      "dependencies": [
-        "build:file"
-      ],
-      "command": "cd file/ && node --experimental-transform-types --test"
-    },
-    "test:node:logtape": {
-      "dependencies": [
-        "build:logtape"
-      ],
-      "command": "cd logtape/ && node --experimental-transform-types --test"
-    },
-    "test:node:pretty": {
-      "dependencies": [
-        "build:pretty"
-      ],
-      "command": "cd pretty/ && node --experimental-transform-types --test"
-    },
-    "test:node:redaction": {
-      "dependencies": [
-        "build:redaction"
-      ],
-      "command": "cd redaction/ && node --experimental-transform-types --test"
-    },
-    "test:node:syslog": {
-      "dependencies": [
-        "build:syslog"
-      ],
-      "command": "cd syslog/ && node --experimental-transform-types --test"
-    },
-    "test:node:cloudwatch-logs": {
-      "dependencies": [
-        "build:cloudwatch-logs"
-      ],
-      "command": "cd cloudwatch-logs/ && node --experimental-transform-types --test"
-    },
-    "test:node:windows-eventlog": {
-      "dependencies": [
-        "build:windows-eventlog"
-      ],
-      "command": "cd windows-eventlog/ && node --experimental-transform-types --test"
-    },
-    "test:node:adaptor-pino": {
-      "dependencies": [
-        "build:adaptor-pino"
-      ],
-      "command": "cd adaptor-pino/ && node --experimental-transform-types --test"
-    },
-    "test:node:adaptor-winston": {
-      "dependencies": [
-        "build:adaptor-winston"
-      ],
-      "command": "cd adaptor-winston/ && node --experimental-transform-types --test"
-    },
-    "test:node": {
-      "dependencies": [
-        "test:node:file",
-        "test:node:logtape",
-        "test:node:pretty",
-        "test:node:redaction",
-        "test:node:syslog",
-        "test:node:cloudwatch-logs",
-        "test:node:windows-eventlog",
-        "test:node:adaptor-pino",
-        "test:node:adaptor-winston"
-      ]
-    },
-    "test:bun:file": {
-      "dependencies": [
-        "build:file"
-      ],
-      "command": "cd file/ && bun test"
-    },
-    "test:bun:logtape": {
-      "dependencies": [
-        "build:logtape"
-      ],
-      "command": "cd logtape/ && bun test"
-    },
-    "test:bun:pretty": {
-      "dependencies": [
-        "build:pretty"
-      ],
-      "command": "cd pretty/ && bun test"
-    },
-    "test:bun:redaction": {
-      "dependencies": [
-        "build:redaction"
-      ],
-      "command": "cd redaction/ && bun test"
-    },
-    "test:bun:syslog": {
-      "dependencies": [
-        "build:syslog"
-      ],
-      "command": "cd syslog/ && bun test"
-    },
-    "test:bun:cloudwatch-logs": {
-      "dependencies": [
-        "build:cloudwatch-logs"
-      ],
-      "command": "cd cloudwatch-logs/ && bun test"
-    },
-    "test:bun:windows-eventlog": {
-      "dependencies": [
-        "build:windows-eventlog"
-      ],
-      "command": "cd windows-eventlog/ && bun test --timeout 10000"
-    },
-    "test:bun:adaptor-pino": {
-      "dependencies": [
-        "build:adaptor-pino"
-      ],
-      "command": "cd adaptor-pino/ && bun test"
-    },
-    "test:bun:adaptor-winston": {
-      "dependencies": [
-        "build:adaptor-winston"
-      ],
-      "command": "cd adaptor-winston/ && bun test"
-    },
-    "test:bun": {
-      "dependencies": [
-        "test:bun:file",
-        "test:bun:logtape",
-        "test:bun:pretty",
-        "test:bun:redaction",
-        "test:bun:syslog",
-        "test:bun:cloudwatch-logs",
-        "test:bun:windows-eventlog",
-        "test:bun:adaptor-pino",
-        "test:bun:adaptor-winston"
-      ]
-    },
+    "test:node": "pnpm run -r test",
+    "test:bun": "pnpm run -r test:bun",
     "test-all": {
       "dependencies": [
         "check",

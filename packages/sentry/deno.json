@@ -1,0 +1,14 @@
+{
+  "name": "@logtape/sentry",
+  "version": "1.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@sentry/core": "npm:@sentry/core@^9.28.1"
+  },
+  "tasks": {
+    "build": "pnpm build"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@logtape/adaptor-winston",
+  "version": "1.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./install": "./src/install.ts"
+  },
+  "imports": {
+    "winston": "npm:winston@^3.17.0"
+  },
+  "exclude": [
+    "coverage/",
+    "npm/",
+    ".dnt-import-map.json"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-env",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}
