@@ -105,10 +105,15 @@ const logger = getLogger();
 const err = new Error();
 // ---cut-before---
 logger.error(
-  "Failed to save user data to database.",
+  "Failed to save user data to database: {error}",
   { userId: "12345", error: err },
 );
 ~~~~
+
+> [!NOTE]
+> When logging an error object, it's recommended to include the `{error}`
+> placeholder in the message template.  This allows formatters to properly
+> display the error's stack trace.
 
 ### Fatal error
 
@@ -120,7 +125,7 @@ import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
 const error = new Error();
 // ---cut-before---
-logger.fatal("Unrecoverable error: Database connection lost.", { error });
+logger.fatal("Unrecoverable error: Database connection lost: {error}", { error });
 ~~~~
 
 
