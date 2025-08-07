@@ -129,6 +129,38 @@ const MANUAL = {
   ],
 };
 
+const REFERENCES = {
+  text: "References",
+  items: [
+    { text: "@logtape/logtape", link: "https://jsr.io/@logtape/logtape/doc" },
+    {
+      text: "@logtape/adaptor-pino",
+      link: "https://jsr.io/@logtape/adaptor-pino/doc",
+    },
+    {
+      text: "@logtape/adaptor-winston",
+      link: "https://jsr.io/@logtape/adaptor-winston/doc",
+    },
+    {
+      text: "@logtape/cloudwatch-logs",
+      link: "https://jsr.io/@logtape/cloudwatch-logs/doc",
+    },
+    { text: "@logtape/file", link: "https://jsr.io/@logtape/file/doc" },
+    { text: "@logtape/otel", link: "https://jsr.io/@logtape/otel/doc" },
+    { text: "@logtape/pretty", link: "https://jsr.io/@logtape/pretty/doc" },
+    {
+      text: "@logtape/redaction",
+      link: "https://jsr.io/@logtape/redaction/doc",
+    },
+    { text: "@logtape/sentry", link: "https://jsr.io/@logtape/sentry/doc" },
+    { text: "@logtape/syslog", link: "https://jsr.io/@logtape/syslog/doc" },
+    {
+      text: "@logtape/windows-eventlog",
+      link: "https://jsr.io/@logtape/windows-eventlog/doc",
+    },
+  ],
+};
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "LogTape",
@@ -142,7 +174,7 @@ export default defineConfig({
       { text: "What is LogTape?", link: "/intro" },
       { text: "Comparison", link: "/comparison" },
       MANUAL,
-      { text: "API reference", link: "https://jsr.io/@logtape/logtape" },
+      REFERENCES,
       ...extraNav,
     ],
 
@@ -151,6 +183,7 @@ export default defineConfig({
       { text: "Comparison", link: "/comparison" },
       { text: "Changelog", link: "/changelog" },
       MANUAL,
+      REFERENCES,
     ],
 
     outline: {
