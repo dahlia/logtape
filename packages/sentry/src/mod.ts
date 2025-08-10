@@ -6,8 +6,6 @@ import {
   type Scope,
   type SeverityLevel,
 } from "@sentry/core";
-// deno-lint-ignore no-unused-vars
-import type util from "node:util";
 
 function getParameterizedString(record: LogRecord): ParameterizedString {
   let result = "";
