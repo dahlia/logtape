@@ -1,5 +1,11 @@
 import type { LogRecord, Sink } from "@logtape/logtape";
-import { type Client, getClient, type ParameterizedString } from "@sentry/core";
+import {
+  type EventHint,
+  getClient,
+  type ParameterizedString,
+  type Scope,
+  type SeverityLevel,
+} from "@sentry/core";
 // deno-lint-ignore no-unused-vars
 import type util from "node:util";
 
@@ -25,8 +31,8 @@ function getParameterizedString(record: LogRecord): ParameterizedString {
 }
 
 /**
- * A platform-specific inspect function.  In Deno, this is {@link Deno.inspect},
- * and in Node.js/Bun it is {@link util.inspect}.  If neither is available, it
+ * A platform-specific inspect function. In Deno, this is {@link Deno.inspect},
+ * and in Node.js/Bun it is {@link util.inspect}. If neither is available, it
  * falls back to {@link JSON.stringify}.
  *
  * @param value The value to inspect.
@@ -47,13 +53,27 @@ const inspect: (value: unknown) => string =
     ? globalThis.util.inspect
     : JSON.stringify;
 
+interface SentryClientLike {
+  captureException: (
+    exception: unknown,
+    hint?: EventHint,
+    scope?: Scope,
+  ) => string;
+  captureMessage: (
+    message: ParameterizedString,
+    level?: SeverityLevel,
+    hint?: EventHint,
+    scope?: Scope,
+  ) => string;
+}
+
 /**
  * Gets a LogTape sink that sends logs to Sentry.
- * @param client The Sentry client.  If omitted, the global default client is
+ * @param client The Sentry client. If omitted, the global default client is
  *               used.
  * @returns A LogTape sink that sends logs to Sentry.
  */
-export function getSentrySink(client?: Client): Sink {
+export function getSentrySink(client?: SentryClientLike): Sink {
   return (record: LogRecord) => {
     const message = getParameterizedString(record);
     if (client == null) client = getClient();
