@@ -27,7 +27,7 @@ function getParameterizedString(record: LogRecord): ParameterizedString {
   const paramStr = new String(result) as ParameterizedString;
   paramStr.__sentry_template_string__ = tplString;
   paramStr.__sentry_template_values__ = tplValues;
-  return result;
+  return paramStr;
 }
 
 /**
