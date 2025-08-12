@@ -98,7 +98,7 @@ export interface StreamFileSinkOptions {
 export function getStreamFileSink(
   path: string,
   options: StreamFileSinkOptions = {},
-): Sink & Disposable {
+): Sink & AsyncDisposable {
   const highWaterMark = options.highWaterMark ?? 16384;
   const formatter = options.formatter ?? defaultTextFormatter;
 
@@ -117,19 +117,39 @@ export function getStreamFileSink(
   let disposed = false;
 
   // Stream-based sink function for high performance
-  const sink: Sink & Disposable = (record: LogRecord) => {
+  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
 
     // Direct write to PassThrough stream
     passThrough.write(formatter(record));
   };
 
-  // Minimal disposal
-  sink[Symbol.dispose] = () => {
+  // Asynchronous disposal with sequential stream closure
+  sink[Symbol.asyncDispose] = async () => {
     if (disposed) return;
     disposed = true;
-    passThrough.end();
-    writeStream.end();
+
+    // Wait for PassThrough to drain if needed
+    if (passThrough.writableNeedDrain) {
+      await new Promise<void>((resolve) => {
+        passThrough.once("drain", resolve);
+      });
+    }
+
+    // End the PassThrough stream first and wait for it to finish
+    await new Promise<void>((resolve) => {
+      passThrough.once("finish", resolve);
+      passThrough.end();
+    });
+
+    // Wait for WriteStream to finish and close (piped streams auto-close)
+    await new Promise<void>((resolve) => {
+      if (writeStream.closed || writeStream.destroyed) {
+        resolve();
+        return;
+      }
+      writeStream.once("close", resolve);
+    });
   };
 
   return sink;

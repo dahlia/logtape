@@ -8,6 +8,15 @@ Version 1.1.0
 
 To be released.
 
+### @logtape/file
+
+ -  Changed `getStreamFileSink()` to implement `AsyncDisposable` instead of
+    `Disposable`.
+
+ -  Fixed flaky behavior in high-volume logging scenarios where some log records
+    could be lost during sink disposal. The sink now ensures all data is fully
+    written to disk before disposal completes.
+
 ### @logtape/pretty
 
  -  Added `PrettyFormatterOptions.properties` option for displaying
