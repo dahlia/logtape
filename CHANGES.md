@@ -24,20 +24,20 @@ To be released.
 
 ### @logtape/sentry
 
- - Changed the type of the `getSentrySink()` function to accept any Sentry
-   client implementing the public capture APIs (was
-   `(client?: Client) => Sink`). Introduced a structural `SentryClientLike`
-   interface to avoid nominal type conflicts across differing `@sentry/core`
-   instances. [[#80] by Sora Morimoto]
+ -  Changed the type of the `getSentrySink()` function to accept any Sentry
+    client implementing the public capture APIs (was
+    `(client?: Client) => Sink`). Introduced a structural `SentryClientLike`
+    interface to avoid nominal type conflicts across differing `@sentry/core`
+    instances. [[#80] by Sora Morimoto]
 
- - Fixed preservation of Sentry template metadata by returning a
-   `ParameterizedString` from the internal `getParameterizedString()` so that
-   `captureMessage` receives the templated form and breadcrumbs/formatting can
-   leverage `__sentry_template_*` metadata. [[#80] by Sora Morimoto]
+ -  Fixed preservation of Sentry template metadata by returning a
+    `ParameterizedString` from the internal `getParameterizedString()` so that
+    `captureMessage` receives the templated form and breadcrumbs/formatting can
+    leverage `__sentry_template_*` metadata. [[#80] by Sora Morimoto]
 
- - Fixed cross-runtime compatibility by removing an unnecessary `node:util`
-   type import referenced only by documentation, avoiding module resolution
-   issues outside Node.js. [[#80] by Sora Morimoto]
+ -  Fixed cross-runtime compatibility by removing an unnecessary `node:util`
+    type import referenced only by documentation, avoiding module resolution
+    issues outside Node.js. [[#80] by Sora Morimoto]
 
 [#69]: https://github.com/dahlia/logtape/issues/69
 [#70]: https://github.com/dahlia/logtape/pull/70
