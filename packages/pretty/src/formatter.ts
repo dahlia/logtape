@@ -1,11 +1,11 @@
-import { inspect, type InspectOptions } from "#util";
 import {
-    getLogLevels,
-    type LogLevel,
-    type LogRecord,
-    type TextFormatter,
-    type TextFormatterOptions,
+  getLogLevels,
+  type LogLevel,
+  type LogRecord,
+  type TextFormatter,
+  type TextFormatterOptions,
 } from "@logtape/logtape";
+import { inspect, type InspectOptions } from "#util";
 import { getOptimalWordWrapWidth } from "./terminal.ts";
 import { truncateCategory, type TruncationStrategy } from "./truncate.ts";
 import { getDisplayWidth, stripAnsi } from "./wcwidth.ts";
@@ -477,10 +477,11 @@ export interface PrettyFormatterOptions
    */
   readonly messageColor?: Color;
   /**
-   * Visual style applied to save some horizontal space
+   * Controls whether the message starts on a new line below the category.
    *
-   * Controls whether the message will start after the category, or whether
-   * it will wrap below the categories, where the categories appear as a heading
+   * When `true`, the log message will be displayed on a new line below
+   * the timestamp, level, and category, which can help save horizontal space
+   * in narrow terminals or when dealing with long category names.
    *
    * @default false
    */
@@ -832,8 +833,9 @@ export function getPrettyFormatter(
     const messageColorCode = useColors ? colorToAnsi(messageColor) : "";
     const messageStyleCode = useColors ? styleToAnsi(messageStyle) : "";
     const messageStart = messageNewLine ? "\n" : "";
-    const messageNewLineIdentation = 4
-    const messageNewLineIdentationProperties = messageNewLine ? messageNewLineIdentation + 2 :undefined
+    // When message is on a new line, use consistent indentation
+    const messageIndent = 4; // Standard indentation for new line messages
+    const propertyIndent = messageNewLine ? messageIndent + 2 : undefined;
     const messagePrefix = useColors
       ? `${messageStyleCode}${messageColorCode}`
       : "";
@@ -951,7 +953,7 @@ export function getPrettyFormatter(
             `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
           ),
         )
-        : messageNewLineIdentation;
+        : messageIndent;
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
@@ -969,7 +971,7 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
           inspectOptions,
-          messageNewLineIdentationProperties
+          propertyIndent,
         );
       }
 
@@ -983,7 +985,7 @@ export function getPrettyFormatter(
             `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
           ),
         )
-        : messageNewLineIdentation;
+        : messageIndent;
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
@@ -1001,7 +1003,7 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
           inspectOptions,
-          messageNewLineIdentationProperties
+          propertyIndent,
         );
       }
 
@@ -1016,12 +1018,12 @@ function formatProperties(
   maxWidth: number,
   useColors: boolean,
   inspectOptions: InspectOptions,
-  messageNewLineIdentationProperties?: number
+  propertyIndent?: number,
 ): string {
   let result = "";
   for (const prop in record.properties) {
     const propValue = record.properties[prop];
-    const pad = messageNewLineIdentationProperties ?? indentWidth - getDisplayWidth(prop);
+    const pad = propertyIndent ?? indentWidth - getDisplayWidth(prop) - 2;
     result += "\n" + wrapText(
       `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
         useColors ? RESET : ""

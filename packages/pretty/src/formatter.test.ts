@@ -5,9 +5,9 @@ import { assertEquals } from "@std/assert/equals";
 import { assertMatch } from "@std/assert/match";
 import { assertStringIncludes } from "@std/assert/string-includes";
 import {
-    type CategoryColorMap,
-    getPrettyFormatter,
-    prettyFormatter,
+  type CategoryColorMap,
+  getPrettyFormatter,
+  prettyFormatter,
 } from "./formatter.ts";
 
 const test = suite(import.meta);
@@ -830,7 +830,7 @@ test("properties set to true", () => {
   );
 });
 
-test("newLine set to true", () => {
+test("messageNewLine set to true", () => {
   const formatter = getPrettyFormatter({
     properties: true,
     colors: false,
@@ -843,9 +843,9 @@ test("newLine set to true", () => {
     bar: "baz",
   });
   const result = formatter(record);
-  // Should contain multiple lines due to wrapping
+  // Should contain multiple lines due to message on new line + properties
   const lines = result.split("\n");
-  assertEquals(lines.length, 5); // Normal log line + 1 for horizontal space + formatted properties + newline
+  assertEquals(lines.length, 5); // Log prefix + message on new line + properties + final newline
   assertEquals(
     lines[2].trim(),
     "Deno" in globalThis ? 'foo: "bar"' : "foo: 'bar'",
