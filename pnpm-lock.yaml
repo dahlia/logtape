@@ -99,7 +99,7 @@ importers:
   file:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -145,7 +145,7 @@ importers:
   otel:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
       '@opentelemetry/api':
         specifier: ^1.9.0
@@ -182,7 +182,7 @@ importers:
   redaction:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -201,7 +201,7 @@ importers:
   sentry:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
       '@sentry/core':
         specifier: ^9.28.1
@@ -220,7 +220,7 @@ importers:
   syslog:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':

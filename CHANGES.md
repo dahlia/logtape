@@ -8,6 +8,12 @@ Version 0.12.3
 
 To be released.
 
+ -  The satellite packages (*@logtape/file*, *@logtape/otel*,
+    *@logtape/redaction*, *@logtape/sentry*, and *@logtape/syslog*)
+    now properly specify version compatibility constraints for their peer
+    dependency on *@logtape/logtape*, ensuring consumers install compatible
+    versions of the core package.
+
 
 Version 0.12.2
 --------------
