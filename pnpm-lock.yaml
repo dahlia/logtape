@@ -39,7 +39,7 @@ importers:
   adaptor-pino:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -67,7 +67,7 @@ importers:
   adaptor-winston:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -141,7 +141,7 @@ importers:
         specifier: ^3.0.0
         version: 3.828.0
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -271,7 +271,7 @@ importers:
   file:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -320,7 +320,7 @@ importers:
   otel:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
       '@opentelemetry/api':
         specifier: ^1.9.0
@@ -363,7 +363,7 @@ importers:
   pretty:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -382,7 +382,7 @@ importers:
   redaction:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -401,7 +401,7 @@ importers:
   sentry:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
       '@sentry/core':
         specifier: ^9.28.1
@@ -420,7 +420,7 @@ importers:
   syslog:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
     devDependencies:
       '@alinea/suite':
@@ -442,7 +442,7 @@ importers:
   windows-eventlog:
     dependencies:
       '@logtape/logtape':
-        specifier: 'workspace:'
+        specifier: workspace:^
         version: link:../logtape
       koffi:
         specifier: ^2.10.0

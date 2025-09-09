@@ -8,6 +8,12 @@ Version 1.0.5
 
 To be released.
 
+ -  The satellite packages (*@logtape/file*, *@logtape/otel*,
+    *@logtape/redaction*, *@logtape/sentry*, and *@logtape/syslog*)
+    now properly specify version compatibility constraints for their peer
+    dependency on *@logtape/logtape*, ensuring consumers install compatible
+    versions of the core package.
+
 
 Version 1.0.4
 -------------
@@ -241,6 +247,18 @@ Released on June 22, 2025.
 [#51]: https://github.com/dahlia/logtape/pull/51
 [#52]: https://github.com/dahlia/logtape/issues/52
 [#53]: https://github.com/dahlia/logtape/issues/53
+
+
+Version 0.12.3
+--------------
+
+Released on September 10, 2025.
+
+ -  The satellite packages (*@logtape/file*, *@logtape/otel*,
+    *@logtape/redaction*, *@logtape/sentry*, and *@logtape/syslog*)
+    now properly specify version compatibility constraints for their peer
+    dependency on *@logtape/logtape*, ensuring consumers install compatible
+    versions of the core package.
 
 
 Version 0.12.2

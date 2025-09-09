@@ -75,7 +75,7 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@logtape/logtape": "workspace:"
+    "@logtape/logtape": "workspace:^"
   },
   "devDependencies": {
     "@alinea/suite": "catalog:",

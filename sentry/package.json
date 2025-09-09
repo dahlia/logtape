@@ -41,7 +41,7 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@logtape/logtape": "workspace:"
+    "@logtape/logtape": "workspace:^"
   },
   "dependencies": {
     "@sentry/core": "^9.28.1"
