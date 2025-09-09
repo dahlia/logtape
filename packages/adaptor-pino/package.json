@@ -46,7 +46,7 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@logtape/logtape": "workspace:",
+    "@logtape/logtape": "workspace:^",
     "pino": "^9.7.0"
   },
   "devDependencies": {

@@ -42,7 +42,7 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@logtape/logtape": "workspace:"
+    "@logtape/logtape": "workspace:^"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",

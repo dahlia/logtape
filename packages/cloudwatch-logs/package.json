@@ -46,7 +46,7 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@logtape/logtape": "workspace:"
+    "@logtape/logtape": "workspace:^"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.0.0"

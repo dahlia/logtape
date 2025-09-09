@@ -1,6 +1,7 @@
 .claude/settings.local.json
 .cov/
 .crush/
+.env
 .dnt-import-map.json
 .env
 .test-report.xml
