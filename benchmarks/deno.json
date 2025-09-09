@@ -18,5 +18,5 @@
     "file": "deno run -A --unstable-worker-options file.ts",
     "json": "deno run -A --unstable-worker-options json.ts"
   },
-  "version": "1.0.5"
+  "version": "1.0.6"
 }
