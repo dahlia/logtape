@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.0.5
 -------------
 
-To be released.
+Released on September 10, 2025.
 
  -  The satellite packages (*@logtape/file*, *@logtape/otel*,
     *@logtape/redaction*, *@logtape/sentry*, and *@logtape/syslog*)
