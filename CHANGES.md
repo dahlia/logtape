@@ -8,6 +8,12 @@ Version 1.1.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added `Logger.emit()` method for emitting log records with custom fields,
+    particularly useful for integrating external logs while preserving their
+    original timestamps.  [[#78]]
+
 ### @logtape/file
 
  -  Changed `getStreamFileSink()` to implement `AsyncDisposable` instead of
@@ -41,6 +47,7 @@ To be released.
 
 [#69]: https://github.com/dahlia/logtape/issues/69
 [#70]: https://github.com/dahlia/logtape/pull/70
+[#78]: https://github.com/dahlia/logtape/issues/78
 [#80]: https://github.com/dahlia/logtape/pull/80
 
 

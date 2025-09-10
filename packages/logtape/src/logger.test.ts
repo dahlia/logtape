@@ -852,3 +852,201 @@ test("LogMethod", () => {
   _method = ctx.error;
   _method = ctx.fatal;
 });
+
+test("Logger.emit() with custom timestamp", () => {
+  const logger = getLogger(["test", "emit"]);
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    (logger as LoggerImpl).sinks.push(sink);
+
+    const customTimestamp = Date.now() - 60000; // 1 minute ago
+    logger.emit({
+      timestamp: customTimestamp,
+      level: "info",
+      message: ["Custom message with", "value"],
+      rawMessage: "Custom message with {value}",
+      properties: { value: "test", source: "external" },
+    });
+
+    assertEquals(records.length, 1);
+    assertEquals(records[0].category, ["test", "emit"]);
+    assertEquals(records[0].level, "info");
+    assertEquals(records[0].timestamp, customTimestamp);
+    assertEquals(records[0].message, ["Custom message with", "value"]);
+    assertEquals(records[0].rawMessage, "Custom message with {value}");
+    assertEquals(records[0].properties, { value: "test", source: "external" });
+  } finally {
+    (logger as LoggerImpl).reset();
+  }
+});
+
+test("Logger.emit() preserves all fields", () => {
+  const logger = getLogger("emit-test");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    (logger as LoggerImpl).sinks.push(sink);
+
+    const testTimestamp = 1672531200000; // Fixed timestamp
+    const testMessage = ["Log from", "Kafka", "at", "partition 0"];
+    const testRawMessage =
+      "Log from {source} at {location} partition {partition}";
+    const testProperties = {
+      partition: 0,
+      offset: 12345,
+      topic: "test-topic",
+      source: "kafka",
+    };
+
+    logger.emit({
+      timestamp: testTimestamp,
+      level: "debug",
+      message: testMessage,
+      rawMessage: testRawMessage,
+      properties: testProperties,
+    });
+
+    assertEquals(records.length, 1);
+    const record = records[0];
+    assertEquals(record.category, ["emit-test"]);
+    assertEquals(record.level, "debug");
+    assertEquals(record.timestamp, testTimestamp);
+    assertEquals(record.message, testMessage);
+    assertEquals(record.rawMessage, testRawMessage);
+    assertEquals(record.properties, testProperties);
+  } finally {
+    (logger as LoggerImpl).reset();
+  }
+});
+
+test("LoggerCtx.emit() merges contextual properties", () => {
+  const logger = getLogger("ctx-emit");
+  const ctx = logger.with({ requestId: "req-123", userId: "user-456" });
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    (logger as LoggerImpl).sinks.push(sink);
+
+    ctx.emit({
+      timestamp: Date.now(),
+      level: "warning",
+      message: ["External warning from", "system"],
+      rawMessage: "External warning from {system}",
+      properties: { system: "external", priority: "high" },
+    });
+
+    assertEquals(records.length, 1);
+    const record = records[0];
+    assertEquals(record.category, ["ctx-emit"]);
+    assertEquals(record.level, "warning");
+    assertEquals(record.properties, {
+      system: "external",
+      priority: "high",
+      requestId: "req-123",
+      userId: "user-456",
+    });
+  } finally {
+    (logger as LoggerImpl).reset();
+  }
+});
+
+test("LoggerCtx.emit() record properties override context properties", () => {
+  const logger = getLogger("override-test");
+  const ctx = logger.with({ source: "context", shared: "from-context" });
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    (logger as LoggerImpl).sinks.push(sink);
+
+    ctx.emit({
+      timestamp: Date.now(),
+      level: "error",
+      message: ["Override test"],
+      rawMessage: "Override test",
+      properties: { source: "record", priority: "critical" },
+    });
+
+    assertEquals(records.length, 1);
+    const record = records[0];
+    assertEquals(record.properties, {
+      source: "record", // record properties override context
+      shared: "from-context", // context properties are preserved
+      priority: "critical",
+    });
+  } finally {
+    (logger as LoggerImpl).reset();
+  }
+});
+
+test("Logger.emit() respects filters", () => {
+  const logger = getLogger("filtered-emit");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    (logger as LoggerImpl).sinks.push(sink);
+    (logger as LoggerImpl).filters.push((record) => record.level !== "debug");
+
+    // This should be filtered out
+    logger.emit({
+      timestamp: Date.now(),
+      level: "debug",
+      message: ["Debug message"],
+      rawMessage: "Debug message",
+      properties: {},
+    });
+
+    // This should pass through
+    logger.emit({
+      timestamp: Date.now(),
+      level: "info",
+      message: ["Info message"],
+      rawMessage: "Info message",
+      properties: {},
+    });
+
+    assertEquals(records.length, 1);
+    assertEquals(records[0].level, "info");
+  } finally {
+    (logger as LoggerImpl).reset();
+  }
+});
+
+test("Logger.emit() respects log level threshold", () => {
+  const logger = getLogger("level-emit");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    (logger as LoggerImpl).sinks.push(sink);
+    (logger as LoggerImpl).lowestLevel = "warning";
+
+    // This should be filtered out (below threshold)
+    logger.emit({
+      timestamp: Date.now(),
+      level: "info",
+      message: ["Info message"],
+      rawMessage: "Info message",
+      properties: {},
+    });
+
+    // This should pass through (at threshold)
+    logger.emit({
+      timestamp: Date.now(),
+      level: "warning",
+      message: ["Warning message"],
+      rawMessage: "Warning message",
+      properties: {},
+    });
+
+    assertEquals(records.length, 1);
+    assertEquals(records[0].level, "warning");
+  } finally {
+    (logger as LoggerImpl).reset();
+  }
+});

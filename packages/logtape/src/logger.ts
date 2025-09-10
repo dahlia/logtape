@@ -685,6 +685,37 @@ export interface Logger {
    * @throws {TypeError} If no log record was made inside the callback.
    */
   fatal(callback: LogCallback): void;
+
+  /**
+   * Emits a log record with custom fields while using this logger's
+   * category.
+   *
+   * This is a low-level API for integration scenarios where you need full
+   * control over the log record, particularly for preserving timestamps
+   * from external systems.
+   *
+   * ```typescript
+   * const logger = getLogger(["my-app", "integration"]);
+   *
+   * // Emit a log with a custom timestamp
+   * logger.emit({
+   *   timestamp: kafkaLog.originalTimestamp,
+   *   level: "info",
+   *   message: [kafkaLog.message],
+   *   rawMessage: kafkaLog.message,
+   *   properties: {
+   *     source: "kafka",
+   *     partition: kafkaLog.partition,
+   *     offset: kafkaLog.offset,
+   *   },
+   * });
+   * ```
+   *
+   * @param record Log record without category field (category comes from
+   *               the logger instance)
+   * @since 1.1.0
+   */
+  emit(record: Omit<LogRecord, "category">): void;
 }
 
 /**
@@ -887,25 +918,34 @@ export class LoggerImpl implements Logger {
     for (const sink of this.sinks) yield sink;
   }
 
-  emit(record: LogRecord, bypassSinks?: Set<Sink>): void {
+  emit(record: Omit<LogRecord, "category">): void;
+  emit(record: LogRecord, bypassSinks?: Set<Sink>): void;
+  emit(
+    record: Omit<LogRecord, "category"> | LogRecord,
+    bypassSinks?: Set<Sink>,
+  ): void {
+    const fullRecord: LogRecord = "category" in record
+      ? record as LogRecord
+      : { ...record, category: this.category };
+
     if (
       this.lowestLevel === null ||
-      compareLogLevel(record.level, this.lowestLevel) < 0 ||
-      !this.filter(record)
+      compareLogLevel(fullRecord.level, this.lowestLevel) < 0 ||
+      !this.filter(fullRecord)
     ) {
       return;
     }
-    for (const sink of this.getSinks(record.level)) {
+    for (const sink of this.getSinks(fullRecord.level)) {
       if (bypassSinks?.has(sink)) continue;
       try {
-        sink(record);
+        sink(fullRecord);
       } catch (error) {
         const bypassSinks2 = new Set(bypassSinks);
         bypassSinks2.add(sink);
         metaLogger.log(
           "fatal",
           "Failed to emit a log record to sink {sink}: {error}",
-          { sink, error, record },
+          { sink, error, record: fullRecord },
           bypassSinks2,
         );
       }
@@ -1196,6 +1236,14 @@ export class LoggerCtx implements Logger {
     values: unknown[],
   ): void {
     this.logger.logTemplate(level, messageTemplate, values, this.properties);
+  }
+
+  emit(record: Omit<LogRecord, "category">): void {
+    const recordWithContext = {
+      ...record,
+      properties: { ...this.properties, ...record.properties },
+    };
+    this.logger.emit(recordWithContext);
   }
 
   trace(

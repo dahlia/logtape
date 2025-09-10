@@ -381,6 +381,50 @@ async function getUsers(): Promise<any[]> {
 [SvelteKit]: https://svelte.dev/docs/kit
 
 
+Third-party log integration
+----------------------------
+
+*This API is available since LogTape 1.1.0.*
+
+When integrating logs from external systems, you may want to preserve their
+original timestamps and metadata. LogTape provides the `Logger.emit()` method
+for this purpose, giving you full control over log record fields.
+
+### Basic usage
+
+The `Logger.emit()` method accepts a log record without the category field:
+
+~~~~ typescript twoslash
+const externalLog = {
+  id: "evt-12345",
+  timestamp: 1712345678901, // Original event timestamp
+  level: "info", // External log level
+  message: "External system event",
+  // Additional metadata from the external system
+  metadata: {
+    userId: "user-67890",
+    operation: "data-sync"
+  }
+};
+// ---cut-before---
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["my-app", "external"]);
+
+// Forward external log with preserved timestamp
+logger.emit({
+  timestamp: externalLog.timestamp,
+  level: "info",
+  message: ["External system event"],
+  rawMessage: "External system event",
+  properties: {
+    source: "external-service",
+    eventId: externalLog.id,
+  },
+});
+~~~~
+
+
 Best practices for web frameworks
 ---------------------------------
 
