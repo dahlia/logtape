@@ -10,9 +10,23 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added “fingers crossed” logging feature that buffers debug logs in memory
+    and only outputs them when a trigger event occurs, reducing log noise while
+    preserving context for debugging.  [[#59]]
+
+    -  Added `fingersCrossed()` function that implements the fingers crossed
+       logging pattern with support for trigger levels, buffer management, and
+       category isolation.
+    -  Added `FingersCrossedOptions` interface for configuring fingers crossed
+       behavior with options for trigger level, buffer size, and category
+       isolation modes.
+
  -  Added `Logger.emit()` method for emitting log records with custom fields,
     particularly useful for integrating external logs while preserving their
     original timestamps.  [[#78]]
+
+[#59]: https://github.com/dahlia/logtape/issues/59
+[#78]: https://github.com/dahlia/logtape/issues/78
 
 ### @logtape/file
 
@@ -27,6 +41,9 @@ To be released.
 
  -  Added `PrettyFormatterOptions.properties` option for displaying
     `LogRecord.properties` (structured data).  [[#69], [#70] by Matthias Feist]
+
+[#69]: https://github.com/dahlia/logtape/issues/69
+[#70]: https://github.com/dahlia/logtape/pull/70
 
 ### @logtape/sentry
 
@@ -45,9 +62,6 @@ To be released.
     type import referenced only by documentation, avoiding module resolution
     issues outside Node.js. [[#80] by Sora Morimoto]
 
-[#69]: https://github.com/dahlia/logtape/issues/69
-[#70]: https://github.com/dahlia/logtape/pull/70
-[#78]: https://github.com/dahlia/logtape/issues/78
 [#80]: https://github.com/dahlia/logtape/pull/80
 
 

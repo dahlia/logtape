@@ -46,6 +46,8 @@ export type { LogRecord } from "./record.ts";
 export {
   type AsyncSink,
   type ConsoleSinkOptions,
+  fingersCrossed,
+  type FingersCrossedOptions,
   fromAsyncSink,
   getConsoleSink,
   getStreamSink,

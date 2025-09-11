@@ -545,6 +545,179 @@ For more details, see `getRotatingFileSink()` function and
 > flag to use the rotating file sink.
 
 
+Fingers crossed sink
+--------------------
+
+*This API is available since LogTape 1.1.0.*
+
+The fingers crossed sink implements a “fingers crossed” logging pattern where
+debug and low-level logs are buffered in memory and only output when
+a significant event (like an `"error"`) occurs. This pattern reduces log noise
+in normal operations while providing detailed context when issues arise,
+making logs more readable and actionable.
+
+### Basic usage
+
+The simplest way to use the fingers crossed sink is to wrap an existing sink:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink()),
+  },
+  loggers: [
+    { category: [], sinks: ["console"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+With this configuration:
+
+ -  `"debug"`, `"info"`, and `"warning"` logs are buffered in memory
+ -  When an `"error"` (or higher) occurs, all buffered logs plus the error are
+    output
+ -  Subsequent logs pass through directly until the next trigger event
+
+### Customizing trigger level
+
+You can customize when the buffer is flushed by setting the trigger level:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      triggerLevel: "warning",  // Trigger on warning or higher
+      maxBufferSize: 500,       // Keep last 500 records
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Category isolation
+
+By default, all log records share a single buffer.  For applications with
+multiple modules or components, you can isolate buffers by category to prevent
+one component's errors from flushing logs from unrelated components:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByCategory: "descendant",
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+Category isolation modes:
+
+`"descendant"`
+:   Flush child category buffers when parent category triggers.
+    For example, an error in `["app"]` flushes buffers for `["app", "auth"]`
+    and `["app", "db"]`.
+
+`"ancestor"`
+:   Flush parent category buffers when child category triggers.
+    For example, an error in `["app", "auth"]` flushes the `["app"]` buffer.
+
+`"both"`
+:   Flush both parent and child category buffers, combining descendant and
+    ancestor modes.
+
+### Custom category matching
+
+For advanced use cases, you can provide a custom function to determine which
+categories should be flushed:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByCategory: (triggerCategory, bufferedCategory) => {
+        // Custom logic: flush if categories share the first element
+        return triggerCategory[0] === bufferedCategory[0];
+      },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Buffer management
+
+The fingers crossed sink automatically manages buffer size to prevent memory
+issues:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      maxBufferSize: 1000,  // Keep last 1000 records per buffer
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+When the buffer exceeds the maximum size, the oldest records are automatically
+dropped to prevent unbounded memory growth.
+
+### Use cases
+
+The fingers crossed sink is ideal for:
+
+Production debugging
+:   Keep detailed debug logs in memory without cluttering output,
+    only showing them when errors occur to provide context.
+
+Error investigation
+:   Capture the sequence of events leading up to an error for thorough
+    investigation.
+
+Log volume management
+:   Reduce log noise in normal operations while maintaining detailed visibility
+    during issues.
+
+Component isolation
+:   Use category isolation to prevent log noise from one component affecting
+    debugging of another component.
+
+### Performance considerations
+
+Memory usage
+:   Buffered logs consume memory. Use appropriate buffer sizes and consider
+    your application's memory constraints.
+
+Trigger frequency
+:   Frequent trigger events (like `"warning"`s) may reduce the effectiveness of
+    buffering. Choose trigger levels carefully.
+
+Category isolation overhead
+:   Category isolation adds some overhead for category matching.
+    For high-volume logging, consider using a single buffer
+    if isolation isn't needed.
+
+For more details, see the `fingersCrossed()` function and
+`FingersCrossedOptions` interface in the API reference.
+
+
 Text formatter
 --------------
 

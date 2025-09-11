@@ -5,7 +5,7 @@ import {
   defaultTextFormatter,
   type TextFormatter,
 } from "./formatter.ts";
-import type { LogLevel } from "./level.ts";
+import { compareLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 
 /**
@@ -444,4 +444,272 @@ export function fromAsyncSink(asyncSink: AsyncSink): Sink & AsyncDisposable {
     await lastPromise;
   };
   return sink;
+}
+
+/**
+ * Options for the {@link fingersCrossed} function.
+ * @since 1.1.0
+ */
+export interface FingersCrossedOptions {
+  /**
+   * Minimum log level that triggers buffer flush.
+   * When a log record at or above this level is received, all buffered
+   * records are flushed to the wrapped sink.
+   * @default `"error"`
+   */
+  readonly triggerLevel?: LogLevel;
+
+  /**
+   * Maximum buffer size before oldest records are dropped.
+   * When the buffer exceeds this size, the oldest records are removed
+   * to prevent unbounded memory growth.
+   * @default `1000`
+   */
+  readonly maxBufferSize?: number;
+
+  /**
+   * Category isolation mode or custom matcher function.
+   *
+   * When `undefined` (default), all log records share a single buffer.
+   *
+   * When set to a mode string:
+   *
+   * - `"descendant"`: Flush child category buffers when parent triggers
+   * - `"ancestor"`: Flush parent category buffers when child triggers
+   * - `"both"`: Flush both parent and child category buffers
+   *
+   * When set to a function, it receives the trigger category and buffered
+   * category and should return true if the buffered category should be flushed.
+   *
+   * @default `undefined` (no isolation, single global buffer)
+   */
+  readonly isolateByCategory?:
+    | "descendant"
+    | "ancestor"
+    | "both"
+    | ((
+      triggerCategory: readonly string[],
+      bufferedCategory: readonly string[],
+    ) => boolean);
+}
+
+/**
+ * Creates a sink that buffers log records until a trigger level is reached.
+ * This pattern, known as "fingers crossed" logging, keeps detailed debug logs
+ * in memory and only outputs them when an error or other significant event occurs.
+ *
+ * @example Basic usage with default settings
+ * ```typescript
+ * const sink = fingersCrossed(getConsoleSink());
+ * // Debug and info logs are buffered
+ * // When an error occurs, all buffered logs + the error are output
+ * ```
+ *
+ * @example Custom trigger level and buffer size
+ * ```typescript
+ * const sink = fingersCrossed(getConsoleSink(), {
+ *   triggerLevel: "warning",  // Trigger on warning or higher
+ *   maxBufferSize: 500        // Keep last 500 records
+ * });
+ * ```
+ *
+ * @example Category isolation
+ * ```typescript
+ * const sink = fingersCrossed(getConsoleSink(), {
+ *   isolateByCategory: "descendant"  // Separate buffers per category
+ * });
+ * // Error in ["app"] triggers flush of ["app"] and ["app", "module"] buffers
+ * // But not ["other"] buffer
+ * ```
+ *
+ * @param sink The sink to wrap. Buffered records are sent to this sink when
+ *             triggered.
+ * @param options Configuration options for the fingers crossed behavior.
+ * @returns A sink that buffers records until the trigger level is reached.
+ * @since 1.1.0
+ */
+export function fingersCrossed(
+  sink: Sink,
+  options: FingersCrossedOptions = {},
+): Sink {
+  const triggerLevel = options.triggerLevel ?? "error";
+  const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
+  const isolateByCategory = options.isolateByCategory;
+
+  // Validate trigger level early
+  try {
+    compareLogLevel("trace", triggerLevel); // Test with any valid level
+  } catch (error) {
+    throw new TypeError(
+      `Invalid triggerLevel: ${JSON.stringify(triggerLevel)}. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  // Helper functions for category matching
+  function isDescendant(
+    parent: readonly string[],
+    child: readonly string[],
+  ): boolean {
+    if (parent.length === 0 || child.length === 0) return false; // Empty categories are isolated
+    if (parent.length > child.length) return false;
+    return parent.every((p, i) => p === child[i]);
+  }
+
+  function isAncestor(
+    child: readonly string[],
+    parent: readonly string[],
+  ): boolean {
+    if (child.length === 0 || parent.length === 0) return false; // Empty categories are isolated
+    if (child.length < parent.length) return false;
+    return parent.every((p, i) => p === child[i]);
+  }
+
+  // Determine matcher function based on isolation mode
+  let shouldFlushBuffer:
+    | ((
+      triggerCategory: readonly string[],
+      bufferedCategory: readonly string[],
+    ) => boolean)
+    | null = null;
+
+  if (isolateByCategory) {
+    if (typeof isolateByCategory === "function") {
+      shouldFlushBuffer = isolateByCategory;
+    } else {
+      switch (isolateByCategory) {
+        case "descendant":
+          shouldFlushBuffer = (trigger, buffered) =>
+            isDescendant(trigger, buffered);
+          break;
+        case "ancestor":
+          shouldFlushBuffer = (trigger, buffered) =>
+            isAncestor(trigger, buffered);
+          break;
+        case "both":
+          shouldFlushBuffer = (trigger, buffered) =>
+            isDescendant(trigger, buffered) || isAncestor(trigger, buffered);
+          break;
+      }
+    }
+  }
+
+  // Helper functions for category serialization
+  function getCategoryKey(category: readonly string[]): string {
+    return JSON.stringify(category);
+  }
+
+  function parseCategoryKey(key: string): string[] {
+    return JSON.parse(key);
+  }
+
+  // Buffer management
+  if (!isolateByCategory) {
+    // Single global buffer
+    const buffer: LogRecord[] = [];
+    let triggered = false;
+
+    return (record: LogRecord) => {
+      if (triggered) {
+        // Already triggered, pass through directly
+        sink(record);
+        return;
+      }
+
+      // Check if this record triggers flush
+      if (compareLogLevel(record.level, triggerLevel) >= 0) {
+        triggered = true;
+
+        // Flush buffer
+        for (const bufferedRecord of buffer) {
+          sink(bufferedRecord);
+        }
+        buffer.length = 0;
+
+        // Send trigger record
+        sink(record);
+      } else {
+        // Buffer the record
+        buffer.push(record);
+
+        // Enforce max buffer size
+        while (buffer.length > maxBufferSize) {
+          buffer.shift();
+        }
+      }
+    };
+  } else {
+    // Category-isolated buffers
+    const buffers = new Map<string, LogRecord[]>();
+    const triggered = new Set<string>();
+
+    return (record: LogRecord) => {
+      const categoryKey = getCategoryKey(record.category);
+
+      // Check if this category is already triggered
+      if (triggered.has(categoryKey)) {
+        sink(record);
+        return;
+      }
+
+      // Check if this record triggers flush
+      if (compareLogLevel(record.level, triggerLevel) >= 0) {
+        // Find all buffers that should be flushed
+        const keysToFlush = new Set<string>();
+
+        for (const [bufferedKey] of buffers) {
+          if (bufferedKey === categoryKey) {
+            keysToFlush.add(bufferedKey);
+          } else if (shouldFlushBuffer) {
+            const bufferedCategory = parseCategoryKey(bufferedKey);
+            try {
+              if (shouldFlushBuffer(record.category, bufferedCategory)) {
+                keysToFlush.add(bufferedKey);
+              }
+            } catch {
+              // Ignore errors from custom matcher
+            }
+          }
+        }
+
+        // Flush matching buffers
+        const allRecordsToFlush: LogRecord[] = [];
+        for (const key of keysToFlush) {
+          const buffer = buffers.get(key);
+          if (buffer) {
+            allRecordsToFlush.push(...buffer);
+            buffers.delete(key);
+            triggered.add(key);
+          }
+        }
+
+        // Sort by timestamp to maintain chronological order
+        allRecordsToFlush.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Flush all records
+        for (const bufferedRecord of allRecordsToFlush) {
+          sink(bufferedRecord);
+        }
+
+        // Mark trigger category as triggered and send trigger record
+        triggered.add(categoryKey);
+        sink(record);
+      } else {
+        // Buffer the record
+        let buffer = buffers.get(categoryKey);
+        if (!buffer) {
+          buffer = [];
+          buffers.set(categoryKey, buffer);
+        }
+
+        buffer.push(record);
+
+        // Enforce max buffer size per category
+        while (buffer.length > maxBufferSize) {
+          buffer.shift();
+        }
+      }
+    };
+  }
 }
