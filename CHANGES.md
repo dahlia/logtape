@@ -8,6 +8,21 @@ Version 1.2.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added context-based isolation for fingers crossed sink to handle scenarios
+    like HTTP request tracing where logs should be isolated by implicit
+    context values.  [[#86]]
+
+    -  Added `isolateByContext` option to `FingersCrossedOptions` for isolating
+       buffers based on specified context keys from log record properties.
+    -  Context isolation can be combined with existing category isolation for
+       fine-grained control over buffer flushing behavior.
+    -  Each context buffer maintains separate trigger states and size limits,
+       preventing unrelated logs from being flushed together.
+
+[#86]: https://github.com/dahlia/logtape/issues/86
+
 
 Version 1.1.0
 -------------

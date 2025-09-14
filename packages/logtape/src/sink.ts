@@ -491,6 +491,38 @@ export interface FingersCrossedOptions {
       triggerCategory: readonly string[],
       bufferedCategory: readonly string[],
     ) => boolean);
+
+  /**
+   * Enable context-based buffer isolation.
+   * When enabled, buffers are isolated based on specified context keys.
+   * This is useful for scenarios like HTTP request tracing where logs
+   * should be isolated per request.
+   *
+   * @example
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByContext: { keys: ['requestId'] }
+   * })
+   * ```
+   *
+   * @example Combined with category isolation
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByCategory: 'descendant',
+   *   isolateByContext: { keys: ['requestId', 'sessionId'] }
+   * })
+   * ```
+   *
+   * @default `undefined` (no context isolation)
+   * @since 1.2.0
+   */
+  readonly isolateByContext?: {
+    /**
+     * Context keys to use for isolation.
+     * Buffers will be separate for different combinations of these context values.
+     */
+    readonly keys: readonly string[];
+  };
 }
 
 /**
@@ -535,6 +567,7 @@ export function fingersCrossed(
   const triggerLevel = options.triggerLevel ?? "error";
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
   const isolateByCategory = options.isolateByCategory;
+  const isolateByContext = options.isolateByContext;
 
   // Validate trigger level early
   try {
@@ -604,8 +637,56 @@ export function fingersCrossed(
     return JSON.parse(key);
   }
 
+  // Helper function to extract context values from properties
+  function getContextKey(properties: Record<string, unknown>): string {
+    if (!isolateByContext || isolateByContext.keys.length === 0) {
+      return "";
+    }
+    const contextValues: Record<string, unknown> = {};
+    for (const key of isolateByContext.keys) {
+      if (key in properties) {
+        contextValues[key] = properties[key];
+      }
+    }
+    return JSON.stringify(contextValues);
+  }
+
+  // Helper function to generate buffer key
+  function getBufferKey(
+    category: readonly string[],
+    properties: Record<string, unknown>,
+  ): string {
+    const categoryKey = getCategoryKey(category);
+    if (!isolateByContext) {
+      return categoryKey;
+    }
+    const contextKey = getContextKey(properties);
+    return `${categoryKey}:${contextKey}`;
+  }
+
+  // Helper function to parse buffer key
+  function parseBufferKey(key: string): {
+    category: string[];
+    context: string;
+  } {
+    if (!isolateByContext) {
+      return { category: parseCategoryKey(key), context: "" };
+    }
+    // Find the separator between category and context
+    // The category part is JSON-encoded, so we need to find where it ends
+    // We look for "]:" which indicates end of category array and start of context
+    const separatorIndex = key.indexOf("]:");
+    if (separatorIndex === -1) {
+      // No context part, entire key is category
+      return { category: parseCategoryKey(key), context: "" };
+    }
+    const categoryPart = key.substring(0, separatorIndex + 1); // Include the ]
+    const contextPart = key.substring(separatorIndex + 2); // Skip ]:
+    return { category: parseCategoryKey(categoryPart), context: contextPart };
+  }
+
   // Buffer management
-  if (!isolateByCategory) {
+  if (!isolateByCategory && !isolateByContext) {
     // Single global buffer
     const buffer: LogRecord[] = [];
     let triggered = false;
@@ -640,15 +721,15 @@ export function fingersCrossed(
       }
     };
   } else {
-    // Category-isolated buffers
+    // Category and/or context-isolated buffers
     const buffers = new Map<string, LogRecord[]>();
     const triggered = new Set<string>();
 
     return (record: LogRecord) => {
-      const categoryKey = getCategoryKey(record.category);
+      const bufferKey = getBufferKey(record.category, record.properties);
 
-      // Check if this category is already triggered
-      if (triggered.has(categoryKey)) {
+      // Check if this buffer is already triggered
+      if (triggered.has(bufferKey)) {
         sink(record);
         return;
       }
@@ -659,16 +740,42 @@ export function fingersCrossed(
         const keysToFlush = new Set<string>();
 
         for (const [bufferedKey] of buffers) {
-          if (bufferedKey === categoryKey) {
+          if (bufferedKey === bufferKey) {
             keysToFlush.add(bufferedKey);
-          } else if (shouldFlushBuffer) {
-            const bufferedCategory = parseCategoryKey(bufferedKey);
-            try {
-              if (shouldFlushBuffer(record.category, bufferedCategory)) {
-                keysToFlush.add(bufferedKey);
+          } else {
+            const { category: bufferedCategory, context: bufferedContext } =
+              parseBufferKey(bufferedKey);
+            const { context: triggerContext } = parseBufferKey(bufferKey);
+
+            // Check context match
+            let contextMatches = true;
+            if (isolateByContext) {
+              contextMatches = bufferedContext === triggerContext;
+            }
+
+            // Check category match
+            let categoryMatches = false;
+            if (!isolateByCategory) {
+              // No category isolation, so all categories match if context matches
+              categoryMatches = contextMatches;
+            } else if (shouldFlushBuffer) {
+              try {
+                categoryMatches = shouldFlushBuffer(
+                  record.category,
+                  bufferedCategory,
+                );
+              } catch {
+                // Ignore errors from custom matcher
               }
-            } catch {
-              // Ignore errors from custom matcher
+            } else {
+              // Same category only
+              categoryMatches = getCategoryKey(record.category) ===
+                getCategoryKey(bufferedCategory);
+            }
+
+            // Both must match for the buffer to be flushed
+            if (contextMatches && categoryMatches) {
+              keysToFlush.add(bufferedKey);
             }
           }
         }
@@ -692,20 +799,20 @@ export function fingersCrossed(
           sink(bufferedRecord);
         }
 
-        // Mark trigger category as triggered and send trigger record
-        triggered.add(categoryKey);
+        // Mark trigger buffer as triggered and send trigger record
+        triggered.add(bufferKey);
         sink(record);
       } else {
         // Buffer the record
-        let buffer = buffers.get(categoryKey);
+        let buffer = buffers.get(bufferKey);
         if (!buffer) {
           buffer = [];
-          buffers.set(categoryKey, buffer);
+          buffers.set(bufferKey, buffer);
         }
 
         buffer.push(record);
 
-        // Enforce max buffer size per category
+        // Enforce max buffer size per buffer
         while (buffer.length > maxBufferSize) {
           buffer.shift();
         }

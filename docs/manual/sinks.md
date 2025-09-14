@@ -657,6 +657,79 @@ await configure({
 });
 ~~~~
 
+### Context isolation
+
+> [!NOTE]
+> This API is available since LogTape 1.2.0.
+
+When using implicit contexts (see [*Implicit contexts*](./contexts.md) section),
+you can isolate buffers by context values to handle scenarios like HTTP request
+tracing:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink, withContext, getLogger } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: { keys: ["requestId"] },
+    }),
+  },
+  // Omitted for brevity
+});
+
+const logger = getLogger();
+// ---cut-before---
+// Logs are isolated by requestId context
+function handleRequest(requestId: string) {
+  withContext({ requestId }, () => {
+    // These logs are buffered separately per requestId
+    logger.debug("Processing request");
+    logger.info("Validating input");
+
+    // Only logs from this specific requestId are flushed on error
+    logger.error("Request failed");
+  });
+}
+~~~~
+
+You can also isolate by multiple context keys:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: { keys: ["requestId", "sessionId"] },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+Context isolation can be combined with category isolation:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByCategory: "descendant",
+      isolateByContext: { keys: ["requestId"] },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+With both isolations enabled, buffers are only flushed when both the category
+relationship matches and the context values are the same.
+
 ### Buffer management
 
 The fingers crossed sink automatically manages buffer size to prevent memory
