@@ -829,3 +829,29 @@ test("properties set to true", () => {
     "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
   );
 });
+
+test("messageNewLine set to true", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    messageNewLine: true,
+    inspectOptions: { colors: false },
+  });
+
+  const record = createLogRecord("info", ["test"], ["FooBar"], Date.now(), {
+    foo: "bar",
+    bar: "baz",
+  });
+  const result = formatter(record);
+  // Should contain multiple lines due to message on new line + properties
+  const lines = result.split("\n");
+  assertEquals(lines.length, 5); // Log prefix + message on new line + properties + final newline
+  assertEquals(
+    lines[2].trim(),
+    "Deno" in globalThis ? 'foo: "bar"' : "foo: 'bar'",
+  );
+  assertEquals(
+    lines[3].trim(),
+    "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
+  );
+});

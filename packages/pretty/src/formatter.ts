@@ -476,7 +476,16 @@ export interface PrettyFormatterOptions
    * @default `"rgb(148,163,184)"` (light slate gray)
    */
   readonly messageColor?: Color;
-
+  /**
+   * Controls whether the message starts on a new line below the category.
+   *
+   * When `true`, the log message will be displayed on a new line below
+   * the timestamp, level, and category, which can help save horizontal space
+   * in narrow terminals or when dealing with long category names.
+   *
+   * @default false
+   */
+  readonly messageNewLine?: boolean;
   /**
    * Visual style applied to log message text.
    *
@@ -672,6 +681,7 @@ export function getPrettyFormatter(
     categoryTruncate = "middle",
     messageColor = "rgb(148,163,184)",
     messageStyle = "dim",
+    messageNewLine = false,
     colors: useColors = true,
     align = true,
     inspectOptions = {},
@@ -822,6 +832,10 @@ export function getPrettyFormatter(
     let message = "";
     const messageColorCode = useColors ? colorToAnsi(messageColor) : "";
     const messageStyleCode = useColors ? styleToAnsi(messageStyle) : "";
+    const messageStart = messageNewLine ? "\n" : "";
+    // When message is on a new line, use consistent indentation
+    const messageIndent = 4; // Standard indentation for new line messages
+    const propertyIndent = messageNewLine ? messageIndent + 2 : undefined;
     const messagePrefix = useColors
       ? `${messageStyleCode}${messageColorCode}`
       : "";
@@ -932,12 +946,14 @@ export function getPrettyFormatter(
       );
 
       let result =
-        `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
-      const indentWidth = getDisplayWidth(
-        stripAnsi(
-          `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
-        ),
-      );
+        `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${messageStart}${formattedMessage}`;
+      const indentWidth = !messageNewLine
+        ? getDisplayWidth(
+          stripAnsi(
+            `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
+          ),
+        )
+        : messageIndent;
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
@@ -955,18 +971,21 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
           inspectOptions,
+          propertyIndent,
         );
       }
 
       return result + "\n";
     } else {
       let result =
-        `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
-      const indentWidth = getDisplayWidth(
-        stripAnsi(
-          `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
-        ),
-      );
+        `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${messageStart}${formattedMessage}`;
+      const indentWidth = !messageNewLine
+        ? getDisplayWidth(
+          stripAnsi(
+            `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
+          ),
+        )
+        : messageIndent;
 
       // Apply word wrapping if enabled, or if there are multiline interpolated values
       if (wordWrapEnabled || message.includes("\n")) {
@@ -984,6 +1003,7 @@ export function getPrettyFormatter(
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
           inspectOptions,
+          propertyIndent,
         );
       }
 
@@ -998,11 +1018,12 @@ function formatProperties(
   maxWidth: number,
   useColors: boolean,
   inspectOptions: InspectOptions,
+  propertyIndent?: number,
 ): string {
   let result = "";
   for (const prop in record.properties) {
     const propValue = record.properties[prop];
-    const pad = indentWidth - getDisplayWidth(prop) - 2;
+    const pad = propertyIndent ?? indentWidth - getDisplayWidth(prop) - 2;
     result += "\n" + wrapText(
       `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
         useColors ? RESET : ""
