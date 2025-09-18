@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.1.1
 -------------
 
-To be released.
+Released on September 18, 2025.
 
 ### @logtape/pretty
 
