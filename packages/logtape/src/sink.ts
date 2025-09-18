@@ -513,6 +513,17 @@ export interface FingersCrossedOptions {
    * })
    * ```
    *
+   * @example With TTL-based buffer cleanup
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByContext: {
+   *     keys: ['requestId'],
+   *     bufferTtlMs: 30000,        // 30 seconds
+   *     cleanupIntervalMs: 10000   // cleanup every 10 seconds
+   *   }
+   * })
+   * ```
+   *
    * @default `undefined` (no context isolation)
    * @since 1.2.0
    */
@@ -522,7 +533,63 @@ export interface FingersCrossedOptions {
      * Buffers will be separate for different combinations of these context values.
      */
     readonly keys: readonly string[];
+
+    /**
+     * Maximum number of context buffers to maintain simultaneously.
+     * When this limit is exceeded, the least recently used (LRU) buffers
+     * will be evicted to make room for new ones.
+     *
+     * This provides memory protection in high-concurrency scenarios where
+     * many different context values might be active simultaneously.
+     *
+     * When set to 0 or undefined, no limit is enforced.
+     *
+     * @default `undefined` (no limit)
+     * @since 1.2.0
+     */
+    readonly maxContexts?: number;
+
+    /**
+     * Time-to-live for context buffers in milliseconds.
+     * Buffers that haven't been accessed for this duration will be automatically
+     * cleaned up to prevent memory leaks in long-running applications.
+     *
+     * When set to 0 or undefined, buffers will never expire based on time.
+     *
+     * @default `undefined` (no TTL)
+     * @since 1.2.0
+     */
+    readonly bufferTtlMs?: number;
+
+    /**
+     * Interval in milliseconds for running cleanup operations.
+     * The cleanup process removes expired buffers based on {@link bufferTtlMs}.
+     *
+     * This option is ignored if {@link bufferTtlMs} is not set.
+     *
+     * @default `30000` (30 seconds)
+     * @since 1.2.0
+     */
+    readonly cleanupIntervalMs?: number;
   };
+}
+
+/**
+ * Metadata for context-based buffer tracking.
+ * Used internally by {@link fingersCrossed} to manage buffer lifecycle with LRU support.
+ * @since 1.2.0
+ */
+interface BufferMetadata {
+  /**
+   * The actual log records buffer.
+   */
+  readonly buffer: LogRecord[];
+
+  /**
+   * Timestamp of the last access to this buffer (in milliseconds).
+   * Used for LRU-based eviction when {@link FingersCrossedOptions.isolateByContext.maxContexts} is set.
+   */
+  lastAccess: number;
 }
 
 /**
@@ -563,11 +630,18 @@ export interface FingersCrossedOptions {
 export function fingersCrossed(
   sink: Sink,
   options: FingersCrossedOptions = {},
-): Sink {
+): Sink | (Sink & Disposable) {
   const triggerLevel = options.triggerLevel ?? "error";
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
   const isolateByCategory = options.isolateByCategory;
   const isolateByContext = options.isolateByContext;
+
+  // TTL and LRU configuration
+  const bufferTtlMs = isolateByContext?.bufferTtlMs;
+  const cleanupIntervalMs = isolateByContext?.cleanupIntervalMs ?? 30000;
+  const maxContexts = isolateByContext?.maxContexts;
+  const hasTtl = bufferTtlMs != null && bufferTtlMs > 0;
+  const hasLru = maxContexts != null && maxContexts > 0;
 
   // Validate trigger level early
   try {
@@ -685,6 +759,52 @@ export function fingersCrossed(
     return { category: parseCategoryKey(categoryPart), context: contextPart };
   }
 
+  // TTL-based cleanup function
+  function cleanupExpiredBuffers(buffers: Map<string, BufferMetadata>): void {
+    if (!hasTtl) return;
+
+    const now = Date.now();
+    const expiredKeys: string[] = [];
+
+    for (const [key, metadata] of buffers) {
+      if (metadata.buffer.length === 0) continue;
+
+      // Use the timestamp of the last (most recent) record in the buffer
+      const lastRecordTimestamp =
+        metadata.buffer[metadata.buffer.length - 1].timestamp;
+      if (now - lastRecordTimestamp > bufferTtlMs!) {
+        expiredKeys.push(key);
+      }
+    }
+
+    // Remove expired buffers
+    for (const key of expiredKeys) {
+      buffers.delete(key);
+    }
+  }
+
+  // LRU-based eviction function
+  function evictLruBuffers(
+    buffers: Map<string, BufferMetadata>,
+    numToEvict?: number,
+  ): void {
+    if (!hasLru) return;
+
+    // Use provided numToEvict or calculate based on current size vs limit
+    const toEvict = numToEvict ?? Math.max(0, buffers.size - maxContexts!);
+    if (toEvict <= 0) return;
+
+    // Sort by lastAccess timestamp (oldest first)
+    const sortedEntries = Array.from(buffers.entries())
+      .sort(([, a], [, b]) => a.lastAccess - b.lastAccess);
+
+    // Remove the oldest buffers
+    for (let i = 0; i < toEvict; i++) {
+      const [key] = sortedEntries[i];
+      buffers.delete(key);
+    }
+  }
+
   // Buffer management
   if (!isolateByCategory && !isolateByContext) {
     // Single global buffer
@@ -722,10 +842,18 @@ export function fingersCrossed(
     };
   } else {
     // Category and/or context-isolated buffers
-    const buffers = new Map<string, LogRecord[]>();
+    const buffers = new Map<string, BufferMetadata>();
     const triggered = new Set<string>();
 
-    return (record: LogRecord) => {
+    // Set up TTL cleanup timer if enabled
+    let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+    if (hasTtl) {
+      cleanupTimer = setInterval(() => {
+        cleanupExpiredBuffers(buffers);
+      }, cleanupIntervalMs);
+    }
+
+    const fingersCrossedSink = (record: LogRecord) => {
       const bufferKey = getBufferKey(record.category, record.properties);
 
       // Check if this buffer is already triggered
@@ -783,9 +911,9 @@ export function fingersCrossed(
         // Flush matching buffers
         const allRecordsToFlush: LogRecord[] = [];
         for (const key of keysToFlush) {
-          const buffer = buffers.get(key);
-          if (buffer) {
-            allRecordsToFlush.push(...buffer);
+          const metadata = buffers.get(key);
+          if (metadata) {
+            allRecordsToFlush.push(...metadata.buffer);
             buffers.delete(key);
             triggered.add(key);
           }
@@ -804,19 +932,45 @@ export function fingersCrossed(
         sink(record);
       } else {
         // Buffer the record
-        let buffer = buffers.get(bufferKey);
-        if (!buffer) {
-          buffer = [];
-          buffers.set(bufferKey, buffer);
+        const now = Date.now();
+        let metadata = buffers.get(bufferKey);
+        if (!metadata) {
+          // Apply LRU eviction if adding new buffer would exceed capacity
+          if (hasLru && buffers.size >= maxContexts!) {
+            // Calculate how many buffers to evict to make room for the new one
+            const numToEvict = buffers.size - maxContexts! + 1;
+            evictLruBuffers(buffers, numToEvict);
+          }
+
+          metadata = {
+            buffer: [],
+            lastAccess: now,
+          };
+          buffers.set(bufferKey, metadata);
+        } else {
+          // Update last access time for LRU
+          metadata.lastAccess = now;
         }
 
-        buffer.push(record);
+        metadata.buffer.push(record);
 
         // Enforce max buffer size per buffer
-        while (buffer.length > maxBufferSize) {
-          buffer.shift();
+        while (metadata.buffer.length > maxBufferSize) {
+          metadata.buffer.shift();
         }
       }
     };
+
+    // Add disposal functionality to clean up timer
+    if (cleanupTimer !== null) {
+      (fingersCrossedSink as Sink & Disposable)[Symbol.dispose] = () => {
+        if (cleanupTimer !== null) {
+          clearInterval(cleanupTimer);
+          cleanupTimer = null;
+        }
+      };
+    }
+
+    return fingersCrossedSink;
   }
 }

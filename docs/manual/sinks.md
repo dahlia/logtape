@@ -659,8 +659,7 @@ await configure({
 
 ### Context isolation
 
-> [!NOTE]
-> This API is available since LogTape 1.2.0.
+*This API is available since LogTape 1.2.0.*
 
 When using implicit contexts (see [*Implicit contexts*](./contexts.md) section),
 you can isolate buffers by context values to handle scenarios like HTTP request
@@ -732,8 +731,13 @@ relationship matches and the context values are the same.
 
 ### Buffer management
 
-The fingers crossed sink automatically manages buffer size to prevent memory
-issues:
+The fingers crossed sink provides several mechanisms to manage memory usage
+and prevent unbounded buffer growth, especially when using context isolation
+where multiple buffers may be created.
+
+#### Basic buffer size limit
+
+The basic buffer size limit prevents any single buffer from growing too large:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
@@ -749,8 +753,104 @@ await configure({
 });
 ~~~~
 
-When the buffer exceeds the maximum size, the oldest records are automatically
+When a buffer exceeds the maximum size, the oldest records are automatically
 dropped to prevent unbounded memory growth.
+
+#### Time-based cleanup (TTL)
+
+*This API is available since LogTape 1.2.0.*
+
+For context-isolated buffers, you can enable automatic cleanup based on time
+to prevent memory leaks from unused contexts:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: {
+        keys: ["requestId"],
+        bufferTtlMs: 300000,        // Remove buffers after 5 minutes
+        cleanupIntervalMs: 60000,   // Check for expired buffers every minute
+      },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+TTL (time to live) cleanup automatically removes context buffers that haven't
+received new log records within the specified time period. This is particularly
+useful for request-scoped contexts that may never trigger an error but should
+not remain in memory indefinitely.
+
+#### Capacity-based eviction (LRU)
+
+*This API is available since LogTape 1.2.0.*
+
+You can limit the total number of context buffers using LRU (least recently
+used) eviction:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: {
+        keys: ["requestId"],
+        maxContexts: 100,  // Keep at most 100 context buffers
+      },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+When the number of context buffers reaches the limit, the least recently used
+buffers are automatically evicted to make room for new ones. This prevents
+memory usage from growing unbounded in high-traffic applications.
+
+#### Hybrid memory management
+
+TTL and LRU can be used together for comprehensive memory management:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: {
+        keys: ["requestId", "sessionId"],
+        maxContexts: 200,           // LRU limit: keep at most 200 contexts
+        bufferTtlMs: 600000,        // TTL: remove after 10 minutes
+        cleanupIntervalMs: 120000,  // Check for expired buffers every 2 minutes
+      },
+      maxBufferSize: 500,  // Each buffer keeps at most 500 records
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+This configuration provides three layers of memory protection:
+
+Per-buffer size limit
+:   Each context buffer is limited to 500 records
+
+Total buffer count limit
+:   At most 200 context buffers can exist simultaneously
+
+Time-based cleanup
+:   Unused buffers are removed after 10 minutes
+
+The combination ensures predictable memory usage even in high-volume,
+long-running applications with many unique context combinations.
 
 ### Use cases
 
@@ -776,7 +876,8 @@ Component isolation
 
 Memory usage
 :   Buffered logs consume memory. Use appropriate buffer sizes and consider
-    your application's memory constraints.
+    your application's memory constraints. When using context isolation,
+    memory usage scales with the number of unique context combinations.
 
 Trigger frequency
 :   Frequent trigger events (like `"warning"`s) may reduce the effectiveness of
@@ -786,6 +887,21 @@ Category isolation overhead
 :   Category isolation adds some overhead for category matching.
     For high-volume logging, consider using a single buffer
     if isolation isn't needed.
+
+Context isolation overhead
+:   Context isolation creates separate buffers for each unique context
+    combination, which adds memory and lookup overhead. Use TTL and LRU
+    limits to bound resource usage in high-traffic applications.
+
+TTL cleanup overhead
+:   TTL cleanup runs periodically to remove expired buffers. The
+    `cleanupIntervalMs` setting affects how often this cleanup occurs.
+    More frequent cleanup reduces memory usage but increases CPU overhead.
+
+LRU eviction overhead
+:   LRU eviction tracks access times for each buffer and performs eviction
+    when capacity is exceeded. The overhead is generally minimal but scales
+    with the number of context buffers.
 
 For more details, see the `fingersCrossed()` function and
 `FingersCrossedOptions` interface in the API reference.

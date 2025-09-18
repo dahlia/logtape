@@ -2207,3 +2207,384 @@ test("fingersCrossed() - context isolation after trigger", () => {
   assertEquals(buffer[2], req2Debug);
   assertEquals(buffer[3], req2Error);
 });
+
+test("fingersCrossed() - TTL-based buffer cleanup", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 100, // 100ms TTL
+      cleanupIntervalMs: 50, // cleanup every 50ms
+    },
+  }) as Sink & Disposable;
+
+  try {
+    // Create records with different request IDs
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+      timestamp: Date.now(),
+    };
+
+    // Add records to buffers
+    sink(req1Record);
+    sink(req2Record);
+
+    // Wait for TTL to expire and cleanup to run
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Add a new record after TTL expiry
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Record);
+
+    // Trigger an error for req-1 (should not flush expired req-1 buffer)
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1Error);
+
+    // Should only have req-1 error (req-1 debug was cleaned up by TTL)
+    assertEquals(buffer.length, 1);
+    assertEquals(buffer[0], req1Error);
+
+    // Trigger an error for req-3 (should flush req-3 buffer)
+    buffer.length = 0; // Clear buffer
+    const req3Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Error);
+
+    // Should have both req-3 debug and error
+    assertEquals(buffer.length, 2);
+    assertEquals(buffer[0], req3Record);
+    assertEquals(buffer[1], req3Error);
+  } finally {
+    // Clean up timer
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - TTL disabled when bufferTtlMs is zero", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 0, // TTL disabled
+    },
+  });
+
+  // Should return a regular sink without disposal functionality
+  assertEquals("dispose" in sink, false);
+
+  // Add a record
+  const record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(record);
+
+  // Trigger should work normally
+  const errorRecord: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(errorRecord);
+
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], record);
+  assertEquals(buffer[1], errorRecord);
+});
+
+test("fingersCrossed() - TTL disabled when bufferTtlMs is undefined", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      // bufferTtlMs not specified
+    },
+  });
+
+  // Should return a regular sink without disposal functionality
+  assertEquals("dispose" in sink, false);
+});
+
+test("fingersCrossed() - LRU-based buffer eviction", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2, // Only keep 2 context buffers
+    },
+  });
+
+  // Step 1: Add req-1
+  const req1Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Record);
+
+  // Step 2: Add req-2
+  const req2Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Record);
+
+  // Step 3: Add req-3 (should evict req-1)
+  const req3Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-3" },
+  };
+  sink(req3Record);
+
+  // Test req-1 was evicted by triggering error
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Error);
+
+  // If req-1 was evicted, should only have error (length=1)
+  // If req-1 wasn't evicted, should have debug+error (length=2)
+  assertEquals(buffer.length, 1, "req-1 should have been evicted by LRU");
+  assertEquals(buffer[0], req1Error);
+});
+
+test("fingersCrossed() - LRU eviction order with access updates", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2,
+    },
+  });
+
+  // Add two contexts with time gap to ensure different timestamps
+  const req1Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Record); // req-1 is oldest
+
+  // Small delay to ensure different lastAccess times
+  await new Promise((resolve) => setTimeout(resolve, 1));
+
+  const req2Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Record); // req-2 is newest
+
+  // Access req-1 again after another delay to make it more recent
+  await new Promise((resolve) => setTimeout(resolve, 1));
+
+  const req1Second: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Second); // Now req-2 is oldest, req-1 is newest
+
+  // Add third context - should evict req-2 (now the oldest)
+  const req3Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-3" },
+  };
+  sink(req3Record);
+
+  // Verify req-2 was evicted
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Error);
+
+  // Should only have error record (no buffered records)
+  assertEquals(buffer.length, 1, "req-2 should have been evicted");
+  assertEquals(buffer[0], req2Error);
+});
+
+test("fingersCrossed() - LRU disabled when maxContexts is zero", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 0, // LRU disabled
+    },
+  });
+
+  // Create many contexts - should not be limited
+  for (let i = 0; i < 100; i++) {
+    const record: LogRecord = {
+      ...debug,
+      properties: { requestId: `req-${i}` },
+    };
+    sink(record);
+  }
+
+  // Trigger the last context
+  const errorRecord: LogRecord = {
+    ...error,
+    properties: { requestId: "req-99" },
+  };
+  sink(errorRecord);
+
+  // Should have both debug and error records
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0].properties?.requestId, "req-99");
+  assertEquals(buffer[1], errorRecord);
+});
+
+test("fingersCrossed() - LRU disabled when maxContexts is undefined", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      // maxContexts not specified
+    },
+  });
+
+  // Should work normally without LRU limits
+  const record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(record);
+
+  const errorRecord: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(errorRecord);
+
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], record);
+  assertEquals(buffer[1], errorRecord);
+});
+
+test("fingersCrossed() - Combined TTL and LRU functionality", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2, // LRU limit
+      bufferTtlMs: 100, // TTL limit
+      cleanupIntervalMs: 50, // cleanup interval
+    },
+  }) as Sink & Disposable;
+
+  try {
+    // Create records for multiple contexts
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+      timestamp: Date.now(),
+    };
+
+    // Add two contexts (within LRU limit)
+    sink(req1Record);
+    sink(req2Record);
+
+    // Wait for TTL to expire
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    // Add a third context (should work because TTL cleaned up old ones)
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Record);
+
+    // Trigger req-1 (should not find buffered records due to TTL expiry)
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1Error);
+
+    // Should only have the error record
+    assertEquals(buffer.length, 1);
+    assertEquals(buffer[0], req1Error);
+
+    // Clear buffer and trigger req-3 (should have recent record)
+    buffer.length = 0;
+    const req3Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Error);
+
+    // Should have both debug and error records
+    assertEquals(buffer.length, 2);
+    assertEquals(buffer[0], req3Record);
+    assertEquals(buffer[1], req3Error);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - LRU priority over TTL for active contexts", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2,
+      bufferTtlMs: 10000, // Long TTL (10 seconds)
+    },
+  }) as Sink & Disposable;
+
+  try {
+    // Create 3 contexts quickly (before TTL expires)
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+    };
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+    };
+
+    sink(req1Record); // LRU position: oldest
+    sink(req2Record); // LRU position: middle
+    sink(req3Record); // LRU position: newest, should evict req-1 due to LRU
+
+    // Now trigger req-2 (should have buffered record)
+    const req2Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-2" },
+    };
+    sink(req2Error);
+
+    // Should have both debug and error records
+    assertEquals(buffer.length, 2);
+    assertEquals(buffer[0], req2Record);
+    assertEquals(buffer[1], req2Error);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});

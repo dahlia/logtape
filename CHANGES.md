@@ -20,6 +20,11 @@ To be released.
        fine-grained control over buffer flushing behavior.
     -  Each context buffer maintains separate trigger states and size limits,
        preventing unrelated logs from being flushed together.
+    -  Added memory management options for context isolation to prevent memory
+       leaks in high-traffic applications: `bufferTtlMs` for time-based cleanup,
+       `cleanupIntervalMs` for configurable cleanup intervals, and `maxContexts`
+       for LRU-based capacity limits. TTL and LRU can be used independently or
+       together for comprehensive memory management.
 
 [#86]: https://github.com/dahlia/logtape/issues/86
 
