@@ -829,3 +829,47 @@ test("properties set to true", () => {
     "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
   );
 });
+
+test("properties with long keys (regression test for #87)", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    inspectOptions: { colors: false },
+    align: false, // Disable alignment for predictable output
+  });
+
+  // Use fixed timestamp for reproducible output
+  const fixedTimestamp = new Date("2024-01-15T00:00:00Z").getTime();
+
+  // Create properties with very long keys that will cause negative padding
+  const longKeyProps: Record<string, unknown> = {
+    VERY_LONG_PROPERTY_NAME_THAT_EXCEEDS_INDENT_WIDTH: "value1",
+    ANOTHER_EXTREMELY_LONG_KEY_NAME_FOR_TESTING: "value2",
+    SHORT: "value3",
+  };
+
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Test message"],
+    fixedTimestamp,
+    longKeyProps,
+  );
+
+  // After the fix, this should not throw an error
+  const result = formatter(record);
+
+  // Check the exact output format
+  // Note: Long keys have 0 padding, SHORT key still has some padding
+  const expectedOutput = `✨ info test Test message
+VERY_LONG_PROPERTY_NAME_THAT_EXCEEDS_INDENT_WIDTH: ${
+    "Deno" in globalThis ? '"value1"' : "'value1'"
+  }
+ANOTHER_EXTREMELY_LONG_KEY_NAME_FOR_TESTING: ${
+    "Deno" in globalThis ? '"value2"' : "'value2'"
+  }
+      SHORT: ${"Deno" in globalThis ? '"value3"' : "'value3'"}
+`;
+
+  assertEquals(result, expectedOutput);
+});
