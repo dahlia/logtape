@@ -1002,7 +1002,8 @@ function formatProperties(
   let result = "";
   for (const prop in record.properties) {
     const propValue = record.properties[prop];
-    const pad = indentWidth - getDisplayWidth(prop) - 2;
+    // Ensure padding is never negative
+    const pad = Math.max(0, indentWidth - getDisplayWidth(prop) - 2);
     result += "\n" + wrapText(
       `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
         useColors ? RESET : ""

@@ -8,6 +8,15 @@ Version 1.1.1
 
 To be released.
 
+### @logtape/pretty
+
+ -  Fixed a bug where logs with long property keys would cause the formatter to
+    fail, resulting in no output being displayed.  The issue occurred when
+    property keys exceeded the indentation width, causing negative padding
+    calculations that threw a `RangeError`.  [[#87]]
+
+[#87]: https://github.com/dahlia/logtape/issues/87
+
 
 Version 1.1.0
 -------------
