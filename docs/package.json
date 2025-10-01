@@ -16,7 +16,7 @@
     "@logtape/windows-eventlog": "workspace:",
     "@opentelemetry/exporter-logs-otlp-http": "^0.202.0",
     "@opentelemetry/sdk-logs": "^0.202.0",
-    "@sentry/node": "^9.28.1",
+    "@sentry/node": "^9.41.0",
     "@shikijs/vitepress-twoslash": "^1.17.6",
     "@sveltejs/kit": "^2.22.0",
     "@types/bun": "^1.2.15",
