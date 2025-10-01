@@ -6,7 +6,7 @@
     ".": "./src/mod.ts"
   },
   "imports": {
-    "@sentry/core": "npm:@sentry/core@^9.28.1"
+    "@sentry/core": "npm:@sentry/core@^9.46.0"
   },
   "tasks": {
     "build": "pnpm build"

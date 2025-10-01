@@ -1173,8 +1173,14 @@ bun add @logtape/sentry
 
 :::
 
-The quickest way to get started is to use the `getSentrySink()` function
-without any arguments:
+> [!NOTE]
+> For Deno, you need both `@sentry/deno` and `@sentry/core` at the same version
+> (e.g., both at `9.41.0`) due to Sentry's exact version pinning.
+
+### Basic usage
+
+The quickest way to get started is to use `getSentrySink()` without any
+arguments:
 
 ~~~~ typescript twoslash
 import { configure } from "@logtape/logtape";
@@ -1190,26 +1196,82 @@ await configure({
 });
 ~~~~
 
-The log records will show up in the breadcrumbs of the Sentry issues:
+By default, only `error` and `fatal` level logs are captured as Sentry events.
 
-![LogTape records show up in the breadcrumbs of a Sentry issue.](../screenshots/sentry.png)
+### Trace correlation
 
-If you want to explicitly configure the Sentry client, you can pass
-the `Client` instance, which is returned by [`init()`] or [`getClient()`]
-functions, to the `getSentrySink()` function:
+*This feature is available since LogTape 1.2.0.*
+
+When using Sentry's performance monitoring, logs automatically correlate with
+active traces and spans. This happens with zero configuration:
 
 ~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger("app");
+
+Sentry.startSpan({ name: "process-order" }, () => {
+  logger.info("Processing order", { orderId: 123 });
+  // Log automatically includes trace_id and span_id
+});
+~~~~
+
+The trace context (`trace_id`, `span_id`, `parent_span_id`) is automatically
+captured from active Sentry spans and included in all logs, breadcrumbs, and
+events.
+
+### Breadcrumbs
+
+*This feature is available since LogTape 1.2.0.*
+
+You can enable breadcrumbs to create a debugging context trail that shows what
+happened before errors:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
 import { configure } from "@logtape/logtape";
 import { getSentrySink } from "@logtape/sentry";
-import { init } from "@sentry/node";
 
-const client = init({
-  dsn: process.env.SENTRY_DSN,
-});
+Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 await configure({
   sinks: {
-    sentry: getSentrySink(client),
+    sentry: getSentrySink({
+      enableBreadcrumbs: true,
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+When enabled, all log levels become breadcrumbs in Sentry, providing complete
+context for debugging. Use LogTape's `lowestLevel` to control which logs reach
+the sink.
+
+![LogTape records show up in the breadcrumbs of a Sentry issue.](../screenshots/sentry.png)
+
+### Structured logging
+
+*This feature is available since LogTape 1.2.0 (requires Sentry SDK 9.41.0+).*
+
+Send structured, searchable logs using Sentry's Logs API:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN, enableLogs: true });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink(),
   },
   loggers: [
     { category: [], sinks: ["sentry"], lowestLevel: "debug" },
@@ -1217,10 +1279,85 @@ await configure({
 });
 ~~~~
 
+The sink automatically detects when the Logs API is available (SDK 9.41.0+ with
+`enableLogs: true`) and uses it for structured logging. When unavailable, logs
+are sent as events and breadcrumbs only.
+
+### Filtering and transformation
+
+*This feature is available since LogTape 1.2.0.*
+
+You can use `beforeSend` to filter or transform log records before they are
+sent to Sentry:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      beforeSend: (record) => {
+        // Filter out debug logs
+        if (record.level === "debug") return null;
+
+        // Redact sensitive data
+        if (record.properties.password) {
+          return {
+            ...record,
+            properties: { ...record.properties, password: "[REDACTED]" }
+          };
+        }
+
+        return record;
+      },
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+Returning `null` from `beforeSend` drops the log record entirely.
+
+### Event capture levels
+
+*This feature is available since LogTape 1.2.0.*
+
+By default, only `error` and `fatal` level logs are captured as Sentry events.
+You can customize this behavior with the `captureAsEvents` option:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      captureAsEvents: ["warning", "error", "fatal"],
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+Logs at other levels are sent as breadcrumbs when `enableBreadcrumbs` is true.
+
+For more details, see the `getSentrySink()` function and `SentrySinkOptions`
+interface in the API reference.
+
 [Sentry]: https://sentry.io/
-[@logtape/sentry]: https://github.com/dahlia/logtape-sentry
-[`init()`]: https://docs.sentry.io/platforms/javascript/apis/#init
-[`getClient()`]: https://docs.sentry.io/platforms/javascript/apis/#getClient
 
 
 Syslog sink
