@@ -26,6 +26,23 @@ To be released.
        for LRU-based capacity limits. TTL and LRU can be used independently or
        together for comprehensive memory management.
 
+### @logtape/sentry
+
+ -  Enhanced Sentry sink with modern observability features including automatic
+    trace correlation, breadcrumbs, and structured logging support.
+
+    -  The `getSentrySink()` function now accepts an optional `SentrySinkOptions`
+       object instead of a Sentry client instance. The old pattern
+       `getSentrySink(getClient())` still works with a deprecation warning.
+    -  Added automatic trace correlation with active Sentry spans (`trace_id`,
+       `span_id` context).
+    -  Added `enableBreadcrumbs` option to create breadcrumbs for all log events.
+    -  Added `captureAsEvents` option to control which log levels become Sentry
+       events (default: `["error", "fatal"]`).
+    -  Added automatic structured logging support via Sentry's Logs API (SDK
+       v9.41.0+ with `enableLogs: true`).
+    -  Added ParameterizedString support for better message grouping in Sentry.
+
 [#86]: https://github.com/dahlia/logtape/issues/86
 
 
