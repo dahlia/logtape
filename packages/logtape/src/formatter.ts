@@ -181,15 +181,41 @@ export interface TextFormatterOptions {
    * The format of the embedded values.
    *
    * A function that renders a value to a string.  This function is used to
-   * render the values in the log record.  The default is [`util.inspect()`] in
-   * Node.js/Bun and [`Deno.inspect()`] in Deno.
+   * render the values in the log record.  The default is a cross-runtime
+   * `inspect()` function that uses [`util.inspect()`] in Node.js/Bun,
+   * [`Deno.inspect()`] in Deno, or falls back to {@link JSON.stringify} in
+   * browsers.
+   *
+   * The second parameter provides access to the default cross-runtime
+   * `inspect()` function, allowing you to fall back to the default behavior
+   * for certain values while customizing others.  You can ignore this
+   * parameter if you don't need the fallback functionality.
    *
    * [`util.inspect()`]: https://nodejs.org/api/util.html#utilinspectobject-options
    * [`Deno.inspect()`]: https://docs.deno.com/api/deno/~/Deno.inspect
    * @param value The value to render.
+   * @param inspect The default cross-runtime inspect function that can be used
+   *                as a fallback.  Accepts an optional `options` parameter
+   *                with a `colors` boolean field.
    * @returns The string representation of the value.
+   * @example
+   * ```typescript
+   * getTextFormatter({
+   *   value(value, inspect) {
+   *     // Custom formatting for numbers
+   *     if (typeof value === 'number') {
+   *       return value.toFixed(2);
+   *     }
+   *     // Fall back to default for everything else
+   *     return inspect(value);
+   *   }
+   * })
+   * ```
    */
-  value?: (value: unknown) => string;
+  value?: (
+    value: unknown,
+    inspect: (value: unknown, options?: { colors?: boolean }) => string,
+  ) => string;
 
   /**
    * How those formatted parts are concatenated.
@@ -370,7 +396,9 @@ export function getTextFormatter(
   })();
 
   const categorySeparator = options.category ?? "·";
-  const valueRenderer = options.value ?? inspect;
+  const valueRenderer = options.value
+    ? (v: unknown) => options.value!(v, inspect)
+    : inspect;
 
   // Pre-compute level renderer for better performance
   const levelRenderer = (() => {
@@ -623,8 +651,8 @@ export function getAnsiColorFormatter(
     : RESET;
   return getTextFormatter({
     timestamp: "date-time-tz",
-    value(value: unknown): string {
-      return inspect(value, { colors: true });
+    value(value: unknown, fallbackInspect): string {
+      return fallbackInspect(value, { colors: true });
     },
     ...options,
     format({ timestamp, level, category, message, record }): string {

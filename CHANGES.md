@@ -26,6 +26,20 @@ To be released.
        for LRU-based capacity limits. TTL and LRU can be used independently or
        together for comprehensive memory management.
 
+ -  Changed the type of the `TextFormatterOptions.value` callback to accept
+    a second parameter that provides access to the default cross-runtime
+    `inspect()` function, making it easier to implement custom value formatting
+    with fallback to default behavior.
+
+    -  Changed the type of `TextFormatterOptions.value` to `(value: unknown,
+       inspect: (value: unknown, options?: { colors?: boolean }) => string)
+       => string` (was `(value: unknown) => string`).
+    -  The second parameter is optional and can be ignored for backward
+       compatibility.
+    -  Users can now customize formatting for specific value types while
+       falling back to the cross-runtime `inspect()` function for others,
+       without needing to reimplement the complex runtime detection logic.
+
 [#86]: https://github.com/dahlia/logtape/issues/86
 
 

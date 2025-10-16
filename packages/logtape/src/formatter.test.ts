@@ -125,6 +125,43 @@ test("getTextFormatter()", () => {
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, number & number!\n",
   );
 
+  // Test the inspect parameter fallback
+  assertEquals(
+    getTextFormatter({
+      value(value, inspect) {
+        // Custom formatting for numbers, fallback to inspect for others
+        if (typeof value === "number") {
+          return `NUM(${value})`;
+        }
+        return inspect(value);
+      },
+    })(info),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, NUM(123) & NUM(456)!\n",
+  );
+
+  // Test inspect fallback with objects
+  const recordWithObject: LogRecord = {
+    level: "info",
+    category: ["test"],
+    message: ["Data: ", { foo: "bar", baz: 42 }, ""],
+    rawMessage: "Data: {}",
+    timestamp: 1700000000000,
+    properties: {},
+  };
+  const resultWithObject = getTextFormatter({
+    value(value, inspect) {
+      // For objects, use inspect without colors
+      if (typeof value === "object" && value !== null) {
+        return inspect(value, { colors: false });
+      }
+      return String(value);
+    },
+  })(recordWithObject);
+  // Should contain the object keys
+  assertEquals(resultWithObject.includes("foo"), true);
+  assertEquals(resultWithObject.includes("bar"), true);
+  assertEquals(resultWithObject.includes("baz"), true);
+
   let recordedValues: FormattedValues | null = null;
   assertEquals(
     getTextFormatter({
