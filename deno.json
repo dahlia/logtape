@@ -34,6 +34,7 @@
     "*/.test-report.xml",
     "*/dist/",
     ".cov/",
+    ".enricomi-publish-action-pip/",
     ".github/",
     ".test-report.xml",
     "coverage/",

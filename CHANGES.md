@@ -8,6 +8,15 @@ Version 1.0.6
 
 To be released.
 
+ -  Fixed Vercel Edge Runtime compatibility issue where LogTape caused
+    "Node.js API is used (process.on) which is not supported in the Edge
+    Runtime" error during configuration. Implemented defense-in-depth approach
+    with both `EdgeRuntime` global variable detection and dynamic bracket
+    notation access (`proc?.["on"]`) to avoid static analysis detection while
+    ensuring runtime safety.  [[#92]]
+
+[#92]: https://github.com/dahlia/logtape/issues/92
+
 
 Version 1.0.5
 -------------
