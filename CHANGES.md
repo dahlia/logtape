@@ -15,6 +15,14 @@ To be released.
     notation access (`proc?.["on"]`) to avoid static analysis detection while
     ensuring runtime safety.  [[#92]]
 
+ -  Changed `getStreamFileSink()` in *@logtape/file* package to return
+    `Sink & AsyncDisposable` instead of `Sink & Disposable` for proper
+    asynchronous stream cleanup. The previous synchronous disposal did not wait
+    for streams to finish flushing data to disk, causing incomplete writes in
+    high-volume logging scenarios and resource leaks. The new async disposal
+    properly waits for both the stream 'finish' event and file handle closure,
+    ensuring all data is written and resources are cleaned up correctly.
+
 [#92]: https://github.com/dahlia/logtape/issues/92
 
 

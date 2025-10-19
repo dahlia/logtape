@@ -91,14 +91,15 @@ export interface StreamFileSinkOptions {
  *             if it doesn't exist, or appended to if it does exist.
  * @param options Configuration options for the stream-based sink.
  * @returns A sink that writes formatted log records to the specified file.
- *          The returned sink implements `Disposable` for proper resource cleanup.
+ *          The returned sink implements `AsyncDisposable` for proper resource cleanup
+ *          that waits for all data to be flushed to disk.
  *
  * @since 1.0.0
  */
 export function getStreamFileSink(
   path: string,
   options: StreamFileSinkOptions = {},
-): Sink & Disposable {
+): Sink & AsyncDisposable {
   const highWaterMark = options.highWaterMark ?? 16384;
   const formatter = options.formatter ?? defaultTextFormatter;
 
@@ -117,19 +118,29 @@ export function getStreamFileSink(
   let disposed = false;
 
   // Stream-based sink function for high performance
-  const sink: Sink & Disposable = (record: LogRecord) => {
+  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
 
     // Direct write to PassThrough stream
     passThrough.write(formatter(record));
   };
 
-  // Minimal disposal
-  sink[Symbol.dispose] = () => {
+  // Async disposal that waits for streams to finish
+  sink[Symbol.asyncDispose] = async () => {
     if (disposed) return;
     disposed = true;
+
+    // End the PassThrough stream
     passThrough.end();
-    writeStream.end();
+
+    // Wait for both finish (data flushed) and close (file handle closed) events
+    await new Promise<void>((resolve) => {
+      writeStream.once("finish", () => {
+        writeStream.close(() => {
+          resolve();
+        });
+      });
+    });
   };
 
   return sink;

@@ -1,12 +1,12 @@
 import { getStreamFileSink } from "./streamfilesink.ts";
 import { suite } from "@alinea/suite";
-import type { LogRecord, Sink } from "@logtape/logtape";
+import type { LogRecord } from "@logtape/logtape";
 import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { delay } from "@std/async/delay";
 import { join } from "@std/path/join";
 import fs from "node:fs";
-import { platform, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { debug, error, fatal, info, warning } from "../logtape/fixtures.ts";
 
 const test = suite(import.meta);
@@ -17,7 +17,7 @@ function makeTempFileSync(): string {
 
 test("getStreamFileSink() basic functionality", async () => {
   const path = makeTempFileSync();
-  const sink: Sink & Disposable = getStreamFileSink(path);
+  const sink = getStreamFileSink(path);
 
   sink(debug);
   sink(info);
@@ -25,10 +25,7 @@ test("getStreamFileSink() basic functionality", async () => {
   sink(error);
   sink(fatal);
 
-  sink[Symbol.dispose]();
-
-  // Allow stream to fully flush
-  await delay(platform() === "win32" ? 200 : 50);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assertEquals(
@@ -47,9 +44,7 @@ test("getStreamFileSink() with custom highWaterMark", async () => {
 
   sink(debug);
   sink(info);
-  sink[Symbol.dispose]();
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assertEquals(
@@ -67,9 +62,7 @@ test("getStreamFileSink() with custom formatter", async () => {
 
   sink(debug);
   sink(info);
-  sink[Symbol.dispose]();
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assertEquals(
@@ -87,9 +80,7 @@ test("getStreamFileSink() appends to existing file", async () => {
 
   const sink = getStreamFileSink(path);
   sink(debug);
-  sink[Symbol.dispose]();
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assert(content.startsWith("Initial content\n"));
@@ -109,8 +100,7 @@ test("getStreamFileSink() high-volume logging", async () => {
     sink(record);
   }
 
-  sink[Symbol.dispose]();
-  await delay(100); // Allow streams to finish
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
@@ -126,13 +116,11 @@ test("getStreamFileSink() disposal stops writing", async () => {
   const sink = getStreamFileSink(path);
 
   sink(debug);
-  sink[Symbol.dispose]();
+  await sink[Symbol.asyncDispose]();
 
   // Writing after disposal should be ignored
   sink(info);
   sink(warning);
-
-  await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
@@ -147,10 +135,8 @@ test("getStreamFileSink() double disposal", async () => {
   const sink = getStreamFileSink(path);
 
   sink(debug);
-  sink[Symbol.dispose]();
-  sink[Symbol.dispose](); // Should not throw
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
+  await sink[Symbol.asyncDispose](); // Should not throw
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
@@ -163,9 +149,7 @@ test("getStreamFileSink() handles rapid disposal", async () => {
 
   sink(debug);
   // Dispose immediately without waiting
-  sink[Symbol.dispose]();
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assert(content.includes("Hello, 123 & 456!"));
@@ -193,8 +177,7 @@ test("getStreamFileSink() concurrent writes", async () => {
   }
 
   await Promise.all(promises);
-  sink[Symbol.dispose]();
-  await delay(100);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
@@ -216,9 +199,7 @@ test("getStreamFileSink() with empty records", async () => {
   };
 
   sink(emptyRecord);
-  sink[Symbol.dispose]();
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assert(content.includes("[DBG]"));
@@ -237,9 +218,7 @@ test("getStreamFileSink() with large messages", async () => {
   };
 
   sink(largeRecord);
-  sink[Symbol.dispose]();
-
-  await delay(100); // Give more time for large write
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assert(content.includes(largeMessage));
@@ -264,8 +243,7 @@ test("getStreamFileSink() memory efficiency", async () => {
     }
   }
 
-  sink[Symbol.dispose]();
-  await delay(platform() === "win32" ? 1000 : 200);
+  await sink[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
@@ -283,9 +261,7 @@ test("getStreamFileSink() creates new file when it doesn't exist", async () => {
 
   const sink = getStreamFileSink(path);
   sink(debug);
-  sink[Symbol.dispose]();
-
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   // File should have been created
   assert(fs.existsSync(path));
@@ -302,10 +278,8 @@ test("getStreamFileSink() multiple instances on same file", async () => {
   sink1(debug);
   sink2(info);
 
-  sink1[Symbol.dispose]();
-  sink2[Symbol.dispose]();
-
-  await delay(100);
+  await sink1[Symbol.asyncDispose]();
+  await sink2[Symbol.asyncDispose]();
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assert(content.includes("[DBG]"));
@@ -317,8 +291,7 @@ test("getStreamFileSink() stream error handling", async () => {
   const sink = getStreamFileSink(path);
 
   sink(debug);
-  sink[Symbol.dispose]();
-  await delay(50);
+  await sink[Symbol.asyncDispose]();
 
   // Delete the file after disposal
   try {
