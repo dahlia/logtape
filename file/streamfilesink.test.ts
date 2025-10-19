@@ -28,7 +28,7 @@ test("getStreamFileSink() basic functionality", async () => {
   sink[Symbol.dispose]();
 
   // Allow stream to fully flush
-  await delay(50);
+  await delay(platform() === "win32" ? 200 : 50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assertEquals(
