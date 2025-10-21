@@ -301,14 +301,21 @@ function configureInternal<
     if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
-  if ("process" in globalThis && !("Deno" in globalThis)) {
+  if (
+    // deno-lint-ignore no-explicit-any
+    typeof (globalThis as any).EdgeRuntime !== "string" &&
+    "process" in globalThis &&
+    !("Deno" in globalThis)
+  ) {
     // deno-lint-ignore no-explicit-any
     const proc = (globalThis as any).process;
-    if (proc?.on) {
-      proc.on("exit", allowAsync ? dispose : disposeSync);
+    // Use bracket notation to avoid static analysis detection in Edge Runtime
+    const onMethod = proc?.["on"];
+    if (typeof onMethod === "function") {
+      onMethod.call(proc, "exit", allowAsync ? dispose : disposeSync);
     }
   } else {
-    // @ts-ignore: It's fine to addEventListener() on the browser/Deno
+    // @ts-ignore: It's fine to addEventListener() on the browser/Deno/Edge Runtime
     addEventListener("unload", allowAsync ? dispose : disposeSync);
   }
   const meta = LoggerImpl.getLogger(["logtape", "meta"]);

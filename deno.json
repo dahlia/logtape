@@ -33,6 +33,7 @@
   "exclude": [
     "**/.test-report.xml",
     ".cov/",
+    ".enricomi-publish-action-pip/",
     ".github/",
     ".test-report.xml",
     "coverage/",

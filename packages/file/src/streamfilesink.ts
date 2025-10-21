@@ -91,7 +91,8 @@ export interface StreamFileSinkOptions {
  *             if it doesn't exist, or appended to if it does exist.
  * @param options Configuration options for the stream-based sink.
  * @returns A sink that writes formatted log records to the specified file.
- *          The returned sink implements `Disposable` for proper resource cleanup.
+ *          The returned sink implements `AsyncDisposable` for proper resource cleanup
+ *          that waits for all data to be flushed to disk.
  *
  * @since 1.0.0
  */

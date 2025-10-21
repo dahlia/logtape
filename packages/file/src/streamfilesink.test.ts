@@ -138,8 +138,6 @@ test("getStreamFileSink() disposal stops writing", async () => {
   sink(info);
   sink(warning);
 
-  await delay(50);
-
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
   assertEquals(lines.length, 1); // Only debug record
