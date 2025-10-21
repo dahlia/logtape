@@ -43,6 +43,19 @@ To be released.
 [#86]: https://github.com/dahlia/logtape/issues/86
 
 
+Version 1.1.2
+-------------
+
+Released on October 22, 2025.
+
+ -  Fixed Vercel Edge Runtime compatibility issue where LogTape caused
+    "Node.js API is used (process.on) which is not supported in the Edge
+    Runtime" error during configuration. Implemented defense-in-depth approach
+    with both `EdgeRuntime` global variable detection and dynamic bracket
+    notation access (`proc?.["on"]`) to avoid static analysis detection while
+    ensuring runtime safety.  [[#92]]
+
+
 Version 1.1.1
 -------------
 
@@ -118,6 +131,29 @@ Released on September 11, 2025.
     issues outside Node.js. [[#80] by Sora Morimoto]
 
 [#80]: https://github.com/dahlia/logtape/pull/80
+
+
+Version 1.0.6
+-------------
+
+Released on October 22, 2025.
+
+ -  Fixed Vercel Edge Runtime compatibility issue where LogTape caused
+    "Node.js API is used (process.on) which is not supported in the Edge
+    Runtime" error during configuration. Implemented defense-in-depth approach
+    with both `EdgeRuntime` global variable detection and dynamic bracket
+    notation access (`proc?.["on"]`) to avoid static analysis detection while
+    ensuring runtime safety.  [[#92]]
+
+ -  Changed `getStreamFileSink()` in *@logtape/file* package to return
+    `Sink & AsyncDisposable` instead of `Sink & Disposable` for proper
+    asynchronous stream cleanup. The previous synchronous disposal did not wait
+    for streams to finish flushing data to disk, causing incomplete writes in
+    high-volume logging scenarios and resource leaks. The new async disposal
+    properly waits for both the stream 'finish' event and file handle closure,
+    ensuring all data is written and resources are cleaned up correctly.
+
+[#92]: https://github.com/dahlia/logtape/issues/92
 
 
 Version 1.0.5
