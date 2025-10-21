@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.1.2
 -------------
 
-To be released.
+Released on October 22, 2025.
 
  -  Fixed Vercel Edge Runtime compatibility issue where LogTape caused
     "Node.js API is used (process.on) which is not supported in the Edge
