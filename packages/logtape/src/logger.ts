@@ -1413,6 +1413,170 @@ function getOwnProperty(obj: unknown, key: string): unknown {
 }
 
 /**
+ * Result of parsing a single segment from a property path.
+ */
+interface ParseSegmentResult {
+  segment: string | number;
+  nextIndex: number;
+}
+
+/**
+ * Parse the next segment from a property path string.
+ *
+ * @param path The full property path string.
+ * @param fromIndex The index to start parsing from.
+ * @returns The parsed segment and next index, or null if parsing fails.
+ */
+function parseNextSegment(
+  path: string,
+  fromIndex: number,
+): ParseSegmentResult | null {
+  const len = path.length;
+  let i = fromIndex;
+
+  if (i >= len) return null;
+
+  let segment: string | number;
+
+  if (path[i] === "[") {
+    // Bracket notation: [0] or ["prop"]
+    i++;
+    if (i >= len) return null;
+
+    if (path[i] === '"' || path[i] === "'") {
+      // Quoted property name: ["prop-name"]
+      const quote = path[i];
+      i++;
+      // Build segment with proper escape handling
+      let segmentStr = "";
+      while (i < len && path[i] !== quote) {
+        if (path[i] === "\\") {
+          i++; // Skip backslash
+          if (i < len) {
+            // Handle escape sequences according to JavaScript spec
+            const escapeChar = path[i];
+            switch (escapeChar) {
+              case "n":
+                segmentStr += "\n";
+                break;
+              case "t":
+                segmentStr += "\t";
+                break;
+              case "r":
+                segmentStr += "\r";
+                break;
+              case "b":
+                segmentStr += "\b";
+                break;
+              case "f":
+                segmentStr += "\f";
+                break;
+              case "v":
+                segmentStr += "\v";
+                break;
+              case "0":
+                segmentStr += "\0";
+                break;
+              case "\\":
+                segmentStr += "\\";
+                break;
+              case '"':
+                segmentStr += '"';
+                break;
+              case "'":
+                segmentStr += "'";
+                break;
+              case "u":
+                // Unicode escape: \uXXXX
+                if (i + 4 < len) {
+                  const hex = path.slice(i + 1, i + 5);
+                  const codePoint = Number.parseInt(hex, 16);
+                  if (!Number.isNaN(codePoint)) {
+                    segmentStr += String.fromCharCode(codePoint);
+                    i += 4; // Skip the 4 hex digits
+                  } else {
+                    // Invalid unicode escape, keep as-is
+                    segmentStr += escapeChar;
+                  }
+                } else {
+                  // Not enough characters for unicode escape
+                  segmentStr += escapeChar;
+                }
+                break;
+              default:
+                // For any other character after \, just add it as-is
+                segmentStr += escapeChar;
+            }
+            i++;
+          }
+        } else {
+          segmentStr += path[i];
+          i++;
+        }
+      }
+      if (i >= len) return null;
+      segment = segmentStr;
+      i++; // Skip closing quote
+    } else {
+      // Array index: [0]
+      const startIndex = i;
+      while (
+        i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"'
+      ) {
+        i++;
+      }
+      if (i >= len) return null;
+      const indexStr = path.slice(startIndex, i);
+      // Empty bracket is invalid
+      if (indexStr.length === 0) return null;
+      const indexNum = Number(indexStr);
+      segment = Number.isNaN(indexNum) ? indexStr : indexNum;
+    }
+
+    // Skip closing bracket
+    while (i < len && path[i] !== "]") i++;
+    if (i < len) i++;
+  } else {
+    // Dot notation: prop
+    const startIndex = i;
+    while (
+      i < len && path[i] !== "." && path[i] !== "[" && path[i] !== "?" &&
+      path[i] !== "]"
+    ) {
+      i++;
+    }
+    segment = path.slice(startIndex, i);
+    // Empty segment is invalid (e.g., leading dot, double dot, trailing dot)
+    if (segment.length === 0) return null;
+  }
+
+  // Skip dot separator
+  if (i < len && path[i] === ".") i++;
+
+  return { segment, nextIndex: i };
+}
+
+/**
+ * Access a property or index on an object or array.
+ *
+ * @param obj The object or array to access.
+ * @param segment The property key or array index.
+ * @returns The accessed value or undefined if not accessible.
+ */
+function accessProperty(obj: unknown, segment: string | number): unknown {
+  if (typeof segment === "string") {
+    return getOwnProperty(obj, segment);
+  }
+
+  // Numeric index for arrays
+  if (Array.isArray(obj) && segment >= 0 && segment < obj.length) {
+    return obj[segment];
+  }
+
+  return undefined;
+}
+
+/**
  * Resolve a nested property path from an object.
  *
  * There are two types of property access patterns:
@@ -1425,6 +1589,9 @@ function getOwnProperty(obj: unknown, key: string): unknown {
  */
 function resolvePropertyPath(obj: unknown, path: string): unknown {
   if (obj == null) return undefined;
+
+  // Check for invalid paths
+  if (path.length === 0 || path.endsWith(".")) return undefined;
 
   let current: unknown = obj;
   let i = 0;
@@ -1441,70 +1608,16 @@ function resolvePropertyPath(obj: unknown, path: string): unknown {
     }
 
     // Parse the next segment
-    let segment: string | number;
+    const result = parseNextSegment(path, i);
+    if (result === null) return undefined;
 
-    if (path[i] === "[") {
-      // 1. Array/index access: [0] or ["prop"]
-      i++;
-      if (i >= len) return undefined;
+    const { segment, nextIndex } = result;
+    i = nextIndex;
 
-      if (path[i] === '"' || path[i] === "'") {
-        // 1.1 Bracket notation with quotes: ["prop-name"]
-        const quote = path[i];
-        i++;
-        const startIndex = i;
-        while (i < len && path[i] !== quote) {
-          if (path[i] === "\\") i++; // Skip escaped quote
-          i++;
-        }
-        if (i >= len) return undefined;
-        segment = path.slice(startIndex, i);
-        i++; // Skip closing quote
-      } else {
-        // 1.2 Array index: [0]
-        const startIndex = i;
-        while (
-          i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"'
-        ) {
-          i++;
-        }
-        if (i >= len) return undefined;
-        const indexStr = path.slice(startIndex, i);
-        const indexNum = Number(indexStr);
-        segment = Number.isNaN(indexNum) ? indexStr : indexNum;
-      }
-
-      // Skip closing bracket
-      while (i < len && path[i] !== "]") i++;
-      if (i < len) i++;
-    } else {
-      // 2. Property access: prop or prop?.next
-      const startIndex = i;
-      while (
-        i < len && path[i] !== "." && path[i] !== "[" && path[i] !== "?" &&
-        path[i] !== "]"
-      ) {
-        i++;
-      }
-      segment = path.slice(startIndex, i);
-    }
-
-    // Skip dot separator
-    if (i < len && path[i] === ".") i++;
-
-    // Access the next property/index
-    if (typeof segment === "string") {
-      current = getOwnProperty(current, segment);
-      if (current === undefined) {
-        return undefined;
-      }
-    } else {
-      // Access the property at the numeric index
-      if (Array.isArray(current) && segment >= 0 && segment < current.length) {
-        current = current[segment];
-      } else {
-        return undefined;
-      }
+    // Access the property/index
+    current = accessProperty(current, segment);
+    if (current === undefined) {
+      return undefined;
     }
   }
 

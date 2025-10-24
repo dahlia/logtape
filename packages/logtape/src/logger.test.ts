@@ -1032,6 +1032,250 @@ test("parseMessageTemplate()", () => {
     }),
     ["Protected: ", undefined, ""],
   );
+
+  // Boundary conditions
+  assertEquals(parseMessageTemplate("", {}), [""]);
+  assertEquals(
+    parseMessageTemplate("no placeholders", {}),
+    ["no placeholders"],
+  );
+  assertEquals(parseMessageTemplate("{value}", { value: 1 }), ["", 1, ""]);
+  assertEquals(
+    parseMessageTemplate("A {x}{y} B", { x: 1, y: 2 }),
+    ["A ", 1, "", 2, " B"],
+  );
+  assertEquals(
+    parseMessageTemplate("Deep: {a.b.c.d.e}", {
+      a: { b: { c: { d: { e: 5 } } } },
+    }),
+    ["Deep: ", 5, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("2D: {m[1][0]}", { m: [[0, 1], [2, 3]] }),
+    ["2D: ", 2, ""],
+  );
+
+  // Parsing error cases
+  assertEquals(
+    parseMessageTemplate("Missing: {user", { user: 1 }),
+    ["Missing: {user"],
+  );
+  assertEquals(parseMessageTemplate("Extra: user}", {}), ["Extra: user}"]);
+  assertEquals(
+    parseMessageTemplate("Bad: {user.}", { user: { name: "x" } }),
+    ["Bad: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Bad: {.user}", { user: { name: "x" } }),
+    ["Bad: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Bad: {user..name}", { user: { name: "x" } }),
+    ["Bad: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Bad idx: {arr[-1]}", { arr: [1] }),
+    ["Bad idx: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Float idx: {arr[1.5]}", { arr: [1, 2] }),
+    ["Float idx: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Bad quote: {user["na\\"}', {
+      user: { 'na"': "v" },
+    }),
+    ["Bad quote: ", undefined, ""],
+  );
+  assertEquals(parseMessageTemplate("Empty: {}", { a: 1 }), [
+    "Empty: ",
+    undefined,
+    "",
+  ]);
+
+  // Type conversion - ensure values are not stringified
+  assertEquals(parseMessageTemplate("Num: {n}", { n: 0 }), ["Num: ", 0, ""]);
+  assertEquals(parseMessageTemplate("Bool: {b}", { b: true }), [
+    "Bool: ",
+    true,
+    "",
+  ]);
+  assertEquals(parseMessageTemplate("Null: {x}", { x: null }), [
+    "Null: ",
+    null,
+    "",
+  ]);
+  assertEquals(parseMessageTemplate("Undef: {x}", {}), [
+    "Undef: ",
+    undefined,
+    "",
+  ]);
+  const testSymbol = Symbol("test");
+  assertEquals(parseMessageTemplate("Sym: {s}", { s: testSymbol }), [
+    "Sym: ",
+    testSymbol,
+    "",
+  ]);
+  assertEquals(parseMessageTemplate("BigInt: {b}", { b: 10n }), [
+    "BigInt: ",
+    10n,
+    "",
+  ]);
+  const testFn = () => {};
+  assertEquals(parseMessageTemplate("Fn: {fn}", { fn: testFn }), [
+    "Fn: ",
+    testFn,
+    "",
+  ]);
+  const testDate = new Date(0);
+  assertEquals(parseMessageTemplate("Date: {d}", { d: testDate }), [
+    "Date: ",
+    testDate,
+    "",
+  ]);
+  const testRegex = /x/;
+  assertEquals(parseMessageTemplate("RegExp: {r}", { r: testRegex }), [
+    "RegExp: ",
+    testRegex,
+    "",
+  ]);
+  assertEquals(
+    parseMessageTemplate("Nested arr: {a[1][0]}", { a: [[0], [1, 2]] }),
+    ["Nested arr: ", 1, ""],
+  );
+
+  // Complex patterns
+  assertEquals(
+    parseMessageTemplate("Hi {first} {last}", { first: "A", last: "B" }),
+    ["Hi ", "A", " ", "B", ""],
+  );
+  assertEquals(parseMessageTemplate("{a}{b}{c}", { a: 1, b: 2, c: 3 }), [
+    "",
+    1,
+    "",
+    2,
+    "",
+    3,
+    "",
+  ]);
+  assertEquals(
+    parseMessageTemplate("Mix: {users?.[0].profile['full-name']}", {
+      users: [{ profile: { "full-name": "X" } }],
+    }),
+    ["Mix: ", "X", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Len: {arr.length}", { arr: [1, 2, 3] }),
+    ["Len: ", 3, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("All: {*}, id={id}", { id: 1, a: 2 }),
+    ["All: ", { id: 1, a: 2 }, ", id=", 1, ""],
+  );
+
+  // Security - block dangerous props at any depth
+  assertEquals(
+    parseMessageTemplate("Blocked: {user.profile.constructor}", {
+      user: { profile: {} },
+    }),
+    ["Blocked: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Blocked: {user["__proto__"]}', { user: {} }),
+    ["Blocked: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Blocked: {user.profile["constructor"]}', {
+      user: { profile: {} },
+    }),
+    ["Blocked: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Blocked: {obj["prototype"]}', { obj: {} }),
+    ["Blocked: ", undefined, ""],
+  );
+
+  // Optional chaining variants
+  assertEquals(
+    parseMessageTemplate("Root opt: {arr?.[0]}", { arr: ["x"] }),
+    ["Root opt: ", "x", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Opt mid: {a?.b.c}", { a: null }),
+    ["Opt mid: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Opt end: {a.b?.c}", { a: { b: null } }),
+    ["Opt end: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Opt quoted: {obj?.["k-v"]}', { obj: { "k-v": 1 } }),
+    ["Opt quoted: ", 1, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Opt after idx: {list[0]?.name}", {
+      list: [{ name: "x" }],
+    }),
+    ["Opt after idx: ", "x", ""],
+  );
+
+  // Unicode and special characters
+  assertEquals(
+    parseMessageTemplate('Emoji: {data["😀"]}', { data: { "😀": 1 } }),
+    ["Emoji: ", 1, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Astral: {data["𝟘𝟙"]}', { data: { "𝟘𝟙": "ok" } }),
+    ["Astral: ", "ok", ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`Quotes: {data["quo\"te"]}`, {
+      data: { 'quo"te': 1 },
+    }),
+    ["Quotes: ", 1, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`SQuotes: {data['sin\'gle']}`, {
+      data: { "sin'gle": 2 },
+    }),
+    ["SQuotes: ", 2, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`Backslash: {data["back\\slash"]}`, {
+      data: { "back\\slash": 3 },
+    }),
+    ["Backslash: ", 3, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`Newline: {data["line\nbreak"]}`, {
+      data: { "line\nbreak": 4 },
+    }),
+    ["Newline: ", 4, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`Tab: {data["tab\tseparated"]}`, {
+      data: { "tab\tseparated": 5 },
+    }),
+    ["Tab: ", 5, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`Multiple: {data["a\nb\tc"]}`, {
+      data: { "a\nb\tc": 6 },
+    }),
+    ["Multiple: ", 6, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(String.raw`Unicode: {data["smile\u263A"]}`, {
+      data: { "smile☺": 7 },
+    }),
+    ["Unicode: ", 7, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Dot in key: {data["a.b c"]}', {
+      data: { "a.b c": 1 },
+    }),
+    ["Dot in key: ", 1, ""],
+  );
 });
 
 test("renderMessage()", () => {
