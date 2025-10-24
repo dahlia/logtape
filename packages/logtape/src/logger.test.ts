@@ -820,6 +820,218 @@ test("parseMessageTemplate()", () => {
     parseMessageTemplate("Hello, {{world!", { foo: 123 }),
     ["Hello, {world!"],
   );
+  assertEquals(
+    parseMessageTemplate("Hello, {user.name}!", {
+      user: { name: "foo", email: "foo@example.com" },
+    }),
+    ["Hello, ", "foo", "!"],
+  );
+  assertEquals(
+    parseMessageTemplate("Email: {user.email}", {
+      user: { name: "foo", email: "foo@example.com" },
+    }),
+    ["Email: ", "foo@example.com", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Tier: {order.customer.profile.tier}", {
+      order: {
+        customer: {
+          profile: {
+            tier: "premium",
+          },
+        },
+      },
+    }),
+    ["Tier: ", "premium", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Missing: {user.email}", {
+      user: { name: "foo" },
+    }),
+    ["Missing: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Deep missing: {user.profile.email}", {
+      user: { name: "foo" },
+    }),
+    ["Deep missing: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("First user: {users[0]}", {
+      users: ["foo", "bar", "baz"],
+    }),
+    ["First user: ", "foo", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Third user: {users[2]}", {
+      users: ["foo", "bar", "baz"],
+    }),
+    ["Third user: ", "baz", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Admin: {users[0].name}", {
+      users: [
+        { name: "foo", role: "admin" },
+        { name: "bar", role: "user" },
+      ],
+    }),
+    ["Admin: ", "foo", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("User role: {users[1].role}", {
+      users: [
+        { name: "foo", role: "admin" },
+        { name: "bar", role: "user" },
+      ],
+    }),
+    ["User role: ", "user", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Beyond: {users[5]}", {
+      users: ["foo", "bar"],
+    }),
+    ["Beyond: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Invalid: {user[0]}", {
+      user: "foo",
+    }),
+    ["Invalid: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Full name: {user["full-name"]}', {
+      user: { "full-name": "foo bar", "user-id": 123 },
+    }),
+    ["Full name: ", "foo bar", ""],
+  );
+  assertEquals(
+    parseMessageTemplate('User ID: {user["user-id"]}', {
+      user: { "full-name": "foo bar", "user-id": 123 },
+    }),
+    ["User ID: ", 123, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Name: {user['full-name']}", {
+      user: { "full-name": "foo bar", "nick-name": "fb" },
+    }),
+    ["Name: ", "foo bar", ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Nick: {user["nick-name"]}', {
+      user: { "full-name": "foo bar", "nick-name": "fb" },
+    }),
+    ["Nick: ", "fb", ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Custom: {data["custom field"]}', {
+      data: { "custom field": "value" },
+    }),
+    ["Custom: ", "value", ""],
+  );
+  assertEquals(
+    parseMessageTemplate('First user: {users[0]["full-name"]}', {
+      users: [{ "full-name": "foo bar" }, { "full-name": "bar baz" }],
+    }),
+    ["First user: ", "foo bar", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Name: {user?.name}", {
+      user: { name: "foo" },
+    }),
+    ["Name: ", "foo", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Email: {user?.profile?.email}", {
+      user: { name: "foo" },
+    }),
+    ["Email: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Item: {data?.items?.[0]?.name}", {
+      data: null,
+    }),
+    ["Item: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Name: {user?.name}", {
+      user: null,
+    }),
+    ["Name: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate(
+      'Email: {users[0]?.profile?.["contact-info"]?.email}',
+      {
+        users: [
+          {
+            profile: {
+              "contact-info": {
+                email: "foo@example.com",
+              },
+            },
+          },
+        ],
+      },
+    ),
+    ["Email: ", "foo@example.com", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Hello, {user}!", {
+      user: "foo",
+      count: 42,
+    }),
+    ["Hello, ", "foo", "!"],
+  );
+  assertEquals(
+    parseMessageTemplate("Dot property: {user.name}", {
+      "user.name": "foo",
+      "user.email": "foo@example.com",
+    }),
+    ["Dot property: ", "foo", ""],
+  );
+  assertEquals(
+    parseMessageTemplate("All: {*}", {
+      user: { name: "foo" },
+      count: 42,
+    }),
+    ["All: ", { user: { name: "foo" }, count: 42 }, ""],
+  );
+  assertEquals(
+    parseMessageTemplate('Malformed: {user["name}', {
+      user: { name: "foo" },
+    }),
+    ["Malformed: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Empty: {user[]}", {
+      user: { name: "foo" },
+    }),
+    ["Empty: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Invalid: {users[abc]}", {
+      users: ["foo", "bar"],
+    }),
+    ["Invalid: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Protected: {foo.constructor}", {
+      foo: { bar: 123 },
+    }),
+    ["Protected: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Protected: {foo.prototype}", {
+      foo: { bar: 123 },
+    }),
+    ["Protected: ", undefined, ""],
+  );
+  assertEquals(
+    parseMessageTemplate("Protected: {foo.__proto__}", {
+      foo: { bar: 123 },
+    }),
+    ["Protected: ", undefined, ""],
+  );
 });
 
 test("renderMessage()", () => {
