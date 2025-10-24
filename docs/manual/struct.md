@@ -121,6 +121,156 @@ message while still maintaining it as separate fields in the log record.
 > messages.
 
 
+Accessing nested properties in placeholders
+-------------------------------------------
+
+*This API is available since LogTape 1.2.0.*
+
+You can access nested properties within your structured data using various
+access patterns in placeholders:
+
+### Dot notation
+
+Use dot notation to access nested properties:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info("User {user.name} (email: {user.email}) logged in", {
+  user: {
+    name: "John Doe",
+    email: "john@example.com"
+  }
+});
+// -> User John Doe (email: john@example.com) logged in
+~~~~
+
+You can access deeply nested properties:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info("Customer tier: {order.customer.profile.tier}", {
+  order: {
+    customer: {
+      profile: {
+        tier: "premium"
+      }
+    }
+  }
+});
+// -> Customer tier: premium
+~~~~
+
+### Array indexing
+
+Access array elements using bracket notation with numeric indices:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info("First user: {users[0]}, second: {users[1]}", {
+  users: ["Alice", "Bob", "Charlie"]
+});
+// -> First user: Alice, second: Bob
+
+logger.info("Admin name: {users[0].name}", {
+  users: [
+    { name: "Alice", role: "admin" },
+    { name: "Bob", role: "user" }
+  ]
+});
+// -> Admin name: Alice
+~~~~
+
+### Bracket notation for special characters
+
+Use bracket notation with quotes to access properties that contain special
+characters like hyphens, spaces, or dots:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info('Full name: {user["full-name"]}', {
+  user: {
+    "full-name": "John Doe",
+    "user-id": 12345
+  }
+});
+// -> Full name: John Doe
+~~~~
+
+Within quoted strings, you can use escape sequences:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info(String.raw`Value: {data["key\"with\"quotes"]}`, {
+  data: {
+    'key"with"quotes': "special value"
+  }
+});
+// -> Value: special value
+~~~~
+
+### Optional chaining
+
+Use optional chaining (`?.`) to safely access properties that might be
+`null` or `undefined`:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info("Email: {user?.profile?.email}", {
+  user: {
+    name: "John"
+    // profile is missing
+  }
+});
+// -> Email: undefined
+
+logger.info("First item: {data?.items?.[0]?.name}", {
+  data: null
+});
+// -> First item: undefined
+~~~~
+
+### Combined patterns
+
+You can combine these patterns for complex data structures:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+// ---cut-before---
+logger.info(
+  'Contact: {users[0]?.profile?.["contact-info"]?.email}',
+  {
+    users: [
+      {
+        profile: {
+          "contact-info": {
+            email: "alice@example.com"
+          }
+        }
+      }
+    ]
+  }
+);
+// -> Contact: alice@example.com
+~~~~
+
+> [!NOTE]
+> If a property path doesn't exist or encounters a `null`/`undefined` value
+> (without optional chaining), the placeholder will be replaced with `undefined`.
+
+
 Including all properties in log messages
 ----------------------------------------
 

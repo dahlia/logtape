@@ -10,6 +10,20 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added support for nested property access in message template placeholders,
+    enabling direct access to nested objects, arrays, and complex data
+    structures without manual property extraction.  [[#91], [#93] by 伍闲犬]
+
+    -  Dot notation: `{user.name}`, `{order.customer.profile.tier}`
+    -  Array indexing: `{users[0]}`, `{users[0].name}`
+    -  Bracket notation with quotes: `{user["full-name"]}`, `{data["a.b c"]}`
+    -  Escape sequences in quoted strings: `\"`, `\'`, `\\`, `\n`, `\t`, `\r`,
+       `\b`, `\f`, `\v`, `\0`, and Unicode escapes (`\uXXXX`)
+    -  Optional chaining: `{user?.profile?.email}`, `{data?.items?.[0]?.name}`
+    -  Combined patterns: `{users[0]?.profile?.["contact-info"]?.email}`
+    -  Enhanced security: blocks access to `__proto__`, `prototype`, and
+       `constructor` at any depth to prevent prototype pollution
+
  -  Added context-based isolation for fingers crossed sink to handle scenarios
     like HTTP request tracing where logs should be isolated by implicit
     context values.  [[#86]]
@@ -41,6 +55,8 @@ To be released.
        without needing to reimplement the complex runtime detection logic.
 
 [#86]: https://github.com/dahlia/logtape/issues/86
+[#91]: https://github.com/dahlia/logtape/issues/91
+[#93]: https://github.com/dahlia/logtape/pull/93
 
 
 Version 1.1.2
