@@ -152,7 +152,7 @@ jobs:
         version: latest
     - uses: actions/setup-node@v4
       with:
-        node-version: latest
+        node-version: '24'
     - run: pnpm install
     - run: deno task build
     - run: |
