@@ -163,8 +163,8 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0
       markdown-it-jsr-ref:
-        specifier: ^0.4.2
-        version: 0.4.2
+        specifier: ^0.4.4
+        version: 0.4.4
       pino:
         specifier: ^9.7.0
         version: 9.7.0
@@ -2627,8 +2627,8 @@ packages:
   markdown-it-footnote@4.0.0:
     resolution: {integrity: sha512-WYJ7urf+khJYl3DqofQpYfEYkZKbmXmwxQV8c8mO/hGIhgZ1wOe7R4HLFNwqx7TjILbnC98fuyeSsin19JdFcQ==}
 
-  markdown-it-jsr-ref@0.4.2:
-    resolution: {integrity: sha512-JWnLHdDkFvo8kXlbKC4dj52sJRdJ3KYcapd5Sv+suLIaKxVlxO7V8qTAA4mdP/R4pvRZD9lXFpQ8/DMpvEGp5Q==}
+  markdown-it-jsr-ref@0.4.4:
+    resolution: {integrity: sha512-z6abJJXW0vNHaLC9fxVvT9iaHw2pGjiQDn+rFlQKV3+JgfmNH6bwF8uzWGh1d5Wo7UUAx1w7drmyQFG0OWwh8g==}
 
   markdown-it@14.1.0:
     resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
@@ -6082,7 +6082,7 @@ snapshots:
 
   markdown-it-footnote@4.0.0: {}
 
-  markdown-it-jsr-ref@0.4.2:
+  markdown-it-jsr-ref@0.4.4:
     dependencies:
       '@deno/shim-deno': 0.18.2
       markdown-it: 14.1.0
