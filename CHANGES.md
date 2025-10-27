@@ -58,6 +58,14 @@ To be released.
 [#91]: https://github.com/dahlia/logtape/issues/91
 [#93]: https://github.com/dahlia/logtape/pull/93
 
+### @logtape/redaction
+
+ -  Extended field-based redaction to recursively redact sensitive fields in
+    objects nested within arrays, providing more comprehensive protection for
+    structured data.  [[#94]]
+
+[#94]: https://github.com/dahlia/logtape/issues/94
+
 
 Version 1.1.2
 -------------

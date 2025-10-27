@@ -129,8 +129,21 @@ export function redactProperties(
       continue;
     }
     const value = copy[field];
-    // Check if value is a vanilla object:
-    if (
+    // Check if value is an array:
+    if (Array.isArray(value)) {
+      copy[field] = value.map((item) => {
+        if (
+          typeof item === "object" && item !== null &&
+          (Object.getPrototypeOf(item) === Object.prototype ||
+            Object.getPrototypeOf(item) === null)
+        ) {
+          // @ts-ignore: item is always Record<string, unknown>
+          return redactProperties(item, options);
+        }
+        return item;
+      });
+      // Check if value is a vanilla object:
+    } else if (
       typeof value === "object" && value !== null &&
       (Object.getPrototypeOf(value) === Object.prototype ||
         Object.getPrototypeOf(value) === null)
