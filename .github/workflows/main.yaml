@@ -83,6 +83,7 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: latest
+    - run: sudo npm install -g npm@latest
     - if: github.ref_type == 'branch'
       run: |
         v="$(jq \
@@ -101,7 +102,6 @@ jobs:
     - if: github.event_name == 'push'
       run: |
         set -ex
-        pnpm config set //registry.npmjs.org/:_authToken "$NPM_AUTH_TOKEN"
         pnpm install
         jq -r '.workspace | .[]' deno.json | while read pkg; do
           pushd "$pkg"
@@ -124,7 +124,6 @@ jobs:
           popd
         done
       env:
-        NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
         NPM_CONFIG_PROVENANCE: "true"
     - if: github.event_name == 'pull_request'
       run: deno task publish --dry-run --allow-dirty
