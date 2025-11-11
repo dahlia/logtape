@@ -4,6 +4,8 @@ export interface InspectOptions {
   colors?: boolean;
   depth?: number | null;
   compact?: boolean;
+  getters?: boolean;
+  showProxy?: boolean;
   [key: string]: unknown;
 }
 

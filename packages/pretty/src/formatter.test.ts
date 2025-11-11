@@ -873,3 +873,82 @@ ANOTHER_EXTREMELY_LONG_KEY_NAME_FOR_TESTING: ${
 
   assertEquals(result, expectedOutput);
 });
+
+test("getPrettyFormatter() with getters option", () => {
+  const formatter = getPrettyFormatter({
+    colors: false,
+    inspectOptions: { getters: true },
+  });
+
+  const recordWithGetters = createLogRecord("info", ["test"], [
+    "Object with getter: ",
+    {
+      get computed() {
+        return "getter result";
+      },
+    },
+  ]);
+
+  const result = formatter(recordWithGetters);
+
+  // Should complete without errors and output should be present
+  assertStringIncludes(result, "Object with getter:");
+});
+
+test("getPrettyFormatter() with showProxy option", () => {
+  const formatter = getPrettyFormatter({
+    colors: false,
+    inspectOptions: { showProxy: true },
+  });
+
+  const proxyObject = new Proxy(
+    { name: "original" },
+    {
+      get(target, prop) {
+        return target[prop as keyof typeof target];
+      },
+    },
+  );
+
+  const record = createLogRecord("info", ["test"], [
+    "Proxy object: ",
+    proxyObject,
+  ]);
+
+  const result = formatter(record);
+
+  // Should complete without errors and output should be present
+  assertStringIncludes(result, "Proxy object:");
+  assertStringIncludes(result, "original");
+});
+
+test("getPrettyFormatter() with both getters and showProxy options", () => {
+  const formatter = getPrettyFormatter({
+    colors: false,
+    inspectOptions: { getters: true, showProxy: true },
+  });
+
+  const proxyWithGetters = new Proxy(
+    {
+      value: 42,
+      get computed() {
+        return this.value * 2;
+      },
+    },
+    {
+      get(target, prop) {
+        return target[prop as keyof typeof target];
+      },
+    },
+  );
+
+  const record = createLogRecord("info", ["test"], [
+    "Complex object: ",
+    proxyWithGetters,
+  ]);
+
+  const result = formatter(record);
+
+  // Should complete without errors and output should be present
+  assertStringIncludes(result, "Complex object:");
+});

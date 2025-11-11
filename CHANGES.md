@@ -58,6 +58,15 @@ To be released.
 [#91]: https://github.com/dahlia/logtape/issues/91
 [#93]: https://github.com/dahlia/logtape/pull/93
 
+### @logtape/pretty
+
+ -  Added support for `getters` and `showProxy` options in `inspectOptions`
+    to allow fine-grained control over how objects and proxies are displayed.
+    These options are available in Node.js, Deno, and Bun runtimes, providing
+    consistent behavior across platforms.  [[#95]]
+
+[#95]: https://github.com/dahlia/logtape/issues/95
+
 ### @logtape/redaction
 
  -  Extended field-based redaction to recursively redact sensitive fields in

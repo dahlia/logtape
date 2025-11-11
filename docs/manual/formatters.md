@@ -571,6 +571,10 @@ Supported options:
  -  `depth`: Maximum depth to traverse when inspecting nested objects
  -  `colors`: Whether to use syntax highlighting colors for inspected values
  -  `compact`: Whether to use compact formatting for objects and arrays
+ -  `getters`: Whether to invoke getter functions during inspection (Node.js,
+    Deno, and Bun only)
+ -  `showProxy`: Whether to show Proxy objects with their target and handler
+    (Node.js, Deno, and Bun only)
 
 #### `~PrettyFormatterOptions.properties`
 
