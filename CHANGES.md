@@ -9,6 +9,19 @@ Version 1.3.0
 To be released.
 
 
+Version 1.2.1
+-------------
+
+Released on November 28, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to also redact sensitive values in the `message`
+    array, not just in `properties`.  Previously, sensitive field values
+    were exposed in the log message even when the corresponding property
+    was redacted.  [[#99]]
+
+
 Version 1.2.0
 -------------
 
@@ -80,6 +93,21 @@ Released on November 11, 2025.
     structured data.  [[#94]]
 
 [#94]: https://github.com/dahlia/logtape/issues/94
+
+
+Version 1.1.3
+-------------
+
+Released on November 28, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to also redact sensitive values in the `message`
+    array, not just in `properties`.  Previously, sensitive field values
+    were exposed in the log message even when the corresponding property
+    was redacted.  [[#99]]
+
+[#99]: https://github.com/dahlia/logtape/issues/99
 
 
 Version 1.1.2

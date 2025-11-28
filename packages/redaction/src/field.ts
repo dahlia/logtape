@@ -64,11 +64,17 @@ export interface FieldRedactionOptions {
 }
 
 /**
- * Redacts properties in a {@link LogRecord} based on the provided field
- * patterns and action.
+ * Redacts properties and message values in a {@link LogRecord} based on the
+ * provided field patterns and action.
  *
  * Note that it is a decorator which wraps the sink and redacts properties
- * before passing them to the sink.
+ * and message values before passing them to the sink.
+ *
+ * For string templates (e.g., `"Hello, {name}!"`), placeholder names are
+ * matched against the field patterns to determine which values to redact.
+ *
+ * For tagged template literals (e.g., `` `Hello, ${name}!` ``), redaction
+ * is performed by comparing message values with redacted property values.
  *
  * @example
  * ```ts
@@ -89,7 +95,39 @@ export function redactByField(
 ): Sink | Sink & Disposable | Sink & AsyncDisposable {
   const opts = Array.isArray(options) ? { fieldPatterns: options } : options;
   const wrapped = (record: LogRecord) => {
-    sink({ ...record, properties: redactProperties(record.properties, opts) });
+    const redactedProperties = redactProperties(record.properties, opts);
+    let redactedMessage = record.message;
+
+    if (typeof record.rawMessage === "string") {
+      // String template: redact by placeholder names
+      const placeholders = extractPlaceholderNames(record.rawMessage);
+      const redactedIndices = getRedactedPlaceholderIndices(
+        placeholders,
+        opts.fieldPatterns,
+      );
+      if (redactedIndices.size > 0) {
+        redactedMessage = redactMessageArray(
+          record.message,
+          redactedIndices,
+          opts.action,
+        );
+      }
+    } else {
+      // Tagged template: redact by comparing values
+      const redactedValues = getRedactedValues(
+        record.properties,
+        redactedProperties,
+      );
+      if (redactedValues.size > 0) {
+        redactedMessage = redactMessageByValues(record.message, redactedValues);
+      }
+    }
+
+    sink({
+      ...record,
+      message: redactedMessage,
+      properties: redactedProperties,
+    });
   };
   if (Symbol.dispose in sink) wrapped[Symbol.dispose] = sink[Symbol.dispose];
   if (Symbol.asyncDispose in sink) {
@@ -174,4 +212,201 @@ export function shouldFieldRedacted(
     }
   }
   return false;
+}
+
+/**
+ * Extracts placeholder names from a message template string in order.
+ * @param template The message template string.
+ * @returns An array of placeholder names in the order they appear.
+ */
+function extractPlaceholderNames(template: string): string[] {
+  const placeholders: string[] = [];
+  for (let i = 0; i < template.length; i++) {
+    if (template[i] === "{") {
+      // Check for escaped brace
+      if (i + 1 < template.length && template[i + 1] === "{") {
+        i++;
+        continue;
+      }
+      const closeIndex = template.indexOf("}", i + 1);
+      if (closeIndex === -1) continue;
+      const key = template.slice(i + 1, closeIndex).trim();
+      placeholders.push(key);
+      i = closeIndex;
+    }
+  }
+  return placeholders;
+}
+
+/**
+ * Parses a property path into its segments.
+ * @param path The property path (e.g., "user.password" or "users[0].email").
+ * @returns An array of path segments.
+ */
+function parsePathSegments(path: string): string[] {
+  const segments: string[] = [];
+  let current = "";
+  for (const char of path) {
+    if (char === "." || char === "[") {
+      if (current) segments.push(current);
+      current = "";
+    } else if (char === "]" || char === "?") {
+      // Skip these characters
+    } else {
+      current += char;
+    }
+  }
+  if (current) segments.push(current);
+  return segments;
+}
+
+/**
+ * Determines which placeholder indices should be redacted based on field
+ * patterns.
+ * @param placeholders Array of placeholder names from the template.
+ * @param fieldPatterns Field patterns to match against.
+ * @returns Set of indices that should be redacted.
+ */
+function getRedactedPlaceholderIndices(
+  placeholders: string[],
+  fieldPatterns: FieldPatterns,
+): Set<number> {
+  const indices = new Set<number>();
+  for (let i = 0; i < placeholders.length; i++) {
+    const placeholder = placeholders[i];
+    // Skip wildcard {*}
+    if (placeholder === "*") continue;
+
+    // Check the full placeholder name
+    if (shouldFieldRedacted(placeholder, fieldPatterns)) {
+      indices.add(i);
+      continue;
+    }
+    // For nested paths, check each segment
+    const segments = parsePathSegments(placeholder);
+    for (const segment of segments) {
+      if (shouldFieldRedacted(segment, fieldPatterns)) {
+        indices.add(i);
+        break;
+      }
+    }
+  }
+  return indices;
+}
+
+/**
+ * Redacts values in the message array based on the redacted placeholder
+ * indices.
+ * @param message The original message array.
+ * @param redactedIndices Set of placeholder indices to redact.
+ * @param action The redaction action.
+ * @returns New message array with redacted values.
+ */
+function redactMessageArray(
+  message: readonly unknown[],
+  redactedIndices: Set<number>,
+  action: "delete" | ((value: unknown) => unknown) | undefined,
+): readonly unknown[] {
+  if (redactedIndices.size === 0) return message;
+
+  const result: unknown[] = [];
+  let placeholderIndex = 0;
+
+  for (let i = 0; i < message.length; i++) {
+    if (i % 2 === 0) {
+      // Even index: text segment
+      result.push(message[i]);
+    } else {
+      // Odd index: value/placeholder
+      if (redactedIndices.has(placeholderIndex)) {
+        if (action == null || action === "delete") {
+          result.push("");
+        } else {
+          result.push(action(message[i]));
+        }
+      } else {
+        result.push(message[i]);
+      }
+      placeholderIndex++;
+    }
+  }
+  return result;
+}
+
+/**
+ * Collects redacted value mappings from original to redacted properties.
+ * @param original The original properties.
+ * @param redacted The redacted properties.
+ * @param map The map to populate with original -> redacted value pairs.
+ */
+function collectRedactedValues(
+  original: Record<string, unknown>,
+  redacted: Record<string, unknown>,
+  map: Map<unknown, unknown>,
+): void {
+  for (const key in original) {
+    const origVal = original[key];
+    const redVal = redacted[key];
+
+    if (origVal !== redVal) {
+      map.set(origVal, redVal);
+    }
+
+    // Recurse into nested objects
+    if (
+      typeof origVal === "object" && origVal !== null &&
+      typeof redVal === "object" && redVal !== null &&
+      !Array.isArray(origVal)
+    ) {
+      collectRedactedValues(
+        origVal as Record<string, unknown>,
+        redVal as Record<string, unknown>,
+        map,
+      );
+    }
+  }
+}
+
+/**
+ * Gets a map of original values to their redacted replacements.
+ * @param original The original properties.
+ * @param redacted The redacted properties.
+ * @returns A map of original -> redacted values.
+ */
+function getRedactedValues(
+  original: Record<string, unknown>,
+  redacted: Record<string, unknown>,
+): Map<unknown, unknown> {
+  const map = new Map<unknown, unknown>();
+  collectRedactedValues(original, redacted, map);
+  return map;
+}
+
+/**
+ * Redacts message array values by comparing with redacted property values.
+ * Used for tagged template literals where placeholder names are not available.
+ * @param message The original message array.
+ * @param redactedValues Map of original -> redacted values.
+ * @returns New message array with redacted values.
+ */
+function redactMessageByValues(
+  message: readonly unknown[],
+  redactedValues: Map<unknown, unknown>,
+): readonly unknown[] {
+  if (redactedValues.size === 0) return message;
+
+  const result: unknown[] = [];
+  for (let i = 0; i < message.length; i++) {
+    if (i % 2 === 0) {
+      result.push(message[i]);
+    } else {
+      const val = message[i];
+      if (redactedValues.has(val)) {
+        result.push(redactedValues.get(val));
+      } else {
+        result.push(val);
+      }
+    }
+  }
+  return result;
 }
