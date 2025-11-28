@@ -8,6 +8,15 @@ Version 1.1.3
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to also redact sensitive values in the `message`
+    array, not just in `properties`.  Previously, sensitive field values
+    were exposed in the log message even when the corresponding property
+    was redacted.  [[#99]]
+
+[#99]: https://github.com/dahlia/logtape/issues/99
+
 
 Version 1.1.2
 -------------

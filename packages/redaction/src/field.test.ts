@@ -214,4 +214,204 @@ test("redactByField()", async () => {
     await wrappedSink[Symbol.asyncDispose]();
     assert(disposed);
   }
+
+  { // redacts values in message array (string template)
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Password is ", "supersecret", ""],
+      rawMessage: "Password is {password}",
+      timestamp: Date.now(),
+      properties: { password: "supersecret" },
+    });
+
+    assertEquals(records[0].message, ["Password is ", "[REDACTED]", ""]);
+    assertEquals(records[0].properties.password, "[REDACTED]");
+  }
+
+  { // redacts multiple sensitive fields in message
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password", "email"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Login: ", "user@example.com", " with ", "secret123", ""],
+      rawMessage: "Login: {email} with {password}",
+      timestamp: Date.now(),
+      properties: { email: "user@example.com", password: "secret123" },
+    });
+
+    assertEquals(records[0].message[1], "[REDACTED]");
+    assertEquals(records[0].message[3], "[REDACTED]");
+  }
+
+  { // redacts nested property path in message
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["User password: ", "secret", ""],
+      rawMessage: "User password: {user.password}",
+      timestamp: Date.now(),
+      properties: { user: { password: "secret" } },
+    });
+
+    assertEquals(records[0].message[1], "[REDACTED]");
+  }
+
+  { // delete action uses empty string in message
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Password: ", "secret", ""],
+      rawMessage: "Password: {password}",
+      timestamp: Date.now(),
+      properties: { password: "secret" },
+    });
+
+    assertEquals(records[0].message[1], "");
+    assertFalse("password" in records[0].properties);
+  }
+
+  { // non-sensitive field in message is not redacted
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Username: ", "johndoe", ""],
+      rawMessage: "Username: {username}",
+      timestamp: Date.now(),
+      properties: { username: "johndoe" },
+    });
+
+    assertEquals(records[0].message[1], "johndoe");
+  }
+
+  { // wildcard {*} in message is not redacted
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    const props = { username: "john", password: "secret" };
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Props: ", props, ""],
+      rawMessage: "Props: {*}",
+      timestamp: Date.now(),
+      properties: props,
+    });
+
+    // The {*} itself should not be redacted
+    assertEquals(records[0].message[1], props);
+  }
+
+  { // escaped braces are not treated as placeholders
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Value: ", "secret", ""],
+      rawMessage: "Value: {{password}} {password}",
+      timestamp: Date.now(),
+      properties: { password: "secret" },
+    });
+
+    // Only the second {password} is a placeholder
+    assertEquals(records[0].message[1], "[REDACTED]");
+  }
+
+  { // tagged template literal - redacts by comparing values
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    const rawMessage = ["Password: ", ""] as unknown as TemplateStringsArray;
+    Object.defineProperty(rawMessage, "raw", { value: rawMessage });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Password: ", "secret", ""],
+      rawMessage,
+      timestamp: Date.now(),
+      properties: { password: "secret" },
+    });
+
+    // Message should be redacted by value comparison
+    assertEquals(records[0].message[1], "[REDACTED]");
+    assertEquals(records[0].properties.password, "[REDACTED]");
+  }
+
+  { // array access path in message
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["First user password: ", "secret1", ""],
+      rawMessage: "First user password: {users[0].password}",
+      timestamp: Date.now(),
+      properties: { users: [{ password: "secret1" }] },
+    });
+
+    assertEquals(records[0].message[1], "[REDACTED]");
+  }
+
+  { // regex pattern matches in message placeholder
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: [/pass/i],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Passphrase: ", "mysecret", ""],
+      rawMessage: "Passphrase: {passphrase}",
+      timestamp: Date.now(),
+      properties: { passphrase: "mysecret" },
+    });
+
+    assertEquals(records[0].message[1], "[REDACTED]");
+  }
 });
