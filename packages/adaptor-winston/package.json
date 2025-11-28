@@ -1,6 +1,6 @@
 {
   "name": "@logtape/adaptor-winston",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "winston adapter for LogTape logging library",
   "keywords": [
     "logging",
