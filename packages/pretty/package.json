@@ -1,6 +1,6 @@
 {
   "name": "@logtape/pretty",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Beautiful text formatter for LogTape—perfect for local development",
   "keywords": [
     "logging",
