@@ -1,4 +1,8 @@
-import type { ContextLocalStorage } from "./context.ts";
+import {
+  type ContextLocalStorage,
+  getCategoryPrefix,
+  getImplicitContext,
+} from "./context.ts";
 import type { Filter } from "./filter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -924,9 +928,25 @@ export class LoggerImpl implements Logger {
     record: Omit<LogRecord, "category"> | LogRecord,
     bypassSinks?: Set<Sink>,
   ): void {
-    const fullRecord: LogRecord = "category" in record
-      ? record as LogRecord
-      : { ...record, category: this.category };
+    const categoryPrefix = getCategoryPrefix();
+    const baseCategory = "category" in record
+      ? (record as LogRecord).category
+      : this.category;
+    const fullCategory = categoryPrefix.length > 0
+      ? [...categoryPrefix, ...baseCategory]
+      : baseCategory;
+
+    // Create the full record by copying property descriptors from the original
+    // record, which preserves getters without invoking them (unlike spread).
+    const descriptors = Object.getOwnPropertyDescriptors(record) as
+      & PropertyDescriptorMap
+      & { category?: PropertyDescriptor };
+    descriptors.category = {
+      value: fullCategory,
+      enumerable: true,
+      configurable: true,
+    };
+    const fullRecord = Object.defineProperties({}, descriptors) as LogRecord;
 
     if (
       this.lowestLevel === null ||
@@ -958,8 +978,7 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
-    const implicitContext =
-      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
+    const implicitContext = getImplicitContext();
     let cachedProps: Record<string, unknown> | undefined = undefined;
     const record: LogRecord = typeof properties === "function"
       ? {
@@ -999,8 +1018,7 @@ export class LoggerImpl implements Logger {
     callback: LogCallback,
     properties: Record<string, unknown> = {},
   ): void {
-    const implicitContext =
-      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
+    const implicitContext = getImplicitContext();
     let rawMessage: TemplateStringsArray | undefined = undefined;
     let msg: unknown[] | undefined = undefined;
     function realizeMessage(): [unknown[], TemplateStringsArray] {
@@ -1033,8 +1051,7 @@ export class LoggerImpl implements Logger {
     values: unknown[],
     properties: Record<string, unknown> = {},
   ): void {
-    const implicitContext =
-      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
+    const implicitContext = getImplicitContext();
     this.emit({
       category: this.category,
       level,

@@ -8,6 +8,21 @@ Version 1.3.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added context-based category prefix feature for library hierarchies.
+    [[#98]]
+
+    -  Added `withCategoryPrefix()` function to prepend category prefixes
+       to all log records within a callback context.
+    -  Uses the existing `contextLocalStorage` configuration, so no additional
+       setup is required if implicit contexts are already enabled.
+    -  Useful for SDKs that wrap internal libraries and want to show
+       their own category in logs from those libraries.
+    -  Prefixes accumulate when nested, allowing multi-layer architectures.
+
+[#98]: https://github.com/dahlia/logtape/issues/98
+
 
 Version 1.2.2
 -------------
