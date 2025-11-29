@@ -8,6 +8,13 @@ Version 1.1.4
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to properly redact sensitive fields in objects
+    passed via the `{*}` wildcard placeholder.  Previously, the original
+    object reference was kept in the message array, exposing sensitive
+    field values even when they were redacted in properties.  [[#99]]
+
 
 Version 1.1.3
 -------------

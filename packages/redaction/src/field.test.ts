@@ -312,7 +312,7 @@ test("redactByField()", async () => {
     assertEquals(records[0].message[1], "johndoe");
   }
 
-  { // wildcard {*} in message is not redacted
+  { // wildcard {*} in message uses redacted properties
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -329,8 +329,12 @@ test("redactByField()", async () => {
       properties: props,
     });
 
-    // The {*} itself should not be redacted
-    assertEquals(records[0].message[1], props);
+    // The {*} should be replaced with redacted properties
+    assertEquals(records[0].message[1], {
+      username: "john",
+      password: "[REDACTED]",
+    });
+    assertEquals(records[0].properties.password, "[REDACTED]");
   }
 
   { // escaped braces are not treated as placeholders

@@ -101,14 +101,17 @@ export function redactByField(
     if (typeof record.rawMessage === "string") {
       // String template: redact by placeholder names
       const placeholders = extractPlaceholderNames(record.rawMessage);
-      const redactedIndices = getRedactedPlaceholderIndices(
-        placeholders,
-        opts.fieldPatterns,
-      );
-      if (redactedIndices.size > 0) {
+      const { redactedIndices, wildcardIndices } =
+        getRedactedPlaceholderIndices(
+          placeholders,
+          opts.fieldPatterns,
+        );
+      if (redactedIndices.size > 0 || wildcardIndices.size > 0) {
         redactedMessage = redactMessageArray(
           record.message,
           redactedIndices,
+          wildcardIndices,
+          redactedProperties,
           opts.action,
         );
       }
@@ -249,52 +252,62 @@ function parsePathSegments(path: string): string[] {
 
 /**
  * Determines which placeholder indices should be redacted based on field
- * patterns.
+ * patterns, and which are wildcard placeholders.
  * @param placeholders Array of placeholder names from the template.
  * @param fieldPatterns Field patterns to match against.
- * @returns Set of indices that should be redacted.
+ * @returns Object with redactedIndices and wildcardIndices.
  */
 function getRedactedPlaceholderIndices(
   placeholders: string[],
   fieldPatterns: FieldPatterns,
-): Set<number> {
-  const indices = new Set<number>();
+): { redactedIndices: Set<number>; wildcardIndices: Set<number> } {
+  const redactedIndices = new Set<number>();
+  const wildcardIndices = new Set<number>();
+
   for (let i = 0; i < placeholders.length; i++) {
     const placeholder = placeholders[i];
-    // Skip wildcard {*}
-    if (placeholder === "*") continue;
+
+    // Track wildcard {*} separately
+    if (placeholder === "*") {
+      wildcardIndices.add(i);
+      continue;
+    }
 
     // Check the full placeholder name
     if (shouldFieldRedacted(placeholder, fieldPatterns)) {
-      indices.add(i);
+      redactedIndices.add(i);
       continue;
     }
     // For nested paths, check each segment
     const segments = parsePathSegments(placeholder);
     for (const segment of segments) {
       if (shouldFieldRedacted(segment, fieldPatterns)) {
-        indices.add(i);
+        redactedIndices.add(i);
         break;
       }
     }
   }
-  return indices;
+  return { redactedIndices, wildcardIndices };
 }
 
 /**
  * Redacts values in the message array based on the redacted placeholder
- * indices.
+ * indices and wildcard indices.
  * @param message The original message array.
  * @param redactedIndices Set of placeholder indices to redact.
+ * @param wildcardIndices Set of wildcard placeholder indices.
+ * @param redactedProperties The redacted properties object.
  * @param action The redaction action.
  * @returns New message array with redacted values.
  */
 function redactMessageArray(
   message: readonly unknown[],
   redactedIndices: Set<number>,
+  wildcardIndices: Set<number>,
+  redactedProperties: Record<string, unknown>,
   action: "delete" | ((value: unknown) => unknown) | undefined,
 ): readonly unknown[] {
-  if (redactedIndices.size === 0) return message;
+  if (redactedIndices.size === 0 && wildcardIndices.size === 0) return message;
 
   const result: unknown[] = [];
   let placeholderIndex = 0;
@@ -305,7 +318,10 @@ function redactMessageArray(
       result.push(message[i]);
     } else {
       // Odd index: value/placeholder
-      if (redactedIndices.has(placeholderIndex)) {
+      if (wildcardIndices.has(placeholderIndex)) {
+        // Wildcard {*}: replace with redacted properties
+        result.push(redactedProperties);
+      } else if (redactedIndices.has(placeholderIndex)) {
         if (action == null || action === "delete") {
           result.push("");
         } else {
