@@ -8,6 +8,13 @@ Version 1.2.2
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to properly redact sensitive fields in objects
+    passed via the `{*}` wildcard placeholder.  Previously, the original
+    object reference was kept in the message array, exposing sensitive
+    field values even when they were redacted in properties.  [[#99]]
+
 
 Version 1.2.1
 -------------
@@ -93,6 +100,19 @@ Released on November 11, 2025.
     structured data.  [[#94]]
 
 [#94]: https://github.com/dahlia/logtape/issues/94
+
+
+Version 1.1.4
+-------------
+
+Released on November 29, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to properly redact sensitive fields in objects
+    passed via the `{*}` wildcard placeholder.  Previously, the original
+    object reference was kept in the message array, exposing sensitive
+    field values even when they were redacted in properties.  [[#99]]
 
 
 Version 1.1.3
