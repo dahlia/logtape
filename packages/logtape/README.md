@@ -5,6 +5,7 @@ LogTape
 
 [![JSR][JSR badge]][JSR]
 [![npm][npm badge]][npm]
+[![Bundlephobia][Bundlephobia badge]][Bundlephobia]
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 [![Codecov][Codecov badge]][Codecov]
 
@@ -46,6 +47,8 @@ The highlights of LogTape are:
 [JSR badge]: https://jsr.io/badges/@logtape/logtape
 [npm]: https://www.npmjs.com/package/@logtape/logtape
 [npm badge]: https://img.shields.io/npm/v/@logtape/logtape?logo=npm
+[Bundlephobia]: https://bundlephobia.com/package/@logtape/logtape
+[Bundlephobia badge]: https://badgen.net/bundlephobia/dependency-count/@logtape/logtape
 [GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
 [Codecov]: https://codecov.io/gh/dahlia/logtape
