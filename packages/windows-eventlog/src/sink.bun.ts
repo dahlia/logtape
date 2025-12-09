@@ -1,58 +1,10 @@
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { getLogger } from "@logtape/logtape";
+import { defaultWindowsEventlogFormatter } from "./formatter.ts";
 import type { WindowsEventLogSinkOptions } from "./types.ts";
 import { DEFAULT_EVENT_ID_MAPPING, mapLogLevelToEventType } from "./types.ts";
 import { validateWindowsPlatform } from "./platform.ts";
 import { WindowsEventLogFFI } from "./ffi.bun.ts";
-
-/**
- * Formats a log record message into a string suitable for Windows Event Log.
- * Combines the template and arguments into a readable message.
- */
-function formatMessage(record: LogRecord): string {
-  let message = "";
-
-  // Combine template parts with arguments
-  for (let i = 0; i < record.message.length; i++) {
-    if (i % 2 === 0) {
-      // Template part
-      message += record.message[i];
-    } else {
-      // Argument - serialize it
-      const arg = record.message[i];
-      if (typeof arg === "string") {
-        message += arg;
-      } else {
-        message += JSON.stringify(arg);
-      }
-    }
-  }
-
-  return message;
-}
-
-/**
- * Formats additional context information for the log entry.
- * Includes category, properties, and other metadata.
- */
-function formatContext(record: LogRecord): string {
-  const context: string[] = [];
-
-  // Add category if present
-  if (record.category && record.category.length > 0) {
-    context.push(`Category: ${record.category.join(".")}`);
-  }
-
-  // Add properties if present
-  if (record.properties && Object.keys(record.properties).length > 0) {
-    context.push(`Properties: ${JSON.stringify(record.properties)}`);
-  }
-
-  // Add timestamp
-  context.push(`Timestamp: ${new Date(record.timestamp).toISOString()}`);
-
-  return context.length > 0 ? `\n\n${context.join("\n")}` : "";
-}
 
 /**
  * Creates a Windows Event Log sink for Bun environments using FFI.
@@ -110,9 +62,8 @@ export function getWindowsEventLogSink(
     }
 
     // Format the complete message
-    const message = formatMessage(record);
-    const context = formatContext(record);
-    const fullMessage = message + context;
+    const formatter = options.formatter ?? defaultWindowsEventlogFormatter;
+    const fullMessage = formatter(record);
 
     // Get event type and ID for this log level
     const eventType = mapLogLevelToEventType(record.level);

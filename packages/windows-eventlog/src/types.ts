@@ -1,4 +1,4 @@
-import type { LogLevel } from "@logtape/logtape";
+import type { LogLevel, TextFormatter } from "@logtape/logtape";
 
 /**
  * Configuration options for the Windows Event Log sink.
@@ -38,6 +38,12 @@ export interface WindowsEventLogSinkOptions {
    * ```
    */
   readonly eventIdMapping?: Partial<Record<LogLevel, number>>;
+
+  /**
+   * The text formatter to use.
+   * Defaults to {@link defaultWindowsEventlogFormatter}.
+   */
+  formatter?: TextFormatter;
 }
 
 /**
