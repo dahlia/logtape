@@ -1,0 +1,67 @@
+{
+  "name": "@logtape/fastify",
+  "version": "1.3.0",
+  "description": "Fastify adapter for LogTape logging library",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "fastify",
+    "pino",
+    "adapter",
+    "logtape"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/fastify/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:^"
+  },
+  "devDependencies": {
+    "@alinea/suite": "catalog:",
+    "@std/assert": "catalog:",
+    "fastify": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test --allow-env --allow-sys --allow-net",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+  }
+}

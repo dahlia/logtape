@@ -23,6 +23,23 @@ To be released.
 
 [#98]: https://github.com/dahlia/logtape/issues/98
 
+### @logtape/fastify
+
+ -  Added *@logtape/fastify* package for using LogTape as Fastify's logging
+    backend.  [[#102]]
+
+    -  Added `getLogTapeFastifyLogger()` function to create a Pino-compatible
+       logger wrapper for Fastify's `loggerInstance` option.
+    -  Added `FastifyLogTapeOptions` interface for configuration.
+    -  Added `PinoLikeLogger` interface implementing Pino's logger contract.
+    -  Added `PinoLogMethod` interface for Pino-style log method signatures.
+    -  Added `PinoLevel` type for Pino log levels.
+    -  Supports all Pino method signatures: string messages, object + message,
+       object-only, and printf-style interpolation (`%s`, `%d`, `%j`, `%o`).
+    -  Implements `child(bindings)` method using LogTape's `Logger.with()`.
+
+[#102]: https://github.com/dahlia/logtape/issues/102
+
 
 Version 1.2.2
 -------------

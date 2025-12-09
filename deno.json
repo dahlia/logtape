@@ -3,6 +3,7 @@
     "./packages/logtape",
     "./packages/adaptor-pino",
     "./packages/adaptor-winston",
+    "./packages/fastify",
     "./packages/file",
     "./packages/otel",
     "./packages/pretty",
@@ -25,6 +26,7 @@
     "@std/semver": "jsr:@std/semver@^1.0.5",
     "@std/testing": "jsr:@std/testing@^0.222.1",
     "consolemock": "npm:consolemock@^1.1.0",
+    "fastify": "npm:fastify@^5.0.0",
     "tsdown": "npm:tsdown@^0.12.7"
   },
   "unstable": [
@@ -119,6 +121,12 @@
       ],
       "command": "deno task -f @logtape/adaptor-winston build"
     },
+    "build:fastify": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/fastify build"
+    },
     "build": {
       "dependencies": [
         "build:file",
@@ -131,7 +139,8 @@
         "build:cloudwatch-logs",
         "build:windows-eventlog",
         "build:adaptor-pino",
-        "build:adaptor-winston"
+        "build:adaptor-winston",
+        "build:fastify"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",

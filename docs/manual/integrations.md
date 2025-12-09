@@ -189,6 +189,125 @@ export default app;
 [Hono]: https://hono.dev/
 
 
+Fastify
+-------
+
+[Fastify] is a fast and low-overhead web framework for Node.js.
+LogTape provides a [Pino]-compatible logger adapter through the
+*@logtape/fastify* package, allowing you to use LogTape as Fastify's
+logging backend with seamless integration:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/fastify
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/fastify
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/fastify
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/fastify
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/fastify
+~~~~
+
+:::
+
+Here's an example of using LogTape with Fastify:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+import Fastify from "fastify";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["fastify"], sinks: ["console"], lowestLevel: "info" }
+  ],
+});
+
+const fastify = Fastify({
+  loggerInstance: getLogTapeFastifyLogger(),
+});
+
+fastify.get("/", async (request, reply) => {
+  // Uses LogTape under the hood with request context
+  request.log.info("Handling request");
+  return { hello: "world" };
+});
+
+await fastify.listen({ port: 3000 });
+~~~~
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+// ---cut-before---
+const logger = getLogTapeFastifyLogger({
+  category: ["myapp", "http"],
+});
+~~~~
+
+### Child loggers
+
+Fastify automatically creates child loggers with request-scoped bindings
+(like `reqId`). These bindings are passed to LogTape's structured logging:
+
+~~~~ typescript twoslash
+import Fastify from "fastify";
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+// ---cut-before---
+const fastify = Fastify({
+  loggerInstance: getLogTapeFastifyLogger(),
+});
+
+fastify.get("/users/:id", async (request, reply) => {
+  // Child logger automatically includes reqId and any additional bindings
+  request.log.info({ userId: request.params }, "Fetching user");
+  return { user: "data" };
+});
+~~~~
+
+### Pino method signatures
+
+The adapter supports all Pino-style logging signatures:
+
+~~~~ typescript twoslash
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+const logger = getLogTapeFastifyLogger();
+// ---cut-before---
+// Simple message
+logger.info("Hello world");
+
+// Printf-style interpolation
+logger.info("User %s logged in %d times", "alice", 3);
+
+// Object with message
+logger.info({ userId: 123, action: "login" }, "User logged in");
+
+// Object with msg property
+logger.info({ msg: "User logged in", userId: 123 });
+
+// Object only
+logger.info({ data: { key: "value" } });
+~~~~
+
+[Fastify]: https://fastify.dev/
+[Pino]: https://getpino.io/
+
+
 Koa
 ---
 
