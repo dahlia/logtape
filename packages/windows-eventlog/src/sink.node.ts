@@ -53,7 +53,7 @@ export function getWindowsEventLogSink(
   const sink: Sink & Disposable = (record: LogRecord) => {
     // Format the complete message
     const formatter = options.formatter ?? defaultWindowsEventlogFormatter;
-    const fullMessage = formatter(record);
+    const fullMessage = [formatter(record)];
 
     // Get event type and ID for this log level
     const eventType = mapLogLevelToEventType(record.level);

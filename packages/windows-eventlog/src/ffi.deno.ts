@@ -92,11 +92,11 @@ export class WindowsEventLogFFI {
    * Writes a message to the Windows Event Log.
    *
    * @param eventType Event type (error, warning, info)
-   * @param eventId Event ID number
-   * @param message Message string to log
+   * @param eventId Event ID number that gives us formatting string
+   * @param messages Message parameter strings to log
    * @throws {WindowsEventLogError} If the write operation fails
    */
-  writeEvent(eventType: number, eventId: number, message: string): void {
+  writeEvent(eventType: number, eventId: number, messages: string[]): void {
     if (!this.lib || !this.eventSource) {
       throw new WindowsEventLogError(
         "FFI not initialized. Call initialize() first.",
@@ -104,13 +104,17 @@ export class WindowsEventLogFFI {
     }
 
     try {
-      // Prepare message string
-      const messageBuffer = this.encoder.encode(message + "\0");
-      const messagePtr = Deno.UnsafePointer.of(messageBuffer);
-      const messagePtrValue = messagePtr
-        ? Deno.UnsafePointer.value(messagePtr)
-        : 0n;
-      const stringsArray = new BigUint64Array([messagePtrValue]);
+      const unsafePointersToStrings: bigint[] = [];
+      for (let i = 0; i < messages.length; i++) {
+        // Prepare message string
+        const messageBuffer = this.encoder.encode(messages[i] + "\0");
+        const messagePtr = Deno.UnsafePointer.of(messageBuffer);
+        const messagePtrValue = messagePtr
+          ? Deno.UnsafePointer.value(messagePtr)
+          : 0n;
+        unsafePointersToStrings.push(messagePtrValue);
+      }
+      const stringsArray = new BigUint64Array(unsafePointersToStrings);
       const stringsPtr = Deno.UnsafePointer.of(stringsArray);
 
       // Call ReportEventA
@@ -120,7 +124,7 @@ export class WindowsEventLogFFI {
         0, // wCategory (0 = no category)
         eventId, // dwEventID
         null, // lpUserSid (null = current user)
-        1, // wNumStrings (1 string)
+        stringsArray.length, // wNumStrings
         0, // dwDataSize (no additional data)
         stringsPtr, // lpStrings
         null, // lpRawData (no additional data)

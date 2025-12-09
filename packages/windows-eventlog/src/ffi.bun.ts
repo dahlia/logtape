@@ -79,20 +79,22 @@ export class WindowsEventLogFFI {
   /**
    * Write an event to Windows Event Log
    */
-  writeEvent(eventType: EventType, eventId: number, message: string): void {
+  writeEvent(eventType: EventType, eventId: number, messages: string[]): void {
     if (!this.initialized || !this.eventSource || !this.lib) {
       return;
     }
 
     try {
+      // Create pointer array for strings
+      const ptrArray = new BigUint64Array(messages.length + 1);
+
       // Use string array approach which works with Bun FFI
       const encoder = new TextEncoder();
-      const messageBuffer = encoder.encode(message + "\0");
-
-      // Create pointer array for strings
-      const ptrArray = new BigUint64Array(2);
-      ptrArray[0] = BigInt(ptr(messageBuffer));
-      ptrArray[1] = 0n; // null terminator
+      for (let i = 0; i < messages.length; i++) {
+        const messageBuffer = encoder.encode(messages[i] + "\0");
+        ptrArray[i] = BigInt(ptr(messageBuffer));
+      }
+      ptrArray[messages.length] = 0n; // null terminator
 
       const success = this.lib.symbols.ReportEventA(
         this.eventSource,
@@ -100,7 +102,7 @@ export class WindowsEventLogFFI {
         0, // category
         eventId,
         null, // user SID (null)
-        1, // number of strings
+        messages.length, // number of strings
         0, // data size
         ptrArray, // pointer to array of string pointers
         null, // raw data (null)

@@ -78,18 +78,15 @@ export class WindowsEventLogFFI {
   /**
    * Write an event to Windows Event Log
    */
-  writeEvent(eventType: EventType, eventId: number, message: string): void {
+  writeEvent(eventType: EventType, eventId: number, messages: string[]): void {
     if (!this.initialized || !this.eventSource || !this.ReportEventA) {
       return;
     }
 
     try {
-      // Create null-terminated string
-      const messageWithNull = message + "\0";
-
-      // Create an array with a single string pointer
+      // Create null-terminated strings
       // In koffi, we pass an array of strings for char**
-      const messages = [messageWithNull];
+      const nullTerminatedMessages = messages.map((s) => s + "\0");
 
       // Report the event using strings array approach
       const success =
@@ -99,9 +96,9 @@ export class WindowsEventLogFFI {
           0, // category
           eventId,
           0, // user SID (null)
-          1, // number of strings (1 - we have one message)
+          nullTerminatedMessages.length, // number of strings
           0, // data size (0 - not using raw data)
-          messages, // strings array with our message
+          nullTerminatedMessages, // strings array with our message
           null, // raw data (null - not using)
         );
 
