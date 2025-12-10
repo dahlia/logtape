@@ -93,6 +93,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
 | [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
 | [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
+| [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration      |
 | [*@logtape/file*](/packages/file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
 | [*@logtape/otel*](/packages/otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
 | [*@logtape/pretty*](/packages/pretty/)                     | [JSR][jsr:@logtape/pretty]           | [npm][npm:@logtape/pretty]           | Beautiful text formatter   |
@@ -102,6 +103,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink     |
 
 [AWS CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/
+[Fastify]: https://fastify.dev/
 [OpenTelemetry]: https://opentelemetry.io/
 [Pino]: https://github.com/pinojs/pino
 [Sentry]: https://sentry.io/
@@ -114,6 +116,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/adaptor-winston]: https://www.npmjs.com/package/@logtape/adaptor-winston
 [jsr:@logtape/cloudwatch-logs]: https://jsr.io/@logtape/cloudwatch-logs
 [npm:@logtape/cloudwatch-logs]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
+[jsr:@logtape/fastify]: https://jsr.io/@logtape/fastify
+[npm:@logtape/fastify]: https://www.npmjs.com/package/@logtape/fastify
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
 [npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
 [jsr:@logtape/otel]: https://jsr.io/@logtape/otel
