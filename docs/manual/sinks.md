@@ -1003,6 +1003,41 @@ This will use the default OpenTelemetry configuration, which is to send logs to
 the OpenTelemetry collector running on `localhost:4317` or respects the `OTEL_*`
 environment variables.
 
+### Protocol selection
+
+*This API is available since LogTape 1.4.0.*
+
+The OpenTelemetry sink supports three OTLP protocols for exporting logs:
+
+`http/json`
+:   HTTP with JSON encoding (default). Works in all environments including
+    browsers.
+
+`http/protobuf`
+:   HTTP with Protocol Buffers encoding. More efficient than JSON but requires
+    the protobuf library.
+
+`grpc`
+:   gRPC protocol. Most efficient for high-volume logging but only works in
+    Node.js, Deno, and Bun (not in browsers).
+
+The protocol is automatically selected based on the following environment
+variables (in order of precedence):
+
+ 1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` — Protocol specifically for logs
+ 2. `OTEL_EXPORTER_OTLP_PROTOCOL` — Protocol for all OTLP exporters
+
+If neither environment variable is set, the default protocol is `http/json`
+for backward compatibility.
+
+> [!NOTE]
+> The gRPC protocol requires Node.js, Deno, or Bun runtime.  It does not work
+> in browser environments.  When using gRPC, the relevant exporter module is
+> dynamically imported only when needed, so browser bundles won't include
+> the gRPC code if you're not using it.
+
+### Custom configuration
+
 If you want to customize the OpenTelemetry configuration, you can specify
 options to the `getOpenTelemetrySink()` function:
 
@@ -1026,7 +1061,11 @@ await configure({
 });
 ~~~~
 
-Or you can even pass an existing OpenTelemetry [`LoggerProvider`] instance:
+### Using an existing LoggerProvider
+
+For maximum control, you can pass an existing OpenTelemetry [`LoggerProvider`]
+instance.  This is the recommended approach for production applications where
+you want full control over the OpenTelemetry configuration:
 
 ~~~~ typescript twoslash
 import { configure } from "@logtape/logtape";
@@ -1056,6 +1095,12 @@ await configure({
   ],
 });
 ~~~~
+
+> [!TIP]
+> When providing your own `loggerProvider`, you have full control over the
+> exporter protocol and configuration.  This approach is recommended when you
+> need to integrate with an existing OpenTelemetry setup or require advanced
+> configuration options.
 
 For more information, see the documentation of the `getOpenTelemetrySink()`
 function and `OpenTelemetrySinkOptions` type.

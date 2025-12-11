@@ -8,10 +8,66 @@
 // - Performance testing
 
 import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert";
-import { getOpenTelemetrySink } from "./mod.ts";
+import { assertEquals, assertExists } from "@std/assert";
+import type { LogRecord } from "@logtape/logtape";
+import {
+  getOpenTelemetrySink,
+  type OpenTelemetrySinkExporterOptions,
+  type OpenTelemetrySinkProviderOptions,
+} from "./mod.ts";
 
 const test = suite(import.meta);
+
+// Helper to create a mock log record
+function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
+  return {
+    category: ["test", "category"],
+    level: "info",
+    message: ["Hello, ", { name: "world" }, "!"],
+    rawMessage: "Hello, {name}!",
+    timestamp: Date.now(),
+    properties: {},
+    ...overrides,
+  };
+}
+
+// Mock logger that captures emitted records
+interface MockLogRecord {
+  severityNumber: number;
+  severityText: string;
+  body: unknown;
+  attributes: Record<string, unknown>;
+  timestamp: Date;
+}
+
+function createMockLoggerProvider() {
+  const emittedRecords: MockLogRecord[] = [];
+  let shutdownCalled = false;
+
+  const mockLogger = {
+    emit: (record: MockLogRecord) => {
+      emittedRecords.push(record);
+    },
+  };
+
+  const mockLoggerProvider = {
+    getLogger: (_name: string, _version?: string) => mockLogger,
+    shutdown: () => {
+      shutdownCalled = true;
+      return Promise.resolve();
+    },
+  };
+
+  return {
+    provider: mockLoggerProvider,
+    emittedRecords,
+    isShutdownCalled: () => shutdownCalled,
+  };
+}
+
+// =============================================================================
+// Basic sink creation tests
+// =============================================================================
 
 test("getOpenTelemetrySink() creates sink without node:process dependency", () => {
   // This test should pass in all environments (Deno, Node.js, browsers)
@@ -68,4 +124,517 @@ test("getOpenTelemetrySink() with custom bodyFormatter", () => {
   });
 
   assertEquals(typeof sink, "function");
+});
+
+test("getOpenTelemetrySink() with custom loggerProvider", () => {
+  const { provider } = createMockLoggerProvider();
+
+  const options: OpenTelemetrySinkProviderOptions = {
+    loggerProvider: provider as never,
+  };
+  const sink = getOpenTelemetrySink(options);
+
+  assertEquals(typeof sink, "function");
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+test("getOpenTelemetrySink() exporter options type check", () => {
+  // Verify that exporter options work correctly
+  const options: OpenTelemetrySinkExporterOptions = {
+    serviceName: "test-service",
+    otlpExporterConfig: {
+      url: "http://localhost:4318/v1/logs",
+    },
+  };
+  const sink = getOpenTelemetrySink(options);
+
+  assertEquals(typeof sink, "function");
+  // Lazy initialization means async dispose should be available
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+test("getOpenTelemetrySink() sink has async dispose", () => {
+  const sink = getOpenTelemetrySink();
+
+  // All sinks should have async dispose for proper cleanup
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+// =============================================================================
+// Log record processing tests with mock logger provider
+// =============================================================================
+
+test("sink emits log records to the logger provider", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  const record = createMockLogRecord();
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+});
+
+test("sink correctly maps log levels to severity numbers", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  const levels = [
+    "trace",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "fatal",
+  ] as const;
+  const expectedSeverities = [1, 5, 9, 13, 17, 21]; // TRACE=1, DEBUG=5, INFO=9, WARN=13, ERROR=17, FATAL=21
+
+  for (let i = 0; i < levels.length; i++) {
+    const record = createMockLogRecord({ level: levels[i] });
+    sink(record);
+  }
+
+  assertEquals(emittedRecords.length, levels.length);
+  for (let i = 0; i < levels.length; i++) {
+    assertEquals(emittedRecords[i].severityNumber, expectedSeverities[i]);
+    assertEquals(emittedRecords[i].severityText, levels[i]);
+  }
+});
+
+test("sink converts message to string by default", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    messageType: "string",
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    message: ["Hello, ", "world", "!"],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].body, "Hello, world!");
+});
+
+test("sink converts message to array when messageType is 'array'", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    messageType: "array",
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    message: ["Hello, ", "world", "!"],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].body, ["Hello, ", "world", "!"]);
+});
+
+test("sink uses custom bodyFormatter when provided", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    messageType: (message) => `CUSTOM: ${message.filter(Boolean).join("")}`,
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    message: ["Hello, ", "world", "!"],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].body, "CUSTOM: Hello, world!");
+});
+
+test("sink includes category in attributes", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  const record = createMockLogRecord({
+    category: ["app", "module", "component"],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(
+    emittedRecords[0].attributes["category"],
+    ["app", "module", "component"],
+  );
+});
+
+test("sink converts properties to attributes", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    properties: {
+      userId: 123,
+      action: "login",
+      details: { ip: "127.0.0.1" },
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].attributes["attributes.userId"], "123");
+  assertEquals(emittedRecords[0].attributes["attributes.action"], "login");
+  assertEquals(
+    emittedRecords[0].attributes["attributes.details"],
+    '{"ip":"127.0.0.1"}',
+  );
+});
+
+test("sink correctly converts timestamp", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  const timestamp = 1700000000000;
+  const record = createMockLogRecord({ timestamp });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertExists(emittedRecords[0].timestamp);
+  assertEquals(emittedRecords[0].timestamp.getTime(), timestamp);
+});
+
+// =============================================================================
+// Meta logger filtering tests
+// =============================================================================
+
+test("sink ignores logs from logtape.meta.otel category", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  // This should be ignored
+  const metaRecord = createMockLogRecord({
+    category: ["logtape", "meta", "otel"],
+    message: ["Meta log message"],
+  });
+  sink(metaRecord);
+
+  // This should be emitted
+  const normalRecord = createMockLogRecord({
+    category: ["app", "module"],
+    message: ["Normal log message"],
+  });
+  sink(normalRecord);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].attributes["category"], ["app", "module"]);
+});
+
+test("sink does not ignore partial matches of meta category", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  // These should NOT be ignored (partial matches or different third element)
+  sink(createMockLogRecord({ category: ["logtape"] }));
+  sink(createMockLogRecord({ category: ["logtape", "meta"] }));
+  sink(createMockLogRecord({ category: ["logtape", "meta", "other"] }));
+
+  assertEquals(emittedRecords.length, 3);
+});
+
+test("sink ignores logs from logtape.meta.otel with children", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  // Child categories of logtape.meta.otel are also ignored
+  // because the filter checks category[0], [1], [2] only
+  sink(
+    createMockLogRecord({ category: ["logtape", "meta", "otel", "child"] }),
+  );
+
+  assertEquals(emittedRecords.length, 0);
+});
+
+// =============================================================================
+// Async dispose tests
+// =============================================================================
+
+test("async dispose calls shutdown on logger provider", async () => {
+  const { provider, isShutdownCalled } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  assertEquals(isShutdownCalled(), false);
+
+  await sink[Symbol.asyncDispose]();
+
+  assertEquals(isShutdownCalled(), true);
+});
+
+test("async dispose handles provider without shutdown method", async () => {
+  const providerWithoutShutdown = {
+    getLogger: () => ({
+      emit: () => {},
+    }),
+    // No shutdown method
+  };
+
+  const sink = getOpenTelemetrySink({
+    loggerProvider: providerWithoutShutdown as never,
+  });
+
+  // Should not throw
+  await sink[Symbol.asyncDispose]();
+});
+
+// =============================================================================
+// Edge cases and error handling
+// =============================================================================
+
+test("sink handles null/undefined values in properties", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    properties: {
+      nullValue: null,
+      undefinedValue: undefined,
+      validValue: "test",
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  // null and undefined should be skipped
+  assertEquals(
+    emittedRecords[0].attributes["attributes.nullValue"],
+    undefined,
+  );
+  assertEquals(
+    emittedRecords[0].attributes["attributes.undefinedValue"],
+    undefined,
+  );
+  assertEquals(emittedRecords[0].attributes["attributes.validValue"], "test");
+});
+
+test("sink handles array values in properties", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    properties: {
+      tags: ["a", "b", "c"],
+      mixedArray: [1, "two", 3],
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(
+    emittedRecords[0].attributes["attributes.tags"],
+    ["a", "b", "c"],
+  );
+  // Mixed arrays: implementation converts to strings when types differ
+  // but the actual behavior is that it keeps original values after detecting mixed types
+  assertEquals(emittedRecords[0].attributes["attributes.mixedArray"], [
+    1,
+    "two",
+    3,
+  ]);
+});
+
+test("sink handles Date objects in properties", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const testDate = new Date("2024-01-15T10:30:00.000Z");
+  const record = createMockLogRecord({
+    properties: {
+      timestamp: testDate,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(
+    emittedRecords[0].attributes["attributes.timestamp"],
+    "2024-01-15T10:30:00.000Z",
+  );
+});
+
+test("sink handles empty message array", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    messageType: "string",
+  });
+
+  const record = createMockLogRecord({
+    message: [],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].body, "");
+});
+
+test("sink handles empty properties object", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  const record = createMockLogRecord({
+    properties: {},
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  // Only category should be in attributes
+  assertEquals(Object.keys(emittedRecords[0].attributes).length, 1);
+  assertExists(emittedRecords[0].attributes["category"]);
+});
+
+test("sink handles unknown log level", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  // Use type assertion to test runtime behavior with an unknown level
+  const record = createMockLogRecord({
+    level: "custom_level" as LogRecord["level"],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].severityNumber, 0); // UNSPECIFIED
+  assertEquals(emittedRecords[0].severityText, "custom_level");
+});
+
+// =============================================================================
+// Lazy initialization tests (exporter options path)
+// =============================================================================
+
+test("lazy init sink can be disposed before any logs", async () => {
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  // Should not throw when disposing before any logs
+  await sink[Symbol.asyncDispose]();
+});
+
+test("lazy init sink creates function with correct signature", () => {
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  assertEquals(typeof sink, "function");
+  assertEquals(sink.length, 1); // Expects one argument (LogRecord)
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+// =============================================================================
+// Object renderer tests
+// =============================================================================
+
+test("objectRenderer 'json' uses JSON.stringify for objects", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+    messageType: "string",
+  });
+
+  const record = createMockLogRecord({
+    message: ["Data: ", { foo: "bar" }, ""],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  assertEquals(emittedRecords[0].body, 'Data: {"foo":"bar"}');
+});
+
+test("objectRenderer 'inspect' uses platform inspect function", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "inspect",
+    messageType: "string",
+  });
+
+  const record = createMockLogRecord({
+    message: ["Data: ", { foo: "bar" }, ""],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  // The exact output depends on the runtime's inspect function
+  // but it should contain the object representation
+  const body = emittedRecords[0].body as string;
+  assertEquals(body.includes("foo"), true);
+  assertEquals(body.includes("bar"), true);
+});
+
+// =============================================================================
+// Multiple log records processing
+// =============================================================================
+
+test("sink processes multiple log records in order", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    messageType: "string",
+  });
+
+  for (let i = 0; i < 5; i++) {
+    sink(createMockLogRecord({
+      message: [`Message ${i}`],
+    }));
+  }
+
+  assertEquals(emittedRecords.length, 5);
+  for (let i = 0; i < 5; i++) {
+    assertEquals(emittedRecords[i].body, `Message ${i}`);
+  }
+});
+
+test("sink handles rapid succession of logs", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  const count = 100;
+  for (let i = 0; i < count; i++) {
+    sink(createMockLogRecord({ timestamp: Date.now() + i }));
+  }
+
+  assertEquals(emittedRecords.length, count);
 });

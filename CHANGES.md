@@ -40,6 +40,48 @@ To be released.
 
 [#102]: https://github.com/dahlia/logtape/issues/102
 
+### @logtape/otel
+
+ -  Added support for gRPC and HTTP/Protobuf protocols for OTLP log export.
+    [[#103]]
+
+    -  Added `@opentelemetry/exporter-logs-otlp-grpc` dependency for gRPC
+       protocol support.
+       
+    -  Added `@opentelemetry/exporter-logs-otlp-proto` dependency for
+       HTTP/Protobuf protocol support.
+       
+    -  Protocol is determined by environment variables following the
+       OpenTelemetry specification:
+       
+        1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
+        2. `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
+        3. Default: `"http/json"` (for backward compatibility)
+       
+    -  Added `OtlpProtocol` type for protocol values (`"grpc"`,
+       `"http/protobuf"`, `"http/json"`).
+       
+    -  Uses dynamic imports to maintain browser compatibility when gRPC
+       is not used.
+
+ -  Refactored `OpenTelemetrySinkOptions` to a discriminated union type for
+    better type safety.
+
+    -  Added `OpenTelemetrySinkProviderOptions` interface for providing a custom
+       `LoggerProvider` (recommended for production use).
+    -  Added `OpenTelemetrySinkExporterOptions` interface for automatic exporter
+       creation based on environment variables.
+    -  `loggerProvider` and exporter options (`serviceName`,
+       `otlpExporterConfig`) are now mutually exclusive at the type level.
+
+ -  Changed the exporter initialization to use lazy loading.  The exporter
+    is now created asynchronously when the first log record is emitted,
+    rather than synchronously when `getOpenTelemetrySink()` is called.
+    This allows the main API to remain synchronous while supporting
+    dynamic imports for protocol selection.
+
+[#103]: https://github.com/dahlia/logtape/issues/103
+
 
 Version 1.2.2
 -------------
