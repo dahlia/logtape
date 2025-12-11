@@ -638,3 +638,57 @@ test("sink handles rapid succession of logs", () => {
 
   assertEquals(emittedRecords.length, count);
 });
+
+// =============================================================================
+// NoopLogger fallback tests (when no endpoint is configured)
+// =============================================================================
+
+test("sink with no endpoint config creates valid sink function", () => {
+  // When no endpoint is configured (no env vars, no url in config),
+  // the sink should still work without throwing errors
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+    // No otlpExporterConfig.url and no OTEL_EXPORTER_OTLP_ENDPOINT env var
+  });
+
+  assertEquals(typeof sink, "function");
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+test("sink with no endpoint accepts logs without errors", () => {
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  // Should not throw when logging without an endpoint
+  const record = createMockLogRecord();
+  sink(record);
+  sink(record);
+  sink(record);
+
+  // No assertion needed - we're just verifying it doesn't throw
+});
+
+test("sink with explicit url in config should not use noop", () => {
+  // When a URL is explicitly provided, it should attempt to use a real exporter
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+    otlpExporterConfig: {
+      url: "http://localhost:4318/v1/logs",
+    },
+  });
+
+  assertEquals(typeof sink, "function");
+});
+
+test("sink with no endpoint can be disposed cleanly", async () => {
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  // Log something to trigger lazy initialization
+  sink(createMockLogRecord());
+
+  // Should not throw when disposing
+  await sink[Symbol.asyncDispose]();
+});

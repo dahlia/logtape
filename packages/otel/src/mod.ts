@@ -10,6 +10,7 @@ import {
   type Logger as OTLogger,
   type LoggerProvider as LoggerProviderBase,
   type LogRecord as OTLogRecord,
+  NOOP_LOGGER,
   SeverityNumber,
 } from "@opentelemetry/api-logs";
 import type { OTLPExporterNodeConfigBase } from "@opentelemetry/otlp-exporter-base";
@@ -56,6 +57,37 @@ function getEnvironmentVariable(name: string): string | undefined {
 
   // Browser/other environments - no environment variables available
   return undefined;
+}
+
+/**
+ * Checks if an OTLP endpoint is configured via environment variables or options.
+ * Checks the following environment variables:
+ * - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` (logs-specific endpoint)
+ * - `OTEL_EXPORTER_OTLP_ENDPOINT` (general OTLP endpoint)
+ *
+ * @param config Optional exporter configuration that may contain a URL.
+ * @returns `true` if an endpoint is configured, `false` otherwise.
+ */
+function hasOtlpEndpoint(config?: OTLPExporterNodeConfigBase): boolean {
+  // Check if URL is provided in config
+  if (config?.url) {
+    return true;
+  }
+
+  // Check environment variables
+  const logsEndpoint = getEnvironmentVariable(
+    "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+  );
+  if (logsEndpoint) {
+    return true;
+  }
+
+  const endpoint = getEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+  if (endpoint) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -278,14 +310,32 @@ export type OpenTelemetrySinkOptions =
   | OpenTelemetrySinkExporterOptions;
 
 /**
+ * A no-op logger provider that returns NOOP_LOGGER for all requests.
+ * Used when no OTLP endpoint is configured to avoid repeated connection errors.
+ */
+const noopLoggerProvider: ILoggerProvider = {
+  getLogger: () => NOOP_LOGGER,
+};
+
+/**
  * Initializes the logger provider asynchronously.
  * This is used when the user doesn't provide a custom logger provider.
+ *
+ * If no OTLP endpoint is configured (via options or environment variables),
+ * returns a noop logger provider to avoid repeated connection errors.
+ *
  * @param options The exporter options.
  * @returns A promise that resolves to the initialized logger provider.
  */
 async function initializeLoggerProvider(
   options: OpenTelemetrySinkExporterOptions,
 ): Promise<ILoggerProvider> {
+  // If no endpoint is configured, use noop logger provider to avoid
+  // repeated transport errors
+  if (!hasOtlpEndpoint(options.otlpExporterConfig)) {
+    return noopLoggerProvider;
+  }
+
   const resource = defaultResource().merge(
     resourceFromAttributes({
       [ATTR_SERVICE_NAME]: options.serviceName ??

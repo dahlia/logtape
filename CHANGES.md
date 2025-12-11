@@ -80,6 +80,12 @@ To be released.
     This allows the main API to remain synchronous while supporting
     dynamic imports for protocol selection.
 
+ -  Added automatic fallback to no-op logger when no OTLP endpoint is
+    configured.  This prevents repeated transport errors when environment
+    variables like `OTEL_EXPORTER_OTLP_ENDPOINT` or
+    `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` are not set and no URL is provided
+    in the exporter configuration.
+
 [#103]: https://github.com/dahlia/logtape/issues/103
 
 
