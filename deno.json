@@ -3,6 +3,7 @@
     "./packages/logtape",
     "./packages/adaptor-pino",
     "./packages/adaptor-winston",
+    "./packages/drizzle-orm",
     "./packages/fastify",
     "./packages/file",
     "./packages/otel",
@@ -121,6 +122,12 @@
       ],
       "command": "deno task -f @logtape/adaptor-winston build"
     },
+    "build:drizzle-orm": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/drizzle-orm build"
+    },
     "build:fastify": {
       "dependencies": [
         "build:logtape"
@@ -140,6 +147,7 @@
         "build:windows-eventlog",
         "build:adaptor-pino",
         "build:adaptor-winston",
+        "build:drizzle-orm",
         "build:fastify"
       ]
     },

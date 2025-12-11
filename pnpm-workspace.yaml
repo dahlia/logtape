@@ -2,6 +2,7 @@ packages:
 - packages/logtape
 - packages/adaptor-pino
 - packages/adaptor-winston
+- packages/drizzle-orm
 - packages/fastify
 - packages/file
 - packages/otel

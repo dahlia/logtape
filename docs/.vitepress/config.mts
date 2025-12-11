@@ -145,6 +145,10 @@ const REFERENCES = {
       text: "@logtape/cloudwatch-logs",
       link: "https://jsr.io/@logtape/cloudwatch-logs/doc",
     },
+    {
+      text: "@logtape/drizzle-orm",
+      link: "https://jsr.io/@logtape/drizzle-orm/doc",
+    },
     { text: "@logtape/fastify", link: "https://jsr.io/@logtape/fastify/doc" },
     { text: "@logtape/file", link: "https://jsr.io/@logtape/file/doc" },
     { text: "@logtape/otel", link: "https://jsr.io/@logtape/otel/doc" },

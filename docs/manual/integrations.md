@@ -1,9 +1,106 @@
-Web framework integrations
-==========================
+Third-party integrations
+========================
 
-This guide shows how to integrate LogTape with popular web frameworks for
-request logging, error handling, and structured logging across different
+This guide shows how to integrate LogTape with popular web frameworks, ORMs,
+and other third-party libraries for unified logging across different
 JavaScript environments.
+
+
+Drizzle ORM
+-----------
+
+[Drizzle ORM] is a lightweight, TypeScript-first ORM that supports PostgreSQL,
+MySQL, and SQLite.  LogTape provides a Drizzle ORM adapter through the
+*@logtape/drizzle-orm* package, allowing you to use LogTape as Drizzle's
+logging backend for database query logging:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/drizzle-orm
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/drizzle-orm
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/drizzle-orm
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/drizzle-orm
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/drizzle-orm
+~~~~
+
+:::
+
+Here's an example of using LogTape with Drizzle ORM:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { getLogger } from "@logtape/drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["drizzle-orm"], sinks: ["console"], lowestLevel: "debug" }
+  ],
+});
+
+const client = postgres(process.env.DATABASE_URL!);
+const db = drizzle(client, {
+  logger: getLogger(),
+});
+
+// Now all database queries will be logged through LogTape
+~~~~
+
+#### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/drizzle-orm";
+// ---cut-before---
+const logger = getLogger({
+  category: ["myapp", "database"],
+});
+~~~~
+
+#### Custom log level
+
+By default, queries are logged at the `debug` level.  You can change this:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/drizzle-orm";
+// ---cut-before---
+const logger = getLogger({
+  level: "info",
+});
+~~~~
+
+#### Structured logging output
+
+The adapter logs queries with structured data that includes:
+
+- `formattedQuery`: The query with parameter placeholders (e.g., `$1`, `$2`)
+  replaced with actual values for easier reading
+- `query`: The original query string with placeholders
+- `params`: The original parameters array
+
+This allows you to:
+
+- Get human-readable output with text formatters
+- Get machine-parseable output with JSON Lines formatter
+- Use full query and params data with OpenTelemetry, Sentry, and other sinks
+
+[Drizzle ORM]: https://orm.drizzle.team/
 
 
 Express
@@ -501,7 +598,7 @@ async function getUsers(): Promise<any[]> {
 
 
 Third-party log integration
-----------------------------
+---------------------------
 
 *This API is available since LogTape 1.1.0.*
 
@@ -544,8 +641,8 @@ logger.emit({
 ~~~~
 
 
-Best practices for web frameworks
----------------------------------
+Best practices
+--------------
 
  1. *Request ID correlation*: Always generate and use request IDs to correlate
     logs across your application:

@@ -23,6 +23,18 @@ To be released.
 
 [#98]: https://github.com/dahlia/logtape/issues/98
 
+### @logtape/drizzle-orm
+
+ -  Added *@logtape/drizzle-orm* package for Drizzle ORM integration.  [[#104]]
+
+    -  Added `getLogger()` function to create a Drizzle ORM-compatible logger.
+    -  Added `DrizzleLoggerOptions` interface for configuration.
+    -  Added `DrizzleLogger` class implementing Drizzle's `Logger` interface.
+    -  Logs queries with structured data: `formattedQuery` (with parameter
+       substitution), `query` (original), and `params` (original array).
+
+[#104]: https://github.com/dahlia/logtape/issues/104
+
 ### @logtape/fastify
 
  -  Added *@logtape/fastify* package for using LogTape as Fastify's logging
@@ -47,20 +59,20 @@ To be released.
 
     -  Added `@opentelemetry/exporter-logs-otlp-grpc` dependency for gRPC
        protocol support.
-       
+
     -  Added `@opentelemetry/exporter-logs-otlp-proto` dependency for
        HTTP/Protobuf protocol support.
-       
+
     -  Protocol is determined by environment variables following the
        OpenTelemetry specification:
-       
+
         1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
         2. `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
         3. Default: `"http/json"` (for backward compatibility)
-       
+
     -  Added `OtlpProtocol` type for protocol values (`"grpc"`,
        `"http/protobuf"`, `"http/json"`).
-       
+
     -  Uses dynamic imports to maintain browser compatibility when gRPC
        is not used.
 

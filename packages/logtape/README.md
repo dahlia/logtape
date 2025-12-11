@@ -93,6 +93,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
 | [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
 | [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
+| [*@logtape/drizzle-orm*](/packages/drizzle-orm/)           | [JSR][jsr:@logtape/drizzle-orm]      | [npm][npm:@logtape/drizzle-orm]      | [Drizzle ORM] integration  |
 | [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration      |
 | [*@logtape/file*](/packages/file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
 | [*@logtape/otel*](/packages/otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
@@ -103,6 +104,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink     |
 
 [AWS CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/
+[Drizzle ORM]: https://orm.drizzle.team/
 [Fastify]: https://fastify.dev/
 [OpenTelemetry]: https://opentelemetry.io/
 [Pino]: https://github.com/pinojs/pino
@@ -116,6 +118,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/adaptor-winston]: https://www.npmjs.com/package/@logtape/adaptor-winston
 [jsr:@logtape/cloudwatch-logs]: https://jsr.io/@logtape/cloudwatch-logs
 [npm:@logtape/cloudwatch-logs]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
+[jsr:@logtape/drizzle-orm]: https://jsr.io/@logtape/drizzle-orm
+[npm:@logtape/drizzle-orm]: https://www.npmjs.com/package/@logtape/drizzle-orm
 [jsr:@logtape/fastify]: https://jsr.io/@logtape/fastify
 [npm:@logtape/fastify]: https://www.npmjs.com/package/@logtape/fastify
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
