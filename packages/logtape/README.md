@@ -96,6 +96,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/drizzle-orm*](/packages/drizzle-orm/)           | [JSR][jsr:@logtape/drizzle-orm]      | [npm][npm:@logtape/drizzle-orm]      | [Drizzle ORM] integration  |
 | [*@logtape/express*](/packages/express/)                   | [JSR][jsr:@logtape/express]          | [npm][npm:@logtape/express]          | [Express] integration      |
 | [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration      |
+| [*@logtape/hono*](/packages/hono/)                         | [JSR][jsr:@logtape/hono]             | [npm][npm:@logtape/hono]             | [Hono] integration         |
 | [*@logtape/file*](/packages/file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
 | [*@logtape/otel*](/packages/otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
 | [*@logtape/pretty*](/packages/pretty/)                     | [JSR][jsr:@logtape/pretty]           | [npm][npm:@logtape/pretty]           | Beautiful text formatter   |
@@ -108,6 +109,7 @@ list of the packages in the LogTape monorepo:
 [Drizzle ORM]: https://orm.drizzle.team/
 [Express]: https://expressjs.com/
 [Fastify]: https://fastify.dev/
+[Hono]: https://hono.dev/
 [OpenTelemetry]: https://opentelemetry.io/
 [Pino]: https://github.com/pinojs/pino
 [Sentry]: https://sentry.io/
@@ -126,6 +128,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/express]: https://www.npmjs.com/package/@logtape/express
 [jsr:@logtape/fastify]: https://jsr.io/@logtape/fastify
 [npm:@logtape/fastify]: https://www.npmjs.com/package/@logtape/fastify
+[jsr:@logtape/hono]: https://jsr.io/@logtape/hono
+[npm:@logtape/hono]: https://www.npmjs.com/package/@logtape/hono
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
 [npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
 [jsr:@logtape/otel]: https://jsr.io/@logtape/otel

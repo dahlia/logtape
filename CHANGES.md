@@ -71,6 +71,28 @@ To be released.
 
 [#102]: https://github.com/dahlia/logtape/issues/102
 
+### @logtape/hono
+
+ -  Added *@logtape/hono* package for Hono HTTP request logging using
+    LogTape as the backend.  [[#107]]
+
+    -  Added `honoLogger()` function to create Hono middleware for
+       request logging.
+    -  Added `HonoLogTapeOptions` interface for configuration.
+    -  Added `HonoContext` interface for context type compatibility.
+    -  Added `RequestLogProperties` interface for structured log properties.
+    -  Added `FormatFunction` type for custom format functions.
+    -  Added `PredefinedFormat` type for Morgan-compatible format names.
+    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+       `tiny`.
+    -  Supports custom format functions returning strings or objects.
+    -  Supports `skip` function to conditionally skip logging.
+    -  Supports `logRequest` option to log on request arrival vs response.
+    -  Cross-runtime compatible: works on Cloudflare Workers, Deno, Bun,
+       and Node.js.
+
+[#107]: https://github.com/dahlia/logtape/issues/107
+
 ### @logtape/otel
 
  -  Added support for gRPC and HTTP/Protobuf protocols for OTLP log export.

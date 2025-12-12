@@ -3,6 +3,7 @@
   "specifiers": {
     "jsr:@alinea/suite@~0.6.3": "0.6.3",
     "jsr:@david/which-runtime@~0.2.1": "0.2.1",
+    "jsr:@hono/hono@4": "4.10.4",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/async@^1.0.13": "1.0.13",
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
@@ -49,6 +50,9 @@
     },
     "@david/which-runtime@0.2.1": {
       "integrity": "2a304e36b1122ebfe384d45de8fe0fb2bfe54a0a5a2a596efbfc81f54a47a62d"
+    },
+    "@hono/hono@4.10.4": {
+      "integrity": "e54d00c4cf994e7ae297d7321793cf940656b9c5e934564c03ffc15499041b9e"
     },
     "@std/assert@1.0.13": {
       "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
@@ -2868,6 +2872,7 @@
     "dependencies": [
       "jsr:@alinea/suite@~0.6.3",
       "jsr:@david/which-runtime@~0.2.1",
+      "jsr:@hono/hono@4",
       "jsr:@std/assert@^1.0.13",
       "jsr:@std/async@^1.0.13",
       "jsr:@std/collections@^1.0.10",

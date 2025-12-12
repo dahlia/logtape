@@ -238,81 +238,125 @@ Hono
 ----
 
 [Hono] is a modern web framework that works across multiple JavaScript runtimes.
-Here's how to integrate LogTape:
+LogTape provides a Hono adapter through the *@logtape/hono* package, allowing you
+to use LogTape as Hono's logging backend with HTTP request logging:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/hono
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/hono
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/hono
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/hono
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/hono
+~~~~
+
+:::
+
+Here's an example of using LogTape with Hono:
 
 ~~~~ typescript twoslash
-import {
-  configure,
-  getConsoleSink,
-  getLogger,
-  withContext,
-} from "@logtape/logtape";
 import { Hono } from "hono";
-import { AsyncLocalStorage } from "node:async_hooks";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { honoLogger } from "@logtape/hono";
 
 await configure({
   sinks: { console: getConsoleSink() },
   loggers: [
     { category: ["hono"], sinks: ["console"], lowestLevel: "info" }
   ],
-  contextLocalStorage: new AsyncLocalStorage(),
 });
 
 const app = new Hono();
-const logger = getLogger(["hono"]);
+app.use(honoLogger());
 
-// Request logging middleware
-app.use("*", async (c, next) => {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-
-  await withContext({
-    requestId,
-    method: c.req.method,
-    url: c.req.url,
-    userAgent: c.req.header("User-Agent"),
-    ipAddress: c.req.header("CF-Connecting-IP") || c.req.header("X-Forwarded-For")
-  }, async () => {
-    logger.info("Request started", {
-      method: c.req.method,
-      url: c.req.url,
-      requestId
-    });
-
-    await next();
-
-    const duration = Date.now() - startTime;
-    logger.info("Request completed", {
-      status: c.res.status,
-      duration,
-      requestId
-    });
-  });
-});
-
-// Error handling middleware
-app.onError((err, c) => {
-  logger.error("Request error", {
-    error: {
-      name: err.name,
-      message: err.message,
-      stack: err.stack
-    },
-    method: c.req.method,
-    url: c.req.url
-  });
-
-  return c.json({ error: "Internal server error" }, 500);
-});
-
-// Routes
-app.get("/", (c) => {
-  return c.json({ message: "Hello from Hono!" });
-});
+app.get("/", (c) => c.json({ hello: "world" }));
 
 // Works in Deno, Node.js, Bun, Cloudflare Workers, etc.
 export default app;
 ~~~~
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  category: ["myapp", "http"],
+});
+~~~~
+
+### Options
+
+The middleware accepts the following options:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  category: ["myapp", "http"],  // Custom category (default: ["hono"])
+  level: "debug",                // Log level (default: "info")
+  format: "dev",                 // Predefined format (default: "combined")
+  skip: (c) => c.req.path === "/health",  // Skip health check endpoint
+  logRequest: false,             // Log after response (default: false)
+});
+~~~~
+
+### Predefined formats
+
+The middleware supports Morgan-compatible predefined formats:
+
+- `"combined"`: Apache Combined Log Format with all properties (default)
+- `"common"`: Apache Common Log Format (without referrer/userAgent)
+- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+- `"short"`: Shorter format with URL
+- `"tiny"`: Minimal output
+
+### Custom format function
+
+You can also provide a custom format function that returns either a string
+or an object with structured properties:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  format: (c, responseTime) => ({
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    duration: responseTime,
+  }),
+});
+~~~~
+
+### Structured logging output
+
+When using the `"combined"` format (default), the middleware logs structured
+data that includes:
+
+- `method`: HTTP request method
+- `url`: Request URL
+- `path`: Request path
+- `status`: HTTP response status code
+- `responseTime`: Response time in milliseconds
+- `contentLength`: Response content-length header value
+- `userAgent`: User-Agent header value
+- `referrer`: Referrer header value
 
 [Hono]: https://hono.dev/
 

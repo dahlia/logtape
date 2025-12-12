@@ -7,6 +7,7 @@
     "./packages/express",
     "./packages/fastify",
     "./packages/file",
+    "./packages/hono",
     "./packages/otel",
     "./packages/pretty",
     "./packages/redaction",
@@ -40,6 +41,7 @@
     "consolemock": "npm:consolemock@^1.1.0",
     "express": "npm:express@^5.2.1",
     "fastify": "npm:fastify@^5.0.0",
+    "hono": "jsr:@hono/hono@^4.0.0",
     "tsdown": "npm:tsdown@^0.12.7"
   },
   "unstable": [
@@ -152,6 +154,12 @@
       ],
       "command": "deno task -f @logtape/fastify build"
     },
+    "build:hono": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/hono build"
+    },
     "build": {
       "dependencies": [
         "build:file",
@@ -167,7 +175,8 @@
         "build:adaptor-winston",
         "build:drizzle-orm",
         "build:express",
-        "build:fastify"
+        "build:fastify",
+        "build:hono"
       ]
     },
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",

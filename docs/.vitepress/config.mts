@@ -99,6 +99,12 @@ const jsrRef_fastify = await jsrRef({
   cachePath: ".jsr-cache-fastify.json",
 });
 
+const jsrRef_hono = await jsrRef({
+  package: "@logtape/hono",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-hono.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -169,6 +175,7 @@ const REFERENCES = {
     },
     { text: "@logtape/express", link: "https://jsr.io/@logtape/express/doc" },
     { text: "@logtape/fastify", link: "https://jsr.io/@logtape/fastify/doc" },
+    { text: "@logtape/hono", link: "https://jsr.io/@logtape/hono/doc" },
     { text: "@logtape/file", link: "https://jsr.io/@logtape/file/doc" },
     { text: "@logtape/otel", link: "https://jsr.io/@logtape/otel/doc" },
     { text: "@logtape/pretty", link: "https://jsr.io/@logtape/pretty/doc" },
@@ -271,6 +278,7 @@ export default defineConfig({
       md.use(jsrRef_drizzle_orm);
       md.use(jsrRef_express);
       md.use(jsrRef_fastify);
+      md.use(jsrRef_hono);
     },
   },
   sitemap: {

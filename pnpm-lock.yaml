@@ -63,6 +63,9 @@ catalogs:
     fastify:
       specifier: ^5.0.0
       version: 5.6.2
+    hono:
+      specifier: ^4.0.0
+      version: 4.8.2
     tsdown:
       specifier: ^0.12.7
       version: 0.12.7
@@ -147,6 +150,9 @@ importers:
       '@logtape/file':
         specifier: 'workspace:'
         version: link:../packages/file
+      '@logtape/hono':
+        specifier: 'workspace:'
+        version: link:../packages/hono
       '@logtape/logtape':
         specifier: 'workspace:'
         version: link:../packages/logtape
@@ -214,7 +220,7 @@ importers:
         specifier: 'catalog:'
         version: 5.6.2
       hono:
-        specifier: ^4.8.2
+        specifier: 'catalog:'
         version: 4.8.2
       markdown-it-deflist:
         specifier: ^3.0.0
@@ -418,6 +424,28 @@ importers:
       '@std/path':
         specifier: 'catalog:'
         version: '@jsr/std__path@1.1.0'
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/hono:
+    dependencies:
+      '@logtape/logtape':
+        specifier: workspace:^
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
+      hono:
+        specifier: 'catalog:'
+        version: 4.8.2
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -7695,7 +7723,7 @@ snapshots:
       '@babel/types': 7.27.6
       ast-kit: 2.1.0
       birpc: 2.3.0
-      debug: 4.4.1
+      debug: 4.4.3
       dts-resolver: 2.1.1
       get-tsconfig: 4.10.1
       rolldown: 1.0.0-beta.11-commit.f051675
@@ -8032,7 +8060,7 @@ snapshots:
       ansis: 4.1.0
       cac: 6.7.14
       chokidar: 4.0.3
-      debug: 4.4.1
+      debug: 4.4.3
       diff: 8.0.2
       empathic: 1.1.0
       hookable: 5.5.3

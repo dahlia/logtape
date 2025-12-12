@@ -6,6 +6,7 @@ packages:
 - packages/express
 - packages/fastify
 - packages/file
+- packages/hono
 - packages/otel
 - packages/pretty
 - packages/redaction
@@ -36,6 +37,7 @@ catalog:
   consolemock: ^1.1.0
   express: ^5.2.1
   fastify: ^5.0.0
+  hono: ^4.0.0
   tsdown: ^0.12.7
   typescript: ^5.8.3
 
