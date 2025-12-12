@@ -35,6 +35,25 @@ To be released.
 
 [#104]: https://github.com/dahlia/logtape/issues/104
 
+### @logtape/express
+
+ -  Added *@logtape/express* package for Express.js HTTP request logging using
+    LogTape as the backend.  [[#105]]
+
+    -  Added `expressLogger()` function to create Express middleware for
+       request logging.
+    -  Added `ExpressLogTapeOptions` interface for configuration.
+    -  Added `RequestLogProperties` interface for structured log properties.
+    -  Added `FormatFunction` type for custom format functions.
+    -  Added `PredefinedFormat` type for Morgan-compatible format names.
+    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+       `tiny`.
+    -  Supports custom format functions returning strings or objects.
+    -  Supports `skip` function to conditionally skip logging.
+    -  Supports `immediate` option to log on request arrival vs response.
+
+[#105]: https://github.com/dahlia/logtape/issues/105
+
 ### @logtape/fastify
 
  -  Added *@logtape/fastify* package for using LogTape as Fastify's logging

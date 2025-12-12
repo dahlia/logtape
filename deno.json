@@ -4,6 +4,7 @@
     "./packages/adaptor-pino",
     "./packages/adaptor-winston",
     "./packages/drizzle-orm",
+    "./packages/express",
     "./packages/fastify",
     "./packages/file",
     "./packages/otel",
@@ -26,7 +27,9 @@
     "@std/path": "jsr:@std/path@^1.1.0",
     "@std/semver": "jsr:@std/semver@^1.0.5",
     "@std/testing": "jsr:@std/testing@^0.222.1",
+    "@types/express": "npm:@types/express@^5.0.6",
     "consolemock": "npm:consolemock@^1.1.0",
+    "express": "npm:express@^5.2.1",
     "fastify": "npm:fastify@^5.0.0",
     "tsdown": "npm:tsdown@^0.12.7"
   },
@@ -128,6 +131,12 @@
       ],
       "command": "deno task -f @logtape/drizzle-orm build"
     },
+    "build:express": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/express build"
+    },
     "build:fastify": {
       "dependencies": [
         "build:logtape"
@@ -148,6 +157,7 @@
         "build:adaptor-pino",
         "build:adaptor-winston",
         "build:drizzle-orm",
+        "build:express",
         "build:fastify"
       ]
     },

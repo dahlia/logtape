@@ -106,101 +106,132 @@ This allows you to:
 Express
 -------
 
-[Express] is the most popular Node.js web framework. Here's how to add
-comprehensive logging:
+[Express] is the most popular Node.js web framework.  LogTape provides
+an Express middleware adapter through the *@logtape/express* package,
+which provides HTTP request logging using LogTape as the backend,
+as an alternative to [Morgan]:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/express
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/express
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/express
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/express
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/express
+~~~~
+
+:::
+
+Here's an example of using LogTape with Express:
 
 ~~~~ typescript twoslash
-import {
-  configure,
-  getConsoleSink,
-  getLogger,
-  withContext,
-} from "@logtape/logtape";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { expressLogger } from "@logtape/express";
 import express from "express";
-import type { Request, Response, NextFunction } from "express";
-import { AsyncLocalStorage } from "node:async_hooks";
 
-// Configure LogTape for Express
 await configure({
-  sinks: {
-    console: getConsoleSink()
-  },
+  sinks: { console: getConsoleSink() },
   loggers: [
-    { category: ["express"], sinks: ["console"], lowestLevel: "info" },
-    { category: ["app"], sinks: ["console"], lowestLevel: "debug" }
+    { category: ["express"], sinks: ["console"], lowestLevel: "info" }
   ],
-  contextLocalStorage: new AsyncLocalStorage(),
 });
 
 const app = express();
-const logger = getLogger(["express"]);
+app.use(expressLogger());
 
-// Request logging middleware
-app.use((req, res, next) => {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-
-  // Add request context to all subsequent logs
-  withContext({
-    requestId,
-    method: req.method,
-    url: req.url,
-    userAgent: req.get("User-Agent"),
-    ipAddress: req.ip
-  }, () => {
-    logger.info("Request started", {
-      method: req.method,
-      url: req.url,
-      requestId
-    });
-
-    // Override res.end to log response
-    const originalEnd = res.end;
-    res.end = function(...args: any[]) {
-      const duration = Date.now() - startTime;
-      logger.info("Request completed", {
-        statusCode: res.statusCode,
-        duration,
-        requestId
-      });
-
-      // @ts-ignore
-      return originalEnd.apply(this, args);
-    };
-
-    next();
-  });
-});
-
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error("Request error", {
-    error: {
-      name: err.name,
-      message: err.message,
-      stack: err.stack
-    },
-    method: req.method,
-    url: req.url,
-    statusCode: res.statusCode || 500
-  });
-
-  res.status(500).json({ error: "Internal server error" });
-});
-
-// Application routes
 app.get("/", (req, res) => {
-  const appLogger = getLogger(["app"]);
-  appLogger.info("Home page accessed");
-  res.json({ message: "Hello World" });
+  res.json({ hello: "world" });
 });
 
-app.listen(3000, () => {
-  logger.info("Server started", { port: 3000 });
+app.listen(3000);
+~~~~
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  category: ["myapp", "http"],
 });
 ~~~~
 
+### Options
+
+The middleware accepts the following options:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  category: ["myapp", "http"],  // Custom category (default: ["express"])
+  level: "debug",                // Log level (default: "info")
+  format: "dev",                 // Predefined format (default: "combined")
+  skip: (req, res) => res.statusCode < 400,  // Skip successful requests
+  immediate: false,              // Log after response (default: false)
+});
+~~~~
+
+### Predefined formats
+
+The middleware supports Morgan-compatible predefined formats:
+
+- `"combined"`: Apache Combined Log Format with all properties (default)
+- `"common"`: Apache Common Log Format (without referrer/userAgent)
+- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+- `"short"`: Shorter format with remote address
+- `"tiny"`: Minimal output
+
+### Custom format function
+
+You can also provide a custom format function that returns either a string
+or an object with structured properties:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  format: (req, res, responseTime) => ({
+    method: req.method,
+    path: req.path,
+    status: res.statusCode,
+    duration: responseTime,
+  }),
+});
+~~~~
+
+### Structured logging output
+
+When using the `"combined"` format (default), the middleware logs structured
+data that includes:
+
+- `method`: HTTP request method
+- `url`: Request URL
+- `status`: HTTP response status code
+- `responseTime`: Response time in milliseconds
+- `contentLength`: Response content-length header value
+- `remoteAddr`: Remote client address
+- `userAgent`: User-Agent header value
+- `referrer`: Referrer header value
+- `httpVersion`: HTTP version (e.g., `"1.1"`)
+
 [Express]: https://expressjs.com/
+[Morgan]: https://github.com/expressjs/morgan
 
 
 Hono
