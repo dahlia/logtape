@@ -81,6 +81,24 @@ const jsrRef_adaptor_winston = await jsrRef({
   cachePath: ".jsr-cache-adaptor-winston.json",
 });
 
+const jsrRef_drizzle_orm = await jsrRef({
+  package: "@logtape/drizzle-orm",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-drizzle-orm.json",
+});
+
+const jsrRef_express = await jsrRef({
+  package: "@logtape/express",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-express.json",
+});
+
+const jsrRef_fastify = await jsrRef({
+  package: "@logtape/fastify",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-fastify.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -250,6 +268,9 @@ export default defineConfig({
       md.use(jsrRef_windows_eventlog);
       md.use(jsrRef_adaptor_pino);
       md.use(jsrRef_adaptor_winston);
+      md.use(jsrRef_drizzle_orm);
+      md.use(jsrRef_express);
+      md.use(jsrRef_fastify);
     },
   },
   sitemap: {
