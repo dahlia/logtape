@@ -7,7 +7,7 @@ a list of strings.  For example, `["my-app", "my-module"]` is a category.
 When you log a message, it is dispatched to all loggers whose categories are
 prefixes of the category of the logger.  For example, if you log a message
 with the category `["my-app", "my-module", "my-submodule"]`, it is dispatched
-to loggers whose categories are `["my-app", "my-module"]` and `["my-app"]`.
+to loggers whose categories are `["my-app"]` and `["my-app", "my-module"]`.
 
 This behavior allows you to control the verbosity of log messages by setting
 the `~LoggerConfig.lowestLevel` of loggers at different levels of the category
