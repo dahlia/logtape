@@ -14,6 +14,7 @@ import {
   SeverityNumber,
 } from "@opentelemetry/api-logs";
 import type { OTLPExporterNodeConfigBase } from "@opentelemetry/otlp-exporter-base";
+import type { Resource } from "@opentelemetry/resources";
 import {
   defaultResource,
   resourceFromAttributes,
@@ -270,6 +271,11 @@ export interface OpenTelemetrySinkExporterOptions
    * taken from the `OTEL_SERVICE_NAME` environment variable.
    */
   serviceName?: string;
+
+  /**
+   * An additional resource to merge with the default resource.
+   */
+  additionalResource?: Resource;
 }
 
 /**
@@ -340,7 +346,8 @@ async function initializeLoggerProvider(
     resourceFromAttributes({
       [ATTR_SERVICE_NAME]: options.serviceName ??
         getEnvironmentVariable("OTEL_SERVICE_NAME"),
-    }),
+    })
+      .merge(options.additionalResource ?? null),
   );
   const otlpExporter = await createOtlpExporter(options.otlpExporterConfig);
   const loggerProvider = new LoggerProvider({
