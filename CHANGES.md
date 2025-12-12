@@ -95,6 +95,26 @@ To be released.
     -  Uses dynamic imports to maintain browser compatibility when gRPC
        is not used.
 
+ -  Added `OpenTelemetrySinkExporterOptions.additionalResource` option to
+    merge custom resource attributes with the default resource.
+    [[#108] by Nils Bergmann]
+
+    This allows adding attributes like `ATTR_DEPLOYMENT_ENVIRONMENT_NAME`
+    without providing a custom `loggerProvider`:
+
+    ~~~~ typescript
+    import { getOpenTelemetrySink } from "@logtape/otel";
+    import { resourceFromAttributes } from "@opentelemetry/resources";
+    import { SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
+
+    getOpenTelemetrySink({
+      serviceName: "my-service",
+      additionalResource: resourceFromAttributes({
+        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: "production",
+      }),
+    });
+    ~~~~
+
  -  Refactored `OpenTelemetrySinkOptions` to a discriminated union type for
     better type safety.
 
@@ -118,6 +138,7 @@ To be released.
     in the exporter configuration.
 
 [#103]: https://github.com/dahlia/logtape/issues/103
+[#108]: https://github.com/dahlia/logtape/pull/108
 
 
 Version 1.2.2

@@ -2876,6 +2876,15 @@
       "jsr:@std/path@^1.1.0",
       "jsr:@std/semver@^1.0.5",
       "jsr:@std/testing@~0.222.1",
+      "npm:@opentelemetry/api-logs@0.208",
+      "npm:@opentelemetry/api@^1.9.0",
+      "npm:@opentelemetry/exporter-logs-otlp-grpc@0.208",
+      "npm:@opentelemetry/exporter-logs-otlp-http@0.208",
+      "npm:@opentelemetry/exporter-logs-otlp-proto@0.208",
+      "npm:@opentelemetry/otlp-exporter-base@0.208",
+      "npm:@opentelemetry/resources@^2.2.0",
+      "npm:@opentelemetry/sdk-logs@0.208",
+      "npm:@opentelemetry/semantic-conventions@^1.38.0",
       "npm:@types/express@^5.0.6",
       "npm:consolemock@^1.1.0",
       "npm:express@^5.2.1",
@@ -2945,32 +2954,6 @@
             "npm:@aws-sdk/client-cloudwatch-logs@3",
             "npm:@dotenvx/dotenvx@^1.44.2",
             "npm:aws-sdk-client-mock@4"
-          ]
-        }
-      },
-      "packages/otel": {
-        "dependencies": [
-          "npm:@opentelemetry/api-logs@0.208",
-          "npm:@opentelemetry/api@^1.9.0",
-          "npm:@opentelemetry/exporter-logs-otlp-grpc@0.208",
-          "npm:@opentelemetry/exporter-logs-otlp-http@0.208",
-          "npm:@opentelemetry/exporter-logs-otlp-proto@0.208",
-          "npm:@opentelemetry/otlp-exporter-base@0.208",
-          "npm:@opentelemetry/resources@^2.2.0",
-          "npm:@opentelemetry/sdk-logs@0.208",
-          "npm:@opentelemetry/semantic-conventions@^1.38.0"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:@opentelemetry/api-logs@0.208",
-            "npm:@opentelemetry/api@^1.9.0",
-            "npm:@opentelemetry/exporter-logs-otlp-grpc@0.208",
-            "npm:@opentelemetry/exporter-logs-otlp-http@0.208",
-            "npm:@opentelemetry/exporter-logs-otlp-proto@0.208",
-            "npm:@opentelemetry/otlp-exporter-base@0.208",
-            "npm:@opentelemetry/resources@^2.2.0",
-            "npm:@opentelemetry/sdk-logs@0.208",
-            "npm:@opentelemetry/semantic-conventions@^1.38.0"
           ]
         }
       },

@@ -274,6 +274,7 @@ export interface OpenTelemetrySinkExporterOptions
 
   /**
    * An additional resource to merge with the default resource.
+   * @since 1.3.0
    */
   additionalResource?: Resource;
 }

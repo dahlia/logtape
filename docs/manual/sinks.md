@@ -1061,6 +1061,40 @@ await configure({
 });
 ~~~~
 
+### Additional resource attributes
+
+*This API is available since LogTape 1.3.0.*
+
+You can add custom resource attributes (like deployment environment) without
+providing a full custom `loggerProvider` by using the `additionalResource`
+option:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getOpenTelemetrySink } from "@logtape/otel";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
+} from "@opentelemetry/semantic-conventions";
+
+await configure({
+  sinks: {
+    otel: getOpenTelemetrySink({
+      serviceName: "my-service",
+      additionalResource: resourceFromAttributes({
+        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: "production",
+      }),
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+The `additionalResource` is merged with the default resource that includes the
+service name and auto-detected attributes.
+
 ### Using an existing LoggerProvider
 
 For maximum control, you can pass an existing OpenTelemetry [`LoggerProvider`]
