@@ -45,15 +45,15 @@
     "@logtape/logtape": "workspace:^"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.208.0",
-    "@opentelemetry/exporter-logs-otlp-grpc": "^0.208.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.208.0",
-    "@opentelemetry/exporter-logs-otlp-proto": "^0.208.0",
-    "@opentelemetry/otlp-exporter-base": "^0.208.0",
-    "@opentelemetry/resources": "^2.2.0",
-    "@opentelemetry/sdk-logs": "^0.208.0",
-    "@opentelemetry/semantic-conventions": "^1.38.0"
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/api-logs": "catalog:",
+    "@opentelemetry/exporter-logs-otlp-grpc": "catalog:",
+    "@opentelemetry/exporter-logs-otlp-http": "catalog:",
+    "@opentelemetry/exporter-logs-otlp-proto": "catalog:",
+    "@opentelemetry/otlp-exporter-base": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-logs": "catalog:",
+    "@opentelemetry/semantic-conventions": "catalog:"
   },
   "devDependencies": {
     "@alinea/suite": "catalog:",
