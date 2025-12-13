@@ -40,6 +40,10 @@ The highlights of LogTape are:
 
  -  *[Dead simple sinks]*: You can easily add your own sinks to LogTape.
 
+ -  *[Framework integrations]*: First-class support for popular frameworks
+    like [Express], [Fastify], [Hono], [Koa], and [Drizzle ORM] with automatic
+    HTTP request logging and database query logging.
+
 ![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/web-console.png)
 ![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
 
@@ -60,6 +64,7 @@ The highlights of LogTape are:
 [Template literals]: https://logtape.org/manual/start#how-to-log
 [Built-in data redaction]: https://logtape.org/manual/redaction
 [Dead simple sinks]: https://logtape.org/manual/sinks
+[Framework integrations]: https://logtape.org/manual/integrations
 
 
 Installation
