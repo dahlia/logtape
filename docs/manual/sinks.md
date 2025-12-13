@@ -1200,7 +1200,7 @@ By default, only `error` and `fatal` level logs are captured as Sentry events.
 
 ### Trace correlation
 
-*This feature is available since LogTape 1.2.0.*
+*This feature is available since LogTape 1.3.0.*
 
 When using Sentry's performance monitoring, logs automatically correlate with
 active traces and spans. This happens with zero configuration:
@@ -1224,7 +1224,7 @@ events.
 
 ### Breadcrumbs
 
-*This feature is available since LogTape 1.2.0.*
+*This feature is available since LogTape 1.3.0.*
 
 You can enable breadcrumbs to create a debugging context trail that shows what
 happened before errors:
@@ -1257,7 +1257,7 @@ the sink.
 
 ### Structured logging
 
-*This feature is available since LogTape 1.2.0 (requires Sentry SDK 9.41.0+).*
+*This feature is available since LogTape 1.3.0 (requires Sentry SDK 9.41.0+).*
 
 Send structured, searchable logs using Sentry's Logs API:
 
@@ -1285,7 +1285,7 @@ are sent as events and breadcrumbs only.
 
 ### Filtering and transformation
 
-*This feature is available since LogTape 1.2.0.*
+*This feature is available since LogTape 1.3.0.*
 
 You can use `beforeSend` to filter or transform log records before they are
 sent to Sentry:
@@ -1327,11 +1327,11 @@ Returning `null` from `beforeSend` drops the log record entirely.
 
 ### Event capture
 
-*This feature is available since LogTape 1.2.0.*
+*This feature is available since LogTape 1.3.0.*
 
-Sentry events (Issues) are only created when a log contains an actual `Error`
-instance in its properties. This aligns with how Sentry's official logging
-integrations handle event capture - only actionable exceptions become Issues:
+All `error` and `fatal` level logs create Sentry Issues. If the log contains
+an `Error` instance in its properties, `captureException` is used for better
+stack traces. Otherwise, `captureMessage` is used:
 
 ~~~~ typescript twoslash
 // @noErrors: 2305 2307
@@ -1339,12 +1339,14 @@ import { getLogger } from "@logtape/logtape";
 
 const logger = getLogger(["my-app"]);
 
-// This creates a Sentry Issue (has Error instance)
+// Creates Issue with stack trace (uses captureException)
 logger.error("Database connection failed", { error: new Error("timeout") });
 
-// This does NOT create a Sentry Issue (no Error instance)
-// Instead, it goes to structured logs and/or breadcrumbs
+// Creates Issue without stack trace (uses captureMessage)
 logger.error("User not found: {userId}", { userId: 123 });
+
+// Does NOT create Issue - goes to structured logs and/or breadcrumbs only
+logger.info("Request received", { path: "/api/users" });
 ~~~~
 
 All logs are sent to Sentry's structured logging (when `enableLogs: true`) and

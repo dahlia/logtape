@@ -27,23 +27,14 @@ test("getSentrySink() creates sink without parameters", () => {
   assertEquals(typeof sink, "function");
 });
 
-test("getSentrySink() with deprecated client shows warning", () => {
-  const warnings: string[] = [];
-  const originalWarn = console.warn;
-  console.warn = (msg: string) => warnings.push(msg);
-
-  try {
-    const mockClient = {
-      captureMessage: () => "id",
-      captureException: () => "id",
-    };
-    const sink = getSentrySink(mockClient);
-    assertEquals(typeof sink, "function");
-    assertEquals(warnings.length, 1);
-    assertStringIncludes(warnings[0], "DEPRECATED");
-  } finally {
-    console.warn = originalWarn;
-  }
+test("getSentrySink() accepts deprecated client parameter", () => {
+  // Deprecated client path still works (logs warning via meta logger)
+  const mockClient = {
+    captureMessage: () => "id",
+    captureException: () => "id",
+  };
+  const sink = getSentrySink(mockClient);
+  assertEquals(typeof sink, "function");
 });
 
 test("getSentrySink() throws on invalid parameter type", () => {

@@ -1,10 +1,10 @@
-import type { LogRecord, Sink } from "@logtape/logtape";
+import { getLogger, type LogLevel, type LogRecord, type Sink } from "@logtape/logtape";
 import type {
   LogSeverityLevel,
   ParameterizedString,
   SeverityLevel,
 } from "@sentry/core";
-// Import namespace to safely check for _INTERNAL_captureLog (added in v9.41.0)
+// Import namespace to safely check for public logger API (added in v9.41.0)
 import * as SentryCore from "@sentry/core";
 import {
   captureException as globalCaptureException,
@@ -69,7 +69,7 @@ const inspect: (value: unknown) => string =
 
 // Level normalization helpers
 
-function mapLevelForEvents(level: LogRecord["level"]): SeverityLevel {
+function mapLevelForEvents(level: LogLevel): SeverityLevel {
   switch (level) {
     case "trace":
       return "debug";
@@ -78,7 +78,7 @@ function mapLevelForEvents(level: LogRecord["level"]): SeverityLevel {
   }
 }
 
-function mapLevelForLogs(level: LogRecord["level"]): LogSeverityLevel {
+function mapLevelForLogs(level: LogLevel): LogSeverityLevel {
   switch (level) {
     case "trace":
       return "debug";
@@ -105,7 +105,7 @@ function mapLevelForLogs(level: LogRecord["level"]): LogSeverityLevel {
  * New code should use `getSentrySink()` without parameters, which automatically
  * uses Sentry's global functions.
  *
- * @since 1.2.0
+ * @since 1.3.0
  */
 export interface SentryInstance {
   captureMessage: (
@@ -117,7 +117,7 @@ export interface SentryInstance {
 
 /**
  * Options for configuring the Sentry sink.
- * @since 1.2.0
+ * @since 1.3.0
  */
 export interface SentrySinkOptions {
   /**
@@ -128,7 +128,7 @@ export interface SentrySinkOptions {
    * lightweight and only appear in error reports for debugging.
    *
    * @default false
-   * @since 1.2.0
+   * @since 1.3.0
    */
   enableBreadcrumbs?: boolean;
 
@@ -136,7 +136,7 @@ export interface SentrySinkOptions {
    * Optional hook to transform or filter records before sending to Sentry.
    * Return `null` to drop the record.
    *
-   * @since 1.2.0
+   * @since 1.3.0
    */
   beforeSend?: (record: LogRecord) => LogRecord | null;
 }
@@ -226,11 +226,9 @@ export function getSentrySink(
     typeof optionsOrClient.captureMessage === "function"
   ) {
     // Pattern: getSentrySink(client) - DEPRECATED (v1.1.x backward compatibility)
-    console.warn(
-      "[@logtape/sentry] DEPRECATED: Passing a client directly is deprecated and will be removed in v2.0.0.\n\n" +
-        "  Current:  getSentrySink(client)\n" +
-        "  Migrate:  getSentrySink()  // Simpler!\n\n" +
-        "The sink will automatically use Sentry's global functions after Sentry.init().",
+    getLogger(["logtape", "meta", "sentry"]).warn(
+      "Passing a client directly is deprecated and will be removed in v2.0.0. " +
+        "Use getSentrySink() instead - simpler and recommended!",
     );
     sentry = optionsOrClient as SentryInstance;
   } else if (typeof optionsOrClient === "object") {
@@ -293,29 +291,43 @@ export function getSentrySink(
       }
 
       // Send structured log if Sentry logging is enabled (v9.41.0+)
+      // Uses public logger API when available (SDK 9.41.0+)
       const client = globalGetClient();
       if (client) {
         const { enableLogs, _experiments } = client.getOptions();
         const loggingEnabled = enableLogs ?? _experiments?.enableLogs;
 
-        if (loggingEnabled && "_INTERNAL_captureLog" in SentryCore) {
+        if (loggingEnabled && "logger" in SentryCore) {
           const logLevel = mapLevelForLogs(transformed.level);
-          SentryCore._INTERNAL_captureLog({
-            level: logLevel,
-            message: paramMessage,
-            attributes,
-          });
+          const sentryLogger = SentryCore.logger as unknown as
+            | Record<string, ((msg: ParameterizedString, attrs: unknown) => void)>
+            | undefined;
+          const logFn = sentryLogger?.[logLevel];
+          if (typeof logFn === "function") {
+            logFn(paramMessage, attributes);
+          }
         }
       }
 
-      // Capture exceptions as events, otherwise add to breadcrumbs if enabled
-      if (transformed.level === "error" && transformed.properties.error instanceof Error) {
+      // Capture as Sentry event (Issue) based on level and error presence
+      const isErrorLevel = transformed.level === "error" ||
+        transformed.level === "fatal";
+
+      if (isErrorLevel && transformed.properties.error instanceof Error) {
+        // Error instance at error/fatal level -> captureException for stack trace
         const { error, ...rest } = attributes;
         captureException(error as Error, {
           level: eventLevel,
           extra: { message, ...rest },
         });
+      } else if (isErrorLevel) {
+        // Error/fatal level without Error instance -> captureMessage as Issue
+        captureMessage(paramMessage, {
+          level: eventLevel,
+          extra: attributes,
+        });
       } else if (options.enableBreadcrumbs) {
+        // Non-error levels -> breadcrumbs only (if enabled)
         const isolationScope = globalGetIsolationScope();
         isolationScope?.addBreadcrumb({
           category: transformed.category.join("."),
