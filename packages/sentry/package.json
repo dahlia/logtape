@@ -41,12 +41,11 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@logtape/logtape": "workspace:^"
-  },
-  "dependencies": {
-    "@sentry/core": "^9.28.1"
+    "@logtape/logtape": "workspace:^",
+    "@sentry/core": ">=8.0.0"
   },
   "devDependencies": {
+    "@sentry/core": "^9.41.0",
     "@std/dotenv": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
