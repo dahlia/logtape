@@ -479,8 +479,10 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
         const connectPromise = Deno.connectTls(tlsConnectOptions);
         if (this.timeout > 0) {
           let timeoutId: number;
+          let timedOut = false;
           const timeoutPromise = new Promise<never>((_, reject) => {
             timeoutId = setTimeout(() => {
+              timedOut = true;
               reject(new Error("TCP connection timeout"));
             }, this.timeout);
           });
@@ -490,6 +492,22 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
               connectPromise,
               timeoutPromise,
             ]);
+          } catch (error) {
+            // If timed out, clean up the connection when it eventually completes
+            if (timedOut) {
+              connectPromise
+                .then((conn) => {
+                  try {
+                    conn.close();
+                  } catch {
+                    // Ignore close errors
+                  }
+                })
+                .catch(() => {
+                  // Ignore connection errors
+                });
+            }
+            throw error;
           } finally {
             clearTimeout(timeoutId!);
           }

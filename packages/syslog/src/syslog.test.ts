@@ -1364,7 +1364,12 @@ if (typeof Deno !== "undefined") {
     }
   });
 
-  test("DenoTcpSyslogConnection secure connection attempt (TLS)", async () => {
+  test("DenoTcpSyslogConnection secure connection attempt (TLS)", {
+    // Disable sanitizers because TLS connection cleanup on Windows can take
+    // longer than the test, causing false positive leak detection
+    sanitizeOps: false,
+    sanitizeResources: false,
+  }, async () => {
     // Attempt to connect to a port where no TLS server is listening
     const connection = new DenoTcpSyslogConnection(
       "127.0.0.1",
@@ -1385,7 +1390,12 @@ if (typeof Deno !== "undefined") {
     }
   });
 
-  test("DenoTcpSyslogSink secure connection (TLS) with getSyslogSink", async () => {
+  test("DenoTcpSyslogSink secure connection (TLS) with getSyslogSink", {
+    // Disable sanitizers because TLS connection cleanup on Windows can take
+    // longer than the test, causing false positive leak detection
+    sanitizeOps: false,
+    sanitizeResources: false,
+  }, async () => {
     // This test would require a mock TLS server to properly verify data transmission.
     // For now, we'll verify that the sink attempts a secure connection.
     // Given no mock TLS server, this should reject.
