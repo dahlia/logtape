@@ -182,6 +182,19 @@ To be released.
 [#103]: https://github.com/dahlia/logtape/issues/103
 [#108]: https://github.com/dahlia/logtape/pull/108
 
+### @logtape/syslog
+
+ -  Added `SyslogSinkOptions.secure` option to enable TLS for TCP connections,
+    addressing a vulnerability where logs were sent in plaintext over the
+    network.
+
+ -  Added `SyslogSinkOptions.tlsOptions` option to configure TLS connections.
+
+    -  Added `SyslogTlsOptions` interface for TLS configuration.
+    -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
+       certificate validation (defaults to `true` for security).
+    -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
 
 Version 1.2.2
 -------------
