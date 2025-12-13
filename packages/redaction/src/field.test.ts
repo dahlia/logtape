@@ -217,6 +217,42 @@ test("redactProperties()", () => {
       name: "user2",
     });
   }
+
+  { // handles circular references to prevent stack overflow
+    const obj: Record<string, unknown> = {
+      a: 1,
+      password: "some-password",
+    };
+    obj.self = obj; // Create circular reference
+
+    const result = redactProperties(obj, {
+      fieldPatterns: ["password"],
+      action: () => "REDACTED",
+    });
+
+    assertEquals(result.a, 1);
+    assertEquals(result.password, "REDACTED");
+    assert(result.self === result, "Circular reference should be preserved");
+  }
+
+  { // redacts fields in class instances
+    class User {
+      constructor(public name: string, public password: string) {}
+    }
+
+    const properties = {
+      user: new User("Alice", "alice-secret-password"),
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "REDACTED",
+    });
+
+    const redactedUser = result.user as User;
+    assertEquals(redactedUser.name, "Alice");
+    assertEquals(redactedUser.password, "REDACTED");
+  }
 });
 
 test("redactByField()", async () => {
