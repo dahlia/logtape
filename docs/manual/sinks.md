@@ -1325,34 +1325,31 @@ await configure({
 
 Returning `null` from `beforeSend` drops the log record entirely.
 
-### Event capture levels
+### Event capture
 
 *This feature is available since LogTape 1.2.0.*
 
-By default, only `error` and `fatal` level logs are captured as Sentry events.
-You can customize this behavior with the `captureAsEvents` option:
+Sentry events (Issues) are only created when a log contains an actual `Error`
+instance in its properties. This aligns with how Sentry's official logging
+integrations handle event capture - only actionable exceptions become Issues:
 
 ~~~~ typescript twoslash
 // @noErrors: 2305 2307
-import * as Sentry from "@sentry/node";
-import { configure } from "@logtape/logtape";
-import { getSentrySink } from "@logtape/sentry";
+import { getLogger } from "@logtape/logtape";
 
-Sentry.init({ dsn: process.env.SENTRY_DSN });
+const logger = getLogger(["my-app"]);
 
-await configure({
-  sinks: {
-    sentry: getSentrySink({
-      captureAsEvents: ["warning", "error", "fatal"],
-    }),
-  },
-  loggers: [
-    { category: [], sinks: ["sentry"], lowestLevel: "info" },
-  ],
-});
+// This creates a Sentry Issue (has Error instance)
+logger.error("Database connection failed", { error: new Error("timeout") });
+
+// This does NOT create a Sentry Issue (no Error instance)
+// Instead, it goes to structured logs and/or breadcrumbs
+logger.error("User not found: {userId}", { userId: 123 });
 ~~~~
 
-Logs at other levels are sent as breadcrumbs when `enableBreadcrumbs` is true.
+All logs are sent to Sentry's structured logging (when `enableLogs: true`) and
+can become breadcrumbs (when `enableBreadcrumbs: true`), providing full context
+when errors occur.
 
 For more details, see the `getSentrySink()` function and `SentrySinkOptions`
 interface in the API reference.
