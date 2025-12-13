@@ -93,6 +93,26 @@ To be released.
 
 [#107]: https://github.com/dahlia/logtape/issues/107
 
+### @logtape/koa
+
+ -  Added *@logtape/koa* package for Koa HTTP request logging using
+    LogTape as the backend.  [[#106]]
+
+    -  Added `koaLogger()` function to create Koa middleware for
+       request logging.
+    -  Added `KoaLogTapeOptions` interface for configuration.
+    -  Added `KoaContext` interface for context type compatibility.
+    -  Added `RequestLogProperties` interface for structured log properties.
+    -  Added `FormatFunction` type for custom format functions.
+    -  Added `PredefinedFormat` type for Morgan-compatible format names.
+    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+       `tiny`.
+    -  Supports custom format functions returning strings or objects.
+    -  Supports `skip` function to conditionally skip logging.
+    -  Supports `logRequest` option to log on request arrival vs response.
+
+[#106]: https://github.com/dahlia/logtape/issues/106
+
 ### @logtape/otel
 
  -  Added support for gRPC and HTTP/Protobuf protocols for OTLP log export.

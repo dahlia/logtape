@@ -483,86 +483,142 @@ logger.info({ data: { key: "value" } });
 Koa
 ---
 
-[Koa] uses async/await throughout and works well with LogTape's context system:
+[Koa] is a modern, lightweight web framework for Node.js that uses async/await
+throughout.  LogTape provides a Koa middleware adapter through the
+*@logtape/koa* package, which provides HTTP request logging using LogTape as
+the backend, as an alternative to [koa-logger]:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/koa
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/koa
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/koa
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/koa
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/koa
+~~~~
+
+:::
+
+Here's an example of using LogTape with Koa:
 
 ~~~~ typescript twoslash
-import {
-  configure,
-  getConsoleSink,
-  getLogger,
-  withContext,
-} from "@logtape/logtape";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { koaLogger } from "@logtape/koa";
 import Koa from "koa";
-import { AsyncLocalStorage } from "node:async_hooks";
 
 await configure({
   sinks: { console: getConsoleSink() },
   loggers: [
     { category: ["koa"], sinks: ["console"], lowestLevel: "info" }
   ],
-  contextLocalStorage: new AsyncLocalStorage(),
 });
 
 const app = new Koa();
-const logger = getLogger(["koa"]);
+app.use(koaLogger());
 
-// Request logging middleware
-app.use(async (ctx, next) => {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-
-  await withContext({
-    requestId,
-    method: ctx.method,
-    url: ctx.url,
-    userAgent: ctx.get("User-Agent"),
-    ipAddress: ctx.ip
-  }, async () => {
-    logger.info("Request started", {
-      method: ctx.method,
-      url: ctx.url,
-      requestId
-    });
-
-    try {
-      await next();
-
-      const duration = Date.now() - startTime;
-      logger.info("Request completed", {
-        status: ctx.status,
-        duration,
-        requestId
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Request error", {
-        error: {
-          name: error instanceof Error ? error.name : "Unknown",
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
-        },
-        status: ctx.status,
-        duration,
-        requestId
-      });
-
-      throw error; // Re-throw for Koa's error handling
-    }
-  });
+app.use((ctx) => {
+  ctx.body = { hello: "world" };
 });
 
-// Routes
-app.use(async (ctx) => {
-  ctx.body = { message: "Hello from Koa!" };
-});
+app.listen(3000);
+~~~~
 
-app.listen(3000, () => {
-  logger.info("Koa server started", { port: 3000 });
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  category: ["myapp", "http"],
 });
 ~~~~
 
+### Options
+
+The middleware accepts the following options:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  category: ["myapp", "http"],  // Custom category (default: ["koa"])
+  level: "debug",                // Log level (default: "info")
+  format: "dev",                 // Predefined format (default: "combined")
+  skip: (ctx) => ctx.path === "/health",  // Skip health check endpoint
+  logRequest: false,             // Log after response (default: false)
+});
+~~~~
+
+### Predefined formats
+
+The middleware supports Morgan-compatible predefined formats:
+
+- `"combined"`: Apache Combined Log Format with all properties (default)
+- `"common"`: Apache Common Log Format (without referrer/userAgent)
+- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+- `"short"`: Shorter format with remote address
+- `"tiny"`: Minimal output
+
+### Custom format function
+
+You can also provide a custom format function that returns either a string
+or an object with structured properties:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  format: (ctx, responseTime) => ({
+    method: ctx.method,
+    path: ctx.path,
+    status: ctx.status,
+    duration: responseTime,
+  }),
+});
+~~~~
+
+### Structured logging output
+
+When using the `"combined"` format (default), the middleware logs structured
+data that includes:
+
+- `method`: HTTP request method
+- `url`: Request URL
+- `path`: Request path
+- `status`: HTTP response status code
+- `responseTime`: Response time in milliseconds
+- `contentLength`: Response content-length
+- `remoteAddr`: Remote client address
+- `userAgent`: User-Agent header value
+- `referrer`: Referrer header value
+
+::: tip Proxy configuration
+
+When your Koa application runs behind a reverse proxy, you need to set
+`app.proxy = true` in your Koa configuration for `remoteAddr` to correctly
+reflect the client's IP address from the `X-Forwarded-For` header.
+See [Koa's proxy documentation][koa-proxy] for details.
+
+:::
+
 [Koa]: https://koajs.com/
+[koa-logger]: https://github.com/koajs/logger
+[koa-proxy]: https://koajs.com/#settings
 
 
 SvelteKit

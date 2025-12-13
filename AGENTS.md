@@ -75,6 +75,8 @@ All packages are located in the `packages/` directory:
 - **packages/express/**: Express HTTP request logging
 - **packages/fastify/**: Fastify HTTP request logging
 - **packages/file/**: File-based logging sink
+- **packages/hono/**: Hono HTTP request logging
+- **packages/koa/**: Koa HTTP request logging
 - **packages/otel/**: OpenTelemetry integration
 - **packages/pretty/**: Pretty console formatter
 - **packages/redaction/**: Functionality for redacting sensitive information
