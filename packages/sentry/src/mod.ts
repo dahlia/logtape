@@ -123,31 +123,14 @@ export interface SentrySinkOptions {
   /**
    * Enable automatic breadcrumb creation for log events.
    *
-   * When enabled, all log levels become breadcrumbs in Sentry, providing a
-   * complete context trail for debugging errors. Use LogTape's `lowestLevel`
-   * or `filters` configuration to control which logs reach the sink.
+   * When enabled, all logs become breadcrumbs in Sentry's isolation scope,
+   * providing a complete context trail when errors occur. Breadcrumbs are
+   * lightweight and only appear in error reports for debugging.
    *
    * @default false
    * @since 1.2.0
    */
   enableBreadcrumbs?: boolean;
-
-  /**
-   * Log levels that should be captured as Sentry events.
-   *
-   * Logs at these levels are sent to Sentry as full events (visible in Issues).
-   * Logs at other levels may become breadcrumbs (if `enableBreadcrumbs` is true),
-   * structured logs (if `enableLogs: true` in Sentry.init()), or be ignored.
-   *
-   * **Structured Logging**: Automatically enabled when:
-   * - Sentry SDK v9.41.0+ is installed
-   * - `enableLogs: true` is set in `Sentry.init()`
-   * - No additional LogTape configuration needed!
-   *
-   * @default ["error", "fatal"]
-   * @since 1.2.0
-   */
-  captureAsEvents?: string[];
 
   /**
    * Optional hook to transform or filter records before sending to Sentry.
@@ -198,7 +181,6 @@ export interface SentrySinkOptions {
  *   sinks: {
  *     sentry: getSentrySink({
  *       enableBreadcrumbs: true,
- *       captureAsEvents: ["error", "fatal"],
  *     }),
  *   },
  *   loggers: [
@@ -264,8 +246,6 @@ export function getSentrySink(
     );
   }
 
-  const captureAsEvents = options.captureAsEvents ?? ["error", "fatal"];
-
   // Choose which Sentry functions to use:
   // - For capture functions: use client if provided (v1.1.x compat), otherwise globals
   // - For scope operations: ALWAYS use globals (client doesn't have these methods)
@@ -312,18 +292,6 @@ export function getSentrySink(
         }
       }
 
-      // Add breadcrumb to isolation scope if enabled
-      if (options.enableBreadcrumbs) {
-        const isolationScope = globalGetIsolationScope();
-        isolationScope?.addBreadcrumb({
-          category: transformed.category.join("."),
-          level: eventLevel,
-          message,
-          timestamp: transformed.timestamp / 1000,
-          data: attributes,
-        });
-      }
-
       // Send structured log if Sentry logging is enabled (v9.41.0+)
       const client = globalGetClient();
       if (client) {
@@ -340,20 +308,22 @@ export function getSentrySink(
         }
       }
 
-      // Capture as event if level is in captureAsEvents list
-      if (captureAsEvents.includes(transformed.level)) {
-        if (transformed.properties.error instanceof Error) {
-          const { error, ...rest } = attributes;
-          captureException(error as Error, {
-            level: eventLevel,
-            extra: { message, ...rest },
-          });
-        } else {
-          captureMessage(paramMessage, {
-            level: eventLevel,
-            extra: attributes,
-          });
-        }
+      // Capture exceptions as events, otherwise add to breadcrumbs if enabled
+      if (transformed.level === "error" && transformed.properties.error instanceof Error) {
+        const { error, ...rest } = attributes;
+        captureException(error as Error, {
+          level: eventLevel,
+          extra: { message, ...rest },
+        });
+      } else if (options.enableBreadcrumbs) {
+        const isolationScope = globalGetIsolationScope();
+        isolationScope?.addBreadcrumb({
+          category: transformed.category.join("."),
+          level: eventLevel,
+          message,
+          timestamp: transformed.timestamp / 1000,
+          data: attributes,
+        });
       }
     } catch (err) {
       // Never throw from a sink; keep failures silent but visible in debug
