@@ -258,6 +258,15 @@ export function getSentrySink(
 
   return (record: LogRecord) => {
     try {
+      // Skip meta logger records to prevent infinite recursion
+      const { category } = record;
+      if (
+        category[0] === "logtape" && category[1] === "meta" &&
+        category[2] === "sentry"
+      ) {
+        return;
+      }
+
       // Optional transformation/filtering
       const transformed = options.beforeSend
         ? options.beforeSend(record)

@@ -189,3 +189,77 @@ test("sink handles template messages correctly", () => {
   assertEquals(capturedMessage![0], "User ");
   assertEquals((capturedMessage![1] as { id: number }).id, 123);
 });
+
+// =============================================================================
+// Options tests
+// =============================================================================
+
+test("sink accepts enableBreadcrumbs option", () => {
+  const sink = getSentrySink({ enableBreadcrumbs: true });
+
+  // Should not throw
+  sink(createMockLogRecord({ level: "info" }));
+  sink(createMockLogRecord({ level: "debug" }));
+});
+
+// =============================================================================
+// Meta logger filtering tests
+// =============================================================================
+
+test("sink ignores logs from logtape.meta.sentry category", () => {
+  let processedCount = 0;
+  const sink = getSentrySink({
+    beforeSend: (record) => {
+      processedCount++;
+      return record;
+    },
+  });
+
+  // This should be ignored (meta logger category)
+  sink(createMockLogRecord({
+    category: ["logtape", "meta", "sentry"],
+    message: ["Meta log message"],
+  }));
+
+  // This should be processed
+  sink(createMockLogRecord({
+    category: ["app", "module"],
+    message: ["Normal log message"],
+  }));
+
+  assertEquals(processedCount, 1);
+});
+
+test("sink does not ignore partial matches of meta category", () => {
+  let processedCount = 0;
+  const sink = getSentrySink({
+    beforeSend: (record) => {
+      processedCount++;
+      return record;
+    },
+  });
+
+  // These should NOT be ignored (partial matches or different third element)
+  sink(createMockLogRecord({ category: ["logtape"] }));
+  sink(createMockLogRecord({ category: ["logtape", "meta"] }));
+  sink(createMockLogRecord({ category: ["logtape", "meta", "other"] }));
+
+  assertEquals(processedCount, 3);
+});
+
+test("sink ignores logtape.meta.sentry with child categories", () => {
+  let processedCount = 0;
+  const sink = getSentrySink({
+    beforeSend: (record) => {
+      processedCount++;
+      return record;
+    },
+  });
+
+  // Child categories of logtape.meta.sentry should also be ignored
+  sink(createMockLogRecord({
+    category: ["logtape", "meta", "sentry", "child"],
+  }));
+
+  assertEquals(processedCount, 0);
+});
