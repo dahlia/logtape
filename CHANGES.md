@@ -182,6 +182,32 @@ To be released.
 [#103]: https://github.com/dahlia/logtape/issues/103
 [#108]: https://github.com/dahlia/logtape/pull/108
 
+### @logtape/redaction
+
+ -  Fixed a security vulnerability where `redactByField()` and
+    `redactByPattern()` could enter an infinite loop when processing objects
+    with circular references, leading to a denial-of-service (DoS) attack.
+    The redaction functions now correctly handle circular references,
+    preventing stack overflows.
+
+ -  Fixed a security vulnerability where sensitive data in class instances
+    was not being redacted. The redaction logic now recursively processes
+    class instances, ensuring that sensitive fields are redacted regardless
+    of the object's structure.
+
+### @logtape/syslog
+
+ -  Added `SyslogSinkOptions.secure` option to enable TLS for TCP connections,
+    addressing a vulnerability where logs were sent in plaintext over the
+    network.
+
+ -  Added `SyslogSinkOptions.tlsOptions` option to configure TLS connections.
+
+    -  Added `SyslogTlsOptions` interface for TLS configuration.
+    -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
+       certificate validation (defaults to `true` for security).
+    -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
 
 Version 1.2.2
 -------------

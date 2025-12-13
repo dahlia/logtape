@@ -348,4 +348,60 @@ test("redactByPattern(ConsoleFormatter)", () => {
     assertEquals(resultData.user.payment.cards[1], "XXXX-XXXX-XXXX-XXXX");
     assertEquals(resultData.user.documents.ssn, "XXX-XX-XXXX");
   }
+
+  { // handles circular references to prevent stack overflow
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+
+    const circularObj: Record<string, unknown> = {
+      email: "user@example.com",
+    };
+    circularObj.self = circularObj;
+
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: ["Circular object:", circularObj],
+      rawMessage: "Circular object: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(formatter, [
+      EMAIL_ADDRESS_PATTERN,
+    ]);
+    const output = redactedFormatter(record);
+
+    const resultData = (output[0] as unknown[])[1] as Record<string, unknown>;
+    assertEquals(resultData.email, "REDACTED@EMAIL.ADDRESS");
+    assert(
+      resultData.self === resultData,
+      "Circular reference should be preserved",
+    );
+  }
+
+  { // redacts fields in class instances
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+
+    class User {
+      constructor(public email: string, public name: string) {}
+    }
+
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: ["User object:", new User("user@example.com", "Alice")],
+      rawMessage: "User object: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(formatter, [
+      EMAIL_ADDRESS_PATTERN,
+    ]);
+    const output = redactedFormatter(record);
+
+    const resultUser = (output[0] as unknown[])[1] as User;
+    assertEquals(resultUser.email, "REDACTED@EMAIL.ADDRESS");
+    assertEquals(resultUser.name, "Alice");
+  }
 });

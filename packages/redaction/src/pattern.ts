@@ -180,23 +180,35 @@ export function redactByPattern(
     return str;
   }
 
-  function replaceObject(object: unknown): unknown {
-    if (typeof object === "string") return replaceString(object);
-    else if (Array.isArray(object)) return object.map(replaceObject);
-    else if (typeof object === "object" && object !== null) {
-      // Check if object is a vanilla object:
-      if (
-        Object.getPrototypeOf(object) === Object.prototype ||
-        Object.getPrototypeOf(object) === null
-      ) {
-        const redacted: Record<string, unknown> = {};
-        for (const key in object) {
-          redacted[key] =
-            // @ts-ignore: object always has key
-            replaceObject(object[key]);
-        }
-        return redacted;
+  function replaceObject(
+    object: unknown,
+    visited: Map<object, object>,
+  ): unknown {
+    if (typeof object === "object" && object !== null) {
+      if (visited.has(object)) {
+        return visited.get(object)!; // Circular reference detected
       }
+    }
+
+    if (typeof object === "string") return replaceString(object);
+    if (Array.isArray(object)) {
+      const copy: unknown[] = [];
+      visited.set(object, copy);
+      object.forEach((item) => copy.push(replaceObject(item, visited)));
+      return copy;
+    }
+    if (typeof object === "object" && object !== null) {
+      const redacted: Record<string, unknown> = {};
+      visited.set(object, redacted);
+      for (const key in object) {
+        if (Object.prototype.hasOwnProperty.call(object, key)) {
+          redacted[key] = replaceObject(
+            (object as Record<string, unknown>)[key],
+            visited,
+          );
+        }
+      }
+      return redacted;
     }
     return object;
   }
@@ -204,6 +216,6 @@ export function redactByPattern(
   return (record: LogRecord) => {
     const output = formatter(record);
     if (typeof output === "string") return replaceString(output);
-    return output.map(replaceObject);
+    return output.map((obj) => replaceObject(obj, new Map()));
   };
 }

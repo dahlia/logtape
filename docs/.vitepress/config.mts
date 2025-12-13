@@ -251,6 +251,21 @@ export default defineConfig({
   },
   head: head,
   markdown: {
+    // Explicitly load these languages for twoslash types highlighting
+    languages: [
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "typescript",
+      "bash",
+      "sh",
+      "shell",
+      "json",
+      "ansi",
+      "text",
+      "txt",
+    ],
     codeTransformers: [
       transformerTwoslash({
         twoslashOptions: {

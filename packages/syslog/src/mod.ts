@@ -11,5 +11,6 @@ export type {
   SyslogFacility,
   SyslogProtocol,
   SyslogSinkOptions,
+  SyslogTlsOptions,
 } from "./syslog.ts";
 export { getSyslogSink } from "./syslog.ts";

@@ -158,39 +158,43 @@ export function redactByField(
 export function redactProperties(
   properties: Record<string, unknown>,
   options: FieldRedactionOptions,
+  visited = new Map<object, object>(),
 ): Record<string, unknown> {
-  const copy = { ...properties };
-  for (const field in copy) {
+  if (visited.has(properties)) {
+    return visited.get(properties) as Record<string, unknown>;
+  }
+
+  const copy: Record<string, unknown> = {};
+  visited.set(properties, copy);
+
+  for (const field in properties) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
-      if (options.action == null || options.action === "delete") {
-        delete copy[field];
-      } else {
-        copy[field] = options.action(copy[field]);
+      if (typeof options.action === "function") {
+        copy[field] = options.action(properties[field]);
       }
       continue;
     }
-    const value = copy[field];
-    // Check if value is an array:
+
+    const value = properties[field];
     if (Array.isArray(value)) {
       copy[field] = value.map((item) => {
-        if (
-          typeof item === "object" && item !== null &&
-          (Object.getPrototypeOf(item) === Object.prototype ||
-            Object.getPrototypeOf(item) === null)
-        ) {
-          // @ts-ignore: item is always Record<string, unknown>
-          return redactProperties(item, options);
+        if (typeof item === "object" && item !== null) {
+          return redactProperties(
+            item as Record<string, unknown>,
+            options,
+            visited,
+          );
         }
         return item;
       });
-      // Check if value is a vanilla object:
-    } else if (
-      typeof value === "object" && value !== null &&
-      (Object.getPrototypeOf(value) === Object.prototype ||
-        Object.getPrototypeOf(value) === null)
-    ) {
-      // @ts-ignore: value is always Record<string, unknown>
-      copy[field] = redactProperties(value, options);
+    } else if (typeof value === "object" && value !== null) {
+      copy[field] = redactProperties(
+        value as Record<string, unknown>,
+        options,
+        visited,
+      );
+    } else {
+      copy[field] = value;
     }
   }
   return copy;
