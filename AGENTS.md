@@ -325,10 +325,15 @@ export function getLogger(category?: Category | string): Logger {
 
 User documentation is available at https://logtape.org/ and is structured as:
 
-- Installation guides
+- Installation
 - Quick start
-- Manual sections (categories, levels, filters, formatters, sinks)
-- Advanced usage (library usage, testing, structured logging)
+- Configuration
+- Core concepts (categories, severity levels, structured logging, contexts)
+- Output (sinks, filters, text formatters)
+- Data redaction
+- Adaptors (Pino, Winston)
+- Framework integration (Express, Fastify, Hono, Koa, Drizzle ORM)
+- Advanced usage (library usage, debugging, testing)
 
 When adding or changing functionality, update both the code documentation and
 user documentation as needed.
