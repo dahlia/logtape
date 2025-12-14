@@ -1,4 +1,9 @@
-import { getLogger, type LogLevel, type LogRecord, type Sink } from "@logtape/logtape";
+import {
+  getLogger,
+  type LogLevel,
+  type LogRecord,
+  type Sink,
+} from "@logtape/logtape";
 import type {
   LogSeverityLevel,
   ParameterizedString,
@@ -309,7 +314,10 @@ export function getSentrySink(
         if (loggingEnabled && "logger" in SentryCore) {
           const logLevel = mapLevelForLogs(transformed.level);
           const sentryLogger = SentryCore.logger as unknown as
-            | Record<string, ((msg: ParameterizedString, attrs: unknown) => void)>
+            | Record<
+              string,
+              ((msg: ParameterizedString, attrs: unknown) => void)
+            >
             | undefined;
           const logFn = sentryLogger?.[logLevel];
           if (typeof logFn === "function") {

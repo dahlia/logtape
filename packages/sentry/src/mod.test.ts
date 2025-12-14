@@ -164,7 +164,12 @@ test("sink without Error at error level does not trigger exception path", () => 
 test("sink processes all log levels without error", () => {
   const sink = getSentrySink();
   const levels: LogRecord["level"][] = [
-    "trace", "debug", "info", "warning", "error", "fatal",
+    "trace",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "fatal",
   ];
 
   for (const level of levels) {
