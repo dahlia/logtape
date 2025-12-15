@@ -23,7 +23,7 @@
     "@opentelemetry/resources": "catalog:",
     "@opentelemetry/sdk-logs": "catalog:",
     "@opentelemetry/semantic-conventions": "catalog:",
-    "@sentry/node": "^9.28.1",
+    "@sentry/node": "^9.41.0",
     "@shikijs/vitepress-twoslash": "^3.20.0",
     "@sveltejs/kit": "^2.22.0",
     "@types/bun": "^1.2.15",
