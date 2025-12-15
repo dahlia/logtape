@@ -1,4 +1,5 @@
 import {
+  compareLogLevel,
   getLogger,
   type LogLevel,
   type LogRecord,
@@ -327,8 +328,8 @@ export function getSentrySink(
       }
 
       // Capture as Sentry event (Issue) based on level and error presence
-      const isErrorLevel = transformed.level === "error" ||
-        transformed.level === "fatal";
+      // Use compareLogLevel() to handle future severity level additions
+      const isErrorLevel = compareLogLevel(transformed.level, "error") >= 0;
 
       if (isErrorLevel && transformed.properties.error instanceof Error) {
         // Error instance at error/fatal level -> captureException for stack trace
