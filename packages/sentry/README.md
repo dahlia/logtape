@@ -8,7 +8,7 @@
 This package provides a [Sentry] sink for [LogTape]. It allows you to
 capture your LogTape logs and send them to Sentry.
 
-![LogTape messages show up in Sentry](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/sentry.png)
+![LogTape records show up in the breadcrumbs of a Sentry issue.](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/sentry.png)
 
 [JSR]: https://jsr.io/@logtape/sentry
 [JSR badge]: https://jsr.io/badges/@logtape/sentry
