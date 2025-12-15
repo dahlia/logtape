@@ -603,10 +603,10 @@ importers:
       '@logtape/logtape':
         specifier: workspace:^
         version: link:../logtape
-      '@sentry/core':
-        specifier: ^9.28.1
-        version: 9.28.1
     devDependencies:
+      '@sentry/core':
+        specifier: ^9.41.0
+        version: 9.47.1
       '@std/dotenv':
         specifier: 'catalog:'
         version: '@jsr/std__dotenv@0.225.5'
@@ -1677,6 +1677,10 @@ packages:
 
   '@sentry/core@9.28.1':
     resolution: {integrity: sha512-6q59r/71MeE+4StkvwdKAAyhBBNpWcii0HeiWBZ3l1gaFYQlb6bChjZJRZmxSzF5dnvkdF4duQbAC3JmjeIbPA==}
+    engines: {node: '>=18'}
+
+  '@sentry/core@9.47.1':
+    resolution: {integrity: sha512-KX62+qIt4xgy8eHKHiikfhz2p5fOciXd0Cl+dNzhgPFq8klq4MGMNaf148GB3M/vBqP4nw/eFvRMAayFCgdRQw==}
     engines: {node: '>=18'}
 
   '@sentry/node@9.28.1':
@@ -5410,6 +5414,8 @@ snapshots:
     optional: true
 
   '@sentry/core@9.28.1': {}
+
+  '@sentry/core@9.47.1': {}
 
   '@sentry/node@9.28.1':
     dependencies:

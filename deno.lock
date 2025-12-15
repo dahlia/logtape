@@ -21,7 +21,7 @@
     "npm:@opentelemetry/resources@^2.2.0": "2.2.0_@opentelemetry+api@1.9.0",
     "npm:@opentelemetry/sdk-logs@0.208": "0.208.0_@opentelemetry+api@1.9.0",
     "npm:@opentelemetry/semantic-conventions@^1.38.0": "1.38.0",
-    "npm:@sentry/core@^9.28.1": "9.28.1",
+    "npm:@sentry/core@^9.46.0": "9.47.1",
     "npm:@types/bun@^1.2.16": "1.2.16",
     "npm:@types/bunyan@^1.8.11": "1.8.11",
     "npm:@types/express@^5.0.6": "5.0.6",
@@ -893,8 +893,8 @@
     "@rolldown/pluginutils@1.0.0-beta.11-commit.f051675": {
       "integrity": "sha512-TAqMYehvpauLKz7v4TZOTUQNjxa5bUQWw2+51/+Zk3ItclBxgoSWhnZ31sXjdoX6le6OXdK2vZfV3KoyW/O/GA=="
     },
-    "@sentry/core@9.28.1": {
-      "integrity": "sha512-6q59r/71MeE+4StkvwdKAAyhBBNpWcii0HeiWBZ3l1gaFYQlb6bChjZJRZmxSzF5dnvkdF4duQbAC3JmjeIbPA=="
+    "@sentry/core@9.47.1": {
+      "integrity": "sha512-KX62+qIt4xgy8eHKHiikfhz2p5fOciXd0Cl+dNzhgPFq8klq4MGMNaf148GB3M/vBqP4nw/eFvRMAayFCgdRQw=="
     },
     "@sinonjs/commons@3.0.1": {
       "integrity": "sha512-K3mCHKQ9sVh8o1C9cxkwxaOmXoAMlDxC1mYyHrjqOWEcBjYr76t96zL2zlj5dUGZ3HSw240X1qgH3Mjf1yJWpQ==",
@@ -3196,11 +3196,11 @@
       },
       "packages/sentry": {
         "dependencies": [
-          "npm:@sentry/core@^9.28.1"
+          "npm:@sentry/core@^9.46.0"
         ],
         "packageJson": {
           "dependencies": [
-            "npm:@sentry/core@^9.28.1"
+            "npm:@sentry/core@^9.41.0"
           ]
         }
       },
