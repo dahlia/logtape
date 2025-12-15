@@ -1,6 +1,6 @@
 {
   "name": "@logtape/express",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Express adapter for LogTape logging library",
   "keywords": [
     "logging",
