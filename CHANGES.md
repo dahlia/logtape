@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.3.1
 -------------
 
-To be released.
+Released on December 16, 2025.
 
 ### @logtape/otel
 
