@@ -11,18 +11,15 @@ export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
   private eventSource: number | null = null;
   // deno-lint-ignore no-explicit-any
   private lib: any = null;
-  private sourceName: string;
+  private sourceName: string = "\0";
   private initialized = false;
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
-
-  constructor(sourceName: string) {
-    this.sourceName = sourceName;
-  }
 
   /**
    * Initialize the FFI bindings and register event source
    */
-  initialize(): void {
+  initialize(sourceName: string): void {
+    this.sourceName = sourceName;
     if (this.initialized) return;
 
     try {

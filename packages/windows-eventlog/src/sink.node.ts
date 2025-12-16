@@ -61,8 +61,8 @@ export function getWindowsEventLogSink(
 
     // Initialize FFI on first use
     if (!ffi) {
-      ffi = new WindowsEventLogNodeFFI(sourceName);
-      initPromise = ffi.initialize()
+      ffi = new WindowsEventLogNodeFFI();
+      initPromise = ffi.initialize(sourceName)
         .then(() => {
           // Write the first event after initialization
           if (ffi) {

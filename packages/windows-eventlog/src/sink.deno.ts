@@ -73,8 +73,8 @@ export function getWindowsEventLogSink(
     // Initialize FFI if needed
     if (!ffi) {
       try {
-        ffi = new WindowsEventLogDenoFFI(sourceName);
-        ffi.initialize();
+        ffi = new WindowsEventLogDenoFFI();
+        ffi.initialize(sourceName);
       } catch (error) {
         metaLogger.error(
           "Failed to initialize Windows Event Log FFI: {error}",

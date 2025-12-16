@@ -48,16 +48,16 @@ const FFI_SYMBOLS = {
 export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
   private lib: Deno.DynamicLibrary<typeof FFI_SYMBOLS> | null = null;
   private eventSource: Deno.PointerValue | null = null;
+  private sourceName: string = "\0";
   private encoder = new TextEncoder();
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
-
-  constructor(private sourceName: string) {}
 
   /**
    * Initializes the FFI library and registers the event source.
    * @throws {WindowsEventLogError} If initialization fails
    */
-  initialize(): void {
+  initialize(sourceName: string): void {
+    this.sourceName = sourceName;
     try {
       // Load advapi32.dll
       this.lib = Deno.dlopen("advapi32.dll", FFI_SYMBOLS);

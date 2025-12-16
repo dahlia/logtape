@@ -3,7 +3,7 @@ export interface WindowsEventLogFFI {
    * Initializes the FFI library and registers the event source.
    * @throws {WindowsEventLogError} If initialization fails
    */
-  initialize(): void;
+  initialize(sourceName: string): void;
 
   /**
    * Writes a message to the Windows Event Log.

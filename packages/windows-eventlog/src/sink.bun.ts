@@ -48,9 +48,9 @@ export function getWindowsEventLogSink(
 
   const sink: Sink & Disposable = (record: LogRecord) => {
     if (!ffi) {
-      ffi = new WindowsEventLogBunFFI(sourceName);
+      ffi = new WindowsEventLogBunFFI();
       try {
-        ffi.initialize();
+        ffi.initialize(sourceName);
       } catch (error) {
         metaLogger.error(
           "Failed to initialize Windows Event Log FFI: {error}",
