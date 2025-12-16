@@ -12,6 +12,7 @@ import { assertEquals, assertExists } from "@std/assert";
 import type { LogRecord } from "@logtape/logtape";
 import {
   getOpenTelemetrySink,
+  type OpenTelemetrySink,
   type OpenTelemetrySinkExporterOptions,
   type OpenTelemetrySinkProviderOptions,
 } from "./mod.ts";
@@ -691,4 +692,110 @@ test("sink with no endpoint can be disposed cleanly", async () => {
 
   // Should not throw when disposing
   await sink[Symbol.asyncDispose]();
+});
+
+// =============================================================================
+// ready property tests (added in 1.3.1)
+// =============================================================================
+
+test("sink has ready property that is a Promise", () => {
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  assertExists(sink.ready);
+  assertEquals(sink.ready instanceof Promise, true);
+});
+
+test("sink with loggerProvider has ready that resolves immediately", async () => {
+  const { provider } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  // Should resolve immediately without waiting
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const resolved = await Promise.race([
+    sink.ready.then(() => "resolved"),
+    new Promise((resolve) => {
+      timeoutId = setTimeout(() => resolve("timeout"), 10);
+    }),
+  ]);
+  if (timeoutId !== undefined) clearTimeout(timeoutId);
+
+  assertEquals(resolved, "resolved");
+});
+
+test("lazy init sink ready resolves after initialization", async () => {
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  // Send a log to trigger initialization
+  sink(createMockLogRecord());
+
+  // ready should eventually resolve
+  await sink.ready;
+
+  // Should not throw
+  await sink[Symbol.asyncDispose]();
+});
+
+// =============================================================================
+// Regression test for issue #110: logs during lazy initialization were dropped
+// https://github.com/dahlia/logtape/issues/110
+// =============================================================================
+
+test("issue #110: multiple logs during sync initialization are all emitted", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+  });
+
+  // Send multiple logs rapidly (simulating what happens after configure())
+  sink(createMockLogRecord({ message: ["Log 1"] }));
+  sink(createMockLogRecord({ message: ["Log 2"] }));
+  sink(createMockLogRecord({ message: ["Log 3"] }));
+  sink(createMockLogRecord({ message: ["Log 4"] }));
+  sink(createMockLogRecord({ message: ["Log 5"] }));
+
+  // All logs should be emitted (this worked before, but verifies the fix
+  // doesn't break synchronous path)
+  assertEquals(emittedRecords.length, 5);
+});
+
+test("issue #110: sink buffers logs during lazy initialization", async () => {
+  // This test verifies that logs sent during lazy initialization are buffered
+  // and emitted once initialization completes.
+  // Note: We can't directly test the lazy init path with a mock provider,
+  // but we can verify the sink accepts multiple logs and completes without error.
+  const sink = getOpenTelemetrySink({
+    serviceName: "test-service",
+    // No endpoint configured, so noop logger will be used
+  });
+
+  // Send multiple logs rapidly before initialization completes
+  for (let i = 0; i < 10; i++) {
+    sink(createMockLogRecord({ message: [`Log ${i}`] }));
+  }
+
+  // Wait for initialization to complete
+  await sink.ready;
+
+  // The sink should have processed all logs without errors
+  // (with noop logger they won't actually be sent anywhere,
+  // but they shouldn't be dropped either)
+
+  await sink[Symbol.asyncDispose]();
+});
+
+test("OpenTelemetrySink type has ready property", () => {
+  // Type check: verify OpenTelemetrySink interface includes ready
+  const sink: OpenTelemetrySink = getOpenTelemetrySink({
+    serviceName: "test-service",
+  });
+
+  // TypeScript should allow accessing ready property
+  const _ready: Promise<void> = sink.ready;
+  assertExists(_ready);
 });

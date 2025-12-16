@@ -397,6 +397,27 @@ function emitLogRecord(
 }
 
 /**
+ * An OpenTelemetry sink with async disposal and initialization tracking.
+ * @since 1.3.1
+ */
+export interface OpenTelemetrySink extends Sink, AsyncDisposable {
+  /**
+   * A promise that resolves when the sink's lazy initialization completes.
+   * For sinks created with an explicit `loggerProvider`, this resolves
+   * immediately.  For sinks using automatic exporter creation, this resolves
+   * once the OpenTelemetry logger provider is fully initialized.
+   *
+   * This is useful for:
+   * - Ensuring all buffered log records have been sent before shutdown
+   * - Testing scenarios where you need to verify emitted records
+   * - Waiting for initialization before proceeding with critical operations
+   *
+   * @since 1.3.1
+   */
+  readonly ready: Promise<void>;
+}
+
+/**
  * Creates a sink that forwards log records to OpenTelemetry.
  *
  * When a custom `loggerProvider` is provided, it is used directly.
@@ -408,7 +429,7 @@ function emitLogRecord(
  */
 export function getOpenTelemetrySink(
   options: OpenTelemetrySinkOptions = {},
-): Sink & AsyncDisposable {
+): OpenTelemetrySink {
   if (options.diagnostics) {
     diag.setLogger(new DiagLoggerAdaptor(), DiagLogLevel.DEBUG);
   }
@@ -418,7 +439,7 @@ export function getOpenTelemetrySink(
     const loggerProvider = options.loggerProvider;
     const logger = loggerProvider.getLogger(metadata.name, metadata.version);
     const shutdown = loggerProvider.shutdown?.bind(loggerProvider);
-    const sink: Sink & AsyncDisposable = Object.assign(
+    const sink: OpenTelemetrySink = Object.assign(
       (record: LogRecord) => {
         const { category } = record;
         if (
@@ -430,6 +451,7 @@ export function getOpenTelemetrySink(
         emitLogRecord(logger, record, options);
       },
       {
+        ready: Promise.resolve(),
         async [Symbol.asyncDispose](): Promise<void> {
           if (shutdown != null) await shutdown();
         },
@@ -443,8 +465,10 @@ export function getOpenTelemetrySink(
   let logger: OTLogger | null = null;
   let initPromise: Promise<void> | null = null;
   let initError: Error | null = null;
+  // Buffer for log records that arrive during initialization
+  let pendingRecords: LogRecord[] = [];
 
-  const sink: Sink & AsyncDisposable = Object.assign(
+  const sink: OpenTelemetrySink = Object.assign(
     (record: LogRecord) => {
       const { category } = record;
       if (
@@ -465,26 +489,34 @@ export function getOpenTelemetrySink(
         return;
       }
 
+      // Buffer the record for later emission
+      pendingRecords.push(record);
+
       // Start initialization if not already started
       if (initPromise == null) {
         initPromise = initializeLoggerProvider(options)
           .then((provider) => {
             loggerProvider = provider;
             logger = provider.getLogger(metadata.name, metadata.version);
-            // Emit the current record that triggered initialization
-            emitLogRecord(logger, record, options);
+            // Emit all buffered records
+            for (const pendingRecord of pendingRecords) {
+              emitLogRecord(logger, pendingRecord, options);
+            }
+            pendingRecords = [];
           })
           .catch((error) => {
             initError = error;
+            pendingRecords = [];
             // Log initialization error to console as a fallback
             // deno-lint-ignore no-console
             console.error("Failed to initialize OpenTelemetry logger:", error);
           });
       }
-      // Records during initialization are dropped
-      // (the triggering record is emitted in the then() callback above)
     },
     {
+      get ready(): Promise<void> {
+        return initPromise ?? Promise.resolve();
+      },
       async [Symbol.asyncDispose](): Promise<void> {
         // Wait for initialization to complete if in progress
         if (initPromise != null) {
