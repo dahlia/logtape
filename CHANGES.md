@@ -9,6 +9,27 @@ Version 1.4.0
 To be released.
 
 
+Version 1.3.1
+-------------
+
+Released on December 16, 2025.
+
+### @logtape/otel
+
+ -  Fixed a bug where log records sent during lazy initialization were silently
+    dropped.  Now, log records are buffered during initialization and emitted
+    once the OpenTelemetry logger provider is ready.  [[#110]]
+
+ -  Added `OpenTelemetrySink` interface which extends `Sink` with `ready`
+    property and `AsyncDisposable`.
+
+ -  Added `OpenTelemetrySink.ready` property, a `Promise<void>` that resolves
+    when lazy initialization completes.  For sinks created with an explicit
+    `loggerProvider`, this resolves immediately.
+
+[#110]: https://github.com/dahlia/logtape/issues/110
+
+
 Version 1.3.0
 -------------
 
