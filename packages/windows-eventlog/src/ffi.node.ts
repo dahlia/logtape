@@ -1,4 +1,5 @@
 import { getLogger } from "@logtape/logtape";
+import * as koffi from "koffi";
 import type { WindowsEventLogFFI } from "./ffi.ts";
 import type { EventType } from "./types.ts";
 
@@ -7,7 +8,6 @@ import type { EventType } from "./types.ts";
  */
 export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   private eventSource: unknown = null;
-  private koffi: unknown = null;
   private sourceName: string;
   private initialized = false;
   private lib: unknown = null;
@@ -20,17 +20,12 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   /**
    * Initialize the FFI bindings and register event source
    */
-  async initialize(): Promise<void> {
+  initialize(): void {
     if (this.initialized) return;
 
     try {
-      // Dynamic import for koffi
-      const koffiModule = await import("koffi");
-      this.koffi = koffiModule.default || koffiModule;
-
       // Load advapi32.dll
-      this.lib = (this.koffi as unknown as { load: (lib: string) => unknown })
-        .load("advapi32.dll");
+      this.lib = koffi.load("advapi32.dll");
 
       // Define Windows API functions with correct koffi types using __stdcall convention
       const RegisterEventSourceA =
