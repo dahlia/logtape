@@ -1,12 +1,13 @@
 import { getLogger } from "@logtape/logtape";
 // @ts-types="npm:@types/bun@^1.2.16"
 import { dlopen, FFIType, ptr } from "bun:ffi";
+import type { WindowsEventLogFFI } from "./ffi.ts";
 import type { EventType } from "./types.ts";
 
 /**
  * Bun FFI implementation for Windows Event Log API
  */
-export class WindowsEventLogFFI {
+export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
   private eventSource: number | null = null;
   // deno-lint-ignore no-explicit-any
   private lib: any = null;

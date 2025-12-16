@@ -4,7 +4,7 @@ import {
   EVENTLOG_ERROR_TYPE,
   EVENTLOG_INFORMATION_TYPE,
   EVENTLOG_WARNING_TYPE,
-  WindowsEventLogFFI,
+  WindowsEventLogDenoFFI,
 } from "./ffi.deno.ts";
 import { defaultWindowsEventlogFormatter } from "./formatter.ts";
 import { validateWindowsPlatform } from "./platform.ts";
@@ -66,14 +66,14 @@ export function getWindowsEventLogSink(
   // Merge with default event ID mapping
   const eventIds = { ...DEFAULT_EVENT_ID_MAPPING, ...eventIdMapping };
 
-  let ffi: WindowsEventLogFFI | null = null;
+  let ffi: WindowsEventLogDenoFFI | null = null;
   const metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 
   const sink: Sink & Disposable = (record: LogRecord) => {
     // Initialize FFI if needed
     if (!ffi) {
       try {
-        ffi = new WindowsEventLogFFI(sourceName);
+        ffi = new WindowsEventLogDenoFFI(sourceName);
         ffi.initialize();
       } catch (error) {
         metaLogger.error(

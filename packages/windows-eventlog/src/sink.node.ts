@@ -1,5 +1,6 @@
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { getLogger } from "@logtape/logtape";
+import { WindowsEventLogNodeFFI } from "./ffi.node.ts";
 import { defaultWindowsEventlogFormatter } from "./formatter.ts";
 import type { WindowsEventLogSinkOptions } from "./types.ts";
 import {
@@ -8,7 +9,6 @@ import {
   type WindowsEventLogError as _WindowsEventLogError,
 } from "./types.ts";
 import { validateWindowsPlatform } from "./platform.ts";
-import { WindowsEventLogFFI } from "./ffi.node.ts";
 
 /**
  * Creates a Windows Event Log sink for Node.js environments using FFI.
@@ -46,7 +46,7 @@ export function getWindowsEventLogSink(
   // Merge with default event ID mapping
   const eventIds = { ...DEFAULT_EVENT_ID_MAPPING, ...eventIdMapping };
 
-  let ffi: WindowsEventLogFFI | null = null;
+  let ffi: WindowsEventLogNodeFFI | null = null;
   let initPromise: Promise<void> | null = null;
   const metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 
@@ -61,7 +61,7 @@ export function getWindowsEventLogSink(
 
     // Initialize FFI on first use
     if (!ffi) {
-      ffi = new WindowsEventLogFFI(sourceName);
+      ffi = new WindowsEventLogNodeFFI(sourceName);
       initPromise = ffi.initialize()
         .then(() => {
           // Write the first event after initialization

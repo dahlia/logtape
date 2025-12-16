@@ -1,10 +1,11 @@
 import { getLogger } from "@logtape/logtape";
+import type { WindowsEventLogFFI } from "./ffi.ts";
 import type { EventType } from "./types.ts";
 
 /**
  * Node.js FFI implementation for Windows Event Log API using koffi
  */
-export class WindowsEventLogFFI {
+export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   private eventSource: unknown = null;
   private koffi: unknown = null;
   private sourceName: string;

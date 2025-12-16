@@ -1,10 +1,10 @@
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { getLogger } from "@logtape/logtape";
+import { WindowsEventLogBunFFI } from "./ffi.bun.ts";
 import { defaultWindowsEventlogFormatter } from "./formatter.ts";
 import type { WindowsEventLogSinkOptions } from "./types.ts";
 import { DEFAULT_EVENT_ID_MAPPING, mapLogLevelToEventType } from "./types.ts";
 import { validateWindowsPlatform } from "./platform.ts";
-import { WindowsEventLogFFI } from "./ffi.bun.ts";
 
 /**
  * Creates a Windows Event Log sink for Bun environments using FFI.
@@ -43,12 +43,12 @@ export function getWindowsEventLogSink(
   // Merge with default event ID mapping
   const eventIds = { ...DEFAULT_EVENT_ID_MAPPING, ...eventIdMapping };
 
-  let ffi: WindowsEventLogFFI | null = null;
+  let ffi: WindowsEventLogBunFFI | null = null;
   const metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 
   const sink: Sink & Disposable = (record: LogRecord) => {
     if (!ffi) {
-      ffi = new WindowsEventLogFFI(sourceName);
+      ffi = new WindowsEventLogBunFFI(sourceName);
       try {
         ffi.initialize();
       } catch (error) {

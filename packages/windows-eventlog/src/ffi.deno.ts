@@ -1,4 +1,5 @@
 import { getLogger } from "@logtape/logtape";
+import type { WindowsEventLogFFI } from "./ffi.ts";
 import { WindowsEventLogError } from "./types.ts";
 
 /**
@@ -44,7 +45,7 @@ const FFI_SYMBOLS = {
  *
  * @since 1.0.0
  */
-export class WindowsEventLogFFI {
+export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
   private lib: Deno.DynamicLibrary<typeof FFI_SYMBOLS> | null = null;
   private eventSource: Deno.PointerValue | null = null;
   private encoder = new TextEncoder();
