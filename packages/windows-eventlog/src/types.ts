@@ -61,16 +61,25 @@ export const WINDOWS_EVENT_TYPES: Record<LogLevel, number> = {
 } as const;
 
 /**
- * Default Event ID mapping for LogTape levels.
+ * Generic event message defined in netmsg.dll which consists only of
+ * placeholders and no extra text.
+ */
+export const GENERIC_EVENT_ID = 3299;
+
+/**
+ * Default Event ID mapping for LogTape levels. The event ID is used to look up
+ * a string resource in a configured dynamic link library, which is then used
+ * as a formatting string, passing the log text as parameters. The default is
+ * to use an event ID which only writes the text supplied into the log.
  * @since 1.0.0
  */
 export const DEFAULT_EVENT_ID_MAPPING: Record<LogLevel, number> = {
-  fatal: 1,
-  error: 2,
-  warning: 3,
-  info: 4,
-  debug: 5,
-  trace: 6,
+  fatal: GENERIC_EVENT_ID,
+  error: GENERIC_EVENT_ID,
+  warning: GENERIC_EVENT_ID,
+  info: GENERIC_EVENT_ID,
+  debug: GENERIC_EVENT_ID,
+  trace: GENERIC_EVENT_ID,
 } as const;
 
 /**

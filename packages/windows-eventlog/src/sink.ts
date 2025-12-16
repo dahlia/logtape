@@ -3,8 +3,12 @@ import { getLogger } from "@logtape/logtape";
 import type { WindowsEventLogFFI } from "./ffi.ts";
 import { defaultWindowsEventlogFormatter } from "./formatter.ts";
 import { validateWindowsPlatform } from "./platform.ts";
-import type { WindowsEventLogSinkOptions } from "./types.ts";
-import { DEFAULT_EVENT_ID_MAPPING, mapLogLevelToEventType } from "./types.ts";
+import {
+  DEFAULT_EVENT_ID_MAPPING,
+  GENERIC_EVENT_ID,
+  mapLogLevelToEventType,
+  type WindowsEventLogSinkOptions,
+} from "./types.ts";
 
 /**
  * Creates a Windows Event Log sink, parameterized on the FFI implementation.
@@ -54,17 +58,26 @@ export function getWindowsEventLogSinkForFFI(
       return;
     }
 
-    // Format the complete message
-    const formatter = options.formatter ?? defaultWindowsEventlogFormatter;
-    const fullMessage = [formatter(record)];
-
     // Get event type and ID for this log level
     const eventType = mapLogLevelToEventType(record.level);
     const eventId = eventIds[record.level];
 
+    // Format the complete message using this function
+    const formatter = options.formatter ?? defaultWindowsEventlogFormatter;
+    const fullMessage = formatter(record);
+
+    // If we are using the generic 3299 event (from netmsg.dll), then we need
+    // to pass nine strings as placeholders instead of just one, or the
+    // remaining placeholders themselves will be rendered into the text. This
+    // assumes that we are not using that particular event ID together with
+    // another string resource library.
+    const parameters = (eventId === GENERIC_EVENT_ID)
+      ? [fullMessage, "", "", "", "", "", "", "", ""]
+      : [fullMessage];
+
     // Write to Event Log using FFI
     try {
-      ffi.writeEvent(eventType, eventId, fullMessage);
+      ffi.writeEvent(eventType, eventId, parameters);
     } catch (error) {
       metaLogger.error(
         "Failed to write to Windows Event Log: {error}",
