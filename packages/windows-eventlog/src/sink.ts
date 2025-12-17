@@ -11,6 +11,19 @@ import {
 } from "./types.ts";
 
 /**
+ * Helper function to remove any trailing newline that the formatter may add
+ * to the string. When writing to the event log, we don't want newlines at the
+ * end of the message.
+ */
+function stripTrailingNewline(s: string): string {
+  if ((s.length > 0) && (s.at(s.length - 1) === "\n")) {
+    return s.substring(0, s.length - 1);
+  } else {
+    return s;
+  }
+}
+
+/**
  * Creates a Windows Event Log sink, parameterized on the FFI implementation.
  *
  * @param {WindowsEventLogFFI} ffi Actual FFI implementation to use
@@ -64,7 +77,7 @@ export function getWindowsEventLogSinkForFFI(
 
     // Format the complete message using this function
     const formatter = options.formatter ?? defaultWindowsEventlogFormatter;
-    const fullMessage = formatter(record);
+    const fullMessage = stripTrailingNewline(formatter(record));
 
     // If we are using the generic 3299 event (from netmsg.dll), then we need
     // to pass nine strings as placeholders instead of just one, or the
