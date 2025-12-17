@@ -1003,9 +1003,54 @@ This will use the default OpenTelemetry configuration, which is to send logs to
 the OpenTelemetry collector running on `localhost:4317` or respects the `OTEL_*`
 environment variables.
 
+> [!NOTE]
+> The `OTEL_LOG_LEVEL` environment variable controls the *internal diagnostic
+> logging* of the OpenTelemetry SDK itself, **not** the log level filtering
+> for your application logs. To filter which logs are sent to the OpenTelemetry
+> collector, use LogTape's `lowestLevel` option in the logger configuration
+> or wrap the sink with `withFilter()`:
+>
+> ~~~~ typescript twoslash
+> // Option 1: Use lowestLevel in logger config
+> import { configure } from "@logtape/logtape";
+> import { getOpenTelemetrySink } from "@logtape/otel";
+>
+> await configure({
+>   sinks: {
+>     otel: getOpenTelemetrySink(),
+>   },
+>   loggers: [
+>     { category: [], sinks: ["otel"], lowestLevel: "warning" },
+>   ],
+> });
+> ~~~~
+>
+> ~~~~ typescript twoslash
+> // Option 2: Use withFilter() for custom filtering
+> import {
+>   configure,
+>   getLevelFilter,
+>   parseLogLevel,
+>   withFilter,
+> } from "@logtape/logtape";
+> import { getOpenTelemetrySink } from "@logtape/otel";
+>
+> await configure({
+>   sinks: {
+>     otel: withFilter(
+>       getOpenTelemetrySink(),
+>       getLevelFilter(parseLogLevel("warning"))
+>     ),
+>   },
+>   loggers: [
+>     { category: [], sinks: ["otel"] },
+>   ],
+> });
+> ~~~~
+
 ### Protocol selection
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 1.3.0.*
 
 The OpenTelemetry sink supports three OTLP protocols for exporting logs:
 
