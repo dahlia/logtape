@@ -113,7 +113,7 @@ reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Applicatio
 ~~~~
 
 replacing `MyApplication` with the name you passed as `sourceName` to the sink,
-and use the `GENERIC_EVENT_ID` (the default) as the event ID. Note that there is
+and use the `NELOG_OEM_Code` (the default) as the event ID. Note that there is
 no quotation marks around the data part of that command, as this trips up the
 escaping of the percentage signs.
 

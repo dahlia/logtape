@@ -62,9 +62,9 @@ export const WINDOWS_EVENT_TYPES: Record<LogLevel, number> = {
 
 /**
  * Generic event message defined in netmsg.dll which consists only of
- * placeholders and no extra text.
+ * placeholders and no extra text. This value is defined in LMErrlog.h
  */
-export const GENERIC_EVENT_ID = 3299;
+export const NELOG_OEM_Code = 3299;
 
 /**
  * Default Event ID mapping for LogTape levels. The event ID is used to look up
@@ -74,12 +74,12 @@ export const GENERIC_EVENT_ID = 3299;
  * @since 1.0.0
  */
 export const DEFAULT_EVENT_ID_MAPPING: Record<LogLevel, number> = {
-  fatal: GENERIC_EVENT_ID,
-  error: GENERIC_EVENT_ID,
-  warning: GENERIC_EVENT_ID,
-  info: GENERIC_EVENT_ID,
-  debug: GENERIC_EVENT_ID,
-  trace: GENERIC_EVENT_ID,
+  fatal: NELOG_OEM_Code,
+  error: NELOG_OEM_Code,
+  warning: NELOG_OEM_Code,
+  info: NELOG_OEM_Code,
+  debug: NELOG_OEM_Code,
+  trace: NELOG_OEM_Code,
 } as const;
 
 /**

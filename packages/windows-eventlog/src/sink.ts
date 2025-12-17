@@ -5,8 +5,8 @@ import { defaultWindowsEventlogFormatter } from "./formatter.ts";
 import { validateWindowsPlatform } from "./platform.ts";
 import {
   DEFAULT_EVENT_ID_MAPPING,
-  GENERIC_EVENT_ID,
   mapLogLevelToEventType,
+  NELOG_OEM_Code,
   type WindowsEventLogSinkOptions,
 } from "./types.ts";
 
@@ -84,7 +84,7 @@ export function getWindowsEventLogSinkForFFI(
     // remaining placeholders themselves will be rendered into the text. This
     // assumes that we are not using that particular event ID together with
     // another string resource library.
-    const parameters = (eventId === GENERIC_EVENT_ID)
+    const parameters = (eventId === NELOG_OEM_Code)
       ? [fullMessage, "", "", "", "", "", "", "", ""]
       : [fullMessage];
 
