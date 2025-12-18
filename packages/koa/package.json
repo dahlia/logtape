@@ -47,6 +47,9 @@
     "./package.json": "./package.json"
   },
   "sideEffects": false,
+  "files": [
+    "dist/"
+  ],
   "peerDependencies": {
     "@logtape/logtape": "workspace:^",
     "koa": "^2.0.0 || ^3.0.0"
