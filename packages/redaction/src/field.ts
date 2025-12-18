@@ -170,8 +170,11 @@ export function redactProperties(
       continue;
     }
     const value = copy[field];
-    // Check if value is a vanilla object:
-    if (
+    // Check if value is an array:
+    if (Array.isArray(value)) {
+      copy[field] = redactArray(value, options);
+    } // Check if value is a vanilla object:
+    else if (
       typeof value === "object" && value !== null &&
       (Object.getPrototypeOf(value) === Object.prototype ||
         Object.getPrototypeOf(value) === null)
@@ -181,6 +184,31 @@ export function redactProperties(
     }
   }
   return copy;
+}
+
+/**
+ * Redacts sensitive fields in an array recursively.
+ * @param array The array to process.
+ * @param options The redaction options.
+ * @returns A new array with redacted values.
+ */
+function redactArray(
+  array: unknown[],
+  options: FieldRedactionOptions,
+): unknown[] {
+  return array.map((item) => {
+    if (Array.isArray(item)) {
+      return redactArray(item, options);
+    }
+    if (
+      typeof item === "object" && item !== null &&
+      (Object.getPrototypeOf(item) === Object.prototype ||
+        Object.getPrototypeOf(item) === null)
+    ) {
+      return redactProperties(item as Record<string, unknown>, options);
+    }
+    return item;
+  });
 }
 
 /**

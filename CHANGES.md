@@ -8,6 +8,14 @@ Version 1.1.6
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
+
 
 Version 1.1.5
 -------------
