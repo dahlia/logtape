@@ -8,6 +8,14 @@ Version 1.3.3
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
+
 
 Version 1.3.2
 -------------
@@ -265,6 +273,20 @@ Released on December 15, 2025.
     -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
 
 
+Version 1.2.4
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
+
+
 Version 1.2.3
 -------------
 
@@ -373,6 +395,20 @@ Released on November 11, 2025.
     structured data.  [[#94]]
 
 [#94]: https://github.com/dahlia/logtape/issues/94
+
+
+Version 1.1.6
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
 
 
 Version 1.1.5
