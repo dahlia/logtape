@@ -658,4 +658,60 @@ test("redactByField()", async () => {
     assertEquals(props.users[0].name, "Alice");
     assertEquals(props.users[1].name, "Bob");
   }
+
+  { // named placeholder with array containing sensitive fields in message
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: [/email/i],
+      action: () => "[REDACTED]",
+    });
+
+    // This is the case: logger.info('Testing: {args}', { args: [{ email: '...' }] })
+    const args = [{ email: "example@example.com", name: "John" }];
+    wrappedSink({
+      level: "info",
+      category: ["app"],
+      message: ["Testing: ", args, ""],
+      rawMessage: "Testing: {args}",
+      timestamp: Date.now(),
+      properties: { args },
+    });
+
+    // Both properties and message should have redacted values
+    const propsArr = records[0].properties.args as { email: string }[];
+    assertEquals(propsArr[0].email, "[REDACTED]");
+
+    // The message array should also use redacted values
+    const messageArr = records[0].message[1] as {
+      email: string;
+      name: string;
+    }[];
+    assertEquals(messageArr[0].email, "[REDACTED]");
+    assertEquals(messageArr[0].name, "John");
+  }
+
+  { // non-sensitive placeholder still uses redacted properties
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["secret"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Data: ", { public: "visible", secret: "hidden" }, ""],
+      rawMessage: "Data: {data}",
+      timestamp: Date.now(),
+      properties: { data: { public: "visible", secret: "hidden" } },
+    });
+
+    // The message should use redacted properties even though {data} itself is not sensitive
+    const messageObj = records[0].message[1] as {
+      public: string;
+      secret: string;
+    };
+    assertEquals(messageObj.public, "visible");
+    assertEquals(messageObj.secret, "[REDACTED]");
+  }
 });
