@@ -233,6 +233,17 @@ export interface TextFormatterOptions {
    * @returns The formatted log record.
    */
   format?: (values: FormattedValues) => string;
+
+  /**
+   * Line ending style for formatted output.
+   *
+   * - `"lf"`: Unix-style line endings (`\n`)
+   * - `"crlf"`: Windows-style line endings (`\r\n`)
+   *
+   * @default "lf"
+   * @since 1.4.0
+   */
+  lineEnding?: "lf" | "crlf";
 }
 
 // Optimized helper functions for timestamp formatting
@@ -420,6 +431,8 @@ export function getTextFormatter(
     }
   })();
 
+  const lineEnding = options.lineEnding === "crlf" ? "\r\n" : "\n";
+
   const formatter: (values: FormattedValues) => string = options.format ??
     (({ timestamp, level, category, message }: FormattedValues) =>
       `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}: ${message}`);
@@ -463,7 +476,7 @@ export function getTextFormatter(
       message,
       record,
     };
-    return `${formatter(values)}\n`;
+    return `${formatter(values)}${lineEnding}`;
   };
 }
 
@@ -726,6 +739,17 @@ export interface JsonLinesFormatterOptions {
    * @default `"nest:properties"`
    */
   readonly properties?: "flatten" | `prepend:${string}` | `nest:${string}`;
+
+  /**
+   * Line ending style for formatted output.
+   *
+   * - `"lf"`: Unix-style line endings (`\n`)
+   * - `"crlf"`: Windows-style line endings (`\r\n`)
+   *
+   * @default "lf"
+   * @since 1.4.0
+   */
+  readonly lineEnding?: "lf" | "crlf";
 }
 
 /**
@@ -746,6 +770,8 @@ export interface JsonLinesFormatterOptions {
 export function getJsonLinesFormatter(
   options: JsonLinesFormatterOptions = {},
 ): TextFormatter {
+  const lineEnding = options.lineEnding === "crlf" ? "\r\n" : "\n";
+
   // Most common configuration - optimize for the default case
   if (!options.categorySeparator && !options.message && !options.properties) {
     // Ultra-minimalist path - eliminate all possible overhead
@@ -761,7 +787,7 @@ export function getJsonLinesFormatter(
             record.message[2],
           logger: record.category.join("."),
           properties: record.properties,
-        }) + "\n";
+        }) + lineEnding;
       }
 
       // Single message (second most common)
@@ -774,7 +800,7 @@ export function getJsonLinesFormatter(
           message: record.message[0],
           logger: record.category.join("."),
           properties: record.properties,
-        }) + "\n";
+        }) + lineEnding;
       }
 
       // Complex messages (fallback)
@@ -789,7 +815,7 @@ export function getJsonLinesFormatter(
         message: msg,
         logger: record.category.join("."),
         properties: record.properties,
-      }) + "\n";
+      }) + lineEnding;
     };
   }
 
@@ -880,7 +906,7 @@ export function getJsonLinesFormatter(
       message: getMessage(record),
       logger: joinCategory(record.category),
       ...getProperties(record.properties),
-    }) + "\n";
+    }) + lineEnding;
   };
 }
 
