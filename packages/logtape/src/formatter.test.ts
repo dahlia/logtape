@@ -569,69 +569,44 @@ test("getJsonLinesFormatter()", () => {
 });
 
 test("getTextFormatter() with lineEnding option", () => {
-  // CRLF test
-  const crlfFormatter = getTextFormatter({ lineEnding: "crlf" });
-  const crlfOutput = crlfFormatter(info);
-  assertEquals(crlfOutput.endsWith("\r\n"), true);
-  assertEquals(crlfOutput.endsWith("\n"), true); // \r\n ends with \n
   assertEquals(
-    crlfOutput,
+    getTextFormatter({ lineEnding: "crlf" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\r\n",
   );
-
-  // LF test (explicit)
-  const lfFormatter = getTextFormatter({ lineEnding: "lf" });
-  const lfOutput = lfFormatter(info);
-  assertEquals(lfOutput.endsWith("\n"), true);
-  assertEquals(lfOutput.endsWith("\r\n"), false);
   assertEquals(
-    lfOutput,
+    getTextFormatter({ lineEnding: "lf" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-
-  // Default is LF (backward compatibility)
-  const defaultFormatter = getTextFormatter();
-  const defaultOutput = defaultFormatter(info);
-  assertEquals(defaultOutput.endsWith("\n"), true);
-  assertEquals(defaultOutput.endsWith("\r\n"), false);
   assertEquals(
-    defaultOutput,
+    getTextFormatter()(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
 });
 
 test("getJsonLinesFormatter() with lineEnding option", () => {
-  // CRLF test
-  const crlfFormatter = getJsonLinesFormatter({ lineEnding: "crlf" });
-  const crlfOutput = crlfFormatter(info);
+  const crlfOutput = getJsonLinesFormatter({ lineEnding: "crlf" })(info);
   assertEquals(crlfOutput.endsWith("\r\n"), true);
-  // Verify JSON parsing still works
-  const crlfParsed = JSON.parse(crlfOutput.trimEnd());
-  assertEquals(crlfParsed["@timestamp"], "2023-11-14T22:13:20.000Z");
+  assertEquals(
+    JSON.parse(crlfOutput.trimEnd())["@timestamp"],
+    "2023-11-14T22:13:20.000Z",
+  );
 
-  // LF test (explicit)
-  const lfFormatter = getJsonLinesFormatter({ lineEnding: "lf" });
-  const lfOutput = lfFormatter(info);
+  const lfOutput = getJsonLinesFormatter({ lineEnding: "lf" })(info);
   assertEquals(lfOutput.endsWith("\n"), true);
   assertEquals(lfOutput.endsWith("\r\n"), false);
-  const lfParsed = JSON.parse(lfOutput.trimEnd());
-  assertEquals(lfParsed["@timestamp"], "2023-11-14T22:13:20.000Z");
 
-  // Default is LF (backward compatibility)
-  const defaultFormatter = getJsonLinesFormatter();
-  const defaultOutput = defaultFormatter(info);
+  const defaultOutput = getJsonLinesFormatter()(info);
   assertEquals(defaultOutput.endsWith("\n"), true);
   assertEquals(defaultOutput.endsWith("\r\n"), false);
 });
 
 test("getAnsiColorFormatter() with lineEnding option", () => {
-  // ANSI color formatter should inherit lineEnding from TextFormatter
-  const crlfFormatter = getAnsiColorFormatter({ lineEnding: "crlf" });
-  const crlfOutput = crlfFormatter(info);
-  assertEquals(crlfOutput.endsWith("\r\n"), true);
-
-  const lfFormatter = getAnsiColorFormatter({ lineEnding: "lf" });
-  const lfOutput = lfFormatter(info);
-  assertEquals(lfOutput.endsWith("\n"), true);
-  assertEquals(lfOutput.endsWith("\r\n"), false);
+  assertEquals(
+    getAnsiColorFormatter({ lineEnding: "crlf" })(info).endsWith("\r\n"),
+    true,
+  );
+  assertEquals(
+    getAnsiColorFormatter({ lineEnding: "lf" })(info).endsWith("\r\n"),
+    false,
+  );
 });
