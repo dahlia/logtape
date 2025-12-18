@@ -371,6 +371,15 @@ const levelRenderersCache = {
 } as const;
 
 /**
+ * Helper function to get the line ending value based on the option.
+ * @param lineEnding The line ending option.
+ * @returns The line ending string.
+ */
+function getLineEndingValue(lineEnding?: "lf" | "crlf"): string {
+  return lineEnding === "crlf" ? "\r\n" : "\n";
+}
+
+/**
  * Get a text formatter with the specified options.  Although it's flexible
  * enough to create a custom formatter, if you want more control, you can
  * create a custom formatter that satisfies the {@link TextFormatter} type
@@ -431,7 +440,7 @@ export function getTextFormatter(
     }
   })();
 
-  const lineEnding = options.lineEnding === "crlf" ? "\r\n" : "\n";
+  const lineEnding = getLineEndingValue(options.lineEnding);
 
   const formatter: (values: FormattedValues) => string = options.format ??
     (({ timestamp, level, category, message }: FormattedValues) =>
@@ -770,7 +779,7 @@ export interface JsonLinesFormatterOptions {
 export function getJsonLinesFormatter(
   options: JsonLinesFormatterOptions = {},
 ): TextFormatter {
-  const lineEnding = options.lineEnding === "crlf" ? "\r\n" : "\n";
+  const lineEnding = getLineEndingValue(options.lineEnding);
 
   // Most common configuration - optimize for the default case
   if (!options.categorySeparator && !options.message && !options.properties) {
