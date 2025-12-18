@@ -20,6 +20,23 @@ To be released.
      -  `getAnsiColorFormatter()` automatically inherits the option from
         `getTextFormatter()`.
 
+### @logtape/elysia
+
+ -  Added a new package `@logtape/elysia` for Elysia integration.  [[#111]]
+
+     -  Added `elysiaLogger()` function to create Elysia plugin for HTTP
+        request logging.
+     -  Supports predefined formats (`combined`, `common`, `dev`, `short`,
+        `tiny`) compatible with Morgan.
+     -  Supports custom format functions returning string or structured objects.
+     -  Supports configurable log levels via `level` option.
+     -  Supports request skipping via `skip` option.
+     -  Supports immediate logging mode via `logRequest` option.
+     -  Supports Elysia plugin scopes via `scope` option (`global`, `scoped`,
+        `local`).
+     -  Logs errors at error level via `onError` hook.
+
+[#111]: https://github.com/dahlia/logtape/issues/111
 [#113]: https://github.com/dahlia/logtape/pull/113
 
 

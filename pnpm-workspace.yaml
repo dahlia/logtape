@@ -8,6 +8,7 @@ packages:
 - packages/file
 - packages/hono
 - packages/koa
+- packages/elysia
 - packages/otel
 - packages/pretty
 - packages/redaction
@@ -37,6 +38,7 @@ catalog:
   "@types/express": ^5.0.6
   "@types/koa": ^2.15.0
   consolemock: ^1.1.0
+  elysia: ^1.4.0
   express: ^5.2.1
   fastify: ^5.0.0
   hono: ^4.0.0

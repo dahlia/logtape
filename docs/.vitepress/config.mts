@@ -111,6 +111,12 @@ const jsrRef_koa = await jsrRef({
   cachePath: ".jsr-cache-koa.json",
 });
 
+const jsrRef_elysia = await jsrRef({
+  package: "@logtape/elysia",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-elysia.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -179,6 +185,7 @@ const REFERENCES = {
       text: "@logtape/drizzle-orm",
       link: "https://jsr.io/@logtape/drizzle-orm/doc",
     },
+    { text: "@logtape/elysia", link: "https://jsr.io/@logtape/elysia/doc" },
     { text: "@logtape/express", link: "https://jsr.io/@logtape/express/doc" },
     { text: "@logtape/fastify", link: "https://jsr.io/@logtape/fastify/doc" },
     { text: "@logtape/hono", link: "https://jsr.io/@logtape/hono/doc" },
@@ -302,6 +309,7 @@ export default defineConfig({
       md.use(jsrRef_fastify);
       md.use(jsrRef_hono);
       md.use(jsrRef_koa);
+      md.use(jsrRef_elysia);
     },
   },
   sitemap: {
