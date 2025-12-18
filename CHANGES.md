@@ -8,6 +8,14 @@ Version 1.1.7
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
+
 
 Version 1.1.6
 -------------
