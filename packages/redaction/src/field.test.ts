@@ -545,4 +545,81 @@ test("redactByField()", async () => {
 
     assertEquals(records[0].message[1], "[REDACTED]");
   }
+
+  { // array containing objects with sensitive fields - wildcard {*}
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: [/email/i],
+      action: () => "[REDACTED]",
+    });
+
+    const props = { args: [{ email: "example@example.com" }] };
+    wrappedSink({
+      level: "info",
+      category: ["app"],
+      message: ["", props, ""],
+      rawMessage: "{*}",
+      timestamp: Date.now(),
+      properties: props,
+    });
+
+    const messageObj = records[0].message[1] as { args: { email: string }[] };
+    assertEquals(messageObj.args[0].email, "[REDACTED]");
+    const propsObj = records[0].properties as { args: { email: string }[] };
+    assertEquals(propsObj.args[0].email, "[REDACTED]");
+  }
+
+  { // array containing objects with sensitive fields - named placeholder
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: [/email/i],
+      action: () => "[REDACTED]",
+    });
+
+    const args = [{ email: "example@example.com" }];
+    wrappedSink({
+      level: "info",
+      category: ["app"],
+      message: ["Testing: ", args, ""],
+      rawMessage: "Testing: {args}",
+      timestamp: Date.now(),
+      properties: { args },
+    });
+
+    const propsObj = records[0].properties as { args: { email: string }[] };
+    assertEquals(propsObj.args[0].email, "[REDACTED]");
+  }
+
+  { // nested arrays with objects
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Data"],
+      rawMessage: "Data",
+      timestamp: Date.now(),
+      properties: {
+        users: [
+          { name: "Alice", password: "secret1" },
+          { name: "Bob", password: "secret2" },
+        ],
+        nested: [[{ password: "deep" }]],
+      },
+    });
+
+    const props = records[0].properties as {
+      users: { name: string; password: string }[];
+      nested: { password: string }[][];
+    };
+    assertEquals(props.users[0].password, "[REDACTED]");
+    assertEquals(props.users[1].password, "[REDACTED]");
+    assertEquals(props.nested[0][0].password, "[REDACTED]");
+    assertEquals(props.users[0].name, "Alice");
+    assertEquals(props.users[1].name, "Bob");
+  }
 });
