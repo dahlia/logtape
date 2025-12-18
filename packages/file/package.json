@@ -56,6 +56,9 @@
     }
   },
   "sideEffects": false,
+  "files": [
+    "dist/"
+  ],
   "peerDependencies": {
     "@logtape/logtape": "workspace:^"
   },

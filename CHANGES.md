@@ -8,6 +8,11 @@ Version 1.2.3
 
 To be released.
 
+ -  Reduced npm package sizes by excluding unnecessary source files from
+    published packages.  Previously, the *src/* directory was included in npm
+    packages, which increased download sizes without providing runtime value.
+    [[#112]]
+
 
 Version 1.2.2
 -------------
@@ -106,6 +111,19 @@ Released on November 11, 2025.
     structured data.  [[#94]]
 
 [#94]: https://github.com/dahlia/logtape/issues/94
+
+
+Version 1.1.5
+-------------
+
+Released on December 18, 2025.
+
+ -  Reduced npm package sizes by excluding unnecessary source files from
+    published packages.  Previously, the *src/* directory was included in npm
+    packages, which increased download sizes without providing runtime value.
+    [[#112]]
+
+[#112]: https://github.com/dahlia/logtape/issues/112
 
 
 Version 1.1.4
