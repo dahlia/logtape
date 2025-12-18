@@ -55,6 +55,9 @@
   "sideEffects": [
     "./dist/install.*"
   ],
+  "files": [
+    "dist/"
+  ],
   "peerDependencies": {
     "@logtape/logtape": "workspace:^",
     "winston": "^3.17.0"
