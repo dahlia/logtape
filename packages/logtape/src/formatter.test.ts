@@ -567,3 +567,46 @@ test("getJsonLinesFormatter()", () => {
     });
   }
 });
+
+test("getTextFormatter() with lineEnding option", () => {
+  assertEquals(
+    getTextFormatter({ lineEnding: "crlf" })(info),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\r\n",
+  );
+  assertEquals(
+    getTextFormatter({ lineEnding: "lf" })(info),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assertEquals(
+    getTextFormatter()(info),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+});
+
+test("getJsonLinesFormatter() with lineEnding option", () => {
+  const crlfOutput = getJsonLinesFormatter({ lineEnding: "crlf" })(info);
+  assertEquals(crlfOutput.endsWith("\r\n"), true);
+  assertEquals(
+    JSON.parse(crlfOutput.trimEnd())["@timestamp"],
+    "2023-11-14T22:13:20.000Z",
+  );
+
+  const lfOutput = getJsonLinesFormatter({ lineEnding: "lf" })(info);
+  assertEquals(lfOutput.endsWith("\n"), true);
+  assertEquals(lfOutput.endsWith("\r\n"), false);
+
+  const defaultOutput = getJsonLinesFormatter()(info);
+  assertEquals(defaultOutput.endsWith("\n"), true);
+  assertEquals(defaultOutput.endsWith("\r\n"), false);
+});
+
+test("getAnsiColorFormatter() with lineEnding option", () => {
+  assertEquals(
+    getAnsiColorFormatter({ lineEnding: "crlf" })(info).endsWith("\r\n"),
+    true,
+  );
+  assertEquals(
+    getAnsiColorFormatter({ lineEnding: "lf" })(info).endsWith("\r\n"),
+    false,
+  );
+});

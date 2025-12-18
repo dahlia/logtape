@@ -8,6 +8,20 @@ Version 1.4.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added `lineEnding` option to text and JSON Lines formatters for Windows
+    compatibility.  [[#113] by Joonmo]
+
+     -  Added `lineEnding` option to `TextFormatterOptions` interface.
+     -  Added `lineEnding` option to `JsonLinesFormatterOptions` interface.
+     -  Supports `"lf"` (Unix-style, default) and `"crlf"` (Windows-style)
+        line endings.
+     -  `getAnsiColorFormatter()` automatically inherits the option from
+        `getTextFormatter()`.
+
+[#113]: https://github.com/dahlia/logtape/pull/113
+
 
 Version 1.3.4
 -------------
