@@ -1,6 +1,6 @@
 {
   "name": "@logtape/drizzle-orm",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "Drizzle ORM adapter for LogTape logging library",
   "keywords": [
     "logging",
