@@ -9,6 +9,20 @@ Version 1.4.0
 To be released.
 
 
+Version 1.3.4
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
+
+
 Version 1.3.3
 -------------
 
@@ -279,6 +293,20 @@ Released on December 15, 2025.
     -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
 
 
+Version 1.2.5
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
+
+
 Version 1.2.4
 -------------
 
@@ -401,6 +429,20 @@ Released on November 11, 2025.
     structured data.  [[#94]]
 
 [#94]: https://github.com/dahlia/logtape/issues/94
+
+
+Version 1.1.7
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
 
 
 Version 1.1.6

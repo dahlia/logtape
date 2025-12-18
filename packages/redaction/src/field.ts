@@ -106,15 +106,14 @@ export function redactByField(
           placeholders,
           opts.fieldPatterns,
         );
-      if (redactedIndices.size > 0 || wildcardIndices.size > 0) {
-        redactedMessage = redactMessageArray(
-          record.message,
-          redactedIndices,
-          wildcardIndices,
-          redactedProperties,
-          opts.action,
-        );
-      }
+      redactedMessage = redactMessageArray(
+        record.message,
+        placeholders,
+        redactedIndices,
+        wildcardIndices,
+        redactedProperties,
+        opts.action,
+      );
     } else {
       // Tagged template: redact by comparing values
       const redactedValues = getRedactedValues(
@@ -329,6 +328,7 @@ function getRedactedPlaceholderIndices(
  * Redacts values in the message array based on the redacted placeholder
  * indices and wildcard indices.
  * @param message The original message array.
+ * @param placeholders Array of placeholder names from the template.
  * @param redactedIndices Set of placeholder indices to redact.
  * @param wildcardIndices Set of wildcard placeholder indices.
  * @param redactedProperties The redacted properties object.
@@ -337,13 +337,12 @@ function getRedactedPlaceholderIndices(
  */
 function redactMessageArray(
   message: readonly unknown[],
+  placeholders: string[],
   redactedIndices: Set<number>,
   wildcardIndices: Set<number>,
   redactedProperties: Record<string, unknown>,
   action: "delete" | ((value: unknown) => unknown) | undefined,
 ): readonly unknown[] {
-  if (redactedIndices.size === 0 && wildcardIndices.size === 0) return message;
-
   const result: unknown[] = [];
   let placeholderIndex = 0;
 
@@ -363,7 +362,15 @@ function redactMessageArray(
           result.push(action(message[i]));
         }
       } else {
-        result.push(message[i]);
+        // For non-redacted placeholders, use value from redactedProperties
+        // to ensure nested sensitive fields are redacted
+        const placeholderName = placeholders[placeholderIndex];
+        const rootKey = parsePathSegments(placeholderName)[0];
+        if (rootKey in redactedProperties) {
+          result.push(redactedProperties[rootKey]);
+        } else {
+          result.push(message[i]);
+        }
       }
       placeholderIndex++;
     }
