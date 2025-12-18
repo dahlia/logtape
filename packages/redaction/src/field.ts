@@ -177,16 +177,7 @@ export function redactProperties(
 
     const value = properties[field];
     if (Array.isArray(value)) {
-      copy[field] = value.map((item) => {
-        if (typeof item === "object" && item !== null) {
-          return redactProperties(
-            item as Record<string, unknown>,
-            options,
-            visited,
-          );
-        }
-        return item;
-      });
+      copy[field] = redactArray(value, options, visited);
     } else if (typeof value === "object" && value !== null) {
       copy[field] = redactProperties(
         value as Record<string, unknown>,
@@ -198,6 +189,33 @@ export function redactProperties(
     }
   }
   return copy;
+}
+
+/**
+ * Redacts sensitive fields in an array recursively.
+ * @param array The array to process.
+ * @param options The redaction options.
+ * @param visited Map of visited objects to prevent circular reference issues.
+ * @returns A new array with redacted values.
+ */
+function redactArray(
+  array: unknown[],
+  options: FieldRedactionOptions,
+  visited: Map<object, object>,
+): unknown[] {
+  return array.map((item) => {
+    if (Array.isArray(item)) {
+      return redactArray(item, options, visited);
+    }
+    if (typeof item === "object" && item !== null) {
+      return redactProperties(
+        item as Record<string, unknown>,
+        options,
+        visited,
+      );
+    }
+    return item;
+  });
 }
 
 /**
