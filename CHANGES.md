@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.1.5
 -------------
 
-To be released.
+Released on December 18, 2025.
 
  -  Reduced npm package sizes by excluding unnecessary source files from
     published packages.  Previously, the *src/* directory was included in npm
