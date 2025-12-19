@@ -11,7 +11,7 @@ export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
   private eventSource: number | null = null;
   // deno-lint-ignore no-explicit-any
   private lib: any = null;
-  private sourceName: string = "\0";
+  private sourceName: string = ""; // immediately overwritten in initialize
   private initialized = false;
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 

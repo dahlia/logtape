@@ -8,7 +8,7 @@ import type { EventType } from "./types.ts";
  */
 export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   private eventSource: unknown = null;
-  private sourceName: string = "\0";
+  private sourceName: string = ""; // immediately overwritten in initialize;
   private initialized = false;
   private lib: unknown = null;
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);

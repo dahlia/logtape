@@ -48,7 +48,7 @@ const FFI_SYMBOLS = {
 export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
   private lib: Deno.DynamicLibrary<typeof FFI_SYMBOLS> | null = null;
   private eventSource: Deno.PointerValue | null = null;
-  private sourceName: string = "\0";
+  private sourceName: string = ""; // immediately overwritten in initialize
   private encoder = new TextEncoder();
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 
