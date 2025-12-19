@@ -178,11 +178,15 @@ export function redactProperties(
     if (Array.isArray(value)) {
       copy[field] = redactArray(value, options, visited);
     } else if (typeof value === "object" && value !== null) {
-      copy[field] = redactProperties(
-        value as Record<string, unknown>,
-        options,
-        visited,
-      );
+      if (isBuiltInObject(value)) {
+        copy[field] = value;
+      } else {
+        copy[field] = redactProperties(
+          value as Record<string, unknown>,
+          options,
+          visited,
+        );
+      }
     } else {
       copy[field] = value;
     }
@@ -207,6 +211,9 @@ function redactArray(
       return redactArray(item, options, visited);
     }
     if (typeof item === "object" && item !== null) {
+      if (isBuiltInObject(item)) {
+        return item;
+      }
       return redactProperties(
         item as Record<string, unknown>,
         options,
@@ -215,6 +222,27 @@ function redactArray(
     }
     return item;
   });
+}
+
+/**
+ * Checks if a value is a built-in object that should not be recursively
+ * processed (e.g., Error, Date, RegExp, Map, Set, etc.).
+ * @param value The value to check.
+ * @returns `true` if the value is a built-in object, `false` otherwise.
+ */
+function isBuiltInObject(value: object): boolean {
+  return value instanceof Error ||
+    value instanceof Date ||
+    value instanceof RegExp ||
+    value instanceof Map ||
+    value instanceof Set ||
+    value instanceof WeakMap ||
+    value instanceof WeakSet ||
+    value instanceof Promise ||
+    value instanceof ArrayBuffer ||
+    (typeof SharedArrayBuffer !== "undefined" &&
+      value instanceof SharedArrayBuffer) ||
+    ArrayBuffer.isView(value);
 }
 
 /**

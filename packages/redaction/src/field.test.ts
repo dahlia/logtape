@@ -253,6 +253,78 @@ test("redactProperties()", () => {
     assertEquals(redactedUser.name, "Alice");
     assertEquals(redactedUser.password, "REDACTED");
   }
+
+  { // preserves Error objects without modification
+    const err = new Error("test error");
+    const properties = {
+      err,
+      data: { password: "secret" },
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    assert(result.err instanceof Error);
+    assertEquals((result.err as Error).message, "test error");
+    assert(result.err === err, "Error should be the same instance");
+    assertEquals((result.data as { password: string }).password, "[REDACTED]");
+  }
+
+  { // preserves Date objects without modification
+    const date = new Date("2024-01-01T00:00:00Z");
+    const properties = {
+      createdAt: date,
+      password: "secret",
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    assert(result.createdAt instanceof Date);
+    assertEquals((result.createdAt as Date).toISOString(), date.toISOString());
+    assert(result.createdAt === date, "Date should be the same instance");
+  }
+
+  { // preserves RegExp objects without modification
+    const regex = /test/gi;
+    const properties = {
+      pattern: regex,
+      password: "secret",
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    assert(result.pattern instanceof RegExp);
+    assertEquals((result.pattern as RegExp).source, "test");
+    assert(result.pattern === regex, "RegExp should be the same instance");
+  }
+
+  { // preserves built-in objects in arrays
+    const err = new Error("array error");
+    const date = new Date();
+    const properties = {
+      items: [err, date, { password: "secret" }],
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    const items = result.items as unknown[];
+    assert(items[0] instanceof Error);
+    assert(items[0] === err, "Error in array should be same instance");
+    assert(items[1] instanceof Date);
+    assert(items[1] === date, "Date in array should be same instance");
+    assertEquals((items[2] as { password: string }).password, "[REDACTED]");
+  }
 });
 
 test("redactByField()", async () => {

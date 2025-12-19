@@ -81,6 +81,27 @@ export const JWT_PATTERN: RedactionPattern = {
 export type RedactionPatterns = readonly RedactionPattern[];
 
 /**
+ * Checks if a value is a built-in object that should not be recursively
+ * processed (e.g., Error, Date, RegExp, Map, Set, etc.).
+ * @param value The value to check.
+ * @returns `true` if the value is a built-in object, `false` otherwise.
+ */
+function isBuiltInObject(value: object): boolean {
+  return value instanceof Error ||
+    value instanceof Date ||
+    value instanceof RegExp ||
+    value instanceof Map ||
+    value instanceof Set ||
+    value instanceof WeakMap ||
+    value instanceof WeakSet ||
+    value instanceof Promise ||
+    value instanceof ArrayBuffer ||
+    (typeof SharedArrayBuffer !== "undefined" &&
+      value instanceof SharedArrayBuffer) ||
+    ArrayBuffer.isView(value);
+}
+
+/**
  * Applies data redaction to a {@link TextFormatter}.
  *
  * Note that there are some built-in redaction patterns:
@@ -198,6 +219,9 @@ export function redactByPattern(
       return copy;
     }
     if (typeof object === "object" && object !== null) {
+      if (isBuiltInObject(object)) {
+        return object;
+      }
       const redacted: Record<string, unknown> = {};
       visited.set(object, redacted);
       for (const key in object) {
