@@ -108,8 +108,8 @@ await configure({
 If you want to log only the text supplied by the formatter into the event log,
 you can register the system generic string library using this command:
 
-~~~~ bat
-reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Application\MyApplication /v EventMessageFile /t REG_EXPAND_SZ /d ^%SystemRoot^%\System32\netmsg.dll
+~~~~ powershell
+New-Item -Path HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application -Name MyApplication | New-ItemProperty -Name EventMessageFile -PropertyType ExpandString -Value %SystemRoot%\System32\netmsg.dll
 ~~~~
 
 replacing `MyApplication` with the name you passed as `sourceName` to the sink,
