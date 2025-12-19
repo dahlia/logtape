@@ -40,6 +40,21 @@ To be released.
 [#113]: https://github.com/dahlia/logtape/pull/113
 
 
+Version 1.3.5
+-------------
+
+Released on December 19, 2025.
+
+### @logtape/redaction
+
+ -  Fixed a regression where `Error`, `Date`, `RegExp`, and other built-in
+    objects were incorrectly converted to empty objects `{}` when processed
+    by `redactByField()` and `redactByPattern()`.  These objects are now
+    preserved without modification.  [[#114]]
+
+[#114]: https://github.com/dahlia/logtape/issues/114
+
+
 Version 1.3.4
 -------------
 

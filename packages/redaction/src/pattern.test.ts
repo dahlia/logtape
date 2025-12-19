@@ -404,4 +404,82 @@ test("redactByPattern(ConsoleFormatter)", () => {
     assertEquals(resultUser.email, "REDACTED@EMAIL.ADDRESS");
     assertEquals(resultUser.name, "Alice");
   }
+
+  { // preserves Error objects without modification
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+
+    const err = new Error("test error");
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: ["Error object:", err],
+      rawMessage: "Error object: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(formatter, [
+      EMAIL_ADDRESS_PATTERN,
+    ]);
+    const output = redactedFormatter(record);
+
+    const resultErr = (output[0] as unknown[])[1] as Error;
+    assert(resultErr instanceof Error);
+    assertEquals(resultErr.message, "test error");
+    assert(resultErr === err, "Error should be the same instance");
+  }
+
+  { // preserves Date objects without modification
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+
+    const date = new Date("2024-01-01T00:00:00Z");
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: ["Date object:", date],
+      rawMessage: "Date object: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(formatter, [
+      EMAIL_ADDRESS_PATTERN,
+    ]);
+    const output = redactedFormatter(record);
+
+    const resultDate = (output[0] as unknown[])[1] as Date;
+    assert(resultDate instanceof Date);
+    assertEquals(resultDate.toISOString(), date.toISOString());
+    assert(resultDate === date, "Date should be the same instance");
+  }
+
+  { // preserves built-in objects in arrays
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+
+    const err = new Error("array error");
+    const date = new Date();
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: ["Items:", [err, date, { email: "user@example.com" }]],
+      rawMessage: "Items: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(formatter, [
+      EMAIL_ADDRESS_PATTERN,
+    ]);
+    const output = redactedFormatter(record);
+
+    const items = (output[0] as unknown[])[1] as unknown[];
+    assert(items[0] instanceof Error);
+    assert(items[0] === err, "Error in array should be same instance");
+    assert(items[1] instanceof Date);
+    assert(items[1] === date, "Date in array should be same instance");
+    assertEquals(
+      (items[2] as { email: string }).email,
+      "REDACTED@EMAIL.ADDRESS",
+    );
+  }
 });
