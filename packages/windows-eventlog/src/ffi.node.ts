@@ -71,7 +71,7 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   /**
    * Write an event to Windows Event Log
    */
-  writeEvent(eventType: EventType, eventId: number, messages: string[]): void {
+  writeEvent(eventType: EventType, eventId: number, params: string[]): void {
     if (!this.initialized || !this.eventSource || !this.ReportEventA) {
       return;
     }
@@ -79,7 +79,7 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
     try {
       // Create null-terminated strings
       // In koffi, we pass an array of strings for char**
-      const nullTerminatedMessages = messages.map((s) => s + "\0");
+      const nullTerminatedParams = params.map((s) => s + "\0");
 
       // Report the event using strings array approach
       const success =
@@ -89,9 +89,9 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
           0, // category
           eventId,
           0, // user SID (null)
-          nullTerminatedMessages.length, // number of strings
+          nullTerminatedParams.length, // number of strings
           0, // data size (0 - not using raw data)
-          nullTerminatedMessages, // strings array with our message
+          nullTerminatedParams, // strings array with our message
           null, // raw data (null - not using)
         );
 

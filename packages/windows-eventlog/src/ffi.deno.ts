@@ -94,10 +94,10 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
    *
    * @param eventType Event type (error, warning, info)
    * @param eventId Event ID number that gives us formatting string
-   * @param messages Message parameter strings to log
+   * @param params Message parameter strings to log
    * @throws {WindowsEventLogError} If the write operation fails
    */
-  writeEvent(eventType: number, eventId: number, messages: string[]): void {
+  writeEvent(eventType: number, eventId: number, params: string[]): void {
     if (!this.lib || !this.eventSource) {
       throw new WindowsEventLogError(
         "FFI not initialized. Call initialize() first.",
@@ -106,14 +106,14 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
 
     try {
       const unsafePointersToStrings: bigint[] = [];
-      for (let i = 0; i < messages.length; i++) {
+      for (let i = 0; i < params.length; i++) {
         // Prepare message string
-        const messageBuffer = this.encoder.encode(messages[i] + "\0");
-        const messagePtr = Deno.UnsafePointer.of(messageBuffer);
-        const messagePtrValue = messagePtr
-          ? Deno.UnsafePointer.value(messagePtr)
+        const paramBuffer = this.encoder.encode(params[i] + "\0");
+        const paramPtr = Deno.UnsafePointer.of(paramBuffer);
+        const paramPtrValue = paramPtr
+          ? Deno.UnsafePointer.value(paramPtr)
           : 0n;
-        unsafePointersToStrings.push(messagePtrValue);
+        unsafePointersToStrings.push(paramPtrValue);
       }
       const stringsArray = new BigUint64Array(unsafePointersToStrings);
       const stringsPtr = Deno.UnsafePointer.of(stringsArray);

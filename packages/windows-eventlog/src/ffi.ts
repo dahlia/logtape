@@ -10,10 +10,10 @@ export interface WindowsEventLogFFI {
    *
    * @param eventType Event type (error, warning, info)
    * @param eventId Event ID number that gives us formatting string
-   * @param messages Message parameter strings to log
+   * @param params Message parameter strings to log
    * @throws {WindowsEventLogError} If the write operation fails
    */
-  writeEvent(eventType: number, eventId: number, messages: string[]): void;
+  writeEvent(eventType: number, eventId: number, params: string[]): void;
 
   /**
    * Cleans up resources and deregisters the event source.
