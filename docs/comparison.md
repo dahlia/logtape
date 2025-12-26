@@ -256,7 +256,7 @@ Feature comparison
 [^4]: Limited filtering capabilities through custom streams.
 [^5]: Limited to serializers, not full formatting control.
 [^6]: *express-winston* for Express.js integration.
-[^7]: *pino-http* for HTTP request/response logging. And *fastify* has own built-in integration for Pino.
+[^7]: *pino-http* for HTTP request/response logging. And *fastify* has its own built-in integration for Pino.
 [^8]: `ansiColorFormatter` built-in + *@logtape/pretty* package.
 [^9]: Color formatting with `winston.format.colorize()`.
 [^10]: *pino-pretty* package for development.
