@@ -4,13 +4,10 @@ import { configureFromObject } from "./config.ts";
 import { getLogger, reset } from "@logtape/logtape";
 import { ConfigError } from "./types.ts";
 import { logs, resetLogs } from "./test_fixtures.ts";
-import { pathToFileURL } from "node:url";
 
 const test = suite(import.meta);
 
-const fixturesModule = pathToFileURL(
-  new URL("./test_fixtures.ts", import.meta.url).pathname,
-).href;
+const fixturesModule = new URL("./test_fixtures.ts", import.meta.url).href;
 
 async function setup() {
   await reset();
