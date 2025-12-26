@@ -16,6 +16,7 @@
     "./packages/sentry",
     "./packages/syslog",
     "./packages/cloudwatch-logs",
+    "./packages/config",
     "./packages/windows-eventlog",
     "./benchmarks"
   ],
@@ -123,6 +124,12 @@
       ],
       "command": "deno task -f @logtape/cloudwatch-logs build"
     },
+    "build:config": {
+      "dependencies": [
+        "build:logtape"
+      ],
+      "command": "deno task -f @logtape/config build"
+    },
     "build:windows-eventlog": {
       "dependencies": [
         "build:logtape"
@@ -187,6 +194,7 @@
         "build:sentry",
         "build:syslog",
         "build:cloudwatch-logs",
+        "build:config",
         "build:windows-eventlog",
         "build:adaptor-pino",
         "build:adaptor-winston",

@@ -21,6 +21,12 @@ const jsrRef_logtape = await jsrRef({
   cachePath: ".jsr-cache.json",
 });
 
+const jsrRef_config = await jsrRef({
+  package: "@logtape/config",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-config.json",
+});
+
 const jsrRef_file = await jsrRef({
   package: "@logtape/file",
   version: jsrRefVersion,
@@ -169,6 +175,7 @@ const REFERENCES = {
   text: "References",
   items: [
     { text: "@logtape/logtape", link: "https://jsr.io/@logtape/logtape/doc" },
+    { text: "@logtape/config", link: "https://jsr.io/@logtape/config/doc" },
     {
       text: "@logtape/adaptor-pino",
       link: "https://jsr.io/@logtape/adaptor-pino/doc",
@@ -294,6 +301,7 @@ export default defineConfig({
       md.use(footnote);
       md.use(groupIconMdPlugin);
       md.use(jsrRef_logtape);
+      md.use(jsrRef_config);
       md.use(jsrRef_file);
       md.use(jsrRef_otel);
       md.use(jsrRef_pretty);

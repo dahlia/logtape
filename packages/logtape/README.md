@@ -98,6 +98,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
 | [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
 | [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
+| [*@logtape/config*](/packages/config/)                     | [JSR][jsr:@logtape/config]           | [npm][npm:@logtape/config]           | Object-based configuration |
 | [*@logtape/drizzle-orm*](/packages/drizzle-orm/)           | [JSR][jsr:@logtape/drizzle-orm]      | [npm][npm:@logtape/drizzle-orm]      | [Drizzle ORM] integration  |
 | [*@logtape/elysia*](/packages/elysia/)                     | [JSR][jsr:@logtape/elysia]           | [npm][npm:@logtape/elysia]           | [Elysia] integration       |
 | [*@logtape/express*](/packages/express/)                   | [JSR][jsr:@logtape/express]          | [npm][npm:@logtape/express]          | [Express] integration      |
@@ -131,6 +132,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/adaptor-winston]: https://www.npmjs.com/package/@logtape/adaptor-winston
 [jsr:@logtape/cloudwatch-logs]: https://jsr.io/@logtape/cloudwatch-logs
 [npm:@logtape/cloudwatch-logs]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
+[jsr:@logtape/config]: https://jsr.io/@logtape/config
+[npm:@logtape/config]: https://www.npmjs.com/package/@logtape/config
 [jsr:@logtape/drizzle-orm]: https://jsr.io/@logtape/drizzle-orm
 [npm:@logtape/drizzle-orm]: https://www.npmjs.com/package/@logtape/drizzle-orm
 [jsr:@logtape/elysia]: https://jsr.io/@logtape/elysia

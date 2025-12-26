@@ -20,6 +20,31 @@ To be released.
      -  `getAnsiColorFormatter()` automatically inherits the option from
         `getTextFormatter()`.
 
+### @logtape/config
+
+ -  Added a new package `@logtape/config` for configuring LogTape from plain
+    objects.  [[#117]]
+
+     -  Added `configureFromObject()` function to configure LogTape from plain
+        JavaScript objects loaded from JSON, YAML, TOML, or other formats.
+     -  Added module reference syntax (`module#export()`) for specifying sinks,
+        filters, and formatters.
+     -  Added built-in shorthands for common sinks and formatters
+        (`#console()`, `#text()`, `#ansiColor()`, `#jsonLines()`).
+     -  Added `ConfigureOptions` interface with `shorthands` and
+        `onInvalidConfig` options.
+     -  Added `onInvalidConfig` option for graceful error handling:
+        - `"throw"` (default): Throw `ConfigError` on invalid configuration
+        - `"warn"`: Apply valid parts and log warnings to meta logger
+     -  Added `expandEnvVars()` utility function for environment variable
+        expansion with `${VAR}` and `${VAR:default}` syntax.
+     -  Added `LogTapeConfig`, `SinkConfig`, `FilterConfig`, `FormatterConfig`,
+        `LoggerConfig`, and `ShorthandRegistry` interfaces.
+     -  Added `ConfigError` class for configuration errors.
+     -  Added `DEFAULT_SHORTHANDS` constant with built-in shorthand mappings.
+
+[#117]: https://github.com/dahlia/logtape/issues/117
+
 ### @logtape/elysia
 
  -  Added a new package `@logtape/elysia` for Elysia integration.  [[#111]]

@@ -147,6 +147,9 @@ importers:
       '@logtape/cloudwatch-logs':
         specifier: 'workspace:'
         version: link:../packages/cloudwatch-logs
+      '@logtape/config':
+        specifier: 'workspace:'
+        version: link:../packages/config
       '@logtape/drizzle-orm':
         specifier: 'workspace:'
         version: link:../packages/drizzle-orm
@@ -351,6 +354,25 @@ importers:
       aws-sdk-client-mock:
         specifier: ^4.0.0
         version: 4.1.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/config:
+    dependencies:
+      '@logtape/logtape':
+        specifier: workspace:^
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.13'
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)

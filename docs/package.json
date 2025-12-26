@@ -6,6 +6,7 @@
     "@logtape/adaptor-pino": "workspace:",
     "@logtape/adaptor-winston": "workspace:",
     "@logtape/cloudwatch-logs": "workspace:",
+    "@logtape/config": "workspace:",
     "@logtape/drizzle-orm": "workspace:",
     "@logtape/elysia": "workspace:",
     "@logtape/express": "workspace:",

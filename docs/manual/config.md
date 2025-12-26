@@ -315,3 +315,324 @@ Best practices
     make your logging system complex and hard to maintain.
  5. *Monitor performance*: Be mindful of the performance impact of your logging,
     especially in production environments.
+
+
+Configuration from objects
+--------------------------
+
+*This API is available since LogTape 1.4.0.*
+
+While programmatic configuration with `configure()` is type-safe and powerful,
+you may want to load logging configuration from external files like JSON, YAML,
+or TOML. The `@logtape/config` package provides `configureFromObject()` for
+this purpose.
+
+### Installation
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/config
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/config
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/config
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/config
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/config
+~~~~
+
+:::
+
+### Basic usage
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { configureFromObject } from "@logtape/config";
+import { readFile } from "node:fs/promises";
+
+const config = JSON.parse(await readFile("./logtape.json", "utf-8"));
+await configureFromObject(config);
+~~~~
+
+### Configuration schema
+
+#### Sinks
+
+~~~~ json
+{
+  "sinks": {
+    "console": {
+      "type": "#console()"
+    },
+    "file": {
+      "type": "@logtape/file#getFileSink()",
+      "path": "/var/log/app.log"
+    }
+  }
+}
+~~~~
+
+#### Module reference syntax
+
+The `type` field uses a special syntax to reference modules and exports:
+
+| Format            | Description                          |
+|-------------------|--------------------------------------|
+| `#shorthand()`    | Built-in shorthand, factory function |
+| `#shorthand`      | Built-in shorthand, direct value     |
+| `module#export()` | Named export, factory function       |
+| `module#export`   | Named export, direct value           |
+| `module()`        | Default export, factory function     |
+| `module`          | Default export, direct value         |
+
+The `()` suffix indicates that the export is a factory function that should
+be called with the remaining configuration options as its argument.
+
+#### Built-in shorthands
+
+| Shorthand     | Maps to                                  |
+|---------------|------------------------------------------|
+| `#console`    | `@logtape/logtape#getConsoleSink`        |
+| `#stream`     | `@logtape/logtape#getStreamSink`         |
+| `#text`       | `@logtape/logtape#getTextFormatter`      |
+| `#ansiColor`  | `@logtape/logtape#getAnsiColorFormatter` |
+| `#jsonLines`  | `@logtape/logtape#getJsonLinesFormatter` |
+
+#### Formatters
+
+~~~~ json
+{
+  "sinks": {
+    "console": {
+      "type": "#console()",
+      "formatter": {
+        "type": "#ansiColor()",
+        "timestamp": "date-time-tz"
+      }
+    }
+  }
+}
+~~~~
+
+Or use a shorthand string:
+
+~~~~ json
+{
+  "sinks": {
+    "file": {
+      "type": "@logtape/file#getFileSink()",
+      "path": "/var/log/app.log",
+      "formatter": "#jsonLines()"
+    }
+  }
+}
+~~~~
+
+#### Loggers
+
+~~~~ json
+{
+  "loggers": [
+    {
+      "category": ["myapp"],
+      "sinks": ["console", "file"],
+      "lowestLevel": "info"
+    },
+    {
+      "category": ["myapp", "database"],
+      "lowestLevel": "debug"
+    }
+  ]
+}
+~~~~
+
+### Complete example
+
+#### JSON
+
+~~~~ json
+{
+  "sinks": {
+    "console": {
+      "type": "#console()",
+      "formatter": {
+        "type": "#ansiColor()",
+        "timestamp": "date-time-tz"
+      }
+    },
+    "file": {
+      "type": "@logtape/file#getFileSink()",
+      "path": "/var/log/app.log",
+      "formatter": "#jsonLines()"
+    }
+  },
+  "loggers": [
+    {
+      "category": ["myapp"],
+      "sinks": ["console", "file"],
+      "lowestLevel": "info"
+    }
+  ]
+}
+~~~~
+
+#### YAML
+
+~~~~ yaml
+sinks:
+  console:
+    type: "#console()"
+    formatter:
+      type: "#ansiColor()"
+      timestamp: date-time-tz
+
+  file:
+    type: "@logtape/file#getFileSink()"
+    path: /var/log/app.log
+    formatter: "#jsonLines()"
+
+loggers:
+- category: [myapp]
+  sinks: [console, file]
+  lowestLevel: info
+~~~~
+
+### Error handling
+
+By default, `configureFromObject()` throws a `ConfigError` when it encounters
+invalid configuration. You can change this behavior with the `onInvalidConfig`
+option:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { configureFromObject } from "@logtape/config";
+const config = {};
+// ---cut-before---
+await configureFromObject(config, {
+  onInvalidConfig: "warn"  // Apply valid parts, log warnings
+});
+~~~~
+
+In `"warn"` mode:
+
+ -  Only the minimal invalid parts are filtered out
+ -  Valid sinks, filters, and loggers are still configured
+ -  Warnings are logged to the meta logger (`["logtape", "meta"]`)
+ -  If a logger references invalid sinks, the logger is still created but
+    those sink references are skipped
+
+This is useful in production environments where you'd rather have *some*
+logging working than have the application crash due to a configuration error.
+
+### Reconfiguration
+
+To reset the existing configuration before applying the new one, you can use
+the `reset` option:
+
+~~~~ json
+{
+  "reset": true,
+  "sinks": {
+    // ...
+  },
+  "loggers": [
+    // ...
+  ]
+}
+~~~~
+
+This is equivalent to calling `configure()` with `reset: true`.
+
+### Module resolution notes
+
+When specifying module paths in the `type` field (e.g., `module#export`),
+please keep the following in mind:
+
+Package names
+:   You can use package names (e.g., `@logtape/file`)
+    if they are installed in your `node_modules` or available in your runtime.
+
+Absolute paths
+:   You can use absolute file paths or `file://` URLs.
+
+Relative paths
+:   Relative paths (e.g., `./my-sink.ts`) are resolved
+    relative to the `@logtape/config` package file, **not** your configuration
+    file or current working directory. This is usually not what you want.
+    Therefore, it is recommended to use absolute paths or package names.
+    Alternatively, you can register your custom modules as
+    [custom shorthands](#custom-shorthands).
+
+### Environment variable expansion
+
+Use the `expandEnvVars()` utility to expand environment variables before
+configuring:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { configureFromObject, expandEnvVars } from "@logtape/config";
+import { readFile } from "node:fs/promises";
+
+const config = JSON.parse(await readFile("./logtape.json", "utf-8"));
+const expanded = expandEnvVars(config);
+await configureFromObject(expanded);
+~~~~
+
+The default pattern matches `${VAR}` and `${VAR:default}`:
+
+~~~~ json
+{
+  "sinks": {
+    "file": {
+      "type": "@logtape/file#getFileSink()",
+      "path": "${LOG_PATH:/var/log/app.log}"
+    }
+  }
+}
+~~~~
+
+### Custom shorthands
+
+You can define custom shorthands to simplify your configuration:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { configureFromObject } from "@logtape/config";
+const config = {};
+// ---cut-before---
+await configureFromObject(config, {
+  shorthands: {
+    sinks: {
+      file: "@logtape/file#getFileSink",
+      rotating: "@logtape/file#getRotatingFileSink",
+      custom: "./my-sinks#getCustomSink",
+    },
+    formatters: {
+      pretty: "@logtape/pretty#getPrettyFormatter",
+    }
+  }
+});
+~~~~
+
+Then use them in your configuration:
+
+~~~~ json
+{
+  "sinks": {
+    "app": {
+      "type": "#file()",
+      "path": "/var/log/app.log"
+    }
+  }
+}
+~~~~

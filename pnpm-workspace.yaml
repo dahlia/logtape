@@ -15,6 +15,7 @@ packages:
 - packages/sentry
 - packages/syslog
 - packages/cloudwatch-logs
+- packages/config
 - packages/windows-eventlog
 - docs
 - benchmarks
