@@ -49,6 +49,7 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
   private lib: Deno.DynamicLibrary<typeof FFI_SYMBOLS> | null = null;
   private eventSource: Deno.PointerValue | null = null;
   private sourceName: string = ""; // immediately overwritten in initialize
+  private initialized = false;
   private encoder = new TextEncoder();
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 
@@ -58,6 +59,8 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
    */
   initialize(sourceName: string): void {
     this.sourceName = sourceName;
+    if (this.initialized) return;
+
     try {
       // Load advapi32.dll
       this.lib = Deno.dlopen("advapi32.dll", FFI_SYMBOLS);
@@ -76,6 +79,8 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
           `Failed to register event source '${this.sourceName}'.`,
         );
       }
+
+      this.initialized = true;
     } catch (error) {
       if (error instanceof WindowsEventLogError) {
         throw error;
@@ -176,5 +181,7 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
       }
       this.lib = null;
     }
+
+    this.initialized = false;
   }
 }
