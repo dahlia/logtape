@@ -1,11 +1,12 @@
 import { suite } from "@alinea/suite";
 import { assertEquals } from "@std/assert";
 import { expandEnvVars } from "./env.ts";
+import process from "node:process";
 
 const test = suite(import.meta);
 
 test("expandEnvVars()", () => {
-  Deno.env.set("TEST_VAR", "value");
+  process.env["TEST_VAR"] = "value";
 
   const config = {
     simple: "${TEST_VAR}",
@@ -29,11 +30,11 @@ test("expandEnvVars()", () => {
   assertEquals(expanded.nested.obj.val, "value");
   assertEquals(expanded.mixed, "prefix-value-suffix");
 
-  Deno.env.delete("TEST_VAR");
+  delete process.env["TEST_VAR"];
 });
 
 test("expandEnvVars() with custom pattern", () => {
-  Deno.env.set("TEST_VAR", "value");
+  process.env["TEST_VAR"] = "value";
 
   const config = {
     val: "%TEST_VAR%",
@@ -45,5 +46,5 @@ test("expandEnvVars() with custom pattern", () => {
 
   assertEquals(expanded.val, "value");
 
-  Deno.env.delete("TEST_VAR");
+  delete process.env["TEST_VAR"];
 });
