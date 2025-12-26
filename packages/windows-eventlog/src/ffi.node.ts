@@ -1,5 +1,5 @@
 import { getLogger } from "@logtape/logtape";
-import * as koffi from "koffi";
+import koffi from "koffi";
 import type { WindowsEventLogFFI } from "./ffi.ts";
 import type { EventType } from "./types.ts";
 
