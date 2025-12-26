@@ -595,7 +595,10 @@ export interface AnsiColorFormatterOptions extends TextFormatterOptions {
     | "time"
     | "date"
     | "rfc3339"
+    | "none"
+    | "disabled"
     | ((ts: number) => string);
+
 
   /**
    * The ANSI style for the timestamp.  `"dim"` is used by default.
