@@ -247,7 +247,7 @@ Feature comparison
 | **Custom formatters**       |    ✅    |    ✅    |    ✅   | ⚠️[^5]  |    ✅   |    ✅   |
 | **Explicit context**        |    ✅    |    ⚠️    |    ✅   |    ✅   |    ❌   |    ❌   |
 | **Implicit context**        |    ✅    |    ⚠️    |    ⚠️   |    ⚠️   |    ❌   |    ❌   |
-| **Middleware support**      |    ❌    |  ✅[^6]  | ✅[^7]  |    ❌   |    ❌   |    ❌   |
+| **Middleware support**      |  ✅[^18] |  ✅[^6]  | ✅[^7]  |    ❌   |    ❌   |    ❌   |
 | **Pretty console output**   |  ✅[^8]  |  ✅[^9]  | ✅[^10] | ✅[^11] | ✅[^12] | ✅[^13] |
 | **JSON Lines formatter**    |  ✅[^14] |  ⚠️[^15] |    ❌   |    ❌   |    ❌   |    ❌   |
 | **Data redaction**          |  ✅[^16] |    ❌    | ✅[^17] |    ❌   |    ❌   |    ❌   |
@@ -256,7 +256,7 @@ Feature comparison
 [^4]: Limited filtering capabilities through custom streams.
 [^5]: Limited to serializers, not full formatting control.
 [^6]: *express-winston* for Express.js integration.
-[^7]: *pino-http* for HTTP request/response logging.
+[^7]: *pino-http* for HTTP request/response logging. And *fastify* has own built-in integration for Pino.
 [^8]: `ansiColorFormatter` built-in + *@logtape/pretty* package.
 [^9]: Color formatting with `winston.format.colorize()`.
 [^10]: *pino-pretty* package for development.
@@ -267,6 +267,7 @@ Feature comparison
 [^15]: Requires custom formatting setup.
 [^16]: *@logtape/redaction* package (pattern + field-based).
 [^17]: Built-in `redact` option for field redaction.
+[^18]: *@logtape/fastify* for Fastify integration.
 
 ### LogTape-specific features
 
