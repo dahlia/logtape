@@ -374,7 +374,7 @@ const levelRenderersCache = {
     info: "<6>",
     warning: "<4>",
     error: "<3>",
-    fatal: "<0>",
+    fatal: "<1>",
   } as const,
 } as const;
 
