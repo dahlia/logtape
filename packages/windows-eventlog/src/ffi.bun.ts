@@ -1,27 +1,25 @@
 import { getLogger } from "@logtape/logtape";
 // @ts-types="npm:@types/bun@^1.2.16"
 import { dlopen, FFIType, ptr } from "bun:ffi";
+import type { WindowsEventLogFFI } from "./ffi.ts";
 import type { EventType } from "./types.ts";
 
 /**
  * Bun FFI implementation for Windows Event Log API
  */
-export class WindowsEventLogFFI {
+export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
   private eventSource: number | null = null;
   // deno-lint-ignore no-explicit-any
   private lib: any = null;
-  private sourceName: string;
+  private sourceName: string = ""; // immediately overwritten in initialize
   private initialized = false;
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
-
-  constructor(sourceName: string) {
-    this.sourceName = sourceName;
-  }
 
   /**
    * Initialize the FFI bindings and register event source
    */
-  initialize(): void {
+  initialize(sourceName: string): void {
+    this.sourceName = sourceName;
     if (this.initialized) return;
 
     try {
@@ -79,20 +77,22 @@ export class WindowsEventLogFFI {
   /**
    * Write an event to Windows Event Log
    */
-  writeEvent(eventType: EventType, eventId: number, message: string): void {
+  writeEvent(eventType: EventType, eventId: number, params: string[]): void {
     if (!this.initialized || !this.eventSource || !this.lib) {
       return;
     }
 
     try {
+      // Create pointer array for strings
+      const ptrArray = new BigUint64Array(params.length + 1);
+
       // Use string array approach which works with Bun FFI
       const encoder = new TextEncoder();
-      const messageBuffer = encoder.encode(message + "\0");
-
-      // Create pointer array for strings
-      const ptrArray = new BigUint64Array(2);
-      ptrArray[0] = BigInt(ptr(messageBuffer));
-      ptrArray[1] = 0n; // null terminator
+      for (let i = 0; i < params.length; i++) {
+        const paramBuffer = encoder.encode(params[i] + "\0");
+        ptrArray[i] = BigInt(ptr(paramBuffer));
+      }
+      ptrArray[params.length] = 0n; // null terminator
 
       const success = this.lib.symbols.ReportEventA(
         this.eventSource,
@@ -100,7 +100,7 @@ export class WindowsEventLogFFI {
         0, // category
         eventId,
         null, // user SID (null)
-        1, // number of strings
+        params.length, // number of strings
         0, // data size
         ptrArray, // pointer to array of string pointers
         null, // raw data (null)

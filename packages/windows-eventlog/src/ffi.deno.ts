@@ -1,4 +1,5 @@
 import { getLogger } from "@logtape/logtape";
+import type { WindowsEventLogFFI } from "./ffi.ts";
 import { WindowsEventLogError } from "./types.ts";
 
 /**
@@ -44,19 +45,22 @@ const FFI_SYMBOLS = {
  *
  * @since 1.0.0
  */
-export class WindowsEventLogFFI {
+export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
   private lib: Deno.DynamicLibrary<typeof FFI_SYMBOLS> | null = null;
   private eventSource: Deno.PointerValue | null = null;
+  private sourceName: string = ""; // immediately overwritten in initialize
+  private initialized = false;
   private encoder = new TextEncoder();
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
-
-  constructor(private sourceName: string) {}
 
   /**
    * Initializes the FFI library and registers the event source.
    * @throws {WindowsEventLogError} If initialization fails
    */
-  initialize(): void {
+  initialize(sourceName: string): void {
+    this.sourceName = sourceName;
+    if (this.initialized) return;
+
     try {
       // Load advapi32.dll
       this.lib = Deno.dlopen("advapi32.dll", FFI_SYMBOLS);
@@ -75,6 +79,8 @@ export class WindowsEventLogFFI {
           `Failed to register event source '${this.sourceName}'.`,
         );
       }
+
+      this.initialized = true;
     } catch (error) {
       if (error instanceof WindowsEventLogError) {
         throw error;
@@ -92,11 +98,11 @@ export class WindowsEventLogFFI {
    * Writes a message to the Windows Event Log.
    *
    * @param eventType Event type (error, warning, info)
-   * @param eventId Event ID number
-   * @param message Message string to log
+   * @param eventId Event ID number that gives us formatting string
+   * @param params Message parameter strings to log
    * @throws {WindowsEventLogError} If the write operation fails
    */
-  writeEvent(eventType: number, eventId: number, message: string): void {
+  writeEvent(eventType: number, eventId: number, params: string[]): void {
     if (!this.lib || !this.eventSource) {
       throw new WindowsEventLogError(
         "FFI not initialized. Call initialize() first.",
@@ -104,13 +110,17 @@ export class WindowsEventLogFFI {
     }
 
     try {
-      // Prepare message string
-      const messageBuffer = this.encoder.encode(message + "\0");
-      const messagePtr = Deno.UnsafePointer.of(messageBuffer);
-      const messagePtrValue = messagePtr
-        ? Deno.UnsafePointer.value(messagePtr)
-        : 0n;
-      const stringsArray = new BigUint64Array([messagePtrValue]);
+      const unsafePointersToStrings: bigint[] = [];
+      for (let i = 0; i < params.length; i++) {
+        // Prepare message string
+        const paramBuffer = this.encoder.encode(params[i] + "\0");
+        const paramPtr = Deno.UnsafePointer.of(paramBuffer);
+        const paramPtrValue = paramPtr
+          ? Deno.UnsafePointer.value(paramPtr)
+          : 0n;
+        unsafePointersToStrings.push(paramPtrValue);
+      }
+      const stringsArray = new BigUint64Array(unsafePointersToStrings);
       const stringsPtr = Deno.UnsafePointer.of(stringsArray);
 
       // Call ReportEventA
@@ -120,7 +130,7 @@ export class WindowsEventLogFFI {
         0, // wCategory (0 = no category)
         eventId, // dwEventID
         null, // lpUserSid (null = current user)
-        1, // wNumStrings (1 string)
+        stringsArray.length, // wNumStrings
         0, // dwDataSize (no additional data)
         stringsPtr, // lpStrings
         null, // lpRawData (no additional data)
@@ -171,5 +181,7 @@ export class WindowsEventLogFFI {
       }
       this.lib = null;
     }
+
+    this.initialized = false;
   }
 }

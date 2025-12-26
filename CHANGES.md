@@ -36,8 +36,24 @@ To be released.
         `local`).
      -  Logs errors at error level via `onError` hook.
 
+### @logtape/windows-eventlog
+
+ -  Improved Windows Event Log message formatting using `NELOG_OEM_Code` (3299)
+    from *netmsg.dll*.  [[#115] by Roland Kaufmann]
+
+     -  Changed default event ID to `NELOG_OEM_Code` (3299), which provides
+        a generic message format that properly displays log messages in
+        Windows Event Viewer.
+     -  Added `formatter` option to `WindowsEventLogSinkOptions` for custom
+        text formatting of log records.
+     -  Refactored FFI implementations (Deno, Node.js, Bun) to use a common
+        `WindowsEventLogFFI` interface.
+     -  Added documentation for registering *netmsg.dll* as an event message
+        file in the Windows Registry.
+
 [#111]: https://github.com/dahlia/logtape/issues/111
 [#113]: https://github.com/dahlia/logtape/pull/113
+[#115]: https://github.com/dahlia/logtape/pull/115
 
 
 Version 1.3.5

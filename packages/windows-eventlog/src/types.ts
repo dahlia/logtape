@@ -1,4 +1,4 @@
-import type { LogLevel } from "@logtape/logtape";
+import type { LogLevel, TextFormatter } from "@logtape/logtape";
 
 /**
  * Configuration options for the Windows Event Log sink.
@@ -38,6 +38,12 @@ export interface WindowsEventLogSinkOptions {
    * ```
    */
   readonly eventIdMapping?: Partial<Record<LogLevel, number>>;
+
+  /**
+   * The text formatter to use.
+   * Defaults to {@link defaultWindowsEventlogFormatter}.
+   */
+  formatter?: TextFormatter;
 }
 
 /**
@@ -55,16 +61,25 @@ export const WINDOWS_EVENT_TYPES: Record<LogLevel, number> = {
 } as const;
 
 /**
- * Default Event ID mapping for LogTape levels.
+ * Generic event message defined in netmsg.dll which consists only of
+ * placeholders and no extra text. This value is defined in LMErrlog.h
+ */
+export const NELOG_OEM_Code = 3299;
+
+/**
+ * Default Event ID mapping for LogTape levels. The event ID is used to look up
+ * a string resource in a configured dynamic link library, which is then used
+ * as a formatting string, passing the log text as parameters. The default is
+ * to use an event ID which only writes the text supplied into the log.
  * @since 1.0.0
  */
 export const DEFAULT_EVENT_ID_MAPPING: Record<LogLevel, number> = {
-  fatal: 1,
-  error: 2,
-  warning: 3,
-  info: 4,
-  debug: 5,
-  trace: 6,
+  fatal: NELOG_OEM_Code,
+  error: NELOG_OEM_Code,
+  warning: NELOG_OEM_Code,
+  info: NELOG_OEM_Code,
+  debug: NELOG_OEM_Code,
+  trace: NELOG_OEM_Code,
 } as const;
 
 /**

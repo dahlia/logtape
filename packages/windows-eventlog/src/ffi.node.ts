@@ -1,35 +1,28 @@
 import { getLogger } from "@logtape/logtape";
+import koffi from "koffi";
+import type { WindowsEventLogFFI } from "./ffi.ts";
 import type { EventType } from "./types.ts";
 
 /**
  * Node.js FFI implementation for Windows Event Log API using koffi
  */
-export class WindowsEventLogFFI {
+export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   private eventSource: unknown = null;
-  private koffi: unknown = null;
-  private sourceName: string;
+  private sourceName: string = ""; // immediately overwritten in initialize;
   private initialized = false;
   private lib: unknown = null;
   private metaLogger = getLogger(["logtape", "meta", "windows-eventlog"]);
 
-  constructor(sourceName: string) {
-    this.sourceName = sourceName;
-  }
-
   /**
    * Initialize the FFI bindings and register event source
    */
-  async initialize(): Promise<void> {
+  initialize(sourceName: string): void {
+    this.sourceName = sourceName;
     if (this.initialized) return;
 
     try {
-      // Dynamic import for koffi
-      const koffiModule = await import("koffi");
-      this.koffi = koffiModule.default || koffiModule;
-
       // Load advapi32.dll
-      this.lib = (this.koffi as unknown as { load: (lib: string) => unknown })
-        .load("advapi32.dll");
+      this.lib = koffi.load("advapi32.dll");
 
       // Define Windows API functions with correct koffi types using __stdcall convention
       const RegisterEventSourceA =
@@ -78,18 +71,15 @@ export class WindowsEventLogFFI {
   /**
    * Write an event to Windows Event Log
    */
-  writeEvent(eventType: EventType, eventId: number, message: string): void {
+  writeEvent(eventType: EventType, eventId: number, params: string[]): void {
     if (!this.initialized || !this.eventSource || !this.ReportEventA) {
       return;
     }
 
     try {
-      // Create null-terminated string
-      const messageWithNull = message + "\0";
-
-      // Create an array with a single string pointer
+      // Create null-terminated strings
       // In koffi, we pass an array of strings for char**
-      const messages = [messageWithNull];
+      const nullTerminatedParams = params.map((s) => s + "\0");
 
       // Report the event using strings array approach
       const success =
@@ -99,9 +89,9 @@ export class WindowsEventLogFFI {
           0, // category
           eventId,
           0, // user SID (null)
-          1, // number of strings (1 - we have one message)
+          nullTerminatedParams.length, // number of strings
           0, // data size (0 - not using raw data)
-          messages, // strings array with our message
+          nullTerminatedParams, // strings array with our message
           null, // raw data (null - not using)
         );
 

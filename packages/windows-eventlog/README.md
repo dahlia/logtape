@@ -100,6 +100,34 @@ await configure({
 > This is the standard location for application events and does not require
 > administrator privileges.
 
+> [!NOTE]
+> The event ID is used to lookup a string resource from a dynamic link library.
+> If you do not register a library, “the system cannot open the file” will be
+> printed as description in the Event Log regardless of the parameters passed.
+
+If you want to log only the text supplied by the formatter into the event log,
+you can register the system generic string library using this command:
+
+~~~~ powershell
+New-Item `
+  -Path HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application `
+  -Name MyApplication `
+  | New-ItemProperty `
+    -Name EventMessageFile `
+    -PropertyType ExpandString `
+    -Value %SystemRoot%\System32\netmsg.dll
+~~~~
+
+Replacing `MyApplication` with the name you passed as `sourceName` to the sink,
+and use the `NELOG_OEM_Code` (the default) as the event ID. Note that there is
+no quotation marks around the data part of that command, as this trips up the
+escaping of the percentage signs.
+
+> [!NOTE]
+> Event Viewer will cache the event message file when it is open. If you change
+> the entry in the registry, it will not be updated until Event Viewer is
+> restarted.
+
 
 Runtime support
 ---------------
