@@ -368,6 +368,14 @@ const levelRenderersCache = {
     error: "e",
     fatal: "f",
   } as const,
+  syslog: {
+    trace: "<7>",
+    debug: "<7>",
+    info: "<6>",
+    warning: "<4>",
+    error: "<3>",
+    fatal: "<0>",
+  } as const,
 } as const;
 
 /**
@@ -435,6 +443,8 @@ export function getTextFormatter(
       return (level: LogLevel): string => levelRenderersCache.L[level];
     } else if (levelOption === "l") {
       return (level: LogLevel): string => levelRenderersCache.l[level];
+    } else if (levelOption === "syslog") {
+      return (level: LogLevel): string => levelRenderersCache.syslog[level];
     } else {
       return levelOption;
     }
