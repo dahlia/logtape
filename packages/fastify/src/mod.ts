@@ -54,15 +54,25 @@ export interface PinoLogMethod {
 
 /**
  * A Pino-compatible logger interface that wraps LogTape.
- * This interface satisfies Fastify's `loggerInstance` requirements.
+ * This interface satisfies Fastify's `loggerInstance` (v5) or `logger` (v4) requirements.
  *
- * @example
+ * @example Fastify v5
  * ```typescript
  * import Fastify from "fastify";
  * import { getLogTapeFastifyLogger } from "@logtape/fastify";
  *
  * const fastify = Fastify({
  *   loggerInstance: getLogTapeFastifyLogger(),
+ * });
+ * ```
+ *
+ * @example Fastify v4
+ * ```typescript
+ * import Fastify from "fastify";
+ * import { getLogTapeFastifyLogger } from "@logtape/fastify";
+ *
+ * const fastify = Fastify({
+ *   logger: getLogTapeFastifyLogger(),
  * });
  * ```
  *
@@ -91,7 +101,7 @@ export interface PinoLikeLogger {
 
 /**
  * Creates a Pino-compatible logger that wraps LogTape.
- * This logger can be used as Fastify's `loggerInstance`.
+ * This logger can be used as Fastify's `loggerInstance` (v5) or `logger` (v4).
  *
  * @example Basic usage
  * ```typescript
@@ -105,6 +115,21 @@ export interface PinoLikeLogger {
  *
  * const fastify = Fastify({
  *   loggerInstance: getLogTapeFastifyLogger(),
+ * });
+ * ```
+ *
+ * @example Basic usage (Fastify v4)
+ * ```typescript
+ * import Fastify from "fastify";
+ * import { configure } from "@logtape/logtape";
+ * import { getLogTapeFastifyLogger } from "@logtape/fastify";
+ *
+ * await configure({
+ *   // ... LogTape configuration
+ * });
+ *
+ * const fastify = Fastify({
+ *   logger: getLogTapeFastifyLogger(),
  * });
  * ```
  *
