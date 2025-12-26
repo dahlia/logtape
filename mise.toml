@@ -2,3 +2,4 @@
 bun = "1"
 node = "24"
 deno = "2"
+"npm:pnpm" = "latest"
