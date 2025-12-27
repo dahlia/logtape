@@ -599,7 +599,6 @@ export interface AnsiColorFormatterOptions extends TextFormatterOptions {
     | "disabled"
     | ((ts: number) => string);
 
-
   /**
    * The ANSI style for the timestamp.  `"dim"` is used by default.
    */
@@ -682,12 +681,16 @@ export function getAnsiColorFormatter(
     ...options,
     format({ timestamp, level, category, message, record }): string {
       const levelColor = levelColors[record.level];
-      timestamp = `${timestampPrefix}${timestamp}${timestampSuffix}`;
+      timestamp = timestamp == null
+        ? null
+        : `${timestampPrefix}${timestamp}${timestampSuffix}`;
       level = `${levelStyle == null ? "" : ansiStyles[levelStyle]}${
         levelColor == null ? "" : ansiColors[levelColor]
       }${level}${levelStyle == null && levelColor == null ? "" : RESET}`;
       return format == null
-        ? `${timestamp} ${level} ${categoryPrefix}${category}:${categorySuffix} ${message}`
+        ? `${
+          timestamp == null ? "" : `${timestamp} `
+        }${level} ${categoryPrefix}${category}:${categorySuffix} ${message}`
         : format({
           timestamp,
           level,

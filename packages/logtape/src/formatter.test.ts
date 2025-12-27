@@ -357,6 +357,19 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
+  assertEquals(
+    getAnsiColorFormatter({ timestamp: "none" })(info),
+    "\x1b[1m\x1b[32mINF\x1b[0m " +
+      "\x1b[2mmy-app·junk:\x1b[0m " +
+      "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
+  );
+  assertEquals(
+    getAnsiColorFormatter({ timestamp: "disabled" })(info),
+    "\x1b[1m\x1b[32mINF\x1b[0m " +
+      "\x1b[2mmy-app·junk:\x1b[0m " +
+      "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
+  );
+
   let recordedValues: FormattedValues | null = null;
   assertEquals(
     getAnsiColorFormatter({
