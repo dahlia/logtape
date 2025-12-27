@@ -10,6 +10,16 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added `"none"` and `"disabled"` options for `AnsiColorFormatterOptions.timestamp`
+    to disable timestamp display, consistent with `TextFormatterOptions`.
+    [[#120], [#121] by Jonathan Wilbur]
+
+     -  Added `"none"` and `"disabled"` to the `timestamp` option type.
+     -  Changed the custom timestamp formatter return type to `string | null`
+        (was `string`).
+     -  Fixed `getAnsiColorFormatter()` to properly handle `null` timestamps
+        instead of rendering `"null"` with ANSI styling.
+
  -  Added `lineEnding` option to text and JSON Lines formatters for Windows
     compatibility.  [[#113] by Joonmo]
 
@@ -79,6 +89,8 @@ To be released.
 [#111]: https://github.com/dahlia/logtape/issues/111
 [#113]: https://github.com/dahlia/logtape/pull/113
 [#115]: https://github.com/dahlia/logtape/pull/115
+[#120]: https://github.com/dahlia/logtape/issues/120
+[#121]: https://github.com/dahlia/logtape/pull/121
 
 
 Version 1.3.5
