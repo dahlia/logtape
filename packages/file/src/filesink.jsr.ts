@@ -3,10 +3,14 @@ import type {
   FileSinkOptions,
   RotatingFileSinkOptions,
 } from "./filesink.base.ts";
+import type { TimeRotatingFileSinkOptions } from "./timefilesink.ts";
 
 const filesink: Omit<
   typeof import("./filesink.deno.ts"),
-  "denoDriver" | "denoAsyncDriver"
+  | "denoDriver"
+  | "denoAsyncDriver"
+  | "denoTimeDriver"
+  | "denoAsyncTimeDriver"
 > =
   // dnt-shim-ignore
   await ("Deno" in globalThis
@@ -70,6 +74,35 @@ export function getRotatingFileSink(
   options: RotatingFileSinkOptions = {},
 ): Sink & (Disposable | AsyncDisposable) {
   return filesink.getRotatingFileSink(path, options) as
+    & Sink
+    & (Disposable | AsyncDisposable);
+}
+
+/**
+ * Get a time-rotating file sink.
+ *
+ * This sink writes log records to a file in a directory, rotating to a new
+ * file based on time intervals.  The filename is generated based on the
+ * current date/time and the configured interval.
+ *
+ * Note that this function is unavailable in the browser.
+ *
+ * @param options The options for the sink.
+ * @returns A sink that writes to the file.  The sink is also a disposable
+ *          object that closes the file when disposed.  If `nonBlocking` is
+ *          enabled, returns a sink that also implements {@link AsyncDisposable}.
+ * @since 1.4.0
+ */
+export function getTimeRotatingFileSink(
+  options: TimeRotatingFileSinkOptions,
+): Sink & Disposable;
+export function getTimeRotatingFileSink(
+  options: TimeRotatingFileSinkOptions & { nonBlocking: true },
+): Sink & AsyncDisposable;
+export function getTimeRotatingFileSink(
+  options: TimeRotatingFileSinkOptions,
+): Sink & (Disposable | AsyncDisposable) {
+  return filesink.getTimeRotatingFileSink(options) as
     & Sink
     & (Disposable | AsyncDisposable);
 }

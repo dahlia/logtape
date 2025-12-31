@@ -545,6 +545,118 @@ For more details, see `getRotatingFileSink()` function and
 > flag to use the rotating file sink.
 
 
+Time-based rotating file sink
+-----------------------------
+
+*This API is available since LogTape 1.4.0.*
+
+> [!NOTE]
+> Time-based rotating file sink is unavailable in the browser environment.
+
+A time-based rotating file sink rotates log files based on time intervals
+rather than file size.  This is useful for organizing logs by date or time
+period, making it easier to find logs from specific time ranges.
+
+Unlike the size-based rotating file sink, the time-based version:
+
+ 1. Creates new log files at specified time intervals (hourly, daily, or weekly).
+ 2. Names files based on the date/time they cover.
+ 3. Can automatically delete old log files based on age.
+
+To use the time-based rotating file sink, use the `getTimeRotatingFileSink()`
+function from the *@logtape/file* package:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { getTimeRotatingFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    file: getTimeRotatingFileSink({
+      directory: "./logs",
+      interval: "daily",
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Rotation intervals
+
+The `~TimeRotatingFileSinkOptions.interval` option controls how often log files
+are rotated:
+
+`"daily"` (default)
+:   Creates a new log file each day.  Files are named `YYYY-MM-DD.log`
+    (e.g., *2025-01-15.log*).
+
+`"hourly"`
+:   Creates a new log file each hour.  Files are named `YYYY-MM-DD-HH.log`
+    (e.g., *2025-01-15-09.log*).
+
+`"weekly"`
+:   Creates a new log file each week.  Files are named `YYYY-WNN.log`
+    using ISO week numbers (e.g., *2025-W03.log*).
+
+### Custom filename patterns
+
+You can customize the filename pattern using the
+`~TimeRotatingFileSinkOptions.filename` option:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { getTimeRotatingFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    file: getTimeRotatingFileSink({
+      directory: "./logs",
+      filename: (date: Date) => `app-${date.toISOString().slice(0, 10)}.txt`,
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+### Automatic cleanup of old files
+
+Use the `~TimeRotatingFileSinkOptions.maxAgeMs` option to automatically delete
+log files older than a specified age:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { getTimeRotatingFileSink } from "@logtape/file";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    file: getTimeRotatingFileSink({
+      directory: "./logs",
+      interval: "daily",
+      maxAgeMs: 60 * 24 * 60 * 60 * 1000,  // Delete files older than 60 days
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+> [!TIP]
+> Like regular file sinks, time-based rotating file sinks support buffering
+> through the `~FileSinkOptions.bufferSize` option (default: 8192 characters)
+> and time-based flushing through the `~FileSinkOptions.flushInterval` option
+> (default: 5000ms).  They also support non-blocking mode through the
+> `~FileSinkOptions.nonBlocking` option for asynchronous flush operations.
+
+> [!NOTE]
+> On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
+> flag to use the time-based rotating file sink.
+
+For more details, see `getTimeRotatingFileSink()` function and
+`TimeRotatingFileSinkOptions` interface in the API reference.
+
+
 Fingers crossed sink
 --------------------
 

@@ -91,6 +91,24 @@ To be released.
 
 [#111]: https://github.com/dahlia/logtape/issues/111
 
+### @logtape/file
+
+ -  Added `getTimeRotatingFileSink()` function for time-based log file rotation.
+    [[#82]]
+
+     -  Supports `"hourly"`, `"daily"`, and `"weekly"` rotation intervals.
+     -  Default filename patterns: `YYYY-MM-DD.log` (daily),
+        `YYYY-MM-DD-HH.log` (hourly), `YYYY-WNN.log` (weekly).
+     -  Added `TimeRotatingFileSinkOptions.filename` option for custom filename
+        patterns.
+     -  Added `TimeRotatingFileSinkOptions.maxAgeMs` option for automatic cleanup
+        of old log files.
+     -  Supports buffering and non-blocking mode like other file sinks.
+     -  Added `TimeRotatingFileSinkOptions` interface.
+     -  Added `TimeRotationInterval` type.
+
+[#82]: https://github.com/dahlia/logtape/issues/82
+
 ### @logtape/windows-eventlog
 
  -  Improved Windows Event Log message formatting using `NELOG_OEM_Code` (3299)

@@ -1,5 +1,6 @@
 import type { Sink } from "@logtape/logtape";
 import fs from "node:fs";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   type AsyncRotatingFileSinkDriver,
@@ -9,6 +10,12 @@ import {
   type RotatingFileSinkDriver,
   type RotatingFileSinkOptions,
 } from "./filesink.base.ts";
+import {
+  type AsyncTimeRotatingFileSinkDriver,
+  getBaseTimeRotatingFileSink,
+  type TimeRotatingFileSinkDriver,
+  type TimeRotatingFileSinkOptions,
+} from "./timefilesink.ts";
 
 /**
  * A Node.js-specific file sink driver.
@@ -50,6 +57,32 @@ export const nodeAsyncDriver: AsyncRotatingFileSinkDriver<number | void> = {
   },
   flush: promisify(fs.fsync),
   close: promisify(fs.close),
+};
+
+/**
+ * A Node.js-specific time-rotating file sink driver.
+ * @since 1.4.0
+ */
+export const nodeTimeDriver: TimeRotatingFileSinkDriver<number | void> = {
+  ...nodeDriver,
+  readdirSync: fs.readdirSync as (path: string) => string[],
+  unlinkSync: fs.unlinkSync,
+  mkdirSync: fs.mkdirSync,
+  joinPath: join,
+};
+
+/**
+ * A Node.js-specific async time-rotating file sink driver.
+ * @since 1.4.0
+ */
+export const nodeAsyncTimeDriver: AsyncTimeRotatingFileSinkDriver<
+  number | void
+> = {
+  ...nodeAsyncDriver,
+  readdirSync: fs.readdirSync as (path: string) => string[],
+  unlinkSync: fs.unlinkSync,
+  mkdirSync: fs.mkdirSync,
+  joinPath: join,
 };
 
 /**
@@ -113,6 +146,36 @@ export function getRotatingFileSink(
     return getBaseRotatingFileSink(path, { ...options, ...nodeAsyncDriver });
   }
   return getBaseRotatingFileSink(path, { ...options, ...nodeDriver });
+}
+
+/**
+ * Get a time-rotating file sink.
+ *
+ * This sink writes log records to a file in a directory, rotating to a new
+ * file based on time intervals.  The filename is generated based on the
+ * current date/time and the configured interval.
+ *
+ * Note that this function is unavailable in the browser.
+ *
+ * @param options The options for the sink.
+ * @returns A sink that writes to the file.  The sink is also a disposable
+ *          object that closes the file when disposed. If `nonBlocking` is
+ *          enabled, returns a sink that also implements {@link AsyncDisposable}.
+ * @since 1.4.0
+ */
+export function getTimeRotatingFileSink(
+  options: TimeRotatingFileSinkOptions,
+): Sink & Disposable;
+export function getTimeRotatingFileSink(
+  options: TimeRotatingFileSinkOptions & { nonBlocking: true },
+): Sink & AsyncDisposable;
+export function getTimeRotatingFileSink(
+  options: TimeRotatingFileSinkOptions,
+): Sink & (Disposable | AsyncDisposable) {
+  if (options.nonBlocking) {
+    return getBaseTimeRotatingFileSink({ ...options, ...nodeAsyncTimeDriver });
+  }
+  return getBaseTimeRotatingFileSink({ ...options, ...nodeTimeDriver });
 }
 
 // cSpell: ignore filesink
