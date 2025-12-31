@@ -1,33 +1,37 @@
-# LogTape Development Guidelines for AI Assistants
+LogTape development guidelines for AI assistants
+================================================
 
 This document provides comprehensive instructions for AI coding assistants (like
 GitHub Copilot, Claude, etc.) working with the LogTape codebase. Follow these
 guidelines to ensure your contributions align with project standards.
 
-## Repository Information
 
-**⚠️ IMPORTANT: Upstream Repository is `dahlia/logtape`**
+Repository information
+----------------------
+
+> [!IMPORTANT]
+> Upstream repository is *dahlia/logtape*
 
 All GitHub operations (issues, pull requests, etc.) must be performed against
-the upstream repository `dahlia/logtape`, not personal forks.
+the upstream repository *dahlia/logtape*, not personal forks.
 
-### GitHub Operations
+### GitHub operations
 
 #### Issues
 
-- Always create issues against `dahlia/logtape`
-- Use: `gh issue create --repo dahlia/logtape`
-- Reference issues as: `dahlia/logtape#123`
+ -  Always create issues against *dahlia/logtape*
+ -  Use: `gh issue create --repo dahlia/logtape`
+ -  Reference issues as: `dahlia/logtape#123`
 
-#### Pull Requests
+#### Pull requests
 
-- Always create pull requests against `dahlia/logtape`
-- Use: `gh pr create --repo dahlia/logtape`
-- Target the appropriate base branch (usually `main` for new features)
+ -  Always create pull requests against *dahlia/logtape*
+ -  Use: `gh pr create --repo dahlia/logtape`
+ -  Target the appropriate base branch (usually *main* for new features)
 
-#### Common Commands
+#### Common commands
 
-```bash
+~~~~ bash
 # Check issues in upstream
 gh issue list --repo dahlia/logtape
 
@@ -36,132 +40,140 @@ gh pr create --repo dahlia/logtape --title "Your Title" --body "Your description
 
 # View upstream PRs
 gh pr list --repo dahlia/logtape
-```
+~~~~
 
-## Project Overview
+
+Project overview
+----------------
 
 LogTape is a zero-dependency logging library for JavaScript and TypeScript that
 works across multiple runtimes (Deno, Node.js, Bun, browsers, edge functions).
 Key features include:
 
-- Structured logging with hierarchical categories
-- Template literal support
-- Extensible sink system
-- Cross-runtime compatibility
-- Library-friendly design
+ -  Structured logging with hierarchical categories
+ -  Template literal support
+ -  Extensible sink system
+ -  Cross-runtime compatibility
+ -  Library-friendly design
 
-## Codebase Structure
 
-The project uses a unique **dual workspace** architecture that combines both
+Codebase structure
+------------------
+
+The project uses a unique *dual workspace* architecture that combines both
 Deno workspace and pnpm workspace features:
 
-### Dual Workspace Setup
+### Dual workspace setup
 
-- **Deno Workspace**: Defined in the root `deno.json` with workspace members
-- **pnpm Workspace**: Defined in `pnpm-workspace.yaml` for Node.js ecosystem
-  compatibility
-- Each package must be listed in BOTH workspace configurations
-- This enables seamless cross-runtime development and publishing
+ -  *Deno Workspace*: Defined in the root *deno.json* with workspace members
+ -  *pnpm Workspace*: Defined in *pnpm-workspace.yaml* for Node.js ecosystem
+    compatibility
+ -  Each package must be listed in BOTH workspace configurations
+ -  This enables seamless cross-runtime development and publishing
 
-### Current Packages
+### Current packages
 
-All packages are located in the `packages/` directory:
+All packages are located in the *packages/* directory:
 
-- **packages/logtape/**: Core logging functionality
-- **packages/adaptor-pino/**: Pino logger adaptor
-- **packages/adaptor-winston/**: Winston logger adaptor
-- **packages/cloudwatch-logs/**: AWS CloudWatch Logs sink
-- **packages/drizzle-orm/**: Drizzle ORM integration
-- **packages/express/**: Express HTTP request logging
-- **packages/fastify/**: Fastify HTTP request logging
-- **packages/file/**: File-based logging sink
-- **packages/hono/**: Hono HTTP request logging
-- **packages/koa/**: Koa HTTP request logging
-- **packages/otel/**: OpenTelemetry integration
-- **packages/pretty/**: Pretty console formatter
-- **packages/redaction/**: Functionality for redacting sensitive information
-- **packages/sentry/**: Sentry integration
-- **packages/syslog/**: Syslog sink
-- **packages/windows-eventlog/**: Windows Event Log sink
+ -  *packages/logtape/*: Core logging functionality
+ -  *packages/adaptor-pino/*: Pino logger adaptor
+ -  *packages/adaptor-winston/*: Winston logger adaptor
+ -  *packages/cloudwatch-logs/*: AWS CloudWatch Logs sink
+ -  *packages/drizzle-orm/*: Drizzle ORM integration
+ -  *packages/express/*: Express HTTP request logging
+ -  *packages/fastify/*: Fastify HTTP request logging
+ -  *packages/file/*: File-based logging sink
+ -  *packages/hono/*: Hono HTTP request logging
+ -  *packages/koa/*: Koa HTTP request logging
+ -  *packages/otel/*: OpenTelemetry integration
+ -  *packages/pretty/*: Pretty console formatter
+ -  *packages/redaction/*: Functionality for redacting sensitive information
+ -  *packages/sentry/*: Sentry integration
+ -  *packages/syslog/*: Syslog sink
+ -  *packages/windows-eventlog/*: Windows Event Log sink
 
-### Package Structure
+### Package structure
 
 Each package follows a consistent structure with:
 
-- `mod.ts`: Main entry point exposing the public API
-- `*.ts`: Implementation files
-- `*.test.ts`: Test files matching their respective implementation
-- `deno.json`: Deno configuration and workspace membership
-- `package.json`: npm package configuration and workspace membership
-- `tsdown.config.ts`: Cross-platform build configuration (replaces dnt.ts)
+ -  *mod.ts*: Main entry point exposing the public API
+ -  *\*.ts*: Implementation files
+ -  *\*.test.ts*: Test files matching their respective implementation
+ -  *deno.json*: Deno configuration and workspace membership
+ -  *package.json*: npm package configuration and workspace membership
+ -  *tsdown.config.ts*: Cross-platform build configuration (replaces *dnt.ts*)
 
-### Adding New Packages
+### Adding new packages
 
 When adding a new package to the workspace:
 
-1. Create the package directory inside `packages/` with both `deno.json` and
-   `package.json`
-2. Add the package to **both** workspace configurations:
-   - Add to `packages:` array in `pnpm-workspace.yaml`
-   - Add to `workspace:` array in root `deno.json`
-3. Configure dependencies using the dual dependency management system
-4. Update documentation:
-   - Add JSR ref configuration and register it in `docs/.vitepress/config.mts`
-     (add to both the `jsrRef_*` variables and the `REFERENCES` constant)
-   - Add the package to the packages table in the root `README.md`
+ 1. Create the package directory inside *packages/* with both *deno.json* and
+    *package.json*
+ 2. Add the package to *both* workspace configurations:
+     -  Add to `packages:` array in *pnpm-workspace.yaml*
+     -  Add to `workspace:` array in root *deno.json*
+ 3. Configure dependencies using the dual dependency management system
+ 4. Update documentation:
+     -  Add JSR ref configuration and register it in *docs/.vitepress/config.mts*
+        (add to both the `jsrRef_*` variables and the `REFERENCES` constant)
+     -  Add the package to the packages table in the root *README.md*
 
-## Coding Conventions
 
-### TypeScript Standards
+Coding conventions
+------------------
 
-1. **Strict TypeScript**: The project uses strict TypeScript. All code must be
-   properly typed.
-2. **Explicit Types**: Prefer explicit type annotations for function parameters
-   and return types.
-3. **Interfaces vs Types**: Use `interface` for public APIs and `type` for
-   complex types.
-4. **Readonly**: Use `readonly` for immutable properties.
-5. **Type Guards**: Use type guards for runtime type checking.
+### TypeScript standards
 
-### Naming Conventions
+ 1. *Strict TypeScript*: The project uses strict TypeScript. All code must be
+    properly typed.
+ 2. *Explicit types*: Prefer explicit type annotations for function parameters
+    and return types.
+ 3. *Interfaces vs types*: Use `interface` for public APIs and `type` for
+    complex types.
+ 4. *Readonly*: Use `readonly` for immutable properties.
+ 5. *Type guards*: Use type guards for runtime type checking.
 
-1. **Modules**: Use camelCase for filenames and import specifiers.
-2. **Classes/Interfaces**: Use PascalCase.
-3. **Variables/Functions/Methods**: Use camelCase.
-4. **Constants**: Use camelCase for constants (NOT ALL_CAPS).
-5. **Private Members**: Prefix with `_` (e.g., `_privateMethod`).
+### Naming conventions
 
-### Code Style
+ 1. *Modules*: Use camelCase for filenames and import specifiers.
+ 2. *Classes/Interfaces*: Use PascalCase.
+ 3. *Variables/Functions/Methods*: Use camelCase.
+ 4. *Constants*: Use camelCase for constants (NOT ALL_CAPS).
+ 5. *Private members*: Prefix with `_` (e.g., `_privateMethod`).
 
-1. **Formatting**: The project uses `deno fmt` for formatting.
-2. **Comments**: Use JSDoc for all public APIs.
-3. **Line Length**: Keep lines under 80 characters when possible.
-4. **Import Organization**: Organize imports alphabetically.
-5. **Error Handling**: Always handle errors explicitly, never swallow them.
+### Code style
 
-### Branch Structure
+ 1. *Formatting*: The project uses `deno fmt` for formatting.
+ 2. *Comments*: Use JSDoc for all public APIs.
+ 3. *Line length*: Keep lines under 80 characters when possible.
+ 4. *Import organization*: Organize imports alphabetically.
+ 5. *Error handling*: Always handle errors explicitly, never swallow them.
 
-- **main**: Contains new features for the next major/minor version
-- **X.Y-maintenance**: Contains bug fixes for the next patch version of a
-  specific release (e.g., `0.9-maintenance`)
+### Branch structure
 
-## Testing
+ -  *main*: Contains new features for the next major/minor version
+ -  *X.Y-maintenance*: Contains bug fixes for the next patch version of a
+    specific release (e.g., *0.9-maintenance*)
 
-### Test Framework
 
-The project uses **@alinea/suite** for cross-runtime testing compatibility,
+Testing
+-------
+
+### Test framework
+
+The project uses *@alinea/suite* for cross-runtime testing compatibility,
 along with `@std/assert` for assertions.
 
-### Test Organization
+### Test organization
 
-1. Each implementation file has a corresponding `*.test.ts` file
-2. Tests are organized using `@alinea/suite`'s `suite()` function
-3. Each test should focus on a single piece of functionality
-4. Tests run across multiple runtimes: Deno, Node.js, and Bun
+ 1. Each implementation file has a corresponding *\*.test.ts* file
+ 2. Tests are organized using *@alinea/suite*'s `suite()` function
+ 3. Each test should focus on a single piece of functionality
+ 4. Tests run across multiple runtimes: Deno, Node.js, and Bun
 
-### Test Structure
+### Test structure
 
-```typescript
+~~~~ typescript
 import { suite } from "@alinea/suite";
 import { assertEquals } from "@std/assert/equals";
 
@@ -181,19 +193,19 @@ test("ComponentName.methodName() with multiple assertions", () => {
 
   // Cleanup code if needed
 });
-```
+~~~~
 
-### Cross-Runtime Testing
+### Cross-runtime testing
 
 The project supports testing across multiple JavaScript runtimes:
 
-- **Deno**: Native runtime, tests run directly
-- **Node.js**: Requires build step, uses Node's built-in test runner
-- **Bun**: Requires build step, uses Bun's test runner
+ -  *Deno*: Native runtime, tests run directly
+ -  *Node.js*: Requires build step, uses Node's built-in test runner
+ -  *Bun*: Requires build step, uses Bun's test runner
 
-### Running Tests
+### Running tests
 
-```bash
+~~~~ bash
 # Run Deno tests only
 deno task test
 
@@ -210,30 +222,32 @@ deno task test:bun     # Bun only
 # Individual package testing
 deno task test:node:logtape    # Test logtape package in Node.js
 deno task test:bun:file        # Test file package in Bun
-```
+~~~~
 
-### Test Workflow
+### Test workflow
 
 For Node.js and Bun testing:
 
-1. Packages are built using `tsdown` to generate CommonJS/ESM outputs
-2. Tests run against the built packages in `dist/` directories
-3. This ensures cross-runtime compatibility of the published packages
+ 1. Packages are built using *tsdown* to generate CommonJS/ESM outputs
+ 2. Tests run against the built packages in *dist/* directories
+ 3. This ensures cross-runtime compatibility of the published packages
 
-## Development Workflow
 
-### Build System
+Development workflow
+--------------------
 
-The project uses **tsdown** for cross-platform package building:
+### Build system
 
-- Replaces the previous `dnt.ts` configuration
-- Generates both ESM and CommonJS outputs
-- Supports platform-specific builds (Node.js, Deno, Bun)
-- Each package has its own `tsdown.config.ts` configuration
+The project uses *tsdown* for cross-platform package building:
 
-### Building Packages
+ -  Replaces the previous *dnt.ts* configuration
+ -  Generates both ESM and CommonJS outputs
+ -  Supports platform-specific builds (Node.js, Deno, Bun)
+ -  Each package has its own *tsdown.config.ts* configuration
 
-```bash
+### Building packages
+
+~~~~ bash
 # Build all packages
 deno task build
 
@@ -243,67 +257,69 @@ deno task build:file
 deno task build:otel
 deno task build:redaction
 deno task build:sentry
-```
+~~~~
 
-### Checking Code
+### Checking code
 
 Before submitting changes, run:
 
-```bash
+~~~~ bash
 deno task check
-```
+~~~~
 
 This runs:
 
-- `deno check`: Type checking across all workspace members
-- `deno lint`: Linting
-- `deno fmt --check`: Format checking
-- `deno task check:versions`: Version consistency check across packages
+ -  `deno check`: Type checking across all workspace members
+ -  `deno lint`: Linting
+ -  `deno fmt --check`: Format checking
+ -  `deno task check:versions`: Version consistency check across packages
 
-### Workspace vs Package-Level Tasks
+### Workspace vs package-level tasks
 
-- **Workspace-level tasks**: Run from the root directory using `deno task`
-- **Package-level tasks**: Run from individual package directories or using `-f`
-  flag
-- Cross-runtime testing requires building packages first
+ -  *Workspace-level tasks*: Run from the root directory using `deno task`
+ -  *Package-level tasks*: Run from individual package directories or using `-f`
+    flag
+ -  Cross-runtime testing requires building packages first
 
-### Git Hooks
+### Git hooks
 
 The project uses git hooks:
 
-- **pre-commit**: Runs `deno task check` to verify code quality
-- **pre-push**: Runs `deno task check` and `deno task test` to verify
-  functionality
+ -  *pre-commit*: Runs `deno task check` to verify code quality
+ -  *pre-push*: Runs `deno task check` and `deno task test` to verify
+    functionality
 
 To install hooks:
 
-```bash
+~~~~ bash
 deno task hooks:install
-```
+~~~~
 
 ### CI/CD
 
 The project uses GitHub Actions for:
 
-- Running tests across multiple platforms (macOS, Ubuntu, Windows)
-- Cross-runtime testing (Deno, Node.js, Bun)
-- Checking code style and types
-- Building packages with tsdown
-- Generating test coverage reports
-- Publishing to JSR and npm
-- Monorepo-aware package publishing
+ -  Running tests across multiple platforms (macOS, Ubuntu, Windows)
+ -  Cross-runtime testing (Deno, Node.js, Bun)
+ -  Checking code style and types
+ -  Building packages with tsdown
+ -  Generating test coverage reports
+ -  Publishing to JSR and npm
+ -  Monorepo-aware package publishing
 
-## Documentation
 
-### Code Documentation
+Documentation
+-------------
 
-- Use JSDoc comments for all public APIs
-- Document parameters, return types, and exceptions
-- Include examples for complex functionality
+### Code documentation
+
+ -  Use JSDoc comments for all public APIs
+ -  Document parameters, return types, and exceptions
+ -  Include examples for complex functionality
 
 Example:
 
-````typescript
+~~~~ typescript
 /**
  * Creates a logger for the specified category.
  *
@@ -319,87 +335,210 @@ Example:
 export function getLogger(category?: Category | string): Logger {
   // Implementation
 }
-````
+~~~~
 
-### User Documentation
+### User documentation
 
 User documentation is available at https://logtape.org/ and is structured as:
 
-- Installation
-- Quick start
-- Configuration
-- Core concepts (categories, severity levels, structured logging, contexts)
-- Output (sinks, filters, text formatters)
-- Data redaction
-- Adaptors (Pino, Winston)
-- Framework integration (Express, Fastify, Hono, Koa, Drizzle ORM)
-- Advanced usage (library usage, debugging, testing)
+ -  Installation
+ -  Quick start
+ -  Configuration
+ -  Core concepts (categories, severity levels, structured logging, contexts)
+ -  Output (sinks, filters, text formatters)
+ -  Data redaction
+ -  Adaptors (Pino, Winston)
+ -  Framework integration (Express, Fastify, Hono, Koa, Drizzle ORM)
+ -  Advanced usage (library usage, debugging, testing)
 
 When adding or changing functionality, update both the code documentation and
 user documentation as needed.
 
-## Changelog Guidelines
 
-The project maintains a detailed changelog in `CHANGES.md` that follows specific
+Markdown style guide
+--------------------
+
+When creating or editing Markdown documentation files in this project,
+follow these style conventions to maintain consistency with existing
+documentation:
+
+### Headings
+
+ -  *Setext-style headings*: Use underline-style for the document title
+    (with `=`) and sections (with `-`):
+
+    ~~~~
+    Document title
+    ==============
+
+    Section name
+    ------------
+    ~~~~
+
+ -  *ATX-style headings*: Use only for subsections within a section:
+
+    ~~~~
+    ### Subsection name
+    ~~~~
+
+ -  *Heading case*: Use sentence case (capitalize only the first word and
+    proper nouns) rather than Title Case:
+
+    ~~~~
+    Development commands    <- Correct
+    Development Commands    <- Incorrect
+    ~~~~
+
+### Text formatting
+
+ -  *Italics* (`*text*`): Use for package names (*@logtape/logtape*,
+    *@logtape/otel*), emphasis, and to distinguish concepts
+ -  *Bold* (`**text**`): Use sparingly for strong emphasis
+ -  *Inline code* (`` `code` ``): Use for code spans, function names,
+    filenames, and command-line options
+
+### Lists
+
+ -  Use ` -  ` (space-hyphen-two spaces) for unordered list items
+ -  Indent nested items with 4 spaces
+ -  Align continuation text with the item content:
+
+    ~~~~
+     -  *First item*: Description text that continues
+        on the next line with proper alignment
+     -  *Second item*: Another item
+    ~~~~
+
+### Code blocks
+
+ -  Use four tildes (`~~~~`) for code fences instead of backticks
+ -  Always specify the language identifier:
+
+    ~~~~~
+    ~~~~ typescript
+    const example = "Hello, world!";
+    ~~~~
+    ~~~~~
+
+ -  For shell commands, use `bash`:
+
+    ~~~~~
+    ~~~~ bash
+    deno test
+    ~~~~
+    ~~~~~
+
+### Links
+
+ -  Use reference-style links placed at the *end of each section*
+    (not at document end)
+ -  Format reference links with consistent spacing:
+
+    ~~~~
+    See the [LogTape documentation] for more details.
+
+    [LogTape documentation]: https://logtape.org/
+    ~~~~
+
+### GitHub alerts
+
+Use GitHub-style alert blocks for important information:
+
+ -  *Note*: `> [!NOTE]`
+ -  *Tip*: `> [!TIP]`
+ -  *Important*: `> [!IMPORTANT]`
+ -  *Warning*: `> [!WARNING]`
+ -  *Caution*: `> [!CAUTION]`
+
+Continue alert content on subsequent lines with `>`:
+
+~~~~
+> [!CAUTION]
+> This feature is experimental and may change in future versions.
+~~~~
+
+### Tables
+
+Use pipe tables with proper alignment markers:
+
+~~~~
+| Package              | Description                   |
+| -------------------- | ----------------------------- |
+| @logtape/logtape     | Core logging functionality    |
+~~~~
+
+### Spacing and line length
+
+ -  Wrap lines at approximately 80 characters for readability
+ -  Use one blank line between sections and major elements
+ -  Use two blank lines before Setext-style section headings
+ -  Place one blank line before and after code blocks
+ -  End sections with reference links (if any) followed by a blank line
+
+
+Changelog guidelines
+--------------------
+
+The project maintains a detailed changelog in *CHANGES.md* that follows specific
 principles and formatting:
 
-### Changelog Principles
+### Changelog principles
 
-1. **User-Focused Changes**: Document changes from the user's perspective, not
-   implementation details. Focus on what users of the library will experience,
-   not how it was implemented.
+ 1. *User-focused changes*: Document changes from the user's perspective, not
+    implementation details. Focus on what users of the library will experience,
+    not how it was implemented.
 
-2. **API Documentation**: Clearly document all API changes, including:
-   - Additions of new functions, types, interfaces, or constants
-   - Changes to existing API types or signatures (include both old and new
-     types)
-   - Deprecation notices
-   - Removals or relocations of APIs between packages
+ 2. *API documentation*: Clearly document all API changes, including:
+     -  Additions of new functions, types, interfaces, or constants
+     -  Changes to existing API types or signatures (include both old and new
+        types)
+     -  Deprecation notices
+     -  Removals or relocations of APIs between packages
 
-3. **Attribution**: Include attribution to contributors where applicable, with
-   links to their PRs or issues.
+ 3. *Attribution*: Include attribution to contributors where applicable, with
+    links to their PRs or issues.
 
-4. **Versioning**: Each version has its own section with release date (when
-   applicable).
+ 4. *Versioning*: Each version has its own section with release date (when
+    applicable).
 
-### When to Update the Changelog
+### When to update the changelog
 
 Update the changelog when:
 
-- Adding, changing, or removing public APIs
-- Fixing bugs that affect user behavior
-- Making performance improvements that users would notice
-- Changing behavior of existing functionality
-- Moving code between packages
+ -  Adding, changing, or removing public APIs
+ -  Fixing bugs that affect user behavior
+ -  Making performance improvements that users would notice
+ -  Changing behavior of existing functionality
+ -  Moving code between packages
 
 Do NOT update the changelog for:
 
-- Internal implementation changes that don't affect users
-- Documentation-only changes
-- Test-only changes
-- Build system changes
+ -  Internal implementation changes that don't affect users
+ -  Documentation-only changes
+ -  Test-only changes
+ -  Build system changes
 
-### Changelog Format
+### Changelog format
 
-1. **Structure**:
-   - Top-level heading for the project name
-   - Second-level heading for each version number
-   - Version status ("To be released" or "Released on DATE")
-   - Bulleted list of changes
+ 1. *Structure*:
+     -  Top-level heading for the project name
+     -  Second-level heading for each version number
+     -  Version status ("To be released" or "Released on DATE")
+     -  Bulleted list of changes
 
-2. **Entry Format**:
-   - Use `-` for list items
-   - Nest related sub-items with indentation
-   - Link issue/PR numbers using `[[#XX]]` or `[[#XX] by Contributor Name]`
-   - For API changes, include the full type signature changes
+ 2. *Entry format*:
+     -  Use `-` for list items
+     -  Nest related sub-items with indentation
+     -  Link issue/PR numbers using `[[#XX]]` or `[[#XX] by Contributor Name]`
+     -  For API changes, include the full type signature changes
 
-3. **Order**:
-   - Group related changes together
-   - List additions first, then changes, then fixes
+ 3. *Order*:
+     -  Group related changes together
+     -  List additions first, then changes, then fixes
 
-### Example Entry
+### Example entry
 
-```
+~~~~
 Version X.Y.Z
 -------------
 
@@ -411,87 +550,99 @@ Released on Month Day, Year.
     `(param: string) => number` (was `(param: string) => void`).
 
  -  Fixed a bug where X happened when Y was expected.  [[#43], [#44] by Contributor]
-```
+~~~~
 
-## Cross-Runtime Compatibility
+
+Cross-runtime compatibility
+---------------------------
 
 LogTape supports multiple JavaScript runtimes:
 
-- Deno
-- Node.js
-- Bun
-- Browsers
-- Edge functions
+ -  Deno
+ -  Node.js
+ -  Bun
+ -  Browsers
+ -  Edge functions
 
 Ensure new code works across all supported environments. Use the
-`@david/which-runtime` library to detect runtime-specific behavior when
+*@david/which-runtime* library to detect runtime-specific behavior when
 necessary.
 
-## Dependency Management
 
-The project uses a **dual dependency management** system to maintain version
+Dependency management
+---------------------
+
+The project uses a *dual dependency management* system to maintain version
 consistency across packages and runtimes:
 
-### pnpm Catalog
+### pnpm catalog
 
-- Common dependencies are defined in `pnpm-workspace.yaml` under the `catalog:`
-  section
-- Individual packages reference catalog dependencies using `"catalog:"` syntax
-- Ensures version consistency across all packages in the workspace
+ -  Common dependencies are defined in *pnpm-workspace.yaml* under the
+    `catalog:` section
+ -  Individual packages reference catalog dependencies using `"catalog:"`
+    syntax
+ -  Ensures version consistency across all packages in the workspace
 
-### Deno Imports Map
+### Deno imports map
 
-- The root `deno.json` centralizes dependency versions in the `imports:` section
-- Provides JSR and npm package mappings for Deno runtime
-- Coordinates with pnpm catalog to maintain version alignment
+ -  The root *deno.json* centralizes dependency versions in the `imports:`
+    section
+ -  Provides JSR and npm package mappings for Deno runtime
+ -  Coordinates with pnpm catalog to maintain version alignment
 
-### Adding Dependencies
+### Adding dependencies
 
 When adding a new dependency:
 
-1. **For workspace-wide dependencies**: Add to both pnpm catalog and Deno
-   imports
-2. **In individual packages**: Reference using `"catalog:"` in package.json
-3. **Version consistency**: Ensure versions match between catalog and imports
+ 1. *For workspace-wide dependencies*: Add to both pnpm catalog and Deno
+    imports
+ 2. *In individual packages*: Reference using `"catalog:"` in *package.json*
+ 3. *Version consistency*: Ensure versions match between catalog and imports
 
-## Package Management
+
+Package management
+------------------
 
 The project is published to:
 
-- JSR (JavaScript Registry)
-- npm
+ -  JSR (JavaScript Registry)
+ -  npm
 
 Version consistency is critical—all packages should have matching versions
 across the entire workspace.
 
-## Best Practices
 
-1. **Zero Dependencies**: Avoid adding external dependencies.
-2. **Performance**: Consider performance implications, especially for logging
-   operations.
-3. **Error Handling**: Ensure logging errors don't crash applications.
-4. **Backward Compatibility**: Maintain compatibility with existing APIs.
-5. **Security**: Be careful with sensitive data in logs.
+Best practices
+--------------
 
-## Specific Component Guidelines
+ 1. *Zero dependencies*: Avoid adding external dependencies.
+ 2. *Performance*: Consider performance implications, especially for logging
+    operations.
+ 3. *Error handling*: Ensure logging errors don't crash applications.
+ 4. *Backward compatibility*: Maintain compatibility with existing APIs.
+ 5. *Security*: Be careful with sensitive data in logs.
+
+
+Specific component guidelines
+-----------------------------
 
 ### Loggers
 
-- Loggers should follow the hierarchical category pattern
-- Support both eager and lazy evaluation modes
-- Properly handle context properties
+ -  Loggers should follow the hierarchical category pattern
+ -  Support both eager and lazy evaluation modes
+ -  Properly handle context properties
 
 ### Sinks
 
-- Keep sinks simple and focused on a single responsibility
-- Handle errors gracefully
-- Consider performance implications
+ -  Keep sinks simple and focused on a single responsibility
+ -  Handle errors gracefully
+ -  Consider performance implications
 
 ### Formatters
 
-- Make formatters customizable
-- Support both plain text and structured formats
-- Consider output readability
+ -  Make formatters customizable
+ -  Support both plain text and structured formats
+ -  Consider output readability
 
 By following these guidelines, you'll help maintain the quality and consistency
 of the LogTape codebase.

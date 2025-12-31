@@ -68,8 +68,8 @@
   ],
   "fmt": {
     "exclude": [
-      "README.md",
-      "**/README.md"
+      "*.md",
+      "**/*.md"
     ]
   },
   "tasks": {
