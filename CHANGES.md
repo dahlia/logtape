@@ -10,6 +10,15 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added `Error` overloads for `Logger.error()`,
+    `Logger.warn()`/`Logger.warning()`, and `Logger.fatal()` as a shorthand for
+    logging errors as structured properties.
+    The default message template for `logger.error(error)` (and the corresponding
+    warning/fatal overloads) is `{error.message}`.
+    Note that `logger.warn(new Error(...))` and `logger.fatal(new Error(...))`
+    may result in slightly different output compared to previous versions,
+    where this looked like a `{*}` (properties-only) shorthand.  [[#123]]
+
  -  Added `"none"` and `"disabled"` options for `AnsiColorFormatterOptions.timestamp`
     to disable timestamp display, consistent with `TextFormatterOptions`.
     [[#120], [#121] by Jonathan Wilbur]
@@ -29,6 +38,11 @@ To be released.
         line endings.
      -  `getAnsiColorFormatter()` automatically inherits the option from
         `getTextFormatter()`.
+
+[#113]: https://github.com/dahlia/logtape/pull/113
+[#120]: https://github.com/dahlia/logtape/issues/120
+[#121]: https://github.com/dahlia/logtape/pull/121
+[#123]: https://github.com/dahlia/logtape/issues/123
 
 ### @logtape/config
 
@@ -71,6 +85,8 @@ To be released.
         `local`).
      -  Logs errors at error level via `onError` hook.
 
+[#111]: https://github.com/dahlia/logtape/issues/111
+
 ### @logtape/windows-eventlog
 
  -  Improved Windows Event Log message formatting using `NELOG_OEM_Code` (3299)
@@ -86,11 +102,7 @@ To be released.
      -  Added documentation for registering *netmsg.dll* as an event message
         file in the Windows Registry.
 
-[#111]: https://github.com/dahlia/logtape/issues/111
-[#113]: https://github.com/dahlia/logtape/pull/113
 [#115]: https://github.com/dahlia/logtape/pull/115
-[#120]: https://github.com/dahlia/logtape/issues/120
-[#121]: https://github.com/dahlia/logtape/pull/121
 
 
 Version 1.3.5

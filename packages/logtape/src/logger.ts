@@ -344,6 +344,38 @@ export interface Logger {
   info(callback: LogCallback): void;
 
   /**
+   * Log a warning.
+   *
+   * This overload is a shorthand for logging an {@link Error} instance as a
+   * structured property.
+   *
+   * ```typescript
+   * logger.warn(new Error("Oops"));
+   * ```
+   *
+   * Note that this uses `{error.message}` as the default message template.
+   * If you want to include the stack trace in text output, include `{error}`
+   * in the message template instead.
+   *
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  warn(error: Error): void;
+
+  /**
+   * Log a warning message with an {@link Error}.
+   *
+   * ```typescript
+   * logger.warn("Failed to do something", new Error("Oops"));
+   * ```
+   *
+   * @param message The message.
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  warn(message: string, error: Error): void;
+
+  /**
    * Log a warning message.  Use this as a template string prefix.
    *
    * ```typescript
@@ -428,6 +460,38 @@ export interface Logger {
    * @throws {TypeError} If no log record was made inside the callback.
    */
   warn(callback: LogCallback): void;
+
+  /**
+   * Log a warning.
+   *
+   * This overload is a shorthand for logging an {@link Error} instance as a
+   * structured property.
+   *
+   * ```typescript
+   * logger.warning(new Error("Oops"));
+   * ```
+   *
+   * Note that this uses `{error.message}` as the default message template.
+   * If you want to include the stack trace in text output, include `{error}`
+   * in the message template instead.
+   *
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  warning(error: Error): void;
+
+  /**
+   * Log a warning message with an {@link Error}.
+   *
+   * ```typescript
+   * logger.warning("Failed to do something", new Error("Oops"));
+   * ```
+   *
+   * @param message The message.
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  warning(message: string, error: Error): void;
 
   /**
    * Log a warning message.  Use this as a template string prefix.
@@ -519,6 +583,38 @@ export interface Logger {
   warning(callback: LogCallback): void;
 
   /**
+   * Log an error.
+   *
+   * This overload is a shorthand for logging an {@link Error} instance as a
+   * structured property.
+   *
+   * ```typescript
+   * logger.error(new Error("Oops"));
+   * ```
+   *
+   * Note that this uses `{error.message}` as the default message template.
+   * If you want to include the stack trace in text output, include `{error}`
+   * in the message template instead.
+   *
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  error(error: Error): void;
+
+  /**
+   * Log an error message with an {@link Error}.
+   *
+   * ```typescript
+   * logger.error("Failed to do something", new Error("Oops"));
+   * ```
+   *
+   * @param message The message.
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  error(message: string, error: Error): void;
+
+  /**
    * Log an error message.  Use this as a template string prefix.
    *
    * ```typescript
@@ -603,6 +699,38 @@ export interface Logger {
    * @throws {TypeError} If no log record was made inside the callback.
    */
   error(callback: LogCallback): void;
+
+  /**
+   * Log a fatal error.
+   *
+   * This overload is a shorthand for logging an {@link Error} instance as a
+   * structured property.
+   *
+   * ```typescript
+   * logger.fatal(new Error("Oops"));
+   * ```
+   *
+   * Note that this uses `{error.message}` as the default message template.
+   * If you want to include the stack trace in text output, include `{error}`
+   * in the message template instead.
+   *
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  fatal(error: Error): void;
+
+  /**
+   * Log a fatal error message with an {@link Error}.
+   *
+   * ```typescript
+   * logger.fatal("Failed to do something", new Error("Oops"));
+   * ```
+   *
+   * @param message The message.
+   * @param error The error to log.
+   * @since 1.4.0
+   */
+  fatal(message: string, error: Error): void;
 
   /**
    * Log a fatal error message.  Use this as a template string prefix.
@@ -1119,15 +1247,29 @@ export class LoggerImpl implements Logger {
     }
   }
 
+  warn(error: Error): void;
+  warn(message: string, error: Error): void;
+  warn(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  warn(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  warn(properties: Record<string, unknown>): void;
+  warn(callback: LogCallback): void;
   warn(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    if (typeof message === "string") {
+    if (message instanceof Error) {
+      this.log("warning", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("warning", message, { error: values[0] });
+    } else if (typeof message === "string") {
       this.log(
         "warning",
         message,
@@ -1142,26 +1284,66 @@ export class LoggerImpl implements Logger {
     }
   }
 
+  warning(error: Error): void;
+  warning(message: string, error: Error): void;
+  warning(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  warning(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  warning(properties: Record<string, unknown>): void;
+  warning(callback: LogCallback): void;
   warning(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    this.warn(message, ...values);
+    if (message instanceof Error) {
+      this.log("warning", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("warning", message, { error: values[0] });
+    } else if (typeof message === "string") {
+      this.log(
+        "warning",
+        message,
+        (values[0] ?? {}) as Record<string, unknown>,
+      );
+    } else if (typeof message === "function") {
+      this.logLazily("warning", message);
+    } else if (!Array.isArray(message)) {
+      this.log("warning", "{*}", message as Record<string, unknown>);
+    } else {
+      this.logTemplate("warning", message as TemplateStringsArray, values);
+    }
   }
 
+  error(error: Error): void;
+  error(message: string, error: Error): void;
+  error(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  error(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  error(properties: Record<string, unknown>): void;
+  error(callback: LogCallback): void;
   error(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    if (typeof message === "string") {
+    if (message instanceof Error) {
+      this.log("error", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("error", message, { error: values[0] });
+    } else if (typeof message === "string") {
       this.log("error", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("error", message);
@@ -1172,15 +1354,29 @@ export class LoggerImpl implements Logger {
     }
   }
 
+  fatal(error: Error): void;
+  fatal(message: string, error: Error): void;
+  fatal(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  fatal(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  fatal(properties: Record<string, unknown>): void;
+  fatal(callback: LogCallback): void;
   fatal(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    if (typeof message === "string") {
+    if (message instanceof Error) {
+      this.log("fatal", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("fatal", message, { error: values[0] });
+    } else if (typeof message === "string") {
       this.log("fatal", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("fatal", message);
@@ -1320,15 +1516,29 @@ export class LoggerCtx implements Logger {
     }
   }
 
+  warn(error: Error): void;
+  warn(message: string, error: Error): void;
+  warn(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  warn(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  warn(properties: Record<string, unknown>): void;
+  warn(callback: LogCallback): void;
   warn(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    if (typeof message === "string") {
+    if (message instanceof Error) {
+      this.log("warning", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("warning", message, { error: values[0] });
+    } else if (typeof message === "string") {
       this.log(
         "warning",
         message,
@@ -1343,26 +1553,66 @@ export class LoggerCtx implements Logger {
     }
   }
 
+  warning(error: Error): void;
+  warning(message: string, error: Error): void;
+  warning(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  warning(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  warning(properties: Record<string, unknown>): void;
+  warning(callback: LogCallback): void;
   warning(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    this.warn(message, ...values);
+    if (message instanceof Error) {
+      this.log("warning", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("warning", message, { error: values[0] });
+    } else if (typeof message === "string") {
+      this.log(
+        "warning",
+        message,
+        (values[0] ?? {}) as Record<string, unknown>,
+      );
+    } else if (typeof message === "function") {
+      this.logLazily("warning", message);
+    } else if (!Array.isArray(message)) {
+      this.log("warning", "{*}", message as Record<string, unknown>);
+    } else {
+      this.logTemplate("warning", message as TemplateStringsArray, values);
+    }
   }
 
+  error(error: Error): void;
+  error(message: string, error: Error): void;
+  error(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  error(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  error(properties: Record<string, unknown>): void;
+  error(callback: LogCallback): void;
   error(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    if (typeof message === "string") {
+    if (message instanceof Error) {
+      this.log("error", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("error", message, { error: values[0] });
+    } else if (typeof message === "string") {
       this.log("error", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("error", message);
@@ -1373,15 +1623,29 @@ export class LoggerCtx implements Logger {
     }
   }
 
+  fatal(error: Error): void;
+  fatal(message: string, error: Error): void;
+  fatal(message: TemplateStringsArray, ...values: readonly unknown[]): void;
+  fatal(
+    message: string,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  fatal(properties: Record<string, unknown>): void;
+  fatal(callback: LogCallback): void;
   fatal(
     message:
       | TemplateStringsArray
       | string
       | LogCallback
-      | Record<string, unknown>,
+      | Record<string, unknown>
+      | Error,
     ...values: unknown[]
   ): void {
-    if (typeof message === "string") {
+    if (message instanceof Error) {
+      this.log("fatal", "{error.message}", { error: message });
+    } else if (typeof message === "string" && values[0] instanceof Error) {
+      this.log("fatal", message, { error: values[0] });
+    } else if (typeof message === "string") {
       this.log("fatal", message, (values[0] ?? {}) as Record<string, unknown>);
     } else if (typeof message === "function") {
       this.logLazily("fatal", message);

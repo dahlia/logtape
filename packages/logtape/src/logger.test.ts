@@ -750,6 +750,268 @@ for (const method of methods) {
   });
 }
 
+test("Logger.error() [error overload]", () => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  try {
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.error(err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: logs[0].timestamp,
+          properties: { error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.error("Something happened", err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["Something happened"],
+          rawMessage: "Something happened",
+          timestamp: logs[0].timestamp,
+          properties: { error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.error(err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.error("Something happened", err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["Something happened"],
+          rawMessage: "Something happened",
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.warn(err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: logs[0].timestamp,
+          properties: { error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.warn("Something happened", err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["Something happened"],
+          rawMessage: "Something happened",
+          timestamp: logs[0].timestamp,
+          properties: { error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.warn(err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.warn("Something happened", err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["Something happened"],
+          rawMessage: "Something happened",
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.fatal(err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "fatal",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: logs[0].timestamp,
+          properties: { error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.fatal("Something happened", err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "fatal",
+          message: ["Something happened"],
+          rawMessage: "Something happened",
+          timestamp: logs[0].timestamp,
+          properties: { error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.fatal(err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "fatal",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.fatal("Something happened", err);
+      const after = Date.now();
+      assertEquals(logs, [
+        {
+          category: ["foo"],
+          level: "fatal",
+          message: ["Something happened"],
+          rawMessage: "Something happened",
+          timestamp: logs[0].timestamp,
+          properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assertGreaterOrEqual(logs[0].timestamp, before);
+      assertLessOrEqual(logs[0].timestamp, after);
+    }
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
 test("parseMessageTemplate()", () => {
   assertEquals(parseMessageTemplate("Hello, world!", {}), ["Hello, world!"]);
   assertEquals(

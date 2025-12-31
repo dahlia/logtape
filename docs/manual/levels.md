@@ -89,8 +89,13 @@ errors.
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
+const err = new Error("API rate limit exceeded");
 // ---cut-before---
 logger.warn("API rate limit is close to exceeding, 95% of limit reached.");
+
+// Shorthand overloads (added in LogTape 1.4.0):
+logger.warn(err);
+logger.warn("API rate limit exceeded", err);
 ~~~~
 
 ### Error
@@ -102,8 +107,13 @@ necessarily cause the application to stop.
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
-const err = new Error();
+const err = new Error("Database write failed");
 // ---cut-before---
+// Shorthand overloads (added in LogTape 1.4.0):
+logger.error(err);
+logger.error("Failed to save user data to database", err);
+
+// Equivalent explicit structured logging:
 logger.error(
   "Failed to save user data to database: {error}",
   { userId: "12345", error: err },
@@ -111,9 +121,8 @@ logger.error(
 ~~~~
 
 > [!NOTE]
-> When logging an error object, it's recommended to include the `{error}`
-> placeholder in the message template.  This allows formatters to properly
-> display the error's stack trace.
+> The overloads and stack-trace guidance are explained in the
+> “Error object overloads” section above.
 
 ### Fatal error
 
@@ -123,10 +132,51 @@ are typically unrecoverable and require immediate attention.
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
-const error = new Error();
+const err = new Error("Database connection lost");
 // ---cut-before---
-logger.fatal("Unrecoverable error: Database connection lost: {error}", { error });
+// Shorthand overloads (added in LogTape 1.4.0):
+logger.fatal(err);
+logger.fatal("Unrecoverable error", err);
+
+// Equivalent explicit structured logging:
+logger.fatal(
+  "Unrecoverable error: Database connection lost: {error}",
+  { error: err },
+);
 ~~~~
+
+
+Error object overloads
+----------------------
+
+*This API is available since LogTape 1.4.0.*
+
+For convenience, LogTape provides `Error` overloads for these methods:
+
+ -  `logger.warn(error)`/`logger.warn(message, error)`
+ -  `logger.warning(error)`/`logger.warning(message, error)`
+ -  `logger.error(error)`/`logger.error(message, error)`
+ -  `logger.fatal(error)`/`logger.fatal(message, error)`
+
+They are shorthands for logging an error as a structured `{ error }` property.
+When you call the `logger.*(error)` form, LogTape uses `{error.message}` as the
+default message template.
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const err = new Error("boom");
+// ---cut-before---
+logger.warn(err);
+logger.warn("Something happened", err);
+
+logger.error(err);
+logger.error("Failed to save user", err);
+~~~~
+
+> [!NOTE]
+> To include the stack trace in text output, include `{error}` in the message
+> template.
 
 
 Choosing the right level
