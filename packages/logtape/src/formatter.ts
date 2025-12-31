@@ -379,6 +379,39 @@ function getLineEndingValue(lineEnding?: "lf" | "crlf"): string {
   return lineEnding === "crlf" ? "\r\n" : "\n";
 }
 
+function jsonReplacer(_key: string, value: unknown): unknown {
+  if (!(value instanceof Error)) return value;
+
+  const serialized: Record<string, unknown> = {
+    name: value.name,
+    message: value.message,
+  };
+
+  if (typeof value.stack === "string") {
+    serialized.stack = value.stack;
+  }
+
+  const cause = (value as { cause?: unknown }).cause;
+  if (cause !== undefined) {
+    serialized.cause = cause;
+  }
+
+  if (
+    typeof AggregateError !== "undefined" &&
+    value instanceof AggregateError
+  ) {
+    serialized.errors = value.errors;
+  }
+
+  for (const key of Object.keys(value)) {
+    if (!(key in serialized)) {
+      serialized[key] = (value as unknown as Record<string, unknown>)[key];
+    }
+  }
+
+  return serialized;
+}
+
 /**
  * Get a text formatter with the specified options.  Although it's flexible
  * enough to create a custom formatter, if you want more control, you can
@@ -802,7 +835,7 @@ export function getJsonLinesFormatter(
             record.message[2],
           logger: record.category.join("."),
           properties: record.properties,
-        }) + lineEnding;
+        }, jsonReplacer) + lineEnding;
       }
 
       // Single message (second most common)
@@ -815,7 +848,7 @@ export function getJsonLinesFormatter(
           message: record.message[0],
           logger: record.category.join("."),
           properties: record.properties,
-        }) + lineEnding;
+        }, jsonReplacer) + lineEnding;
       }
 
       // Complex messages (fallback)
@@ -830,7 +863,7 @@ export function getJsonLinesFormatter(
         message: msg,
         logger: record.category.join("."),
         properties: record.properties,
-      }) + lineEnding;
+      }, jsonReplacer) + lineEnding;
     };
   }
 
@@ -921,7 +954,7 @@ export function getJsonLinesFormatter(
       message: getMessage(record),
       logger: joinCategory(record.category),
       ...getProperties(record.properties),
-    }) + lineEnding;
+    }, jsonReplacer) + lineEnding;
   };
 }
 

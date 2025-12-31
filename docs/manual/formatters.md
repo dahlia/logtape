@@ -58,6 +58,10 @@ It formats log records like this:
 Newline-Delimited JSON or NDJSON). Each log record is rendered as a JSON object
 on a single line, which is a common format for structured logging.
 
+When an `Error` (or `AggregateError`) object is present in structured properties,
+it is serialized as a plain object so that error details (like `message` and
+`stack`) are reliably preserved in JSON output.
+
 It formats log records like this:
 
 ~~~~

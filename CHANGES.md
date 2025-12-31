@@ -19,6 +19,10 @@ To be released.
     may result in slightly different output compared to previous versions,
     where this looked like a `{*}` (properties-only) shorthand.  [[#123]]
 
+ -  Improved JSON Lines formatter serialization of `Error` and `AggregateError`
+    values in properties so that `name`, `message`, `stack`, `cause`, and
+    `errors` are preserved in JSON output.  [[#123]]
+
  -  Added `"none"` and `"disabled"` options for `AnsiColorFormatterOptions.timestamp`
     to disable timestamp display, consistent with `TextFormatterOptions`.
     [[#120], [#121] by Jonathan Wilbur]

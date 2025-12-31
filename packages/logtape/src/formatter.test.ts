@@ -542,6 +542,66 @@ test("getJsonLinesFormatter()", () => {
     assertEquals(result.properties, { userId: "12345", requestId: "abc-def" });
   }
 
+  { // Error properties are serialized
+    const recordWithError: LogRecord = {
+      ...logRecord,
+      properties: {
+        error: new Error("boom"),
+      },
+    };
+
+    const formatter = getJsonLinesFormatter();
+    const result = JSON.parse(formatter(recordWithError));
+
+    assertEquals(result.properties.error.name, "Error");
+    assertEquals(result.properties.error.message, "boom");
+
+    // stack is runtime-dependent; if present, it should be a string
+    if ("stack" in result.properties.error) {
+      assertEquals(typeof result.properties.error.stack, "string");
+    }
+  }
+
+  { // Error cause is serialized (recursively)
+    // `cause` option typing differs across runtimes / TS libs
+    const inner = new Error("inner");
+    const outer = new Error("outer", { cause: inner });
+
+    const recordWithCause: LogRecord = {
+      ...logRecord,
+      properties: { error: outer },
+    };
+
+    const formatter = getJsonLinesFormatter();
+    const result = JSON.parse(formatter(recordWithCause));
+
+    assertEquals(result.properties.error.name, "Error");
+    assertEquals(result.properties.error.message, "outer");
+    assertEquals(result.properties.error.cause.name, "Error");
+    assertEquals(result.properties.error.cause.message, "inner");
+  }
+
+  { // AggregateError.errors is serialized
+    const aggregate = new AggregateError([
+      new Error("first"),
+      new Error("second"),
+    ], "boom");
+
+    const recordWithAggregate: LogRecord = {
+      ...logRecord,
+      properties: { error: aggregate },
+    };
+
+    const formatter = getJsonLinesFormatter();
+    const result = JSON.parse(formatter(recordWithAggregate));
+
+    assertEquals(result.properties.error.name, "AggregateError");
+    assertEquals(result.properties.error.message, "boom");
+    assertEquals(result.properties.error.errors.length, 2);
+    assertEquals(result.properties.error.errors[0].message, "first");
+    assertEquals(result.properties.error.errors[1].message, "second");
+  }
+
   { // invalid properties option - empty prepend prefix
     assertThrows(
       () => getJsonLinesFormatter({ properties: "prepend:" }),
