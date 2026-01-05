@@ -1,6 +1,6 @@
 {
   "name": "@logtape/otel",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "LogTape OpenTelemetry sink",
   "keywords": [
     "LogTape",
