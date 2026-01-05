@@ -55,6 +55,7 @@
   ],
   "exclude": [
     "**/.test-report.xml",
+    ".claude/",
     ".cov/",
     ".enricomi-publish-action-pip/",
     ".github/",
