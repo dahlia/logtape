@@ -17,5 +17,6 @@
     "console": "deno run -A console.ts | grep -v 'Test log message.'",
     "file": "deno run -A --unstable-worker-options file.ts",
     "json": "deno run -A --unstable-worker-options json.ts"
-  }
+  },
+  "version": "1.1.9"
 }
