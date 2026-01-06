@@ -8,6 +8,14 @@ Version 1.1.8
 
 To be released.
 
+### @logtape/cloudwatch-logs
+
+ -  Fixed `getCloudWatchLogsSink()` to properly close internally created
+    `CloudWatchLogsClient` connections on disposal.  Previously, when the sink
+    created its own client (i.e., when `options.client` was not provided),
+    the client's TLS connections were not closed, causing resource leaks that
+    were detected by Deno's stricter resource leak checking in newer versions.
+
 
 Version 1.1.7
 -------------

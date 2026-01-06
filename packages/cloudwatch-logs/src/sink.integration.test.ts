@@ -137,6 +137,7 @@ test("Integration: CloudWatch Logs sink with real AWS service", async () => {
     } catch (error) {
       console.warn("Failed to cleanup test log group:", error);
     }
+    client.destroy();
   }
 });
 
@@ -230,6 +231,7 @@ test("Integration: CloudWatch Logs sink with batch processing", async () => {
     } catch (error) {
       console.warn("Failed to cleanup batch test log group:", error);
     }
+    client.destroy();
   }
 });
 
@@ -333,6 +335,7 @@ test("Integration: CloudWatch Logs sink with credentials from options", async ()
     } catch (error) {
       console.warn("Failed to cleanup credentials test log group:", error);
     }
+    client.destroy();
   }
 });
 
@@ -447,5 +450,6 @@ test("Integration: CloudWatch Logs sink with JSON Lines formatter", async () => 
     } catch (error) {
       console.warn("Failed to cleanup structured test log group:", error);
     }
+    client.destroy();
   }
 });

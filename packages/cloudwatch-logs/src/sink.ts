@@ -27,6 +27,7 @@ const OVERHEAD_PER_EVENT = 26; // AWS overhead per log event: 26 bytes per event
 export function getCloudWatchLogsSink(
   options: CloudWatchLogsSinkOptions,
 ): Sink & AsyncDisposable {
+  const ownClient = options.client == null;
   const client = options.client ??
     new CloudWatchLogsClient({
       region: options.region ?? "us-east-1",
@@ -161,6 +162,7 @@ export function getCloudWatchLogsSink(
     }
     await flushEvents();
     disposed = true;
+    if (ownClient) client.destroy();
   };
 
   return sink;
