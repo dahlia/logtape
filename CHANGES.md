@@ -8,6 +8,14 @@ Version 1.3.6
 
 To be released.
 
+### @logtape/cloudwatch-logs
+
+ -  Fixed `getCloudWatchLogsSink()` to properly close internally created
+    `CloudWatchLogsClient` connections on disposal.  Previously, when the sink
+    created its own client (i.e., when `options.client` was not provided),
+    the client's TLS connections were not closed, causing resource leaks that
+    were detected by Deno's stricter resource leak checking in newer versions.
+
 
 Version 1.3.5
 -------------
@@ -306,6 +314,20 @@ Released on December 15, 2025.
     -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
        certificate validation (defaults to `true` for security).
     -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
+
+Version 1.2.6
+-------------
+
+Released on January 7, 2026.
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed `getCloudWatchLogsSink()` to properly close internally created
+    `CloudWatchLogsClient` connections on disposal.  Previously, when the sink
+    created its own client (i.e., when `options.client` was not provided),
+    the client's TLS connections were not closed, causing resource leaks that
+    were detected by Deno's stricter resource leak checking in newer versions.
 
 
 Version 1.2.5
