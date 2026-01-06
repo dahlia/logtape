@@ -25,4 +25,5 @@ export default {
       "tables": false,
     },
   },
+  ignores: ["**/node_modules/**", "**/dist/**", "**/site-packages/**"],
 };
