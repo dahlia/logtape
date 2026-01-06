@@ -43,7 +43,23 @@ To be released.
      -  `getAnsiColorFormatter()` automatically inherits the option from
         `getTextFormatter()`.
 
+ -  Replaced the deprecated `unload` event with `pagehide` for automatic
+    disposal in browser environments.  [[#79], [#124], [#125] by Pavel Semiklit]
+
+    The `unload` event is deprecated and will be removed from browsers
+    (starting with Chrome in 2025).  It also prevents pages from being
+    eligible for browser back/forward cache (bfcache), which significantly
+    impacts navigation performance.  The `pagehide` event fires at nearly
+    the same timing as `unload` but is bfcache-compatible and more reliable
+    on mobile browsers.
+
+    Note that Deno continues to use the `unload` event since it does not
+    support `pagehide`.
+
+[#79]: https://github.com/dahlia/logtape/issues/79
 [#113]: https://github.com/dahlia/logtape/pull/113
+[#124]: https://github.com/dahlia/logtape/issues/124
+[#125]: https://github.com/dahlia/logtape/pull/125
 [#120]: https://github.com/dahlia/logtape/issues/120
 [#121]: https://github.com/dahlia/logtape/pull/121
 [#123]: https://github.com/dahlia/logtape/issues/123

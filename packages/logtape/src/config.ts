@@ -320,7 +320,7 @@ function configureInternal<
       // @ts-ignore: unload event exists in Deno
       addEventListener("unload", allowAsync ? dispose : disposeSync);
     } else {
-      // Browser: use pagehide (bfcache-compatible, doesnt block back/forward cache)
+      // Browser: use pagehide (bfcache-compatible, doesn't block back/forward cache)
       addEventListener("pagehide", allowAsync ? dispose : disposeSync);
     }
   }
