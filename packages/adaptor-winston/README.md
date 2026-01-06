@@ -50,7 +50,8 @@ You can also use it with Node.js's `-r` flag:
 node -r @logtape/adaptor-winston/install app.js
 ~~~~
 
-For custom winston loggers or configuration options, see the [Usage](#usage) section below.
+For custom winston loggers or configuration options, see the [Usage](#usage)
+section below.
 
 
 Usage

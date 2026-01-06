@@ -73,17 +73,17 @@ app.use(koaLogger({
 ~~~~
 
 
-Predefined Formats
+Predefined formats
 ------------------
 
-- `"combined"` - Apache Combined Log Format with all properties (default)
-- `"common"` - Apache Common Log Format (without referrer/userAgent)
-- `"dev"` - Concise output for development
-- `"short"` - Shorter format with remote address
-- `"tiny"` - Minimal output
+ -  `"combined"` - Apache Combined Log Format with all properties (default)
+ -  `"common"` - Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"` - Concise output for development
+ -  `"short"` - Shorter format with remote address
+ -  `"tiny"` - Minimal output
 
 
-Custom Format
+Custom format
 -------------
 
 ~~~~ typescript

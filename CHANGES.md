@@ -78,8 +78,8 @@ To be released.
      -  Added `ConfigureOptions` interface with `shorthands` and
         `onInvalidConfig` options.
      -  Added `onInvalidConfig` option for graceful error handling:
-        - `"throw"` (default): Throw `ConfigError` on invalid configuration
-        - `"warn"`: Apply valid parts and log warnings to meta logger
+         -  `"throw"` (default): Throw `ConfigError` on invalid configuration
+         -  `"warn"`: Apply valid parts and log warnings to meta logger
      -  Added `expandEnvVars()` utility function for environment variable
         expansion with `${VAR}` and `${VAR:default}` syntax.
      -  Added `LogTapeConfig`, `SinkConfig`, `FilterConfig`, `FormatterConfig`,
@@ -228,13 +228,13 @@ Released on December 15, 2025.
  -  Added context-based category prefix feature for library hierarchies.
     [[#98]]
 
-    -  Added `withCategoryPrefix()` function to prepend category prefixes
-       to all log records within a callback context.
-    -  Uses the existing `contextLocalStorage` configuration, so no additional
-       setup is required if implicit contexts are already enabled.
-    -  Useful for SDKs that wrap internal libraries and want to show
-       their own category in logs from those libraries.
-    -  Prefixes accumulate when nested, allowing multi-layer architectures.
+     -  Added `withCategoryPrefix()` function to prepend category prefixes
+        to all log records within a callback context.
+     -  Uses the existing `contextLocalStorage` configuration, so no additional
+        setup is required if implicit contexts are already enabled.
+     -  Useful for SDKs that wrap internal libraries and want to show
+        their own category in logs from those libraries.
+     -  Prefixes accumulate when nested, allowing multi-layer architectures.
 
 [#98]: https://github.com/dahlia/logtape/issues/98
 
@@ -242,11 +242,11 @@ Released on December 15, 2025.
 
  -  Added *@logtape/drizzle-orm* package for Drizzle ORM integration.  [[#104]]
 
-    -  Added `getLogger()` function to create a Drizzle ORM-compatible logger.
-    -  Added `DrizzleLoggerOptions` interface for configuration.
-    -  Added `DrizzleLogger` class implementing Drizzle's `Logger` interface.
-    -  Logs queries with structured data: `formattedQuery` (with parameter
-       substitution), `query` (original), and `params` (original array).
+     -  Added `getLogger()` function to create a Drizzle ORM-compatible logger.
+     -  Added `DrizzleLoggerOptions` interface for configuration.
+     -  Added `DrizzleLogger` class implementing Drizzle's `Logger` interface.
+     -  Logs queries with structured data: `formattedQuery` (with parameter
+        substitution), `query` (original), and `params` (original array).
 
 [#104]: https://github.com/dahlia/logtape/issues/104
 
@@ -255,17 +255,17 @@ Released on December 15, 2025.
  -  Added *@logtape/express* package for Express.js HTTP request logging using
     LogTape as the backend.  [[#105]]
 
-    -  Added `expressLogger()` function to create Express middleware for
-       request logging.
-    -  Added `ExpressLogTapeOptions` interface for configuration.
-    -  Added `RequestLogProperties` interface for structured log properties.
-    -  Added `FormatFunction` type for custom format functions.
-    -  Added `PredefinedFormat` type for Morgan-compatible format names.
-    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
-       `tiny`.
-    -  Supports custom format functions returning strings or objects.
-    -  Supports `skip` function to conditionally skip logging.
-    -  Supports `immediate` option to log on request arrival vs response.
+     -  Added `expressLogger()` function to create Express middleware for
+        request logging.
+     -  Added `ExpressLogTapeOptions` interface for configuration.
+     -  Added `RequestLogProperties` interface for structured log properties.
+     -  Added `FormatFunction` type for custom format functions.
+     -  Added `PredefinedFormat` type for Morgan-compatible format names.
+     -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+        `tiny`.
+     -  Supports custom format functions returning strings or objects.
+     -  Supports `skip` function to conditionally skip logging.
+     -  Supports `immediate` option to log on request arrival vs response.
 
 [#105]: https://github.com/dahlia/logtape/issues/105
 
@@ -274,15 +274,15 @@ Released on December 15, 2025.
  -  Added *@logtape/fastify* package for using LogTape as Fastify's logging
     backend.  [[#102]]
 
-    -  Added `getLogTapeFastifyLogger()` function to create a Pino-compatible
-       logger wrapper for Fastify's `loggerInstance` option.
-    -  Added `FastifyLogTapeOptions` interface for configuration.
-    -  Added `PinoLikeLogger` interface implementing Pino's logger contract.
-    -  Added `PinoLogMethod` interface for Pino-style log method signatures.
-    -  Added `PinoLevel` type for Pino log levels.
-    -  Supports all Pino method signatures: string messages, object + message,
-       object-only, and printf-style interpolation (`%s`, `%d`, `%j`, `%o`).
-    -  Implements `child(bindings)` method using LogTape's `Logger.with()`.
+     -  Added `getLogTapeFastifyLogger()` function to create a Pino-compatible
+        logger wrapper for Fastify's `loggerInstance` option.
+     -  Added `FastifyLogTapeOptions` interface for configuration.
+     -  Added `PinoLikeLogger` interface implementing Pino's logger contract.
+     -  Added `PinoLogMethod` interface for Pino-style log method signatures.
+     -  Added `PinoLevel` type for Pino log levels.
+     -  Supports all Pino method signatures: string messages, object + message,
+        object-only, and printf-style interpolation (`%s`, `%d`, `%j`, `%o`).
+     -  Implements `child(bindings)` method using LogTape's `Logger.with()`.
 
 [#102]: https://github.com/dahlia/logtape/issues/102
 
@@ -291,20 +291,20 @@ Released on December 15, 2025.
  -  Added *@logtape/hono* package for Hono HTTP request logging using
     LogTape as the backend.  [[#107]]
 
-    -  Added `honoLogger()` function to create Hono middleware for
-       request logging.
-    -  Added `HonoLogTapeOptions` interface for configuration.
-    -  Added `HonoContext` interface for context type compatibility.
-    -  Added `RequestLogProperties` interface for structured log properties.
-    -  Added `FormatFunction` type for custom format functions.
-    -  Added `PredefinedFormat` type for Morgan-compatible format names.
-    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
-       `tiny`.
-    -  Supports custom format functions returning strings or objects.
-    -  Supports `skip` function to conditionally skip logging.
-    -  Supports `logRequest` option to log on request arrival vs response.
-    -  Cross-runtime compatible: works on Cloudflare Workers, Deno, Bun,
-       and Node.js.
+     -  Added `honoLogger()` function to create Hono middleware for
+        request logging.
+     -  Added `HonoLogTapeOptions` interface for configuration.
+     -  Added `HonoContext` interface for context type compatibility.
+     -  Added `RequestLogProperties` interface for structured log properties.
+     -  Added `FormatFunction` type for custom format functions.
+     -  Added `PredefinedFormat` type for Morgan-compatible format names.
+     -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+        `tiny`.
+     -  Supports custom format functions returning strings or objects.
+     -  Supports `skip` function to conditionally skip logging.
+     -  Supports `logRequest` option to log on request arrival vs response.
+     -  Cross-runtime compatible: works on Cloudflare Workers, Deno, Bun,
+        and Node.js.
 
 [#107]: https://github.com/dahlia/logtape/issues/107
 
@@ -313,18 +313,18 @@ Released on December 15, 2025.
  -  Added *@logtape/koa* package for Koa HTTP request logging using
     LogTape as the backend.  [[#106]]
 
-    -  Added `koaLogger()` function to create Koa middleware for
-       request logging.
-    -  Added `KoaLogTapeOptions` interface for configuration.
-    -  Added `KoaContext` interface for context type compatibility.
-    -  Added `RequestLogProperties` interface for structured log properties.
-    -  Added `FormatFunction` type for custom format functions.
-    -  Added `PredefinedFormat` type for Morgan-compatible format names.
-    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
-       `tiny`.
-    -  Supports custom format functions returning strings or objects.
-    -  Supports `skip` function to conditionally skip logging.
-    -  Supports `logRequest` option to log on request arrival vs response.
+     -  Added `koaLogger()` function to create Koa middleware for
+        request logging.
+     -  Added `KoaLogTapeOptions` interface for configuration.
+     -  Added `KoaContext` interface for context type compatibility.
+     -  Added `RequestLogProperties` interface for structured log properties.
+     -  Added `FormatFunction` type for custom format functions.
+     -  Added `PredefinedFormat` type for Morgan-compatible format names.
+     -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+        `tiny`.
+     -  Supports custom format functions returning strings or objects.
+     -  Supports `skip` function to conditionally skip logging.
+     -  Supports `logRequest` option to log on request arrival vs response.
 
 [#106]: https://github.com/dahlia/logtape/issues/106
 
@@ -333,24 +333,24 @@ Released on December 15, 2025.
  -  Added support for gRPC and HTTP/Protobuf protocols for OTLP log export.
     [[#103]]
 
-    -  Added `@opentelemetry/exporter-logs-otlp-grpc` dependency for gRPC
-       protocol support.
+     -  Added `@opentelemetry/exporter-logs-otlp-grpc` dependency for gRPC
+        protocol support.
 
-    -  Added `@opentelemetry/exporter-logs-otlp-proto` dependency for
-       HTTP/Protobuf protocol support.
+     -  Added `@opentelemetry/exporter-logs-otlp-proto` dependency for
+        HTTP/Protobuf protocol support.
 
-    -  Protocol is determined by environment variables following the
-       OpenTelemetry specification:
+     -  Protocol is determined by environment variables following the
+        OpenTelemetry specification:
 
-        1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
-        2. `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
-        3. Default: `"http/json"` (for backward compatibility)
+         1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
+         2. `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
+         3. Default: `"http/json"` (for backward compatibility)
 
-    -  Added `OtlpProtocol` type for protocol values (`"grpc"`,
-       `"http/protobuf"`, `"http/json"`).
+     -  Added `OtlpProtocol` type for protocol values (`"grpc"`,
+        `"http/protobuf"`, `"http/json"`).
 
-    -  Uses dynamic imports to maintain browser compatibility when gRPC
-       is not used.
+     -  Uses dynamic imports to maintain browser compatibility when gRPC
+        is not used.
 
  -  Added `OpenTelemetrySinkExporterOptions.additionalResource` option to
     merge custom resource attributes with the default resource.
@@ -375,12 +375,12 @@ Released on December 15, 2025.
  -  Refactored `OpenTelemetrySinkOptions` to a discriminated union type for
     better type safety.
 
-    -  Added `OpenTelemetrySinkProviderOptions` interface for providing a custom
-       `LoggerProvider` (recommended for production use).
-    -  Added `OpenTelemetrySinkExporterOptions` interface for automatic exporter
-       creation based on environment variables.
-    -  `loggerProvider` and exporter options (`serviceName`,
-       `otlpExporterConfig`) are now mutually exclusive at the type level.
+     -  Added `OpenTelemetrySinkProviderOptions` interface for providing a custom
+        `LoggerProvider` (recommended for production use).
+     -  Added `OpenTelemetrySinkExporterOptions` interface for automatic exporter
+        creation based on environment variables.
+     -  `loggerProvider` and exporter options (`serviceName`,
+        `otlpExporterConfig`) are now mutually exclusive at the type level.
 
  -  Changed the exporter initialization to use lazy loading.  The exporter
     is now created asynchronously when the first log record is emitted,
@@ -415,16 +415,16 @@ Released on December 15, 2025.
  -  Enhanced Sentry sink with modern observability features including automatic
     trace correlation, breadcrumbs, and structured logging support.  [[#90]]
 
-    -  The `getSentrySink()` function now accepts an optional `SentrySinkOptions`
-       object instead of a Sentry client instance. The old pattern
-       `getSentrySink(getClient())` still works with a deprecation warning.
-    -  Added automatic trace correlation with active Sentry spans (`trace_id`,
-       `span_id` context).
-    -  Added `enableBreadcrumbs` option to create breadcrumbs for all log events.
-    -  Added `beforeSend` hook to transform or filter records before sending.
-    -  Added automatic structured logging support via Sentry's Logs API (SDK
-       v9.41.0+ with `enableLogs: true`).
-    -  Added ParameterizedString support for better message grouping in Sentry.
+     -  The `getSentrySink()` function now accepts an optional `SentrySinkOptions`
+        object instead of a Sentry client instance. The old pattern
+        `getSentrySink(getClient())` still works with a deprecation warning.
+     -  Added automatic trace correlation with active Sentry spans (`trace_id`,
+        `span_id` context).
+     -  Added `enableBreadcrumbs` option to create breadcrumbs for all log events.
+     -  Added `beforeSend` hook to transform or filter records before sending.
+     -  Added automatic structured logging support via Sentry's Logs API (SDK
+        v9.41.0+ with `enableLogs: true`).
+     -  Added ParameterizedString support for better message grouping in Sentry.
 
 [#90]: https://github.com/dahlia/logtape/pull/90
 
@@ -436,10 +436,10 @@ Released on December 15, 2025.
 
  -  Added `SyslogSinkOptions.tlsOptions` option to configure TLS connections.
 
-    -  Added `SyslogTlsOptions` interface for TLS configuration.
-    -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
-       certificate validation (defaults to `true` for security).
-    -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+     -  Added `SyslogTlsOptions` interface for TLS configuration.
+     -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
+        certificate validation (defaults to `true` for security).
+     -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
 
 
 Version 1.2.5
@@ -518,45 +518,45 @@ Released on November 11, 2025.
     enabling direct access to nested objects, arrays, and complex data
     structures without manual property extraction.  [[#91], [#93] by 伍闲犬]
 
-    -  Dot notation: `{user.name}`, `{order.customer.profile.tier}`
-    -  Array indexing: `{users[0]}`, `{users[0].name}`
-    -  Bracket notation with quotes: `{user["full-name"]}`, `{data["a.b c"]}`
-    -  Escape sequences in quoted strings: `\"`, `\'`, `\\`, `\n`, `\t`, `\r`,
-       `\b`, `\f`, `\v`, `\0`, and Unicode escapes (`\uXXXX`)
-    -  Optional chaining: `{user?.profile?.email}`, `{data?.items?.[0]?.name}`
-    -  Combined patterns: `{users[0]?.profile?.["contact-info"]?.email}`
-    -  Enhanced security: blocks access to `__proto__`, `prototype`, and
-       `constructor` at any depth to prevent prototype pollution
+     -  Dot notation: `{user.name}`, `{order.customer.profile.tier}`
+     -  Array indexing: `{users[0]}`, `{users[0].name}`
+     -  Bracket notation with quotes: `{user["full-name"]}`, `{data["a.b c"]}`
+     -  Escape sequences in quoted strings: `\"`, `\'`, `\\`, `\n`, `\t`, `\r`,
+        `\b`, `\f`, `\v`, `\0`, and Unicode escapes (`\uXXXX`)
+     -  Optional chaining: `{user?.profile?.email}`, `{data?.items?.[0]?.name}`
+     -  Combined patterns: `{users[0]?.profile?.["contact-info"]?.email}`
+     -  Enhanced security: blocks access to `__proto__`, `prototype`, and
+        `constructor` at any depth to prevent prototype pollution
 
  -  Added context-based isolation for fingers crossed sink to handle scenarios
     like HTTP request tracing where logs should be isolated by implicit
     context values.  [[#86]]
 
-    -  Added `isolateByContext` option to `FingersCrossedOptions` for isolating
-       buffers based on specified context keys from log record properties.
-    -  Context isolation can be combined with existing category isolation for
-       fine-grained control over buffer flushing behavior.
-    -  Each context buffer maintains separate trigger states and size limits,
-       preventing unrelated logs from being flushed together.
-    -  Added memory management options for context isolation to prevent memory
-       leaks in high-traffic applications: `bufferTtlMs` for time-based cleanup,
-       `cleanupIntervalMs` for configurable cleanup intervals, and `maxContexts`
-       for LRU-based capacity limits. TTL and LRU can be used independently or
-       together for comprehensive memory management.
+     -  Added `isolateByContext` option to `FingersCrossedOptions` for isolating
+        buffers based on specified context keys from log record properties.
+     -  Context isolation can be combined with existing category isolation for
+        fine-grained control over buffer flushing behavior.
+     -  Each context buffer maintains separate trigger states and size limits,
+        preventing unrelated logs from being flushed together.
+     -  Added memory management options for context isolation to prevent memory
+        leaks in high-traffic applications: `bufferTtlMs` for time-based cleanup,
+        `cleanupIntervalMs` for configurable cleanup intervals, and `maxContexts`
+        for LRU-based capacity limits. TTL and LRU can be used independently or
+        together for comprehensive memory management.
 
  -  Changed the type of the `TextFormatterOptions.value` callback to accept
     a second parameter that provides access to the default cross-runtime
     `inspect()` function, making it easier to implement custom value formatting
     with fallback to default behavior.
 
-    -  Changed the type of `TextFormatterOptions.value` to `(value: unknown,
-       inspect: (value: unknown, options?: { colors?: boolean }) => string)
-       => string` (was `(value: unknown) => string`).
-    -  The second parameter is optional and can be ignored for backward
-       compatibility.
-    -  Users can now customize formatting for specific value types while
-       falling back to the cross-runtime `inspect()` function for others,
-       without needing to reimplement the complex runtime detection logic.
+     -  Changed the type of `TextFormatterOptions.value` to `(value: unknown,
+        inspect: (value: unknown, options?: { colors?: boolean }) => string)
+        => string` (was `(value: unknown) => string`).
+     -  The second parameter is optional and can be ignored for backward
+        compatibility.
+     -  Users can now customize formatting for specific value types while
+        falling back to the cross-runtime `inspect()` function for others,
+        without needing to reimplement the complex runtime detection logic.
 
 [#86]: https://github.com/dahlia/logtape/issues/86
 [#91]: https://github.com/dahlia/logtape/issues/91
@@ -688,12 +688,12 @@ Released on September 11, 2025.
     and only outputs them when a trigger event occurs, reducing log noise while
     preserving context for debugging.  [[#59]]
 
-    -  Added `fingersCrossed()` function that implements the fingers crossed
-       logging pattern with support for trigger levels, buffer management, and
-       category isolation.
-    -  Added `FingersCrossedOptions` interface for configuring fingers crossed
-       behavior with options for trigger level, buffer size, and category
-       isolation modes.
+     -  Added `fingersCrossed()` function that implements the fingers crossed
+        logging pattern with support for trigger levels, buffer management, and
+        category isolation.
+     -  Added `FingersCrossedOptions` interface for configuring fingers crossed
+        behavior with options for trigger level, buffer size, and category
+        isolation modes.
 
  -  Added `Logger.emit()` method for emitting log records with custom fields,
     particularly useful for integrating external logs while preserving their
@@ -1353,6 +1353,9 @@ Released on September 24, 2024.
  -  Fixed a build warning due to importing `node:util` module on [Next.js].
     [[#11]]
 
+[Next.js]: https://nextjs.org/
+[#11]: https://github.com/dahlia/logtape/issues/11
+
 
 Version 0.6.1
 -------------
@@ -1360,6 +1363,9 @@ Version 0.6.1
 Released on September 24, 2024.
 
  -  Fixed a build error due to importing `node:util` module on [Vite].  [[#18]]
+
+[Vite]: https://vitejs.dev/
+[#18]: https://github.com/dahlia/logtape/issues/18
 
 
 Version 0.6.0
@@ -1403,9 +1409,6 @@ Released on September 24, 2024.
  -  Fixed a build warning due to importing `node:util` module on [Next.js].
     [[#11]]
 
-[Next.js]: https://nextjs.org/
-[#11]: https://github.com/dahlia/logtape/issues/11
-
 
 Version 0.5.3
 -------------
@@ -1413,8 +1416,6 @@ Version 0.5.3
 Released on September 24, 2024.
 
  -  Fixed a build error due to importing `node:util` module on [Vite].  [[#18]]
-
-[#18]: https://github.com/dahlia/logtape/issues/18
 
 
 Version 0.5.2
@@ -1424,7 +1425,6 @@ Released on September 23, 2024.
 
  -  Fixed a build error due to top-level `await` on [Vite].  [[#14]]
 
-[Vite]: https://vitejs.dev/
 [#14]: https://github.com/dahlia/logtape/issues/14
 
 
@@ -1505,6 +1505,9 @@ Released on July 2, 2024.
  -  Fixed a bug where LogTape failed to load under Node.js when incorporated
     in a project from JSR.  [[#3], [#4] by Kitson Kelly]
 
+[#3]: https://github.com/dahlia/logtape/issues/3
+[#4]: https://github.com/dahlia/logtape/pull/4
+
 
 Version 0.4.0
 -------------
@@ -1516,8 +1519,6 @@ Released on May 7, 2024.
 
 [#1]: https://github.com/dahlia/logtape/issues/1
 [#2]: https://github.com/dahlia/logtape/pull/2
-[#3]: https://github.com/dahlia/logtape/issues/3
-[#4]: https://github.com/dahlia/logtape/pull/4
 
 
 Version 0.3.1

@@ -339,7 +339,7 @@ export function getLogger(category?: Category | string): Logger {
 
 ### User documentation
 
-User documentation is available at https://logtape.org/ and is structured as:
+User documentation is available at <https://logtape.org/> and is structured as:
 
  -  Installation
  -  Quick start

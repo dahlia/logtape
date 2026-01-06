@@ -44,8 +44,8 @@ The highlights of LogTape are:
     like [Express], [Fastify], [Hono], [Koa], and [Drizzle ORM] with automatic
     HTTP request logging and database query logging.
 
-![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/web-console.png)
-![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
+![LogTape web console output](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/web-console.png)
+![LogTape terminal output](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
 
 [JSR]: https://jsr.io/@logtape/logtape
 [JSR badge]: https://jsr.io/badges/@logtape/logtape
@@ -65,6 +65,11 @@ The highlights of LogTape are:
 [Built-in data redaction]: https://logtape.org/manual/redaction
 [Dead simple sinks]: https://logtape.org/manual/sinks
 [Framework integrations]: https://logtape.org/manual/integrations
+[Drizzle ORM]: https://orm.drizzle.team/
+[Express]: https://expressjs.com/
+[Fastify]: https://fastify.dev/
+[Hono]: https://hono.dev/
+[Koa]: https://koajs.com/
 
 
 Installation
@@ -114,12 +119,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink     |
 
 [AWS CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/
-[Drizzle ORM]: https://orm.drizzle.team/
 [Elysia]: https://elysiajs.com/
-[Express]: https://expressjs.com/
-[Fastify]: https://fastify.dev/
-[Hono]: https://hono.dev/
-[Koa]: https://koajs.com/
 [OpenTelemetry]: https://opentelemetry.io/
 [Pino]: https://github.com/pinojs/pino
 [Sentry]: https://sentry.io/

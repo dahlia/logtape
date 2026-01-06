@@ -18,7 +18,7 @@ Test environment
      -  Bun: 1.2.16
      -  Deno: 2.3.6 (V8 13.7.152.6-rusty, TypeScript 5.8.3)
 
- - *Library versions*:
+ -  *Library versions*:
 
      -  LogTape: 1.0.0
      -  winston: 3.17.0
@@ -237,4 +237,6 @@ deno task json
 ~~~~
 
 > [!NOTE]
-> Console benchmarks filter out actual log messages using `grep -v 'Test log message.'` to focus on performance measurement rather than output display.
+> Console benchmarks filter out actual log messages using
+> `grep -v 'Test log message.'` to focus on performance measurement rather
+> than output display.

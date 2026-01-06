@@ -75,11 +75,11 @@ Predefined formats
 
 The middleware supports Morgan-compatible predefined formats:
 
-- `"combined"`: Apache Combined Log Format with all properties (default)
-- `"common"`: Apache Common Log Format (without referrer/userAgent)
-- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
-- `"short"`: Shorter format with remote address
-- `"tiny"`: Minimal output
+ -  `"combined"`: Apache Combined Log Format with all properties (default)
+ -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with remote address
+ -  `"tiny"`: Minimal output
 
 
 Custom format function
@@ -105,14 +105,14 @@ Structured logging output
 When using the `"combined"` format (default), the middleware logs structured
 data that includes:
 
-- `method`: HTTP request method
-- `url`: Request URL
-- `path`: Request path
-- `status`: HTTP response status code
-- `responseTime`: Response time in milliseconds
-- `contentLength`: Response content-length header value
-- `userAgent`: User-Agent header value
-- `referrer`: Referrer header value
+ -  `method`: HTTP request method
+ -  `url`: Request URL
+ -  `path`: Request path
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds
+ -  `contentLength`: Response content-length header value
+ -  `userAgent`: User-Agent header value
+ -  `referrer`: Referrer header value
 
 
 See also

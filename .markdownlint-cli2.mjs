@@ -1,0 +1,28 @@
+import customRules from "@hongminhee/markdownlint-rules";
+import preset from "@hongminhee/markdownlint-rules/preset";
+
+export default {
+  customRules,
+  config: {
+    ...preset,
+    "heading-sentence-case": {
+      allowed_words: [
+        "Benchmarks",
+        "CloudWatch",
+        "Event",
+        "Lines",
+        "Log",
+        "Logs",
+        "OpenTelemetry",
+        "Pino",
+        "Sentry",
+        "Signale",
+        "Sink",
+      ],
+    },
+    "MD013": {
+      "code_blocks": false,
+      "tables": false,
+    },
+  },
+};

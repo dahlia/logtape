@@ -72,7 +72,7 @@ await configure({
 });
 ~~~~
 
-### Defining Filters
+### Defining filters
 
 [Filters](./filters.md) allow you to fine-tune which logs are processed. They
 can be based on log levels, content, or custom logic:

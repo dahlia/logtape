@@ -131,17 +131,17 @@ branches and eventually to `main`.
 
 2.  If a newer maintenance branch exists:
 
-    a.  Check out the newer branch and merge the tag:
+    1)  Check out the newer branch and merge the tag:
 
         ~~~~ bash
         git checkout 1.3-maintenance
         git merge 1.2.3
         ~~~~
 
-    b.  Resolve any conflicts (commonly in *CHANGES.md*, *deno.json*, and
+    2)  Resolve any conflicts (commonly in *CHANGES.md*, *deno.json*, and
         *package.json* files).
 
-    c.  **Copy changelog entries**: After resolving conflicts, copy the
+    3)  **Copy changelog entries**: After resolving conflicts, copy the
         changelog entries from the merged tag's version into the current
         branch's unreleased version section.  The entries should be:
 
@@ -200,19 +200,19 @@ branches and eventually to `main`.
         [#125]: https://github.com/dahlia/logtape/issues/125
         ~~~~
 
-    d.  Run tests to verify:
+    4)  Run tests to verify:
 
         ~~~~ bash
         deno task test
         deno task check
         ~~~~
 
-    e.  Complete the merge commit (use default message).
+    5)  Complete the merge commit (use default message).
 
-    f.  Create a new patch release for this branch by repeating Steps 1-3
+    6)  Create a new patch release for this branch by repeating Steps 1-3
         for version 1.3.x (e.g., 1.3.1).
 
-    g.  Continue cascading to even newer maintenance branches if they exist.
+    7)  Continue cascading to even newer maintenance branches if they exist.
 
 3.  If no newer maintenance branch exists, merge to `main`:
 

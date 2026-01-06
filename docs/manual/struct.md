@@ -413,7 +413,8 @@ await configure({
 });
 ~~~~
 
-This filter will only allow logs with a `"high"` priority or error level to pass through.
+This filter will only allow logs with a `"high"` priority or error level to
+pass through.
 
 
 Best practices

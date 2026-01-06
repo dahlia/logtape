@@ -23,6 +23,7 @@
   "imports": {
     "@alinea/suite": "jsr:@alinea/suite@^0.6.3",
     "@david/which-runtime": "jsr:@david/which-runtime@^0.2.1",
+    "@hongminhee/markdownlint-rules": "jsr:@hongminhee/markdownlint-rules@^0.2.5",
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@opentelemetry/api-logs": "npm:@opentelemetry/api-logs@^0.208.0",
     "@opentelemetry/exporter-logs-otlp-grpc": "npm:@opentelemetry/exporter-logs-otlp-grpc@^0.208.0",
@@ -43,6 +44,7 @@
     "@types/express": "npm:@types/express@^5.0.6",
     "@types/koa": "npm:@types/koa@^2.15.0",
     "consolemock": "npm:consolemock@^1.1.0",
+    "markdownlint-cli2": "npm:markdownlint-cli2@^0.20.0",
     "elysia": "npm:elysia@^1.4.0",
     "express": "npm:express@^5.2.1",
     "fastify": "npm:fastify@^5.0.0",
@@ -75,7 +77,7 @@
   },
   "tasks": {
     "check": {
-      "command": "deno check && deno lint && deno fmt --check",
+      "command": "deno check && deno lint && deno fmt --check && deno run -A npm:markdownlint-cli2 **/*.md",
       "dependencies": [
         "check:versions"
       ]

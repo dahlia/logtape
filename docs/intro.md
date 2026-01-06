@@ -40,8 +40,8 @@ The highlights of LogTape are:
     ORMs like [Drizzle ORM] with automatic HTTP request logging and database
     query logging.
 
-![](./screenshots/web-console.png)
-![](./screenshots/terminal.png)
+![LogTape web console output](./screenshots/web-console.png)
+![LogTape terminal output](./screenshots/terminal.png)
 
 [Deno]: https://deno.com/
 [Node.js]: https://nodejs.org/

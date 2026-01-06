@@ -89,16 +89,16 @@ Structured logging
 
 The adapter logs queries with structured data that includes:
 
-- `formattedQuery`: The query with parameter placeholders (e.g., `$1`, `$2`)
-  replaced with actual values for easier reading
-- `query`: The original query string with placeholders
-- `params`: The original parameters array
+ -  `formattedQuery`: The query with parameter placeholders (e.g., `$1`, `$2`)
+    replaced with actual values for easier reading
+ -  `query`: The original query string with placeholders
+ -  `params`: The original parameters array
 
 This allows you to:
 
-- Get human-readable output with text formatters
-- Get machine-parseable output with JSON Lines formatter
-- Use full query and params data with OpenTelemetry, Sentry, and other sinks
+ -  Get human-readable output with text formatters
+ -  Get machine-parseable output with JSON Lines formatter
+ -  Use full query and params data with OpenTelemetry, Sentry, and other sinks
 
 
 Docs

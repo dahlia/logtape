@@ -73,7 +73,7 @@ logger.error`Failed to process request: ${{ error: "timeout" }}`;
 
 Output example:
 
-![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
+![LogTape terminal output with pretty formatting](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
 
 ~~~~
 ✨ info    my-app               Server started on port 3000

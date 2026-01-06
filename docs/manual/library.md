@@ -102,7 +102,7 @@ For application developers
 As an application developer using a library that implements LogTape,
 you have full control over how logs from that library are handled.
 
-### Configuring Logs for a Library
+### Configuring logs for a library
 
  1. *Set up sinks*: Decide where you want logs to go (console, file, etc.)
     and set up appropriate [sinks](./sinks.md).

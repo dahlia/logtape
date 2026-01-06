@@ -61,7 +61,9 @@ const db = drizzle(client, {
 // Now all database queries will be logged through LogTape
 ~~~~
 
-#### Custom category
+[Drizzle ORM]: https://orm.drizzle.team/
+
+### Custom category
 
 You can specify a custom category for the logger:
 
@@ -73,7 +75,7 @@ const logger = getLogger({
 });
 ~~~~
 
-#### Custom log level
+### Custom log level
 
 By default, queries are logged at the `debug` level.  You can change this:
 
@@ -85,22 +87,20 @@ const logger = getLogger({
 });
 ~~~~
 
-#### Structured logging output
+### Structured logging output
 
 The adapter logs queries with structured data that includes:
 
-- `formattedQuery`: The query with parameter placeholders (e.g., `$1`, `$2`)
-  replaced with actual values for easier reading
-- `query`: The original query string with placeholders
-- `params`: The original parameters array
+ -  `formattedQuery`: The query with parameter placeholders (e.g., `$1`, `$2`)
+    replaced with actual values for easier reading
+ -  `query`: The original query string with placeholders
+ -  `params`: The original parameters array
 
 This allows you to:
 
-- Get human-readable output with text formatters
-- Get machine-parseable output with JSON Lines formatter
-- Use full query and params data with OpenTelemetry, Sentry, and other sinks
-
-[Drizzle ORM]: https://orm.drizzle.team/
+ -  Get human-readable output with text formatters
+ -  Get machine-parseable output with JSON Lines formatter
+ -  Use full query and params data with OpenTelemetry, Sentry, and other sinks
 
 
 Express
@@ -159,6 +159,9 @@ app.get("/", (req, res) => {
 app.listen(3000);
 ~~~~
 
+[Express]: https://expressjs.com/
+[Morgan]: https://github.com/expressjs/morgan
+
 ### Custom category
 
 You can specify a custom category for the logger:
@@ -191,11 +194,11 @@ const middleware = expressLogger({
 
 The middleware supports Morgan-compatible predefined formats:
 
-- `"combined"`: Apache Combined Log Format with all properties (default)
-- `"common"`: Apache Common Log Format (without referrer/userAgent)
-- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
-- `"short"`: Shorter format with remote address
-- `"tiny"`: Minimal output
+ -  `"combined"`: Apache Combined Log Format with all properties (default)
+ -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with remote address
+ -  `"tiny"`: Minimal output
 
 ### Custom format function
 
@@ -220,18 +223,15 @@ const middleware = expressLogger({
 When using the `"combined"` format (default), the middleware logs structured
 data that includes:
 
-- `method`: HTTP request method
-- `url`: Request URL
-- `status`: HTTP response status code
-- `responseTime`: Response time in milliseconds
-- `contentLength`: Response content-length header value
-- `remoteAddr`: Remote client address
-- `userAgent`: User-Agent header value
-- `referrer`: Referrer header value
-- `httpVersion`: HTTP version (e.g., `"1.1"`)
-
-[Express]: https://expressjs.com/
-[Morgan]: https://github.com/expressjs/morgan
+ -  `method`: HTTP request method
+ -  `url`: Request URL
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds
+ -  `contentLength`: Response content-length header value
+ -  `remoteAddr`: Remote client address
+ -  `userAgent`: User-Agent header value
+ -  `referrer`: Referrer header value
+ -  `httpVersion`: HTTP version (e.g., `"1.1"`)
 
 
 Elysia
@@ -287,6 +287,8 @@ const app = new Elysia()
 console.log(`Server running at ${app.server?.url}`);
 ~~~~
 
+[Elysia]: https://elysiajs.com/
+
 ### Custom category
 
 You can specify a custom category for the logger:
@@ -320,9 +322,9 @@ const plugin = elysiaLogger({
 
 Elysia supports plugin scoping to control how lifecycle hooks propagate:
 
-- `"global"`: Hooks apply to all routes in the application (default)
-- `"scoped"`: Hooks apply to the parent instance where the plugin is used
-- `"local"`: Hooks only apply within the plugin itself
+ -  `"global"`: Hooks apply to all routes in the application (default)
+ -  `"scoped"`: Hooks apply to the parent instance where the plugin is used
+ -  `"local"`: Hooks only apply within the plugin itself
 
 ~~~~ typescript twoslash
 import { elysiaLogger } from "@logtape/elysia";
@@ -337,11 +339,11 @@ const plugin = elysiaLogger({
 
 The plugin supports Morgan-compatible predefined formats:
 
-- `"combined"`: Apache Combined Log Format with all properties (default)
-- `"common"`: Apache Common Log Format (without referrer/userAgent)
-- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
-- `"short"`: Shorter format with URL
-- `"tiny"`: Minimal output
+ -  `"combined"`: Apache Combined Log Format with all properties (default)
+ -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with URL
+ -  `"tiny"`: Minimal output
 
 ### Custom format function
 
@@ -372,17 +374,15 @@ in addition to standard request properties.
 When using the `"combined"` format (default), the plugin logs structured
 data that includes:
 
-- `method`: HTTP request method
-- `url`: Request URL
-- `path`: Request path
-- `status`: HTTP response status code
-- `responseTime`: Response time in milliseconds
-- `contentLength`: Response content-length header value
-- `remoteAddr`: Remote client address (from X-Forwarded-For header)
-- `userAgent`: User-Agent header value
-- `referrer`: Referrer header value
-
-[Elysia]: https://elysiajs.com/
+ -  `method`: HTTP request method
+ -  `url`: Request URL
+ -  `path`: Request path
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds
+ -  `contentLength`: Response content-length header value
+ -  `remoteAddr`: Remote client address (from X-Forwarded-For header)
+ -  `userAgent`: User-Agent header value
+ -  `referrer`: Referrer header value
 
 
 Hono
@@ -439,6 +439,8 @@ app.get("/", (c) => c.json({ hello: "world" }));
 export default app;
 ~~~~
 
+[Hono]: https://hono.dev/
+
 ### Custom category
 
 You can specify a custom category for the logger:
@@ -471,11 +473,11 @@ const middleware = honoLogger({
 
 The middleware supports Morgan-compatible predefined formats:
 
-- `"combined"`: Apache Combined Log Format with all properties (default)
-- `"common"`: Apache Common Log Format (without referrer/userAgent)
-- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
-- `"short"`: Shorter format with URL
-- `"tiny"`: Minimal output
+ -  `"combined"`: Apache Combined Log Format with all properties (default)
+ -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with remote address
+ -  `"tiny"`: Minimal output
 
 ### Custom format function
 
@@ -500,16 +502,14 @@ const middleware = honoLogger({
 When using the `"combined"` format (default), the middleware logs structured
 data that includes:
 
-- `method`: HTTP request method
-- `url`: Request URL
-- `path`: Request path
-- `status`: HTTP response status code
-- `responseTime`: Response time in milliseconds
-- `contentLength`: Response content-length header value
-- `userAgent`: User-Agent header value
-- `referrer`: Referrer header value
-
-[Hono]: https://hono.dev/
+ -  `method`: HTTP request method
+ -  `url`: Request URL
+ -  `path`: Request path
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds
+ -  `contentLength`: Response content-length header value
+ -  `userAgent`: User-Agent header value
+ -  `referrer`: Referrer header value
 
 
 Fastify
@@ -571,6 +571,9 @@ fastify.get("/", async (request, reply) => {
 await fastify.listen({ port: 3000 });
 ~~~~
 
+[Fastify]: https://fastify.dev/
+[Pino]: https://getpino.io/
+
 ### Custom category
 
 You can specify a custom category for the logger:
@@ -626,9 +629,6 @@ logger.info({ msg: "User logged in", userId: 123 });
 // Object only
 logger.info({ data: { key: "value" } });
 ~~~~
-
-[Fastify]: https://fastify.dev/
-[Pino]: https://getpino.io/
 
 
 Koa
@@ -687,6 +687,9 @@ app.use((ctx) => {
 app.listen(3000);
 ~~~~
 
+[Koa]: https://koajs.com/
+[koa-logger]: https://github.com/koajs/logger
+
 ### Custom category
 
 You can specify a custom category for the logger:
@@ -719,11 +722,11 @@ const middleware = koaLogger({
 
 The middleware supports Morgan-compatible predefined formats:
 
-- `"combined"`: Apache Combined Log Format with all properties (default)
-- `"common"`: Apache Common Log Format (without referrer/userAgent)
-- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
-- `"short"`: Shorter format with remote address
-- `"tiny"`: Minimal output
+ -  `"combined"`: Apache Combined Log Format with all properties (default)
+ -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with remote address
+ -  `"tiny"`: Minimal output
 
 ### Custom format function
 
@@ -748,15 +751,15 @@ const middleware = koaLogger({
 When using the `"combined"` format (default), the middleware logs structured
 data that includes:
 
-- `method`: HTTP request method
-- `url`: Request URL
-- `path`: Request path
-- `status`: HTTP response status code
-- `responseTime`: Response time in milliseconds
-- `contentLength`: Response content-length
-- `remoteAddr`: Remote client address
-- `userAgent`: User-Agent header value
-- `referrer`: Referrer header value
+ -  `method`: HTTP request method
+ -  `url`: Request URL
+ -  `path`: Request path
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds
+ -  `contentLength`: Response content-length
+ -  `remoteAddr`: Remote client address
+ -  `userAgent`: User-Agent header value
+ -  `referrer`: Referrer header value
 
 ::: tip Proxy configuration
 
@@ -767,8 +770,6 @@ See [Koa's proxy documentation][koa-proxy] for details.
 
 :::
 
-[Koa]: https://koajs.com/
-[koa-logger]: https://github.com/koajs/logger
 [koa-proxy]: https://koajs.com/#settings
 
 

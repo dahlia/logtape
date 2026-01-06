@@ -27,6 +27,7 @@ await configure({
 });
 ~~~~
 
+
 Console sink
 ------------
 
@@ -301,11 +302,12 @@ Buffer overflow protection
     to make room for new ones.
 
 Performance characteristics
-:   - **Buffer-full flushes**: When the buffer reaches capacity, flushes are
-      scheduled asynchronously (non-blocking) rather than executed immediately
-    - **Memory overhead**: Small, bounded by the overflow protection mechanism
-    - **Latency**: Log visibility may be delayed by up to the flush interval
-    - **Throughput**: Significantly higher than blocking mode for high-volume scenarios
+:    -  **Buffer-full flushes**: When the buffer reaches capacity, flushes are
+        scheduled asynchronously (non-blocking) rather than executed immediately
+     -  **Memory overhead**: Small, bounded by the overflow protection mechanism
+     -  **Latency**: Log visibility may be delayed by up to the flush interval
+     -  **Throughput**: Significantly higher than blocking mode for high-volume
+        scenarios
 
 Use cases
 :   Non-blocking mode is ideal for:
@@ -686,479 +688,7 @@ await configure({
 });
 ~~~~
 
-With this configuration:
-
- -  `"debug"`, `"info"`, and `"warning"` logs are buffered in memory
- -  When an `"error"` (or higher) occurs, all buffered logs plus the error are
-    output
- -  Subsequent logs pass through directly until the next trigger event
-
-### Customizing trigger level
-
-You can customize when the buffer is flushed by setting the trigger level:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      triggerLevel: "warning",  // Trigger on warning or higher
-      maxBufferSize: 500,       // Keep last 500 records
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-### Category isolation
-
-By default, all log records share a single buffer.  For applications with
-multiple modules or components, you can isolate buffers by category to prevent
-one component's errors from flushing logs from unrelated components:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByCategory: "descendant",
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-Category isolation modes:
-
-`"descendant"`
-:   Flush child category buffers when parent category triggers.
-    For example, an error in `["app"]` flushes buffers for `["app", "auth"]`
-    and `["app", "db"]`.
-
-`"ancestor"`
-:   Flush parent category buffers when child category triggers.
-    For example, an error in `["app", "auth"]` flushes the `["app"]` buffer.
-
-`"both"`
-:   Flush both parent and child category buffers, combining descendant and
-    ancestor modes.
-
-### Custom category matching
-
-For advanced use cases, you can provide a custom function to determine which
-categories should be flushed:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByCategory: (triggerCategory, bufferedCategory) => {
-        // Custom logic: flush if categories share the first element
-        return triggerCategory[0] === bufferedCategory[0];
-      },
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-### Context isolation
-
-*This API is available since LogTape 1.2.0.*
-
-When using implicit contexts (see [*Implicit contexts*](./contexts.md) section),
-you can isolate buffers by context values to handle scenarios like HTTP request
-tracing:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink, withContext, getLogger } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByContext: { keys: ["requestId"] },
-    }),
-  },
-  // Omitted for brevity
-});
-
-const logger = getLogger();
-// ---cut-before---
-// Logs are isolated by requestId context
-function handleRequest(requestId: string) {
-  withContext({ requestId }, () => {
-    // These logs are buffered separately per requestId
-    logger.debug("Processing request");
-    logger.info("Validating input");
-
-    // Only logs from this specific requestId are flushed on error
-    logger.error("Request failed");
-  });
-}
-~~~~
-
-You can also isolate by multiple context keys:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByContext: { keys: ["requestId", "sessionId"] },
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-Context isolation can be combined with category isolation:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByCategory: "descendant",
-      isolateByContext: { keys: ["requestId"] },
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-With both isolations enabled, buffers are only flushed when both the category
-relationship matches and the context values are the same.
-
-### Buffer management
-
-The fingers crossed sink provides several mechanisms to manage memory usage
-and prevent unbounded buffer growth, especially when using context isolation
-where multiple buffers may be created.
-
-#### Basic buffer size limit
-
-The basic buffer size limit prevents any single buffer from growing too large:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      maxBufferSize: 1000,  // Keep last 1000 records per buffer
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-When a buffer exceeds the maximum size, the oldest records are automatically
-dropped to prevent unbounded memory growth.
-
-#### Time-based cleanup (TTL)
-
-*This API is available since LogTape 1.2.0.*
-
-For context-isolated buffers, you can enable automatic cleanup based on time
-to prevent memory leaks from unused contexts:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByContext: {
-        keys: ["requestId"],
-        bufferTtlMs: 300000,        // Remove buffers after 5 minutes
-        cleanupIntervalMs: 60000,   // Check for expired buffers every minute
-      },
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-TTL (time to live) cleanup automatically removes context buffers that haven't
-received new log records within the specified time period. This is particularly
-useful for request-scoped contexts that may never trigger an error but should
-not remain in memory indefinitely.
-
-#### Capacity-based eviction (LRU)
-
-*This API is available since LogTape 1.2.0.*
-
-You can limit the total number of context buffers using LRU (least recently
-used) eviction:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByContext: {
-        keys: ["requestId"],
-        maxContexts: 100,  // Keep at most 100 context buffers
-      },
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-When the number of context buffers reaches the limit, the least recently used
-buffers are automatically evicted to make room for new ones. This prevents
-memory usage from growing unbounded in high-traffic applications.
-
-#### Hybrid memory management
-
-TTL and LRU can be used together for comprehensive memory management:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: fingersCrossed(getConsoleSink(), {
-      isolateByContext: {
-        keys: ["requestId", "sessionId"],
-        maxContexts: 200,           // LRU limit: keep at most 200 contexts
-        bufferTtlMs: 600000,        // TTL: remove after 10 minutes
-        cleanupIntervalMs: 120000,  // Check for expired buffers every 2 minutes
-      },
-      maxBufferSize: 500,  // Each buffer keeps at most 500 records
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-This configuration provides three layers of memory protection:
-
-Per-buffer size limit
-:   Each context buffer is limited to 500 records
-
-Total buffer count limit
-:   At most 200 context buffers can exist simultaneously
-
-Time-based cleanup
-:   Unused buffers are removed after 10 minutes
-
-The combination ensures predictable memory usage even in high-volume,
-long-running applications with many unique context combinations.
-
-### Use cases
-
-The fingers crossed sink is ideal for:
-
-Production debugging
-:   Keep detailed debug logs in memory without cluttering output,
-    only showing them when errors occur to provide context.
-
-Error investigation
-:   Capture the sequence of events leading up to an error for thorough
-    investigation.
-
-Log volume management
-:   Reduce log noise in normal operations while maintaining detailed visibility
-    during issues.
-
-Component isolation
-:   Use category isolation to prevent log noise from one component affecting
-    debugging of another component.
-
-### Performance considerations
-
-Memory usage
-:   Buffered logs consume memory. Use appropriate buffer sizes and consider
-    your application's memory constraints. When using context isolation,
-    memory usage scales with the number of unique context combinations.
-
-Trigger frequency
-:   Frequent trigger events (like `"warning"`s) may reduce the effectiveness of
-    buffering. Choose trigger levels carefully.
-
-Category isolation overhead
-:   Category isolation adds some overhead for category matching.
-    For high-volume logging, consider using a single buffer
-    if isolation isn't needed.
-
-Context isolation overhead
-:   Context isolation creates separate buffers for each unique context
-    combination, which adds memory and lookup overhead. Use TTL and LRU
-    limits to bound resource usage in high-traffic applications.
-
-TTL cleanup overhead
-:   TTL cleanup runs periodically to remove expired buffers. The
-    `cleanupIntervalMs` setting affects how often this cleanup occurs.
-    More frequent cleanup reduces memory usage but increases CPU overhead.
-
-LRU eviction overhead
-:   LRU eviction tracks access times for each buffer and performs eviction
-    when capacity is exceeded. The overhead is generally minimal but scales
-    with the number of context buffers.
-
-For more details, see the `fingersCrossed()` function and
-`FingersCrossedOptions` interface in the API reference.
-
-
-Text formatter
---------------
-
-*The main article of this section is [Text formatters](./formatters.md).*
-
-The sinks introduced above write log messages in a plain text format.
-You can customize the format by providing a text formatter.
-
-Here's an example of colorizing log messages in your terminal using
-the `ansiColorFormatter`:
-
-~~~~ typescript twoslash
-// @noErrors: 2345
-import {
-  ansiColorFormatter,
-  configure,
-  getConsoleSink,
-} from "@logtape/logtape";
-
-await configure({
-  sinks: {
-    console: getConsoleSink({
-      formatter: ansiColorFormatter,
-    }),
-  },
-  // Omitted for brevity
-});
-~~~~
-
-It would look like this:
-
-~~~~ ansi
-[2m2025-06-12 10:34:10.465 +00[0m [1m[32mINF[0m [2mlogtape·meta:[0m LogTape loggers are configured.  Note that LogTape itself uses the meta logger, which has category [ [32m"logtape"[39m, [32m"meta"[39m ].  The meta logger purposes to log internal errors such as sink exceptions.  If you are seeing this message, the meta logger is automatically configured.  It's recommended to configure the meta logger with a separate sink so that you can easily notice if logging itself fails or is misconfigured.  To turn off this message, configure the meta logger with higher log levels than [32m"info"[39m.  See also <https://logtape.org/manual/categories#meta-logger>.
-[2m2025-06-12 10:34:10.472 +00[0m [1mTRC[0m [2mmy-app·module:[0m This is a trace log.
-[2m2025-06-12 10:34:10.473 +00[0m [1m[34mDBG[0m [2mmy-app·module:[0m This is a debug log with value: { foo: [33m123[39m }
-[2m2025-06-12 10:34:10.473 +00[0m [1m[32mINF[0m [2mmy-app:[0m This is an informational log.
-[2m2025-06-12 10:34:10.474 +00[0m [1m[33mWRN[0m [2mmy-app:[0m This is a warning.
-[2m2025-06-12 10:34:10.475 +00[0m [1m[31mERR[0m [2mmy-app·module:[0m This is an error with exception: Error: This is an exception.
-    at file:///tmp/test.ts:28:10
-[2m2025-06-12 10:34:10.475 +00[0m [1m[35mFTL[0m [2mmy-app:[0m This is a fatal error.
-~~~~
-
-[JSON Lines]: https://jsonlines.org/
-
-
-OpenTelemetry sink
-------------------
-
-If you have an [OpenTelemetry] collector running, you can use the OpenTelemetry
-sink to send log messages to the collector using *@logtape/otel* package:
-
-::: code-group
-
-~~~~ sh [Deno]
-deno add jsr:@logtape/otel
-~~~~
-
-~~~~ sh [npm]
-npm add @logtape/otel
-~~~~
-
-~~~~ sh [pnpm]
-pnpm add @logtape/otel
-~~~~
-
-~~~~ sh [Yarn]
-yarn add @logtape/otel
-~~~~
-
-~~~~ sh [Bun]
-bun add @logtape/otel
-~~~~
-
-:::
-
-The quickest way to get started is to use the `getOpenTelemetrySink()`
-function without any arguments:
-
-~~~~ typescript twoslash
-import { configure } from "@logtape/logtape";
-import { getOpenTelemetrySink } from "@logtape/otel";
-
-await configure({
-  sinks: {
-    otel: getOpenTelemetrySink(),
-  },
-  loggers: [
-    { category: [], sinks: ["otel"], lowestLevel: "debug" },
-  ],
-});
-~~~~
-
-This will use the default OpenTelemetry configuration, which is to send logs to
-the OpenTelemetry collector running on `localhost:4317` or respects the `OTEL_*`
-environment variables.
-
-> [!NOTE]
-> The `OTEL_LOG_LEVEL` environment variable controls the *internal diagnostic
-> logging* of the OpenTelemetry SDK itself, **not** the log level filtering
-> for your application logs. To filter which logs are sent to the OpenTelemetry
-> collector, use LogTape's `lowestLevel` option in the logger configuration
-> or wrap the sink with `withFilter()`:
->
-> ~~~~ typescript twoslash
-> // Option 1: Use lowestLevel in logger config
-> import { configure } from "@logtape/logtape";
-> import { getOpenTelemetrySink } from "@logtape/otel";
->
-> await configure({
->   sinks: {
->     otel: getOpenTelemetrySink(),
->   },
->   loggers: [
->     { category: [], sinks: ["otel"], lowestLevel: "warning" },
->   ],
-> });
-> ~~~~
->
-> ~~~~ typescript twoslash
-> // Option 2: Use withFilter() for custom filtering
-> import {
->   configure,
->   getLevelFilter,
->   parseLogLevel,
->   withFilter,
-> } from "@logtape/logtape";
-> import { getOpenTelemetrySink } from "@logtape/otel";
->
-> await configure({
->   sinks: {
->     otel: withFilter(
->       getOpenTelemetrySink(),
->       getLevelFilter(parseLogLevel("warning"))
->     ),
->   },
->   loggers: [
->     { category: [], sinks: ["otel"] },
->   ],
-> });
-> ~~~~
+[OpenTelemetry]: https://opentelemetry.io/
 
 ### Protocol selection
 
@@ -1296,7 +826,6 @@ await configure({
 For more information, see the documentation of the `getOpenTelemetrySink()`
 function and `OpenTelemetrySinkOptions` type.
 
-[OpenTelemetry]: https://opentelemetry.io/
 [`LoggerProvider`]: https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_sdk_logs.LoggerProvider.html
 
 
@@ -1333,6 +862,8 @@ bun add @logtape/sentry
 > [!NOTE]
 > For Deno, you need both `@sentry/deno` and `@sentry/core` at the same version
 > (e.g., both at `9.41.0`) due to Sentry's exact version pinning.
+
+[Sentry]: https://sentry.io/
 
 ### Basic usage
 
@@ -1512,8 +1043,6 @@ when errors occur.
 
 For more details, see the `getSentrySink()` function and `SentrySinkOptions`
 interface in the API reference.
-
-[Sentry]: https://sentry.io/
 
 
 Syslog sink
@@ -2297,6 +1826,6 @@ export default {
 } satisfies ExportedHandler;
 ~~~~
 
-[`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
-
 <!-- cSpell: ignore otel -->
+
+[`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil

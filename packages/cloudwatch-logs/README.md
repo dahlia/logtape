@@ -5,9 +5,9 @@
 [![npm][npm badge]][npm]
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 
-This package provides an [AWS CloudWatch Logs] sink for [LogTape]. It allows you to
-send your LogTape logs directly to AWS CloudWatch Logs with intelligent batching
-and error handling.
+This package provides an [AWS CloudWatch Logs] sink for [LogTape]. It allows
+you to send your LogTape logs directly to AWS CloudWatch Logs with intelligent
+batching and error handling.
 
 [JSR]: https://jsr.io/@logtape/cloudwatch-logs
 [JSR badge]: https://jsr.io/badges/@logtape/cloudwatch-logs

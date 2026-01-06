@@ -284,6 +284,8 @@ bunyan adapter (*@logtape/adaptor-bunyan*)
 To request priority for a specific adapter or contribute an implementation,
 please see the [adapter development roadmap] on GitHub.
 
+[adapter development roadmap]: https://github.com/dahlia/logtape/issues/52
+
 
 Best practices
 --------------
@@ -378,5 +380,4 @@ When creating adapters for popular logging libraries:
 
 See the [*@logtape/adaptor-pino* source code] as a reference implementation.
 
-[adapter development roadmap]: https://github.com/dahlia/logtape/issues/52
 [*@logtape/adaptor-pino* source code]: https://github.com/dahlia/logtape/tree/main/adaptor-pino

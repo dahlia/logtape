@@ -144,13 +144,13 @@ Modern JavaScript applications run in diverse environments.  LogTape is
 designed to work seamlessly across all major JavaScript runtimes, while
 other libraries have varying degrees of compatibility:[^2]
 
-| Runtime             | LogTape   | winston  | Pino  | bunyan   | log4js  | Signale  |
-|---------------------|:---------:|:--------:|:-----:|:--------:|:-------:|:--------:|
-| **Node.js**         |    ✅    |    ✅     |  ✅   |   ✅     |   ✅    |    ✅    |
-| **Deno**            |    ✅    |    ⚠️     |  ⚠️   |   ⚠️     |   ⚠️    |    ⚠️    |
-| **Bun**             |    ✅    |    ⚠️     |  ⚠️   |   ⚠️     |   ⚠️    |    ⚠️    |
-| **Web browsers**    |    ✅    |    ⚠️     |  ⚠️   |   ❌     |   ❌    |    ❌    |
-| **Edge functions**  |    ✅    |    ❌     |  ❌   |   ❌     |   ❌    |    ❌    |
+| Runtime            | LogTape | winston | Pino | bunyan | log4js | Signale |
+| ------------------ | :-----: | :-----: | :--: | :----: | :----: | :-----: |
+| **Node.js**        |   ✅    |   ✅    |  ✅  |   ✅   |   ✅   |   ✅    |
+| **Deno**           |   ✅    |   ⚠️    |  ⚠️  |   ⚠️   |   ⚠️   |   ⚠️    |
+| **Bun**            |   ✅    |   ⚠️    |  ⚠️  |   ⚠️   |   ⚠️   |   ⚠️    |
+| **Web browsers**   |   ✅    |   ⚠️    |  ⚠️  |   ❌   |   ❌   |   ❌    |
+| **Edge functions** |   ✅    |   ❌    |  ❌  |   ❌   |   ❌   |   ❌    |
 
 While some Node.js libraries can work in Deno through the `npm:` specifier
 and Node.js compatibility layer, they often have limitations:
@@ -353,7 +353,7 @@ withContext({ userId: 42 }, () => {
 Use case recommendations
 ------------------------
 
-### Choose LogTape when:
+### Choose LogTape when…
 
  -  *Building libraries* — LogTape is the only logging library designed
     for this use case
@@ -367,30 +367,30 @@ Use case recommendations
     structured logging
  -  *Performance matters* — Especially for console logging
 
-### Choose winston when:
+### Choose winston when…
 
  -  *Complex enterprise logging* — Mature ecosystem with many plugins
  -  *Legacy Node.js applications* — Well-established patterns and
     extensive documentation
  -  *File logging performance* — Optimized for high-volume file writing
 
-### Choose Pino when:
+### Choose Pino when…
 
  -  *Smallest possible bundle* — 3.1KB if bundle size is critical
  -  *JSON-first logging* — Structured logging is the primary requirement
  -  *Node.js-only applications* — No multi-runtime requirements
 
-### Choose bunyan when:
+### Choose bunyan when…
 
  -  *Simple JSON logging* — Straightforward structured logging needs
  -  *Legacy compatibility* — Existing bunyan infrastructure
 
-### Choose log4js when:
+### Choose log4js when…
 
  -  *Java developers* — Familiar log4j-style configuration
  -  *Complex appender needs* — Sophisticated logging routing requirements
 
-### Choose Signale when:
+### Choose Signale when…
 
  -  *CLI applications* — Beautiful terminal output with minimal setup
  -  *Development tools* — Pretty console output for developer tools

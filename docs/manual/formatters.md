@@ -342,12 +342,12 @@ The `~AnsiColorFormatterOptions.timestampStyle`,
 `~AnsiColorFormatterOptions.levelStyle`, and
 `~AnsiColorFormatterOptions.categoryStyle` options can be one of the following:
 
- - `"bold"`
- - `"dim"`
- - `"italic"`
- - `"underline"`
- - `"strikethrough"`
- - `null` (no style)
+ -  `"bold"`
+ -  `"dim"`
+ -  `"italic"`
+ -  `"underline"`
+ -  `"strikethrough"`
+ -  `null` (no style)
 
 #### Colors
 
@@ -356,15 +356,15 @@ The `~AnsiColorFormatterOptions.timestampColor`,
 and `~AnsiColorFormatterOptions.categoryColor` options can be one of
 the following:
 
- - `"black"`
- - `"red"`
- - `"green"`
- - `"yellow"`
- - `"blue"`
- - `"magenta"`
- - `"cyan"`
- - `"white"`
- - `null` (no color)
+ -  `"black"`
+ -  `"red"`
+ -  `"green"`
+ -  `"yellow"`
+ -  `"blue"`
+ -  `"magenta"`
+ -  `"cyan"`
+ -  `"white"`
+ -  `null` (no color)
 
 ### JSON Lines formatter
 

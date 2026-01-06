@@ -75,9 +75,9 @@ Plugin scope
 
 Elysia supports plugin scoping to control how lifecycle hooks propagate:
 
-- `"global"`: Hooks apply to all routes in the application (default)
-- `"scoped"`: Hooks apply to the parent instance where the plugin is used
-- `"local"`: Hooks only apply within the plugin itself
+ -  `"global"`: Hooks apply to all routes in the application (default)
+ -  `"scoped"`: Hooks apply to the parent instance where the plugin is used
+ -  `"local"`: Hooks only apply within the plugin itself
 
 
 Predefined formats
@@ -85,11 +85,11 @@ Predefined formats
 
 The plugin supports Morgan-compatible predefined formats:
 
-- `"combined"`: Apache Combined Log Format with all properties (default)
-- `"common"`: Apache Common Log Format (without referrer/userAgent)
-- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
-- `"short"`: Shorter format with remote address
-- `"tiny"`: Minimal output
+ -  `"combined"`: Apache Combined Log Format with all properties (default)
+ -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with remote address
+ -  `"tiny"`: Minimal output
 
 
 Custom format function
@@ -123,15 +123,15 @@ Structured logging output
 When using the `"combined"` format (default), the plugin logs structured
 data that includes:
 
-- `method`: HTTP request method
-- `url`: Request URL
-- `path`: Request path
-- `status`: HTTP response status code
-- `responseTime`: Response time in milliseconds
-- `contentLength`: Response content-length header value
-- `remoteAddr`: Remote client address (from X-Forwarded-For header)
-- `userAgent`: User-Agent header value
-- `referrer`: Referrer header value
+ -  `method`: HTTP request method
+ -  `url`: Request URL
+ -  `path`: Request path
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds
+ -  `contentLength`: Response content-length header value
+ -  `remoteAddr`: Remote client address (from X-Forwarded-For header)
+ -  `userAgent`: User-Agent header value
+ -  `referrer`: Referrer header value
 
 
 See also

@@ -390,20 +390,20 @@ Best practices
 
  3. *Test your redaction*:
 
-     - Verify that sensitive data is properly redacted by examining your logs
-     - Include edge cases in your testing (partial matches, data spanning
-       multiple lines, etc.)
+     -  Verify that sensitive data is properly redacted by examining your logs
+     -  Include edge cases in your testing (partial matches, data spanning
+        multiple lines, etc.)
 
  4. *Balance performance and security*:
 
-     - For high-volume logs, consider using field-based redaction which is
-       generally more efficient
-     - For security-critical applications, use both approaches even if it means
-       some performance overhead
+     -  For high-volume logs, consider using field-based redaction which is
+        generally more efficient
+     -  For security-critical applications, use both approaches even if it means
+        some performance overhead
 
  5. *Document your approach*:
 
-     - Make sure your team understands which data is being redacted and how
-     - Include redaction strategies in your security documentation
+     -  Make sure your team understands which data is being redacted and how
+     -  Include redaction strategies in your security documentation
 
 <!-- cSpell: ignore johndoe -->
