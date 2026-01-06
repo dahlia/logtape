@@ -1,6 +1,6 @@
 {
   "name": "@logtape/cloudwatch-logs",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "AWS CloudWatch Logs sink for LogTape",
   "keywords": [
     "logging",
