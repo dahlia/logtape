@@ -3,6 +3,150 @@
 LogTape changelog
 =================
 
+Version 1.2.6
+-------------
+
+To be released.
+
+
+Version 1.2.5
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
+
+
+Version 1.2.4
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
+
+
+Version 1.2.3
+-------------
+
+Released on December 18, 2025.
+
+ -  Reduced npm package sizes by excluding unnecessary source files from
+    published packages.  Previously, the *src/* directory was included in npm
+    packages, which increased download sizes without providing runtime value.
+    [[#112]]
+
+
+Version 1.2.2
+-------------
+
+Released on November 29, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to properly redact sensitive fields in objects
+    passed via the `{*}` wildcard placeholder.  Previously, the original
+    object reference was kept in the message array, exposing sensitive
+    field values even when they were redacted in properties.  [[#99]]
+
+
+Version 1.2.1
+-------------
+
+Released on November 28, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to also redact sensitive values in the `message`
+    array, not just in `properties`.  Previously, sensitive field values
+    were exposed in the log message even when the corresponding property
+    was redacted.  [[#99]]
+
+
+Version 1.2.0
+-------------
+
+Released on November 11, 2025.
+
+### @logtape/logtape
+
+ -  Added support for nested property access in message template placeholders,
+    enabling direct access to nested objects, arrays, and complex data
+    structures without manual property extraction.  [[#91], [#93] by 伍闲犬]
+
+    -  Dot notation: `{user.name}`, `{order.customer.profile.tier}`
+    -  Array indexing: `{users[0]}`, `{users[0].name}`
+    -  Bracket notation with quotes: `{user["full-name"]}`, `{data["a.b c"]}`
+    -  Escape sequences in quoted strings: `\"`, `\'`, `\\`, `\n`, `\t`, `\r`,
+       `\b`, `\f`, `\v`, `\0`, and Unicode escapes (`\uXXXX`)
+    -  Optional chaining: `{user?.profile?.email}`, `{data?.items?.[0]?.name}`
+    -  Combined patterns: `{users[0]?.profile?.["contact-info"]?.email}`
+    -  Enhanced security: blocks access to `__proto__`, `prototype`, and
+       `constructor` at any depth to prevent prototype pollution
+
+ -  Added context-based isolation for fingers crossed sink to handle scenarios
+    like HTTP request tracing where logs should be isolated by implicit
+    context values.  [[#86]]
+
+    -  Added `isolateByContext` option to `FingersCrossedOptions` for isolating
+       buffers based on specified context keys from log record properties.
+    -  Context isolation can be combined with existing category isolation for
+       fine-grained control over buffer flushing behavior.
+    -  Each context buffer maintains separate trigger states and size limits,
+       preventing unrelated logs from being flushed together.
+    -  Added memory management options for context isolation to prevent memory
+       leaks in high-traffic applications: `bufferTtlMs` for time-based cleanup,
+       `cleanupIntervalMs` for configurable cleanup intervals, and `maxContexts`
+       for LRU-based capacity limits. TTL and LRU can be used independently or
+       together for comprehensive memory management.
+
+ -  Changed the type of the `TextFormatterOptions.value` callback to accept
+    a second parameter that provides access to the default cross-runtime
+    `inspect()` function, making it easier to implement custom value formatting
+    with fallback to default behavior.
+
+    -  Changed the type of `TextFormatterOptions.value` to `(value: unknown,
+       inspect: (value: unknown, options?: { colors?: boolean }) => string)
+       => string` (was `(value: unknown) => string`).
+    -  The second parameter is optional and can be ignored for backward
+       compatibility.
+    -  Users can now customize formatting for specific value types while
+       falling back to the cross-runtime `inspect()` function for others,
+       without needing to reimplement the complex runtime detection logic.
+
+[#86]: https://github.com/dahlia/logtape/issues/86
+[#91]: https://github.com/dahlia/logtape/issues/91
+[#93]: https://github.com/dahlia/logtape/pull/93
+
+### @logtape/pretty
+
+ -  Added support for `getters` and `showProxy` options in `inspectOptions`
+    to allow fine-grained control over how objects and proxies are displayed.
+    These options are available in Node.js, Deno, and Bun runtimes, providing
+    consistent behavior across platforms.  [[#95]]
+
+[#95]: https://github.com/dahlia/logtape/issues/95
+
+### @logtape/redaction
+
+ -  Extended field-based redaction to recursively redact sensitive fields in
+    objects nested within arrays, providing more comprehensive protection for
+    structured data.  [[#94]]
+
+[#94]: https://github.com/dahlia/logtape/issues/94
+
+
 Version 1.1.7
 -------------
 

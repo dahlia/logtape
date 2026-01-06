@@ -186,7 +186,7 @@ const customSink = redactByField(getConsoleSink(), {
 ~~~~
 
 Field redaction is recursive and will redact sensitive fields in nested objects
-as well.
+and arrays as well.
 
 
 Comparing redaction approaches
@@ -296,6 +296,12 @@ logger.info("User authenticated", {
   username: "johndoe",
   password: "supersecret", // This field will be removed from the logged output
   email: "johndoe@example.com", // This field will be removed too
+});
+logger.info("Loaded configs", {
+  configs: [
+    { password: "secret", username: "user1" }, // Sensitive fields in arrays will also be removed
+    { token: "abc", username: "user2" },
+  ],
 });
 ~~~~
 

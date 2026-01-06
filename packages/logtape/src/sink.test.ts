@@ -1706,3 +1706,885 @@ test("fingersCrossed() - edge case: very deep category hierarchy", () => {
   assert(buffer.includes(parentRecord));
   assert(buffer.includes(deepError));
 });
+
+test("fingersCrossed() - context isolation basic functionality", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Create records with different request IDs
+  const req1Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1", data: "debug1" },
+  };
+  const req1Info: LogRecord = {
+    ...info,
+    properties: { requestId: "req-1", data: "info1" },
+  };
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1", data: "error1" },
+  };
+
+  const req2Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2", data: "debug2" },
+  };
+  const req2Info: LogRecord = {
+    ...info,
+    properties: { requestId: "req-2", data: "info2" },
+  };
+
+  // Buffer logs for both requests
+  sink(req1Debug);
+  sink(req1Info);
+  sink(req2Debug);
+  sink(req2Info);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Error in req-1 should only flush req-1 logs
+  sink(req1Error);
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], req1Debug);
+  assertEquals(buffer[1], req1Info);
+  assertEquals(buffer[2], req1Error);
+
+  // req-2 logs should still be buffered
+  buffer.length = 0;
+  sink(req2Debug); // Add another req-2 log
+  assertEquals(buffer.length, 0); // Still buffered
+
+  // Now trigger req-2
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-2", data: "error2" },
+  };
+  sink(req2Error);
+  assertEquals(buffer.length, 4); // 2x req2Debug + req2Info + req2Error
+  assertEquals(buffer[0], req2Debug);
+  assertEquals(buffer[1], req2Info);
+  assertEquals(buffer[2], req2Debug); // Second instance
+  assertEquals(buffer[3], req2Error);
+});
+
+test("fingersCrossed() - context isolation with multiple keys", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId", "sessionId"] },
+  });
+
+  // Create records with different combinations
+  const record1: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1", sessionId: "sess-1" },
+  };
+  const record2: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1", sessionId: "sess-2" },
+  };
+  const record3: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2", sessionId: "sess-1" },
+  };
+
+  sink(record1);
+  sink(record2);
+  sink(record3);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Error with req-1/sess-1 should only flush that combination
+  const trigger1: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1", sessionId: "sess-1" },
+  };
+  sink(trigger1);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], record1);
+  assertEquals(buffer[1], trigger1);
+
+  // Other combinations still buffered
+  buffer.length = 0;
+  const trigger2: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1", sessionId: "sess-2" },
+  };
+  sink(trigger2);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], record2);
+  assertEquals(buffer[1], trigger2);
+});
+
+test("fingersCrossed() - context isolation with missing keys", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Records with and without requestId
+  const withId: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1", other: "data" },
+  };
+  const withoutId: LogRecord = {
+    ...debug,
+    properties: { other: "data" },
+  };
+  const withUndefinedId: LogRecord = {
+    ...debug,
+    properties: { requestId: undefined, other: "data" },
+  };
+
+  sink(withId);
+  sink(withoutId);
+  sink(withUndefinedId);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Error without requestId should flush records without or with undefined requestId
+  const triggerNoId: LogRecord = {
+    ...error,
+    properties: { other: "data" },
+  };
+  sink(triggerNoId);
+  assertEquals(buffer.length, 3); // withoutId + withUndefinedId + triggerNoId
+  assertEquals(buffer[0], withoutId);
+  assertEquals(buffer[1], withUndefinedId);
+  assertEquals(buffer[2], triggerNoId);
+
+  // Records with requestId still buffered
+  buffer.length = 0;
+  const triggerWithId: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1", other: "data" },
+  };
+  sink(triggerWithId);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], withId);
+  assertEquals(buffer[1], triggerWithId);
+});
+
+test("fingersCrossed() - combined category and context isolation", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByCategory: "descendant",
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Create records with different categories and contexts
+  const appReq1: LogRecord = {
+    ...debug,
+    category: ["app"],
+    properties: { requestId: "req-1" },
+  };
+  const appModuleReq1: LogRecord = {
+    ...debug,
+    category: ["app", "module"],
+    properties: { requestId: "req-1" },
+  };
+  const appReq2: LogRecord = {
+    ...debug,
+    category: ["app"],
+    properties: { requestId: "req-2" },
+  };
+  const appModuleReq2: LogRecord = {
+    ...debug,
+    category: ["app", "module"],
+    properties: { requestId: "req-2" },
+  };
+  const otherReq1: LogRecord = {
+    ...debug,
+    category: ["other"],
+    properties: { requestId: "req-1" },
+  };
+
+  sink(appReq1);
+  sink(appModuleReq1);
+  sink(appReq2);
+  sink(appModuleReq2);
+  sink(otherReq1);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Error in ["app"] with req-1 should flush descendants with same requestId
+  const triggerAppReq1: LogRecord = {
+    ...error,
+    category: ["app"],
+    properties: { requestId: "req-1" },
+  };
+  sink(triggerAppReq1);
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], appReq1);
+  assertEquals(buffer[1], appModuleReq1);
+  assertEquals(buffer[2], triggerAppReq1);
+
+  // Other combinations still buffered
+  buffer.length = 0;
+  const triggerAppReq2: LogRecord = {
+    ...error,
+    category: ["app"],
+    properties: { requestId: "req-2" },
+  };
+  sink(triggerAppReq2);
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], appReq2);
+  assertEquals(buffer[1], appModuleReq2);
+  assertEquals(buffer[2], triggerAppReq2);
+});
+
+test("fingersCrossed() - context isolation buffer size limits", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    maxBufferSize: 2,
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Create records for different contexts
+  const req1Trace: LogRecord = {
+    ...trace,
+    properties: { requestId: "req-1" },
+  };
+  const req1Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  const req1Info: LogRecord = {
+    ...info,
+    properties: { requestId: "req-1" },
+  };
+  const req2Trace: LogRecord = {
+    ...trace,
+    properties: { requestId: "req-2" },
+  };
+  const req2Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2" },
+  };
+
+  // Fill req-1 buffer beyond limit
+  sink(req1Trace);
+  sink(req1Debug);
+  sink(req1Info); // Should drop req1Trace
+
+  // Fill req-2 buffer
+  sink(req2Trace);
+  sink(req2Debug);
+
+  // Trigger req-1
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Error);
+
+  // Should only have the last 2 records plus error
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], req1Debug);
+  assertEquals(buffer[1], req1Info);
+  assertEquals(buffer[2], req1Error);
+
+  // Trigger req-2
+  buffer.length = 0;
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Error);
+
+  // req-2 buffer should still have both records
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], req2Trace);
+  assertEquals(buffer[1], req2Debug);
+  assertEquals(buffer[2], req2Error);
+});
+
+test("fingersCrossed() - context isolation with special values", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["value"] },
+  });
+
+  // Records with special values
+  const nullValue: LogRecord = {
+    ...debug,
+    properties: { value: null },
+  };
+  const undefinedValue: LogRecord = {
+    ...debug,
+    properties: { value: undefined },
+  };
+  const zeroValue: LogRecord = {
+    ...debug,
+    properties: { value: 0 },
+  };
+  const emptyString: LogRecord = {
+    ...debug,
+    properties: { value: "" },
+  };
+  const falseValue: LogRecord = {
+    ...debug,
+    properties: { value: false },
+  };
+
+  sink(nullValue);
+  sink(undefinedValue);
+  sink(zeroValue);
+  sink(emptyString);
+  sink(falseValue);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Trigger with null value
+  const triggerNull: LogRecord = {
+    ...error,
+    properties: { value: null },
+  };
+  sink(triggerNull);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], nullValue);
+  assertEquals(buffer[1], triggerNull);
+
+  // Trigger with zero value
+  buffer.length = 0;
+  const triggerZero: LogRecord = {
+    ...error,
+    properties: { value: 0 },
+  };
+  sink(triggerZero);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], zeroValue);
+  assertEquals(buffer[1], triggerZero);
+
+  // Trigger with false value
+  buffer.length = 0;
+  const triggerFalse: LogRecord = {
+    ...error,
+    properties: { value: false },
+  };
+  sink(triggerFalse);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], falseValue);
+  assertEquals(buffer[1], triggerFalse);
+});
+
+test("fingersCrossed() - context isolation only (no category isolation)", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Different categories, same context
+  const cat1Req1: LogRecord = {
+    ...debug,
+    category: ["cat1"],
+    properties: { requestId: "req-1" },
+  };
+  const cat2Req1: LogRecord = {
+    ...debug,
+    category: ["cat2"],
+    properties: { requestId: "req-1" },
+  };
+  const cat1Req2: LogRecord = {
+    ...debug,
+    category: ["cat1"],
+    properties: { requestId: "req-2" },
+  };
+
+  sink(cat1Req1);
+  sink(cat2Req1);
+  sink(cat1Req2);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Error in any category with req-1 should flush all req-1 logs
+  const triggerReq1: LogRecord = {
+    ...error,
+    category: ["cat3"],
+    properties: { requestId: "req-1" },
+  };
+  sink(triggerReq1);
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], cat1Req1);
+  assertEquals(buffer[1], cat2Req1);
+  assertEquals(buffer[2], triggerReq1);
+
+  // req-2 still buffered
+  buffer.length = 0;
+  const triggerReq2: LogRecord = {
+    ...error,
+    category: ["cat1"],
+    properties: { requestId: "req-2" },
+  };
+  sink(triggerReq2);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], cat1Req2);
+  assertEquals(buffer[1], triggerReq2);
+});
+
+test("fingersCrossed() - context isolation with nested objects", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["user"] },
+  });
+
+  // Records with nested object values
+  const user1: LogRecord = {
+    ...debug,
+    properties: { user: { id: 1, name: "Alice" } },
+  };
+  const user1Same: LogRecord = {
+    ...debug,
+    properties: { user: { id: 1, name: "Alice" } },
+  };
+  const user2: LogRecord = {
+    ...debug,
+    properties: { user: { id: 2, name: "Bob" } },
+  };
+
+  sink(user1);
+  sink(user1Same);
+  sink(user2);
+  assertEquals(buffer.length, 0); // All buffered
+
+  // Trigger with same user object
+  const triggerUser1: LogRecord = {
+    ...error,
+    properties: { user: { id: 1, name: "Alice" } },
+  };
+  sink(triggerUser1);
+  assertEquals(buffer.length, 3);
+  assertEquals(buffer[0], user1);
+  assertEquals(buffer[1], user1Same);
+  assertEquals(buffer[2], triggerUser1);
+
+  // user2 still buffered
+  buffer.length = 0;
+  const triggerUser2: LogRecord = {
+    ...error,
+    properties: { user: { id: 2, name: "Bob" } },
+  };
+  sink(triggerUser2);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], user2);
+  assertEquals(buffer[1], triggerUser2);
+});
+
+test("fingersCrossed() - context isolation after trigger", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Trigger req-1 immediately
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Error);
+  assertEquals(buffer.length, 1);
+  assertEquals(buffer[0], req1Error);
+
+  // After trigger, req-1 logs pass through
+  const req1Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Debug);
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[1], req1Debug);
+
+  // But req-2 logs are still buffered
+  const req2Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Debug);
+  assertEquals(buffer.length, 2); // No change
+
+  // Until req-2 triggers
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Error);
+  assertEquals(buffer.length, 4);
+  assertEquals(buffer[2], req2Debug);
+  assertEquals(buffer[3], req2Error);
+});
+
+test("fingersCrossed() - TTL-based buffer cleanup", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 100, // 100ms TTL
+      cleanupIntervalMs: 50, // cleanup every 50ms
+    },
+  }) as Sink & Disposable;
+
+  try {
+    // Create records with different request IDs
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+      timestamp: Date.now(),
+    };
+
+    // Add records to buffers
+    sink(req1Record);
+    sink(req2Record);
+
+    // Wait for TTL to expire and cleanup to run
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Add a new record after TTL expiry
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Record);
+
+    // Trigger an error for req-1 (should not flush expired req-1 buffer)
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1Error);
+
+    // Should only have req-1 error (req-1 debug was cleaned up by TTL)
+    assertEquals(buffer.length, 1);
+    assertEquals(buffer[0], req1Error);
+
+    // Trigger an error for req-3 (should flush req-3 buffer)
+    buffer.length = 0; // Clear buffer
+    const req3Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Error);
+
+    // Should have both req-3 debug and error
+    assertEquals(buffer.length, 2);
+    assertEquals(buffer[0], req3Record);
+    assertEquals(buffer[1], req3Error);
+  } finally {
+    // Clean up timer
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - TTL disabled when bufferTtlMs is zero", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 0, // TTL disabled
+    },
+  });
+
+  // Should return a regular sink without disposal functionality
+  assertEquals("dispose" in sink, false);
+
+  // Add a record
+  const record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(record);
+
+  // Trigger should work normally
+  const errorRecord: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(errorRecord);
+
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], record);
+  assertEquals(buffer[1], errorRecord);
+});
+
+test("fingersCrossed() - TTL disabled when bufferTtlMs is undefined", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      // bufferTtlMs not specified
+    },
+  });
+
+  // Should return a regular sink without disposal functionality
+  assertEquals("dispose" in sink, false);
+});
+
+test("fingersCrossed() - LRU-based buffer eviction", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2, // Only keep 2 context buffers
+    },
+  });
+
+  // Step 1: Add req-1
+  const req1Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Record);
+
+  // Step 2: Add req-2
+  const req2Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Record);
+
+  // Step 3: Add req-3 (should evict req-1)
+  const req3Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-3" },
+  };
+  sink(req3Record);
+
+  // Test req-1 was evicted by triggering error
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Error);
+
+  // If req-1 was evicted, should only have error (length=1)
+  // If req-1 wasn't evicted, should have debug+error (length=2)
+  assertEquals(buffer.length, 1, "req-1 should have been evicted by LRU");
+  assertEquals(buffer[0], req1Error);
+});
+
+test("fingersCrossed() - LRU eviction order with access updates", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2,
+    },
+  });
+
+  // Add two contexts with time gap to ensure different timestamps
+  const req1Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Record); // req-1 is oldest
+
+  // Small delay to ensure different lastAccess times
+  await new Promise((resolve) => setTimeout(resolve, 1));
+
+  const req2Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Record); // req-2 is newest
+
+  // Access req-1 again after another delay to make it more recent
+  await new Promise((resolve) => setTimeout(resolve, 1));
+
+  const req1Second: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(req1Second); // Now req-2 is oldest, req-1 is newest
+
+  // Add third context - should evict req-2 (now the oldest)
+  const req3Record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-3" },
+  };
+  sink(req3Record);
+
+  // Verify req-2 was evicted
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-2" },
+  };
+  sink(req2Error);
+
+  // Should only have error record (no buffered records)
+  assertEquals(buffer.length, 1, "req-2 should have been evicted");
+  assertEquals(buffer[0], req2Error);
+});
+
+test("fingersCrossed() - LRU disabled when maxContexts is zero", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 0, // LRU disabled
+    },
+  });
+
+  // Create many contexts - should not be limited
+  for (let i = 0; i < 100; i++) {
+    const record: LogRecord = {
+      ...debug,
+      properties: { requestId: `req-${i}` },
+    };
+    sink(record);
+  }
+
+  // Trigger the last context
+  const errorRecord: LogRecord = {
+    ...error,
+    properties: { requestId: "req-99" },
+  };
+  sink(errorRecord);
+
+  // Should have both debug and error records
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0].properties?.requestId, "req-99");
+  assertEquals(buffer[1], errorRecord);
+});
+
+test("fingersCrossed() - LRU disabled when maxContexts is undefined", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      // maxContexts not specified
+    },
+  });
+
+  // Should work normally without LRU limits
+  const record: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  sink(record);
+
+  const errorRecord: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  sink(errorRecord);
+
+  assertEquals(buffer.length, 2);
+  assertEquals(buffer[0], record);
+  assertEquals(buffer[1], errorRecord);
+});
+
+test("fingersCrossed() - Combined TTL and LRU functionality", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2, // LRU limit
+      bufferTtlMs: 100, // TTL limit
+      cleanupIntervalMs: 50, // cleanup interval
+    },
+  }) as Sink & Disposable;
+
+  try {
+    // Create records for multiple contexts
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+      timestamp: Date.now(),
+    };
+
+    // Add two contexts (within LRU limit)
+    sink(req1Record);
+    sink(req2Record);
+
+    // Wait for TTL to expire
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    // Add a third context (should work because TTL cleaned up old ones)
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Record);
+
+    // Trigger req-1 (should not find buffered records due to TTL expiry)
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1Error);
+
+    // Should only have the error record
+    assertEquals(buffer.length, 1);
+    assertEquals(buffer[0], req1Error);
+
+    // Clear buffer and trigger req-3 (should have recent record)
+    buffer.length = 0;
+    const req3Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-3" },
+      timestamp: Date.now(),
+    };
+    sink(req3Error);
+
+    // Should have both debug and error records
+    assertEquals(buffer.length, 2);
+    assertEquals(buffer[0], req3Record);
+    assertEquals(buffer[1], req3Error);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - LRU priority over TTL for active contexts", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      maxContexts: 2,
+      bufferTtlMs: 10000, // Long TTL (10 seconds)
+    },
+  }) as Sink & Disposable;
+
+  try {
+    // Create 3 contexts quickly (before TTL expires)
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+    };
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+    };
+
+    sink(req1Record); // LRU position: oldest
+    sink(req2Record); // LRU position: middle
+    sink(req3Record); // LRU position: newest, should evict req-1 due to LRU
+
+    // Now trigger req-2 (should have buffered record)
+    const req2Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-2" },
+    };
+    sink(req2Error);
+
+    // Should have both debug and error records
+    assertEquals(buffer.length, 2);
+    assertEquals(buffer[0], req2Record);
+    assertEquals(buffer[1], req2Error);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});

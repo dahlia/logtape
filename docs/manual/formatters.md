@@ -217,8 +217,33 @@ return a string, which will be used for rendering the category.
 The format of the embedded values.
 
 A function that renders a value to a string.  This function is used to
-render the values in the log record.  The default is [`util.inspect()`] in
-Node.js/Bun and [`Deno.inspect()`] in Deno.
+render the values in the log record.  The default is a cross-runtime
+`inspect()` function that uses [`util.inspect()`] in Node.js/Bun,
+[`Deno.inspect()`] in Deno, or falls back to `JSON.stringify()` in browsers.
+
+The function receives two parameters:
+
+ 1. `value`: The value to render
+ 2. `inspect`: The default cross-runtime inspect function that can be used
+    as a fallback (this parameter is added since LogTape 1.2.0)
+
+This allows you to customize formatting for specific value types while falling
+back to the default behavior for others:
+
+~~~~ typescript
+import { getTextFormatter } from "@logtape/logtape";
+
+const formatter = getTextFormatter({
+  value(value, inspect) {
+    // Custom formatting for numbers
+    if (typeof value === 'number') {
+      return value.toFixed(2);
+    }
+    // Fall back to default for everything else
+    return inspect(value);
+  }
+});
+~~~~
 
 [`util.inspect()`]: https://nodejs.org/api/util.html#utilinspectobject-options
 [`Deno.inspect()`]: https://docs.deno.com/api/deno/~/Deno.inspect
@@ -546,6 +571,10 @@ Supported options:
  -  `depth`: Maximum depth to traverse when inspecting nested objects
  -  `colors`: Whether to use syntax highlighting colors for inspected values
  -  `compact`: Whether to use compact formatting for objects and arrays
+ -  `getters`: Whether to invoke getter functions during inspection (Node.js,
+    Deno, and Bun only)
+ -  `showProxy`: Whether to show Proxy objects with their target and handler
+    (Node.js, Deno, and Bun only)
 
 #### `~PrettyFormatterOptions.properties`
 
