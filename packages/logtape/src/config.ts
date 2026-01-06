@@ -315,8 +315,14 @@ function configureInternal<
       onMethod.call(proc, "exit", allowAsync ? dispose : disposeSync);
     }
   } else {
-    // @ts-ignore: It's fine to addEventListener() on the browser/Deno/Edge Runtime
-    addEventListener("unload", allowAsync ? dispose : disposeSync);
+    // Deno: use unload (pagehide is not supported)
+    if ("Deno" in globalThis) {
+      // @ts-ignore: unload event exists in Deno
+      addEventListener("unload", allowAsync ? dispose : disposeSync);
+    } else {
+      // Browser: use pagehide (bfcache-compatible, doesn't block back/forward cache)
+      addEventListener("pagehide", allowAsync ? dispose : disposeSync);
+    }
   }
   const meta = LoggerImpl.getLogger(["logtape", "meta"]);
   if (!metaConfigured) {
