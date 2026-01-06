@@ -6,7 +6,7 @@ import {
   assertRejects,
   assertThrows,
 } from "@std/assert";
-import type { LogRecord } from "@logtape/logtape";
+import type { LogRecord, Sink } from "@logtape/logtape";
 import { createSocket } from "node:dgram";
 import { createServer } from "node:net";
 import {
@@ -19,6 +19,10 @@ import {
 } from "./syslog.ts";
 
 const test = suite(import.meta);
+
+type TestSink = Sink & AsyncDisposable & {
+  readonly _internal_lastPromise: Promise<void>;
+};
 
 // RFC 5424 syslog message parser for testing
 interface ParsedSyslogMessage {
@@ -1232,19 +1236,34 @@ if (typeof Deno !== "undefined") {
   });
 
   test("DenoTcpSyslogConnection instantiation", () => {
-    const connection = new DenoTcpSyslogConnection("localhost", 514, 5000);
+    const connection = new DenoTcpSyslogConnection(
+      "localhost",
+      514,
+      5000,
+      false,
+    );
     assertInstanceOf(connection, DenoTcpSyslogConnection);
   });
 
   test("DenoTcpSyslogConnection close without connection", () => {
-    const connection = new DenoTcpSyslogConnection("localhost", 514, 5000);
+    const connection = new DenoTcpSyslogConnection(
+      "localhost",
+      514,
+      5000,
+      false,
+    );
     // close() should not throw even without connection
     connection.close();
   });
 
   test("DenoTcpSyslogConnection connection timeout", async () => {
     // Use a non-routable IP address to ensure connection failure
-    const connection = new DenoTcpSyslogConnection("10.255.255.1", 9999, 100); // Very short timeout
+    const connection = new DenoTcpSyslogConnection(
+      "10.255.255.1",
+      9999,
+      100,
+      false,
+    ); // Very short timeout
 
     try {
       await assertRejects(
@@ -1258,7 +1277,12 @@ if (typeof Deno !== "undefined") {
   });
 
   test("DenoTcpSyslogConnection send without connection", async () => {
-    const connection = new DenoTcpSyslogConnection("localhost", 514, 5000);
+    const connection = new DenoTcpSyslogConnection(
+      "localhost",
+      514,
+      5000,
+      false,
+    );
 
     await assertRejects(
       () => connection.send("test message"),
@@ -1319,6 +1343,7 @@ if (typeof Deno !== "undefined") {
         "127.0.0.1",
         serverAddr.port,
         0,
+        false,
       ); // No timeout
 
       await connection.connect();
@@ -1338,138 +1363,313 @@ if (typeof Deno !== "undefined") {
       await serverTask.catch(() => {}); // Wait for server cleanup
     }
   });
+
+  test("DenoTcpSyslogConnection secure connection attempt (TLS)", {
+    // Disable sanitizers because TLS connection cleanup on Windows can take
+    // longer than the test, causing false positive leak detection
+    sanitizeOps: false,
+    sanitizeResources: false,
+  }, async () => {
+    // Attempt to connect to a port where no TLS server is listening
+    const connection = new DenoTcpSyslogConnection(
+      "127.0.0.1",
+      1515,
+      100,
+      true,
+    ); // secure: true
+    try {
+      await assertRejects(
+        () => connection.connect(),
+        Error,
+        // Expected error message for TLS connection failure (e.g., handshake error)
+        // Deno's error for TLS connection failure can be generic "connection reset" or similar if no server
+        // The important part is it should NOT connect successfully if unsecured
+      );
+    } finally {
+      connection.close();
+    }
+  });
+
+  test("DenoTcpSyslogSink secure connection (TLS) with getSyslogSink", {
+    // Disable sanitizers because TLS connection cleanup on Windows can take
+    // longer than the test, causing false positive leak detection
+    sanitizeOps: false,
+    sanitizeResources: false,
+  }, async () => {
+    // This test would require a mock TLS server to properly verify data transmission.
+    // For now, we'll verify that the sink attempts a secure connection.
+    // Given no mock TLS server, this should reject.
+    const sink = getSyslogSink({
+      hostname: "127.0.0.1",
+      port: 1516, // Different port for TLS test
+      protocol: "tcp",
+      secure: true,
+      timeout: 100,
+    });
+    const sinkWithPromise = sink as TestSink;
+
+    try {
+      await assertRejects(
+        async () => {
+          sink(createMockLogRecord("info", ["Test secure sink connection"]));
+          await sinkWithPromise._internal_lastPromise;
+        },
+        Error,
+        // The error message might vary depending on Deno's TLS implementation and OS.
+        // It should indicate a connection problem, not a successful plaintext connection.
+      );
+    } finally {
+      await sink[Symbol.asyncDispose]();
+    }
+  });
 }
 
 // Node.js/Bun-specific tests
-test("NodeUdpSyslogConnection instantiation", () => {
-  const connection = new NodeUdpSyslogConnection("localhost", 514, 5000);
-  assertInstanceOf(connection, NodeUdpSyslogConnection);
-});
+if (typeof Deno === "undefined") {
+  test("NodeUdpSyslogConnection instantiation", () => {
+    const connection = new NodeUdpSyslogConnection("localhost", 514, 5000);
+    assertInstanceOf(connection, NodeUdpSyslogConnection);
+  });
 
-test("NodeUdpSyslogConnection connect and close", () => {
-  const connection = new NodeUdpSyslogConnection("localhost", 514, 5000);
-  // connect() should not throw for UDP
-  connection.connect();
-  // close() should not throw for UDP
-  connection.close();
-});
-
-test("NodeUdpSyslogConnection send timeout", async () => {
-  // Use a non-routable IP to trigger timeout
-  const connection = new NodeUdpSyslogConnection("10.255.255.1", 9999, 50); // Very short timeout
-  connection.connect();
-
-  try {
-    await connection.send("test message");
-    // If we reach here, the send didn't timeout as expected
-    // This might happen if the system is very fast or network conditions are unusual
-  } catch (error) {
-    // This is expected - either timeout or network unreachable
-    assertEquals(typeof (error as Error).message, "string");
-  } finally {
+  test("NodeUdpSyslogConnection connect and close", () => {
+    const connection = new NodeUdpSyslogConnection("localhost", 514, 5000);
+    // connect() should not throw for UDP
+    connection.connect();
+    // close() should not throw for UDP
     connection.close();
-  }
-});
+  });
 
-test("NodeTcpSyslogConnection instantiation", () => {
-  const connection = new NodeTcpSyslogConnection("localhost", 514, 5000);
-  assertInstanceOf(connection, NodeTcpSyslogConnection);
-});
+  test("NodeUdpSyslogConnection send timeout", async () => {
+    // Use a non-routable IP to trigger timeout
+    const connection = new NodeUdpSyslogConnection("10.255.255.1", 9999, 50); // Very short timeout
+    connection.connect();
 
-test("NodeTcpSyslogConnection close without connection", () => {
-  const connection = new NodeTcpSyslogConnection("localhost", 514, 5000);
-  // close() should not throw even without connection
-  connection.close();
-});
+    try {
+      await connection.send("test message");
+      // If we reach here, the send didn't timeout as expected
+      // This might happen if the system is very fast or network conditions are unusual
+    } catch (error) {
+      // This is expected - either timeout or network unreachable
+      assertEquals(typeof (error as Error).message, "string");
+    } finally {
+      connection.close();
+    }
+  });
 
-test("NodeTcpSyslogConnection connection timeout", {
-  sanitizeResources: false,
-  sanitizeOps: false,
-}, async () => {
-  // Use a non-routable IP address to ensure connection failure
-  const connection = new NodeTcpSyslogConnection("10.255.255.1", 9999, 100); // Very short timeout
-
-  try {
-    await assertRejects(
-      () => connection.connect(),
-      Error,
+  test("NodeTcpSyslogConnection instantiation", () => {
+    const connection = new NodeTcpSyslogConnection(
+      "localhost",
+      514,
+      5000,
+      false,
     );
-  } finally {
-    // Ensure cleanup
+    assertInstanceOf(connection, NodeTcpSyslogConnection);
+  });
+
+  test("NodeTcpSyslogConnection close without connection", () => {
+    const connection = new NodeTcpSyslogConnection(
+      "localhost",
+      514,
+      5000,
+      false,
+    );
+    // close() should not throw even without connection
     connection.close();
-  }
-});
+  });
 
-test("NodeTcpSyslogConnection send without connection", () => {
-  const connection = new NodeTcpSyslogConnection("localhost", 514, 5000);
+  test("NodeTcpSyslogConnection connection timeout", {
+    sanitizeResources: false,
+    sanitizeOps: false,
+  }, async () => {
+    // Use a non-routable IP address to ensure connection failure
+    const connection = new NodeTcpSyslogConnection(
+      "10.255.255.1",
+      9999,
+      100,
+      false,
+    ); // Very short timeout
 
-  assertThrows(
-    () => connection.send("test message"),
-    Error,
-    "Connection not established",
-  );
-});
+    try {
+      await assertRejects(
+        () => connection.connect(),
+        Error,
+      );
+    } finally {
+      // Ensure cleanup
+      connection.close();
+    }
+  });
 
-test("NodeUdpSyslogConnection actual send test", async () => {
-  // Try to send to a local UDP port
-  const connection = new NodeUdpSyslogConnection("127.0.0.1", 1514, 1000); // Non-privileged port
-  connection.connect();
+  test("NodeTcpSyslogConnection send without connection", () => {
+    const connection = new NodeTcpSyslogConnection(
+      "localhost",
+      514,
+      5000,
+      false,
+    );
 
-  try {
-    // This will likely fail (no server listening), but should handle gracefully
-    await connection.send("test syslog message");
-    // If it succeeds, that's also fine - might have a server running
-  } catch (error) {
-    // Expected - likely no server listening, but the send mechanism should work
-    const errorMessage = (error as Error).message;
-    // Should contain either timeout or connection/network error
-    assertEquals(typeof errorMessage, "string");
-  } finally {
-    connection.close();
-  }
-});
+    assertThrows(
+      () => connection.send("test message"),
+      Error,
+      "Connection not established",
+    );
+  });
 
-test("NodeTcpSyslogConnection actual send test with mock server", async () => {
-  // Import Node.js modules for creating a server
+  test("NodeUdpSyslogConnection actual send test", async () => {
+    // Try to send to a local UDP port
+    const connection = new NodeUdpSyslogConnection("127.0.0.1", 1514, 1000); // Non-privileged port
+    connection.connect();
 
-  let receivedData = "";
+    try {
+      // This will likely fail (no server listening), but should handle gracefully
+      await connection.send("test syslog message");
+      // If it succeeds, that's also fine - might have a server running
+    } catch (error) {
+      // Expected - likely no server listening, but the send mechanism should work
+      const errorMessage = (error as Error).message;
+      // Should contain either timeout or connection/network error
+      assertEquals(typeof errorMessage, "string");
+    } finally {
+      connection.close();
+    }
+  });
 
-  // Create a simple TCP server
-  const server = createServer((socket) => {
-    socket.on("data", (data) => {
-      receivedData = data.toString();
-      socket.end();
+  test("NodeTcpSyslogConnection actual send test with mock server", async () => {
+    // Import Node.js modules for creating a server
+
+    let receivedData = "";
+
+    // Create a simple TCP server
+    const server = createServer((socket) => {
+      socket.on("data", (data) => {
+        receivedData = data.toString();
+        socket.end();
+      });
     });
+
+    // Start server on random port
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+
+    const address = server.address() as { port: number };
+
+    try {
+      // Connect and send message
+      const connection = new NodeTcpSyslogConnection(
+        "127.0.0.1",
+        address.port,
+        5000,
+        false,
+      );
+
+      await connection.connect();
+      await connection.send("test syslog message from Node TCP");
+      connection.close();
+
+      // Wait a bit for server to receive data
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Verify message was received
+      assertEquals(
+        receivedData.includes("test syslog message from Node TCP"),
+        true,
+      );
+    } finally {
+      server.close();
+    }
   });
 
-  // Start server on random port
-  await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", resolve);
-  });
-
-  const address = server.address() as { port: number };
-
-  try {
-    // Connect and send message
+  test("NodeTcpSyslogConnection secure connection attempt (TLS)", async () => {
+    // Attempt to connect to a port where no TLS server is listening
     const connection = new NodeTcpSyslogConnection(
       "127.0.0.1",
-      address.port,
-      5000,
-    );
-
-    await connection.connect();
-    await connection.send("test syslog message from Node TCP");
-    connection.close();
-
-    // Wait a bit for server to receive data
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Verify message was received
-    assertEquals(
-      receivedData.includes("test syslog message from Node TCP"),
+      1515,
+      100,
       true,
-    );
-  } finally {
-    server.close();
-  }
+    ); // secure: true
+    try {
+      await assertRejects(
+        () => connection.connect(),
+        Error,
+        // Expected error message for TLS connection failure (e.g., handshake error)
+        // Node.js TLS errors can be quite specific like "ECONNREFUSED" or "ERR_TLS_CERT_ALTNAME_INVALID" etc.
+        // The key is that it should NOT connect successfully if unsecured
+      );
+    } finally {
+      connection.close();
+    }
+  });
+
+  test("NodeTcpSyslogSink secure connection (TLS) with getSyslogSink", async () => {
+    // Similar to Deno, this requires a mock TLS server for full verification.
+    // For now, we verify that it attempts a secure connection and rejects if no TLS server.
+    const sink = getSyslogSink({
+      hostname: "127.0.0.1",
+      port: 1516, // Different port for TLS test
+      protocol: "tcp",
+      secure: true,
+      timeout: 100,
+    });
+    const sinkWithPromise = sink as TestSink;
+
+    try {
+      await assertRejects(
+        async () => {
+          sink(createMockLogRecord("info", ["Test secure sink connection"]));
+          await sinkWithPromise._internal_lastPromise;
+        },
+        Error,
+        // Error messages might vary, but should indicate a connection or TLS issue.
+      );
+    } finally {
+      await sink[Symbol.asyncDispose]();
+    }
+  });
+}
+
+// TLS options configuration tests
+test("getSyslogSink() with TLS options", () => {
+  const sink = getSyslogSink({
+    protocol: "tcp",
+    secure: true,
+    tlsOptions: {
+      rejectUnauthorized: false,
+      ca: "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
+    },
+  });
+
+  assertEquals(typeof sink, "function");
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+test("getSyslogSink() with TLS options and multiple CA certs", () => {
+  const sink = getSyslogSink({
+    protocol: "tcp",
+    secure: true,
+    tlsOptions: {
+      rejectUnauthorized: true,
+      ca: [
+        "-----BEGIN CERTIFICATE-----\ncert1\n-----END CERTIFICATE-----",
+        "-----BEGIN CERTIFICATE-----\ncert2\n-----END CERTIFICATE-----",
+      ],
+    },
+  });
+
+  assertEquals(typeof sink, "function");
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+});
+
+test("getSyslogSink() TLS options ignored for UDP", () => {
+  // TLS options should be ignored for UDP connections
+  const sink = getSyslogSink({
+    protocol: "udp",
+    secure: true, // This will be ignored for UDP
+    tlsOptions: {
+      rejectUnauthorized: false,
+    },
+  });
+
+  assertEquals(typeof sink, "function");
+  assertEquals(typeof sink[Symbol.asyncDispose], "function");
 });

@@ -3,6 +3,7 @@ import { createSocket } from "node:dgram";
 import { Socket } from "node:net";
 import { hostname } from "node:os";
 import process from "node:process";
+import * as tls from "node:tls";
 
 /**
  * Syslog protocol type.
@@ -85,6 +86,26 @@ const SEVERITY_LEVELS: Record<LogLevel, number> = {
 };
 
 /**
+ * TLS options for secure TCP connections.
+ * @since 1.3.0
+ */
+export interface SyslogTlsOptions {
+  /**
+   * Whether to reject connections with invalid certificates.
+   * Setting this to `false` disables certificate validation, which makes
+   * the connection vulnerable to man-in-the-middle attacks.
+   * @default `true`
+   */
+  readonly rejectUnauthorized?: boolean;
+
+  /**
+   * Custom CA certificates to trust.  If not provided, the default system
+   * CA certificates are used.
+   */
+  readonly ca?: string | readonly string[];
+}
+
+/**
  * Options for the syslog sink.
  * @since 0.12.0
  */
@@ -106,6 +127,21 @@ export interface SyslogSinkOptions {
    * @default "udp"
    */
   readonly protocol?: SyslogProtocol;
+
+  /**
+   * Whether to use TLS for TCP connections.
+   * This option is ignored for UDP connections.
+   * @default `false`
+   * @since 1.3.0
+   */
+  readonly secure?: boolean;
+
+  /**
+   * TLS options for secure TCP connections.
+   * This option is only used when `secure` is `true` and `protocol` is `"tcp"`.
+   * @since 1.3.0
+   */
+  readonly tlsOptions?: SyslogTlsOptions;
 
   /**
    * The syslog facility to use for all messages.
@@ -411,46 +447,97 @@ export class NodeUdpSyslogConnection implements SyslogConnection {
  * @since 0.12.0
  */
 export class DenoTcpSyslogConnection implements SyslogConnection {
-  private connection?: Deno.TcpConn;
+  private connection?: Deno.TcpConn | Deno.TlsConn;
   private encoder = new TextEncoder();
 
   constructor(
     private hostname: string,
     private port: number,
     private timeout: number,
+    private secure: boolean,
+    private tlsOptions?: SyslogTlsOptions,
   ) {}
 
   async connect(): Promise<void> {
     try {
-      if (this.timeout > 0) {
-        // Use AbortController for proper timeout handling
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, this.timeout);
+      const connectOptions: Deno.ConnectOptions = {
+        hostname: this.hostname,
+        port: this.port,
+        transport: "tcp",
+      };
 
-        try {
-          this.connection = await Deno.connect({
-            hostname: this.hostname,
-            port: this.port,
-            transport: "tcp",
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          if (controller.signal.aborted) {
-            throw new Error("TCP connection timeout");
-          }
-          throw error;
-        }
-      } else {
-        // No timeout
-        this.connection = await Deno.connect({
+      if (this.secure) {
+        const tlsConnectOptions: Deno.ConnectTlsOptions = {
           hostname: this.hostname,
           port: this.port,
-          transport: "tcp",
-        });
+          caCerts: this.tlsOptions?.ca
+            ? (Array.isArray(this.tlsOptions.ca)
+              ? [...this.tlsOptions.ca]
+              : [this.tlsOptions.ca])
+            : undefined,
+        };
+        const connectPromise = Deno.connectTls(tlsConnectOptions);
+        if (this.timeout > 0) {
+          let timeoutId: number;
+          let timedOut = false;
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              timedOut = true;
+              reject(new Error("TCP connection timeout"));
+            }, this.timeout);
+          });
+
+          try {
+            this.connection = await Promise.race([
+              connectPromise,
+              timeoutPromise,
+            ]);
+          } catch (error) {
+            // If timed out, clean up the connection when it eventually completes
+            if (timedOut) {
+              connectPromise
+                .then((conn) => {
+                  try {
+                    conn.close();
+                  } catch {
+                    // Ignore close errors
+                  }
+                })
+                .catch(() => {
+                  // Ignore connection errors
+                });
+            }
+            throw error;
+          } finally {
+            clearTimeout(timeoutId!);
+          }
+        } else {
+          this.connection = await connectPromise;
+        }
+      } else { // Insecure TCP connection
+        if (this.timeout > 0) {
+          // Use AbortController for proper timeout handling
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => {
+            controller.abort();
+          }, this.timeout);
+
+          try {
+            this.connection = await Deno.connect({
+              ...connectOptions,
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            if (controller.signal.aborted) {
+              throw new Error("TCP connection timeout");
+            }
+            throw error;
+          }
+        } else {
+          this.connection = await Deno.connect(connectOptions);
+        }
       }
     } catch (error) {
       throw new Error(`Failed to connect to syslog server: ${error}`);
@@ -502,19 +589,35 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
  * @since 0.12.0
  */
 export class NodeTcpSyslogConnection implements SyslogConnection {
-  private connection?: Socket;
+  private connection?: Socket | tls.TLSSocket;
   private encoder = new TextEncoder();
 
   constructor(
     private hostname: string,
     private port: number,
     private timeout: number,
+    private secure: boolean,
+    private tlsOptions?: SyslogTlsOptions,
   ) {}
 
   connect(): Promise<void> {
     try {
       return new Promise<void>((resolve, reject) => {
-        const socket = new Socket();
+        const connectionOptions: tls.ConnectionOptions = {
+          port: this.port,
+          host: this.hostname,
+          timeout: this.timeout,
+          rejectUnauthorized: this.tlsOptions?.rejectUnauthorized ?? true,
+          ca: this.tlsOptions?.ca
+            ? (Array.isArray(this.tlsOptions.ca)
+              ? [...this.tlsOptions.ca]
+              : [this.tlsOptions.ca])
+            : undefined,
+        };
+
+        const socket: Socket | tls.TLSSocket = this.secure
+          ? tls.connect(connectionOptions)
+          : new Socket();
 
         const timeout = setTimeout(() => {
           socket.destroy();
@@ -532,7 +635,10 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
           reject(error);
         });
 
-        socket.connect(this.port, this.hostname);
+        // For non-TLS sockets, explicitly call connect
+        if (!this.secure) {
+          (socket as Socket).connect(this.port, this.hostname);
+        }
       });
     } catch (error) {
       throw new Error(`Failed to connect to syslog server: ${error}`);
@@ -671,6 +777,8 @@ export function getSyslogSink(
   const hostname = options.hostname ?? "localhost";
   const port = options.port ?? 514;
   const protocol = options.protocol ?? "udp";
+  const secure = options.secure ?? false;
+  const tlsOptions = options.tlsOptions;
   const facility = options.facility ?? "local0";
   const appName = options.appName ?? "logtape";
   const syslogHostname = options.syslogHostname ?? getSystemHostname();
@@ -693,12 +801,24 @@ export function getSyslogSink(
     if (typeof Deno !== "undefined") {
       // Deno runtime
       return protocol === "tcp"
-        ? new DenoTcpSyslogConnection(hostname, port, timeout)
+        ? new DenoTcpSyslogConnection(
+          hostname,
+          port,
+          timeout,
+          secure,
+          tlsOptions,
+        )
         : new DenoUdpSyslogConnection(hostname, port, timeout);
     } else {
       // Node.js runtime (and Bun, which uses Node.js APIs)
       return protocol === "tcp"
-        ? new NodeTcpSyslogConnection(hostname, port, timeout)
+        ? new NodeTcpSyslogConnection(
+          hostname,
+          port,
+          timeout,
+          secure,
+          tlsOptions,
+        )
         : new NodeUdpSyslogConnection(hostname, port, timeout);
     }
   })();
@@ -729,6 +849,12 @@ export function getSyslogSink(
     connection.close();
     isConnected = false;
   };
+
+  // Expose for testing purposes
+  Object.defineProperty(sink, "_internal_lastPromise", {
+    get: () => lastPromise,
+    enumerable: false,
+  });
 
   return sink;
 }

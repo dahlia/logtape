@@ -81,6 +81,36 @@ const jsrRef_adaptor_winston = await jsrRef({
   cachePath: ".jsr-cache-adaptor-winston.json",
 });
 
+const jsrRef_drizzle_orm = await jsrRef({
+  package: "@logtape/drizzle-orm",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-drizzle-orm.json",
+});
+
+const jsrRef_express = await jsrRef({
+  package: "@logtape/express",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-express.json",
+});
+
+const jsrRef_fastify = await jsrRef({
+  package: "@logtape/fastify",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-fastify.json",
+});
+
+const jsrRef_hono = await jsrRef({
+  package: "@logtape/hono",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-hono.json",
+});
+
+const jsrRef_koa = await jsrRef({
+  package: "@logtape/koa",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-koa.json",
+});
+
 let extraNav: { text: string; link: string }[] = [];
 if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   extraNav = [
@@ -145,6 +175,14 @@ const REFERENCES = {
       text: "@logtape/cloudwatch-logs",
       link: "https://jsr.io/@logtape/cloudwatch-logs/doc",
     },
+    {
+      text: "@logtape/drizzle-orm",
+      link: "https://jsr.io/@logtape/drizzle-orm/doc",
+    },
+    { text: "@logtape/express", link: "https://jsr.io/@logtape/express/doc" },
+    { text: "@logtape/fastify", link: "https://jsr.io/@logtape/fastify/doc" },
+    { text: "@logtape/hono", link: "https://jsr.io/@logtape/hono/doc" },
+    { text: "@logtape/koa", link: "https://jsr.io/@logtape/koa/doc" },
     { text: "@logtape/file", link: "https://jsr.io/@logtape/file/doc" },
     { text: "@logtape/otel", link: "https://jsr.io/@logtape/otel/doc" },
     { text: "@logtape/pretty", link: "https://jsr.io/@logtape/pretty/doc" },
@@ -213,6 +251,21 @@ export default defineConfig({
   },
   head: head,
   markdown: {
+    // Explicitly load these languages for twoslash types highlighting
+    languages: [
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "typescript",
+      "bash",
+      "sh",
+      "shell",
+      "json",
+      "ansi",
+      "text",
+      "txt",
+    ],
     codeTransformers: [
       transformerTwoslash({
         twoslashOptions: {
@@ -244,6 +297,11 @@ export default defineConfig({
       md.use(jsrRef_windows_eventlog);
       md.use(jsrRef_adaptor_pino);
       md.use(jsrRef_adaptor_winston);
+      md.use(jsrRef_drizzle_orm);
+      md.use(jsrRef_express);
+      md.use(jsrRef_fastify);
+      md.use(jsrRef_hono);
+      md.use(jsrRef_koa);
     },
   },
   sitemap: {

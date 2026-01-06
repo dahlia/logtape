@@ -35,9 +35,19 @@ The highlights of LogTape are:
  -  [*Dead simple sinks*](./manual/sinks.md): You can easily add your own sinks
     to LogTape.
 
+ -  [*Framework integrations*](./manual/integrations.md): First-class support
+    for popular web frameworks like [Express], [Fastify], [Hono], [Koa], and
+    ORMs like [Drizzle ORM] with automatic HTTP request logging and database
+    query logging.
+
 ![](./screenshots/web-console.png)
 ![](./screenshots/terminal.png)
 
 [Deno]: https://deno.com/
 [Node.js]: https://nodejs.org/
 [Bun]: https://bun.sh/
+[Express]: https://expressjs.com/
+[Fastify]: https://fastify.dev/
+[Hono]: https://hono.dev/
+[Koa]: https://koajs.com/
+[Drizzle ORM]: https://orm.drizzle.team/

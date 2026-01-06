@@ -491,6 +491,105 @@ export interface FingersCrossedOptions {
       triggerCategory: readonly string[],
       bufferedCategory: readonly string[],
     ) => boolean);
+
+  /**
+   * Enable context-based buffer isolation.
+   * When enabled, buffers are isolated based on specified context keys.
+   * This is useful for scenarios like HTTP request tracing where logs
+   * should be isolated per request.
+   *
+   * @example
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByContext: { keys: ['requestId'] }
+   * })
+   * ```
+   *
+   * @example Combined with category isolation
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByCategory: 'descendant',
+   *   isolateByContext: { keys: ['requestId', 'sessionId'] }
+   * })
+   * ```
+   *
+   * @example With TTL-based buffer cleanup
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByContext: {
+   *     keys: ['requestId'],
+   *     bufferTtlMs: 30000,        // 30 seconds
+   *     cleanupIntervalMs: 10000   // cleanup every 10 seconds
+   *   }
+   * })
+   * ```
+   *
+   * @default `undefined` (no context isolation)
+   * @since 1.2.0
+   */
+  readonly isolateByContext?: {
+    /**
+     * Context keys to use for isolation.
+     * Buffers will be separate for different combinations of these context values.
+     */
+    readonly keys: readonly string[];
+
+    /**
+     * Maximum number of context buffers to maintain simultaneously.
+     * When this limit is exceeded, the least recently used (LRU) buffers
+     * will be evicted to make room for new ones.
+     *
+     * This provides memory protection in high-concurrency scenarios where
+     * many different context values might be active simultaneously.
+     *
+     * When set to 0 or undefined, no limit is enforced.
+     *
+     * @default `undefined` (no limit)
+     * @since 1.2.0
+     */
+    readonly maxContexts?: number;
+
+    /**
+     * Time-to-live for context buffers in milliseconds.
+     * Buffers that haven't been accessed for this duration will be automatically
+     * cleaned up to prevent memory leaks in long-running applications.
+     *
+     * When set to 0 or undefined, buffers will never expire based on time.
+     *
+     * @default `undefined` (no TTL)
+     * @since 1.2.0
+     */
+    readonly bufferTtlMs?: number;
+
+    /**
+     * Interval in milliseconds for running cleanup operations.
+     * The cleanup process removes expired buffers based on {@link bufferTtlMs}.
+     *
+     * This option is ignored if {@link bufferTtlMs} is not set.
+     *
+     * @default `30000` (30 seconds)
+     * @since 1.2.0
+     */
+    readonly cleanupIntervalMs?: number;
+  };
+}
+
+/**
+ * Metadata for context-based buffer tracking.
+ * Used internally by {@link fingersCrossed} to manage buffer lifecycle with LRU support.
+ * @since 1.2.0
+ */
+interface BufferMetadata {
+  /**
+   * The actual log records buffer.
+   */
+  readonly buffer: LogRecord[];
+
+  /**
+   * Timestamp of the last access to this buffer (in milliseconds).
+   * Used for LRU-based eviction when {@link FingersCrossedOptions.isolateByContext.maxContexts} is set.
+   */
+  lastAccess: number;
 }
 
 /**
@@ -531,10 +630,18 @@ export interface FingersCrossedOptions {
 export function fingersCrossed(
   sink: Sink,
   options: FingersCrossedOptions = {},
-): Sink {
+): Sink | (Sink & Disposable) {
   const triggerLevel = options.triggerLevel ?? "error";
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
   const isolateByCategory = options.isolateByCategory;
+  const isolateByContext = options.isolateByContext;
+
+  // TTL and LRU configuration
+  const bufferTtlMs = isolateByContext?.bufferTtlMs;
+  const cleanupIntervalMs = isolateByContext?.cleanupIntervalMs ?? 30000;
+  const maxContexts = isolateByContext?.maxContexts;
+  const hasTtl = bufferTtlMs != null && bufferTtlMs > 0;
+  const hasLru = maxContexts != null && maxContexts > 0;
 
   // Validate trigger level early
   try {
@@ -604,8 +711,102 @@ export function fingersCrossed(
     return JSON.parse(key);
   }
 
+  // Helper function to extract context values from properties
+  function getContextKey(properties: Record<string, unknown>): string {
+    if (!isolateByContext || isolateByContext.keys.length === 0) {
+      return "";
+    }
+    const contextValues: Record<string, unknown> = {};
+    for (const key of isolateByContext.keys) {
+      if (key in properties) {
+        contextValues[key] = properties[key];
+      }
+    }
+    return JSON.stringify(contextValues);
+  }
+
+  // Helper function to generate buffer key
+  function getBufferKey(
+    category: readonly string[],
+    properties: Record<string, unknown>,
+  ): string {
+    const categoryKey = getCategoryKey(category);
+    if (!isolateByContext) {
+      return categoryKey;
+    }
+    const contextKey = getContextKey(properties);
+    return `${categoryKey}:${contextKey}`;
+  }
+
+  // Helper function to parse buffer key
+  function parseBufferKey(key: string): {
+    category: string[];
+    context: string;
+  } {
+    if (!isolateByContext) {
+      return { category: parseCategoryKey(key), context: "" };
+    }
+    // Find the separator between category and context
+    // The category part is JSON-encoded, so we need to find where it ends
+    // We look for "]:" which indicates end of category array and start of context
+    const separatorIndex = key.indexOf("]:");
+    if (separatorIndex === -1) {
+      // No context part, entire key is category
+      return { category: parseCategoryKey(key), context: "" };
+    }
+    const categoryPart = key.substring(0, separatorIndex + 1); // Include the ]
+    const contextPart = key.substring(separatorIndex + 2); // Skip ]:
+    return { category: parseCategoryKey(categoryPart), context: contextPart };
+  }
+
+  // TTL-based cleanup function
+  function cleanupExpiredBuffers(buffers: Map<string, BufferMetadata>): void {
+    if (!hasTtl) return;
+
+    const now = Date.now();
+    const expiredKeys: string[] = [];
+
+    for (const [key, metadata] of buffers) {
+      if (metadata.buffer.length === 0) continue;
+
+      // Use the timestamp of the last (most recent) record in the buffer
+      const lastRecordTimestamp =
+        metadata.buffer[metadata.buffer.length - 1].timestamp;
+      if (now - lastRecordTimestamp > bufferTtlMs!) {
+        expiredKeys.push(key);
+      }
+    }
+
+    // Remove expired buffers
+    for (const key of expiredKeys) {
+      buffers.delete(key);
+    }
+  }
+
+  // LRU-based eviction function
+  function evictLruBuffers(
+    buffers: Map<string, BufferMetadata>,
+    numToEvict?: number,
+  ): void {
+    if (!hasLru) return;
+
+    // Use provided numToEvict or calculate based on current size vs limit
+    const toEvict = numToEvict ?? Math.max(0, buffers.size - maxContexts!);
+    if (toEvict <= 0) return;
+
+    // Sort by lastAccess timestamp (oldest first)
+    const sortedEntries = Array.from(buffers.entries())
+      .sort(([, a], [, b]) => a.lastAccess - b.lastAccess);
+
+    // Remove the oldest buffers
+    for (let i = 0; i < toEvict; i++) {
+      const [key] = sortedEntries[i];
+      buffers.delete(key);
+    }
+  }
+
   // Buffer management
-  if (!isolateByCategory) {
+  if (!isolateByCategory && !isolateByContext) {
     // Single global buffer
     const buffer: LogRecord[] = [];
     let triggered = false;
@@ -640,15 +841,23 @@ export function fingersCrossed(
       }
     };
   } else {
-    // Category-isolated buffers
-    const buffers = new Map<string, LogRecord[]>();
+    // Category and/or context-isolated buffers
+    const buffers = new Map<string, BufferMetadata>();
     const triggered = new Set<string>();
 
-    return (record: LogRecord) => {
-      const categoryKey = getCategoryKey(record.category);
+    // Set up TTL cleanup timer if enabled
+    let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+    if (hasTtl) {
+      cleanupTimer = setInterval(() => {
+        cleanupExpiredBuffers(buffers);
+      }, cleanupIntervalMs);
+    }
 
-      // Check if this category is already triggered
-      if (triggered.has(categoryKey)) {
+    const fingersCrossedSink = (record: LogRecord) => {
+      const bufferKey = getBufferKey(record.category, record.properties);
+
+      // Check if this buffer is already triggered
+      if (triggered.has(bufferKey)) {
         sink(record);
         return;
       }
@@ -659,16 +868,42 @@ export function fingersCrossed(
         const keysToFlush = new Set<string>();
 
         for (const [bufferedKey] of buffers) {
-          if (bufferedKey === categoryKey) {
+          if (bufferedKey === bufferKey) {
             keysToFlush.add(bufferedKey);
-          } else if (shouldFlushBuffer) {
-            const bufferedCategory = parseCategoryKey(bufferedKey);
-            try {
-              if (shouldFlushBuffer(record.category, bufferedCategory)) {
-                keysToFlush.add(bufferedKey);
+          } else {
+            const { category: bufferedCategory, context: bufferedContext } =
+              parseBufferKey(bufferedKey);
+            const { context: triggerContext } = parseBufferKey(bufferKey);
+
+            // Check context match
+            let contextMatches = true;
+            if (isolateByContext) {
+              contextMatches = bufferedContext === triggerContext;
+            }
+
+            // Check category match
+            let categoryMatches = false;
+            if (!isolateByCategory) {
+              // No category isolation, so all categories match if context matches
+              categoryMatches = contextMatches;
+            } else if (shouldFlushBuffer) {
+              try {
+                categoryMatches = shouldFlushBuffer(
+                  record.category,
+                  bufferedCategory,
+                );
+              } catch {
+                // Ignore errors from custom matcher
               }
-            } catch {
-              // Ignore errors from custom matcher
+            } else {
+              // Same category only
+              categoryMatches = getCategoryKey(record.category) ===
+                getCategoryKey(bufferedCategory);
+            }
+
+            // Both must match for the buffer to be flushed
+            if (contextMatches && categoryMatches) {
+              keysToFlush.add(bufferedKey);
             }
           }
         }
@@ -676,9 +911,9 @@ export function fingersCrossed(
         // Flush matching buffers
         const allRecordsToFlush: LogRecord[] = [];
         for (const key of keysToFlush) {
-          const buffer = buffers.get(key);
-          if (buffer) {
-            allRecordsToFlush.push(...buffer);
+          const metadata = buffers.get(key);
+          if (metadata) {
+            allRecordsToFlush.push(...metadata.buffer);
             buffers.delete(key);
             triggered.add(key);
           }
@@ -692,24 +927,50 @@ export function fingersCrossed(
           sink(bufferedRecord);
         }
 
-        // Mark trigger category as triggered and send trigger record
-        triggered.add(categoryKey);
+        // Mark trigger buffer as triggered and send trigger record
+        triggered.add(bufferKey);
         sink(record);
       } else {
         // Buffer the record
-        let buffer = buffers.get(categoryKey);
-        if (!buffer) {
-          buffer = [];
-          buffers.set(categoryKey, buffer);
+        const now = Date.now();
+        let metadata = buffers.get(bufferKey);
+        if (!metadata) {
+          // Apply LRU eviction if adding new buffer would exceed capacity
+          if (hasLru && buffers.size >= maxContexts!) {
+            // Calculate how many buffers to evict to make room for the new one
+            const numToEvict = buffers.size - maxContexts! + 1;
+            evictLruBuffers(buffers, numToEvict);
+          }
+
+          metadata = {
+            buffer: [],
+            lastAccess: now,
+          };
+          buffers.set(bufferKey, metadata);
+        } else {
+          // Update last access time for LRU
+          metadata.lastAccess = now;
         }
 
-        buffer.push(record);
+        metadata.buffer.push(record);
 
-        // Enforce max buffer size per category
-        while (buffer.length > maxBufferSize) {
-          buffer.shift();
+        // Enforce max buffer size per buffer
+        while (metadata.buffer.length > maxBufferSize) {
+          metadata.buffer.shift();
         }
       }
     };
+
+    // Add disposal functionality to clean up timer
+    if (cleanupTimer !== null) {
+      (fingersCrossedSink as Sink & Disposable)[Symbol.dispose] = () => {
+        if (cleanupTimer !== null) {
+          clearInterval(cleanupTimer);
+          cleanupTimer = null;
+        }
+      };
+    }
+
+    return fingersCrossedSink;
   }
 }

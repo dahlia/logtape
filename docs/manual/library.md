@@ -159,3 +159,70 @@ In this configuration:
 
  -  Database-specific logs at `"debug"` level and above will go to the `file`,
     but `"debug"` level logs are filtered out.
+
+
+Wrapping internal library logs
+------------------------------
+
+*Category prefix is available since LogTape 1.3.0.*
+
+If your SDK uses internal libraries that also use LogTape, you can use
+`withCategoryPrefix()` to ensure all internal logs appear under your SDK's
+category.  This is especially useful when you want application developers to be
+able to configure logging for your SDK without needing to know about the
+internal libraries you use.
+
+~~~~ typescript twoslash
+// my-sdk/index.ts
+import { getLogger, withCategoryPrefix } from "@logtape/logtape";
+
+// Simulating an internal database library
+const internalDbLib = {
+  query(sql: string) {
+    getLogger(["internal-db-lib"]).debug("Executing query", { sql });
+    return { rows: [] };
+  }
+};
+
+export class MySDK {
+  private logger = getLogger(["my-sdk"]);
+
+  async query(sql: string) {
+    return withCategoryPrefix(["my-sdk"], () => {
+      this.logger.debug("Starting query", { sql });
+      // Logs from internal-db-lib will appear as ["my-sdk", "internal-db-lib"]
+      return internalDbLib.query(sql);
+    });
+  }
+}
+~~~~
+
+With this approach, application developers can configure logging for all of
+your SDK's internal logs using a single category configuration.
+
+> [!IMPORTANT]
+> In order to use `withCategoryPrefix()`, the application must configure
+> `~Config.contextLocalStorage` option.  Without this, the category prefix
+> will not be applied.  See the [Category prefix](./categories.md#category-prefix)
+> section for more details.
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    {
+      // This will capture all logs from my-sdk, including its internal deps
+      category: ["my-sdk"],
+      lowestLevel: "info",
+      sinks: ["console"],
+    },
+  ],
+  contextLocalStorage: new AsyncLocalStorage(),  // Required for withCategoryPrefix()
+});
+~~~~

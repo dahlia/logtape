@@ -7,19 +7,20 @@ import {
 import { diag, type DiagLogger, DiagLogLevel } from "@opentelemetry/api";
 import {
   type AnyValue,
+  type Logger as OTLogger,
   type LoggerProvider as LoggerProviderBase,
   type LogRecord as OTLogRecord,
+  NOOP_LOGGER,
   SeverityNumber,
 } from "@opentelemetry/api-logs";
-import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import type { OTLPExporterNodeConfigBase } from "@opentelemetry/otlp-exporter-base";
+import type { Resource } from "@opentelemetry/resources";
 import {
   defaultResource,
   resourceFromAttributes,
 } from "@opentelemetry/resources";
 import {
   LoggerProvider,
-  type LogRecordProcessor,
   SimpleLogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
@@ -60,15 +61,108 @@ function getEnvironmentVariable(name: string): string | undefined {
 }
 
 /**
+ * Checks if an OTLP endpoint is configured via environment variables or options.
+ * Checks the following environment variables:
+ * - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` (logs-specific endpoint)
+ * - `OTEL_EXPORTER_OTLP_ENDPOINT` (general OTLP endpoint)
+ *
+ * @param config Optional exporter configuration that may contain a URL.
+ * @returns `true` if an endpoint is configured, `false` otherwise.
+ */
+function hasOtlpEndpoint(config?: OTLPExporterNodeConfigBase): boolean {
+  // Check if URL is provided in config
+  if (config?.url) {
+    return true;
+  }
+
+  // Check environment variables
+  const logsEndpoint = getEnvironmentVariable(
+    "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+  );
+  if (logsEndpoint) {
+    return true;
+  }
+
+  const endpoint = getEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+  if (endpoint) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Detects the OTLP protocol from environment variables.
+ * Priority:
+ * 1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL`
+ * 2. `OTEL_EXPORTER_OTLP_PROTOCOL`
+ * 3. Default: `"http/json"` (for backward compatibility)
+ *
+ * @returns The detected OTLP protocol.
+ */
+function detectOtlpProtocol(): OtlpProtocol {
+  const logsProtocol = getEnvironmentVariable(
+    "OTEL_EXPORTER_OTLP_LOGS_PROTOCOL",
+  );
+  if (
+    logsProtocol === "grpc" ||
+    logsProtocol === "http/protobuf" ||
+    logsProtocol === "http/json"
+  ) {
+    return logsProtocol;
+  }
+
+  const protocol = getEnvironmentVariable("OTEL_EXPORTER_OTLP_PROTOCOL");
+  if (
+    protocol === "grpc" ||
+    protocol === "http/protobuf" ||
+    protocol === "http/json"
+  ) {
+    return protocol;
+  }
+
+  return "http/json";
+}
+
+/**
+ * Creates an OTLP log exporter based on the detected protocol.
+ * Uses dynamic imports to maintain browser compatibility when gRPC is not used.
+ * @param config Optional exporter configuration.
+ * @returns A promise that resolves to the appropriate OTLP log exporter.
+ */
+async function createOtlpExporter(
+  config?: OTLPExporterNodeConfigBase,
+  // deno-lint-ignore no-explicit-any
+): Promise<any> {
+  const protocol = detectOtlpProtocol();
+
+  switch (protocol) {
+    case "grpc": {
+      const { OTLPLogExporter } = await import(
+        "@opentelemetry/exporter-logs-otlp-grpc"
+      );
+      return new OTLPLogExporter(config);
+    }
+    case "http/protobuf": {
+      const { OTLPLogExporter } = await import(
+        "@opentelemetry/exporter-logs-otlp-proto"
+      );
+      return new OTLPLogExporter(config);
+    }
+    case "http/json":
+    default: {
+      const { OTLPLogExporter } = await import(
+        "@opentelemetry/exporter-logs-otlp-http"
+      );
+      return new OTLPLogExporter(config);
+    }
+  }
+}
+
+/**
  * The OpenTelemetry logger provider.
  */
 type ILoggerProvider = LoggerProviderBase & {
-  /**
-   * Adds a new {@link LogRecordProcessor} to this logger.
-   * @param processor the new LogRecordProcessor to be added.
-   */
-  addLogRecordProcessor(processor: LogRecordProcessor): void;
-
   /**
    * Flush all buffered data and shut down the LoggerProvider and all registered
    * LogRecordProcessor.
@@ -95,14 +189,15 @@ type Message = (string | null | undefined)[];
 export type BodyFormatter = (message: Message) => AnyValue;
 
 /**
- * Options for creating an OpenTelemetry sink.
+ * The OTLP protocol to use for exporting logs.
+ * @since 0.9.0
  */
-export interface OpenTelemetrySinkOptions {
-  /**
-   * The OpenTelemetry logger provider to use.
-   */
-  loggerProvider?: ILoggerProvider;
+export type OtlpProtocol = "grpc" | "http/protobuf" | "http/json";
 
+/**
+ * Base options shared by all OpenTelemetry sink configurations.
+ */
+interface OpenTelemetrySinkOptionsBase {
   /**
    * The way to render the message in the log record.  If `"string"`,
    * the message is rendered as a single string with the values are
@@ -128,85 +223,317 @@ export interface OpenTelemetrySinkOptions {
    * Turned off by default.
    */
   diagnostics?: boolean;
+}
+
+/**
+ * Options for creating an OpenTelemetry sink with a custom logger provider.
+ * When using this configuration, you are responsible for setting up the
+ * logger provider with appropriate exporters and processors.
+ *
+ * This is the recommended approach for production use as it gives you
+ * full control over the OpenTelemetry configuration.
+ * @since 0.9.0
+ */
+export interface OpenTelemetrySinkProviderOptions
+  extends OpenTelemetrySinkOptionsBase {
+  /**
+   * The OpenTelemetry logger provider to use.
+   */
+  loggerProvider: ILoggerProvider;
+}
+
+/**
+ * Options for creating an OpenTelemetry sink with automatic exporter creation.
+ * The protocol is determined by environment variables:
+ * - `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
+ * - `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
+ * - Default: `"http/json"`
+ *
+ * For production use, consider providing your own {@link ILoggerProvider}
+ * via {@link OpenTelemetrySinkProviderOptions} for more control.
+ * @since 0.9.0
+ */
+export interface OpenTelemetrySinkExporterOptions
+  extends OpenTelemetrySinkOptionsBase {
+  /**
+   * The OpenTelemetry logger provider to use.
+   * Must be undefined or omitted when using exporter options.
+   */
+  loggerProvider?: undefined;
 
   /**
    * The OpenTelemetry OTLP exporter configuration to use.
-   * Ignored if `loggerProvider` is provided.
    */
   otlpExporterConfig?: OTLPExporterNodeConfigBase;
 
   /**
    * The service name to use.  If not provided, the service name is
    * taken from the `OTEL_SERVICE_NAME` environment variable.
-   * Ignored if `loggerProvider` is provided.
    */
   serviceName?: string;
+
+  /**
+   * An additional resource to merge with the default resource.
+   * @since 1.3.0
+   */
+  additionalResource?: Resource;
+}
+
+/**
+ * Options for creating an OpenTelemetry sink.
+ *
+ * This is a union type that accepts either:
+ * - {@link OpenTelemetrySinkProviderOptions}: Provide your own `loggerProvider`
+ *   (recommended for production)
+ * - {@link OpenTelemetrySinkExporterOptions}: Let the sink create an exporter
+ *   automatically based on environment variables
+ *
+ * When no `loggerProvider` is provided, the protocol is determined by:
+ * 1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` environment variable
+ * 2. `OTEL_EXPORTER_OTLP_PROTOCOL` environment variable
+ * 3. Default: `"http/json"`
+ *
+ * @example Using a custom logger provider (recommended)
+ * ```typescript
+ * import { LoggerProvider, SimpleLogRecordProcessor } from "@opentelemetry/sdk-logs";
+ * import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-grpc";
+ *
+ * const provider = new LoggerProvider();
+ * provider.addLogRecordProcessor(new SimpleLogRecordProcessor(new OTLPLogExporter()));
+ *
+ * const sink = getOpenTelemetrySink({ loggerProvider: provider });
+ * ```
+ *
+ * @example Using automatic exporter creation
+ * ```typescript
+ * // Protocol determined by OTEL_EXPORTER_OTLP_PROTOCOL env var
+ * const sink = getOpenTelemetrySink({
+ *   serviceName: "my-service",
+ * });
+ * ```
+ */
+export type OpenTelemetrySinkOptions =
+  | OpenTelemetrySinkProviderOptions
+  | OpenTelemetrySinkExporterOptions;
+
+/**
+ * A no-op logger provider that returns NOOP_LOGGER for all requests.
+ * Used when no OTLP endpoint is configured to avoid repeated connection errors.
+ */
+const noopLoggerProvider: ILoggerProvider = {
+  getLogger: () => NOOP_LOGGER,
+};
+
+/**
+ * Initializes the logger provider asynchronously.
+ * This is used when the user doesn't provide a custom logger provider.
+ *
+ * If no OTLP endpoint is configured (via options or environment variables),
+ * returns a noop logger provider to avoid repeated connection errors.
+ *
+ * @param options The exporter options.
+ * @returns A promise that resolves to the initialized logger provider.
+ */
+async function initializeLoggerProvider(
+  options: OpenTelemetrySinkExporterOptions,
+): Promise<ILoggerProvider> {
+  // If no endpoint is configured, use noop logger provider to avoid
+  // repeated transport errors
+  if (!hasOtlpEndpoint(options.otlpExporterConfig)) {
+    return noopLoggerProvider;
+  }
+
+  const resource = defaultResource().merge(
+    resourceFromAttributes({
+      [ATTR_SERVICE_NAME]: options.serviceName ??
+        getEnvironmentVariable("OTEL_SERVICE_NAME"),
+    })
+      .merge(options.additionalResource ?? null),
+  );
+  const otlpExporter = await createOtlpExporter(options.otlpExporterConfig);
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [
+      // @ts-ignore: it works anyway...
+      new SimpleLogRecordProcessor(otlpExporter),
+    ],
+  });
+  return loggerProvider;
+}
+
+/**
+ * Emits a log record to the OpenTelemetry logger.
+ * @param logger The OpenTelemetry logger.
+ * @param record The LogTape log record.
+ * @param options The sink options.
+ */
+function emitLogRecord(
+  logger: OTLogger,
+  record: LogRecord,
+  options: OpenTelemetrySinkOptions,
+): void {
+  const objectRenderer = options.objectRenderer ?? "inspect";
+  const { category, level, message, timestamp, properties } = record;
+  const severityNumber = mapLevelToSeverityNumber(level);
+  const attributes = convertToAttributes(properties, objectRenderer);
+  attributes["category"] = [...category];
+  logger.emit(
+    {
+      severityNumber,
+      severityText: level,
+      body: typeof options.messageType === "function"
+        ? convertMessageToCustomBodyFormat(
+          message,
+          objectRenderer,
+          options.messageType,
+        )
+        : options.messageType === "array"
+        ? convertMessageToArray(message, objectRenderer)
+        : convertMessageToString(message, objectRenderer),
+      attributes,
+      timestamp: new Date(timestamp),
+    } satisfies OTLogRecord,
+  );
+}
+
+/**
+ * An OpenTelemetry sink with async disposal and initialization tracking.
+ * @since 1.3.1
+ */
+export interface OpenTelemetrySink extends Sink, AsyncDisposable {
+  /**
+   * A promise that resolves when the sink's lazy initialization completes.
+   * For sinks created with an explicit `loggerProvider`, this resolves
+   * immediately.  For sinks using automatic exporter creation, this resolves
+   * once the OpenTelemetry logger provider is fully initialized.
+   *
+   * This is useful for:
+   * - Ensuring all buffered log records have been sent before shutdown
+   * - Testing scenarios where you need to verify emitted records
+   * - Waiting for initialization before proceeding with critical operations
+   *
+   * @since 1.3.1
+   */
+  readonly ready: Promise<void>;
 }
 
 /**
  * Creates a sink that forwards log records to OpenTelemetry.
+ *
+ * When a custom `loggerProvider` is provided, it is used directly.
+ * Otherwise, the sink will lazily initialize a logger provider on the first
+ * log record, using the protocol determined by environment variables.
+ *
  * @param options Options for creating the sink.
  * @returns The sink.
  */
 export function getOpenTelemetrySink(
   options: OpenTelemetrySinkOptions = {},
-): Sink {
+): OpenTelemetrySink {
   if (options.diagnostics) {
     diag.setLogger(new DiagLoggerAdaptor(), DiagLogLevel.DEBUG);
   }
 
-  let loggerProvider: ILoggerProvider;
-  if (options.loggerProvider == null) {
-    const resource = defaultResource().merge(
-      resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: options.serviceName ??
-          getEnvironmentVariable("OTEL_SERVICE_NAME"),
-      }),
-    );
-    loggerProvider = new LoggerProvider({ resource });
-    const otlpExporter = new OTLPLogExporter(options.otlpExporterConfig);
-    loggerProvider.addLogRecordProcessor(
-      // @ts-ignore: it works anyway...
-      new SimpleLogRecordProcessor(otlpExporter),
-    );
-  } else {
-    loggerProvider = options.loggerProvider;
-  }
-  const objectRenderer = options.objectRenderer ?? "inspect";
-  const logger = loggerProvider.getLogger(metadata.name, metadata.version);
-  const sink = (record: LogRecord) => {
-    const { category, level, message, timestamp, properties } = record;
-    if (
-      category[0] === "logtape" && category[1] === "meta" &&
-      category[2] === "otel"
-    ) {
-      return;
-    }
-    const severityNumber = mapLevelToSeverityNumber(level);
-    const attributes = convertToAttributes(properties, objectRenderer);
-    attributes["category"] = [...category];
-    logger.emit(
+  // If loggerProvider is provided, use the synchronous path
+  if (options.loggerProvider != null) {
+    const loggerProvider = options.loggerProvider;
+    const logger = loggerProvider.getLogger(metadata.name, metadata.version);
+    const shutdown = loggerProvider.shutdown?.bind(loggerProvider);
+    const sink: OpenTelemetrySink = Object.assign(
+      (record: LogRecord) => {
+        const { category } = record;
+        if (
+          category[0] === "logtape" && category[1] === "meta" &&
+          category[2] === "otel"
+        ) {
+          return;
+        }
+        emitLogRecord(logger, record, options);
+      },
       {
-        severityNumber,
-        severityText: level,
-        body: typeof options.messageType === "function"
-          ? convertMessageToCustomBodyFormat(
-            message,
-            objectRenderer,
-            options.messageType,
-          )
-          : options.messageType === "array"
-          ? convertMessageToArray(message, objectRenderer)
-          : convertMessageToString(message, objectRenderer),
-        attributes,
-        timestamp: new Date(timestamp),
-      } satisfies OTLogRecord,
+        ready: Promise.resolve(),
+        async [Symbol.asyncDispose](): Promise<void> {
+          if (shutdown != null) await shutdown();
+        },
+      },
     );
-  };
-  if (loggerProvider.shutdown != null) {
-    const shutdown = loggerProvider.shutdown.bind(loggerProvider);
-    sink[Symbol.asyncDispose] = shutdown;
+    return sink;
   }
+
+  // Lazy initialization for automatic exporter creation
+  let loggerProvider: ILoggerProvider | null = null;
+  let logger: OTLogger | null = null;
+  let initPromise: Promise<void> | null = null;
+  let initError: Error | null = null;
+  // Buffer for log records that arrive during initialization
+  let pendingRecords: LogRecord[] = [];
+
+  const sink: OpenTelemetrySink = Object.assign(
+    (record: LogRecord) => {
+      const { category } = record;
+      if (
+        category[0] === "logtape" && category[1] === "meta" &&
+        category[2] === "otel"
+      ) {
+        return;
+      }
+
+      // If already initialized, emit the log
+      if (logger != null) {
+        emitLogRecord(logger, record, options);
+        return;
+      }
+
+      // If initialization failed, skip silently
+      if (initError != null) {
+        return;
+      }
+
+      // Buffer the record for later emission
+      pendingRecords.push(record);
+
+      // Start initialization if not already started
+      if (initPromise == null) {
+        initPromise = initializeLoggerProvider(options)
+          .then((provider) => {
+            loggerProvider = provider;
+            logger = provider.getLogger(metadata.name, metadata.version);
+            // Emit all buffered records
+            for (const pendingRecord of pendingRecords) {
+              emitLogRecord(logger, pendingRecord, options);
+            }
+            pendingRecords = [];
+          })
+          .catch((error) => {
+            initError = error;
+            pendingRecords = [];
+            // Log initialization error to console as a fallback
+            // deno-lint-ignore no-console
+            console.error("Failed to initialize OpenTelemetry logger:", error);
+          });
+      }
+    },
+    {
+      get ready(): Promise<void> {
+        return initPromise ?? Promise.resolve();
+      },
+      async [Symbol.asyncDispose](): Promise<void> {
+        // Wait for initialization to complete if in progress
+        if (initPromise != null) {
+          try {
+            await initPromise;
+          } catch {
+            // Initialization failed, nothing to shut down
+            return;
+          }
+        }
+        if (loggerProvider?.shutdown != null) {
+          await loggerProvider.shutdown();
+        }
+      },
+    },
+  );
+
   return sink;
 }
 

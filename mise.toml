@@ -1,0 +1,4 @@
+[tools]
+bun = "1"
+node = "24"
+deno = "2"

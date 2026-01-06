@@ -58,8 +58,9 @@ features:
 - icon: 🤝
   title: Plays well with others
   details: >-
-    Works with OpenTelemetry, Sentry, CloudWatch Logs, syslog, and friends.
-    Plus adapters for winston and pino if you're migrating.
+    First-class integrations with Express, Fastify, Hono, Koa, and Drizzle ORM.
+    Works with OpenTelemetry, Sentry, and CloudWatch Logs too.
+  link: /manual/integrations
 - icon: 📁
   title: Organize with nested categories
   details: >-

@@ -1,277 +1,624 @@
-Web framework integrations
-==========================
+Third-party integrations
+========================
 
-This guide shows how to integrate LogTape with popular web frameworks for
-request logging, error handling, and structured logging across different
+This guide shows how to integrate LogTape with popular web frameworks, ORMs,
+and other third-party libraries for unified logging across different
 JavaScript environments.
+
+
+Drizzle ORM
+-----------
+
+[Drizzle ORM] is a lightweight, TypeScript-first ORM that supports PostgreSQL,
+MySQL, and SQLite.  LogTape provides a Drizzle ORM adapter through the
+*@logtape/drizzle-orm* package, allowing you to use LogTape as Drizzle's
+logging backend for database query logging:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/drizzle-orm
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/drizzle-orm
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/drizzle-orm
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/drizzle-orm
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/drizzle-orm
+~~~~
+
+:::
+
+Here's an example of using LogTape with Drizzle ORM:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { getLogger } from "@logtape/drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["drizzle-orm"], sinks: ["console"], lowestLevel: "debug" }
+  ],
+});
+
+const client = postgres(process.env.DATABASE_URL!);
+const db = drizzle(client, {
+  logger: getLogger(),
+});
+
+// Now all database queries will be logged through LogTape
+~~~~
+
+#### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/drizzle-orm";
+// ---cut-before---
+const logger = getLogger({
+  category: ["myapp", "database"],
+});
+~~~~
+
+#### Custom log level
+
+By default, queries are logged at the `debug` level.  You can change this:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/drizzle-orm";
+// ---cut-before---
+const logger = getLogger({
+  level: "info",
+});
+~~~~
+
+#### Structured logging output
+
+The adapter logs queries with structured data that includes:
+
+- `formattedQuery`: The query with parameter placeholders (e.g., `$1`, `$2`)
+  replaced with actual values for easier reading
+- `query`: The original query string with placeholders
+- `params`: The original parameters array
+
+This allows you to:
+
+- Get human-readable output with text formatters
+- Get machine-parseable output with JSON Lines formatter
+- Use full query and params data with OpenTelemetry, Sentry, and other sinks
+
+[Drizzle ORM]: https://orm.drizzle.team/
 
 
 Express
 -------
 
-[Express] is the most popular Node.js web framework. Here's how to add
-comprehensive logging:
+[Express] is the most popular Node.js web framework.  LogTape provides
+an Express middleware adapter through the *@logtape/express* package,
+which provides HTTP request logging using LogTape as the backend,
+as an alternative to [Morgan]:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/express
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/express
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/express
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/express
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/express
+~~~~
+
+:::
+
+Here's an example of using LogTape with Express:
 
 ~~~~ typescript twoslash
-import {
-  configure,
-  getConsoleSink,
-  getLogger,
-  withContext,
-} from "@logtape/logtape";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { expressLogger } from "@logtape/express";
 import express from "express";
-import type { Request, Response, NextFunction } from "express";
-import { AsyncLocalStorage } from "node:async_hooks";
 
-// Configure LogTape for Express
 await configure({
-  sinks: {
-    console: getConsoleSink()
-  },
+  sinks: { console: getConsoleSink() },
   loggers: [
-    { category: ["express"], sinks: ["console"], lowestLevel: "info" },
-    { category: ["app"], sinks: ["console"], lowestLevel: "debug" }
+    { category: ["express"], sinks: ["console"], lowestLevel: "info" }
   ],
-  contextLocalStorage: new AsyncLocalStorage(),
 });
 
 const app = express();
-const logger = getLogger(["express"]);
+app.use(expressLogger());
 
-// Request logging middleware
-app.use((req, res, next) => {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-
-  // Add request context to all subsequent logs
-  withContext({
-    requestId,
-    method: req.method,
-    url: req.url,
-    userAgent: req.get("User-Agent"),
-    ipAddress: req.ip
-  }, () => {
-    logger.info("Request started", {
-      method: req.method,
-      url: req.url,
-      requestId
-    });
-
-    // Override res.end to log response
-    const originalEnd = res.end;
-    res.end = function(...args: any[]) {
-      const duration = Date.now() - startTime;
-      logger.info("Request completed", {
-        statusCode: res.statusCode,
-        duration,
-        requestId
-      });
-
-      // @ts-ignore
-      return originalEnd.apply(this, args);
-    };
-
-    next();
-  });
-});
-
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error("Request error", {
-    error: {
-      name: err.name,
-      message: err.message,
-      stack: err.stack
-    },
-    method: req.method,
-    url: req.url,
-    statusCode: res.statusCode || 500
-  });
-
-  res.status(500).json({ error: "Internal server error" });
-});
-
-// Application routes
 app.get("/", (req, res) => {
-  const appLogger = getLogger(["app"]);
-  appLogger.info("Home page accessed");
-  res.json({ message: "Hello World" });
+  res.json({ hello: "world" });
 });
 
-app.listen(3000, () => {
-  logger.info("Server started", { port: 3000 });
+app.listen(3000);
+~~~~
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  category: ["myapp", "http"],
 });
 ~~~~
 
+### Options
+
+The middleware accepts the following options:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  category: ["myapp", "http"],  // Custom category (default: ["express"])
+  level: "debug",                // Log level (default: "info")
+  format: "dev",                 // Predefined format (default: "combined")
+  skip: (req, res) => res.statusCode < 400,  // Skip successful requests
+  immediate: false,              // Log after response (default: false)
+});
+~~~~
+
+### Predefined formats
+
+The middleware supports Morgan-compatible predefined formats:
+
+- `"combined"`: Apache Combined Log Format with all properties (default)
+- `"common"`: Apache Common Log Format (without referrer/userAgent)
+- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+- `"short"`: Shorter format with remote address
+- `"tiny"`: Minimal output
+
+### Custom format function
+
+You can also provide a custom format function that returns either a string
+or an object with structured properties:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  format: (req, res, responseTime) => ({
+    method: req.method,
+    path: req.path,
+    status: res.statusCode,
+    duration: responseTime,
+  }),
+});
+~~~~
+
+### Structured logging output
+
+When using the `"combined"` format (default), the middleware logs structured
+data that includes:
+
+- `method`: HTTP request method
+- `url`: Request URL
+- `status`: HTTP response status code
+- `responseTime`: Response time in milliseconds
+- `contentLength`: Response content-length header value
+- `remoteAddr`: Remote client address
+- `userAgent`: User-Agent header value
+- `referrer`: Referrer header value
+- `httpVersion`: HTTP version (e.g., `"1.1"`)
+
 [Express]: https://expressjs.com/
+[Morgan]: https://github.com/expressjs/morgan
 
 
 Hono
 ----
 
 [Hono] is a modern web framework that works across multiple JavaScript runtimes.
-Here's how to integrate LogTape:
+LogTape provides a Hono adapter through the *@logtape/hono* package, allowing you
+to use LogTape as Hono's logging backend with HTTP request logging:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/hono
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/hono
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/hono
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/hono
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/hono
+~~~~
+
+:::
+
+Here's an example of using LogTape with Hono:
 
 ~~~~ typescript twoslash
-import {
-  configure,
-  getConsoleSink,
-  getLogger,
-  withContext,
-} from "@logtape/logtape";
 import { Hono } from "hono";
-import { AsyncLocalStorage } from "node:async_hooks";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { honoLogger } from "@logtape/hono";
 
 await configure({
   sinks: { console: getConsoleSink() },
   loggers: [
     { category: ["hono"], sinks: ["console"], lowestLevel: "info" }
   ],
-  contextLocalStorage: new AsyncLocalStorage(),
 });
 
 const app = new Hono();
-const logger = getLogger(["hono"]);
+app.use(honoLogger());
 
-// Request logging middleware
-app.use("*", async (c, next) => {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-
-  await withContext({
-    requestId,
-    method: c.req.method,
-    url: c.req.url,
-    userAgent: c.req.header("User-Agent"),
-    ipAddress: c.req.header("CF-Connecting-IP") || c.req.header("X-Forwarded-For")
-  }, async () => {
-    logger.info("Request started", {
-      method: c.req.method,
-      url: c.req.url,
-      requestId
-    });
-
-    await next();
-
-    const duration = Date.now() - startTime;
-    logger.info("Request completed", {
-      status: c.res.status,
-      duration,
-      requestId
-    });
-  });
-});
-
-// Error handling middleware
-app.onError((err, c) => {
-  logger.error("Request error", {
-    error: {
-      name: err.name,
-      message: err.message,
-      stack: err.stack
-    },
-    method: c.req.method,
-    url: c.req.url
-  });
-
-  return c.json({ error: "Internal server error" }, 500);
-});
-
-// Routes
-app.get("/", (c) => {
-  return c.json({ message: "Hello from Hono!" });
-});
+app.get("/", (c) => c.json({ hello: "world" }));
 
 // Works in Deno, Node.js, Bun, Cloudflare Workers, etc.
 export default app;
 ~~~~
 
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  category: ["myapp", "http"],
+});
+~~~~
+
+### Options
+
+The middleware accepts the following options:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  category: ["myapp", "http"],  // Custom category (default: ["hono"])
+  level: "debug",                // Log level (default: "info")
+  format: "dev",                 // Predefined format (default: "combined")
+  skip: (c) => c.req.path === "/health",  // Skip health check endpoint
+  logRequest: false,             // Log after response (default: false)
+});
+~~~~
+
+### Predefined formats
+
+The middleware supports Morgan-compatible predefined formats:
+
+- `"combined"`: Apache Combined Log Format with all properties (default)
+- `"common"`: Apache Common Log Format (without referrer/userAgent)
+- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+- `"short"`: Shorter format with URL
+- `"tiny"`: Minimal output
+
+### Custom format function
+
+You can also provide a custom format function that returns either a string
+or an object with structured properties:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  format: (c, responseTime) => ({
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    duration: responseTime,
+  }),
+});
+~~~~
+
+### Structured logging output
+
+When using the `"combined"` format (default), the middleware logs structured
+data that includes:
+
+- `method`: HTTP request method
+- `url`: Request URL
+- `path`: Request path
+- `status`: HTTP response status code
+- `responseTime`: Response time in milliseconds
+- `contentLength`: Response content-length header value
+- `userAgent`: User-Agent header value
+- `referrer`: Referrer header value
+
 [Hono]: https://hono.dev/
+
+
+Fastify
+-------
+
+[Fastify] is a fast and low-overhead web framework for Node.js.
+LogTape provides a [Pino]-compatible logger adapter through the
+*@logtape/fastify* package, allowing you to use LogTape as Fastify's
+logging backend with seamless integration:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/fastify
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/fastify
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/fastify
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/fastify
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/fastify
+~~~~
+
+:::
+
+Here's an example of using LogTape with Fastify:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+import Fastify from "fastify";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["fastify"], sinks: ["console"], lowestLevel: "info" }
+  ],
+});
+
+const fastify = Fastify({
+  loggerInstance: getLogTapeFastifyLogger(),
+});
+
+fastify.get("/", async (request, reply) => {
+  // Uses LogTape under the hood with request context
+  request.log.info("Handling request");
+  return { hello: "world" };
+});
+
+await fastify.listen({ port: 3000 });
+~~~~
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+// ---cut-before---
+const logger = getLogTapeFastifyLogger({
+  category: ["myapp", "http"],
+});
+~~~~
+
+### Child loggers
+
+Fastify automatically creates child loggers with request-scoped bindings
+(like `reqId`). These bindings are passed to LogTape's structured logging:
+
+~~~~ typescript twoslash
+import Fastify from "fastify";
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+// ---cut-before---
+const fastify = Fastify({
+  loggerInstance: getLogTapeFastifyLogger(),
+});
+
+fastify.get("/users/:id", async (request, reply) => {
+  // Child logger automatically includes reqId and any additional bindings
+  request.log.info({ userId: request.params }, "Fetching user");
+  return { user: "data" };
+});
+~~~~
+
+### Pino method signatures
+
+The adapter supports all Pino-style logging signatures:
+
+~~~~ typescript twoslash
+import { getLogTapeFastifyLogger } from "@logtape/fastify";
+const logger = getLogTapeFastifyLogger();
+// ---cut-before---
+// Simple message
+logger.info("Hello world");
+
+// Printf-style interpolation
+logger.info("User %s logged in %d times", "alice", 3);
+
+// Object with message
+logger.info({ userId: 123, action: "login" }, "User logged in");
+
+// Object with msg property
+logger.info({ msg: "User logged in", userId: 123 });
+
+// Object only
+logger.info({ data: { key: "value" } });
+~~~~
+
+[Fastify]: https://fastify.dev/
+[Pino]: https://getpino.io/
 
 
 Koa
 ---
 
-[Koa] uses async/await throughout and works well with LogTape's context system:
+[Koa] is a modern, lightweight web framework for Node.js that uses async/await
+throughout.  LogTape provides a Koa middleware adapter through the
+*@logtape/koa* package, which provides HTTP request logging using LogTape as
+the backend, as an alternative to [koa-logger]:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/koa
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/koa
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/koa
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/koa
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/koa
+~~~~
+
+:::
+
+Here's an example of using LogTape with Koa:
 
 ~~~~ typescript twoslash
-import {
-  configure,
-  getConsoleSink,
-  getLogger,
-  withContext,
-} from "@logtape/logtape";
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { koaLogger } from "@logtape/koa";
 import Koa from "koa";
-import { AsyncLocalStorage } from "node:async_hooks";
 
 await configure({
   sinks: { console: getConsoleSink() },
   loggers: [
     { category: ["koa"], sinks: ["console"], lowestLevel: "info" }
   ],
-  contextLocalStorage: new AsyncLocalStorage(),
 });
 
 const app = new Koa();
-const logger = getLogger(["koa"]);
+app.use(koaLogger());
 
-// Request logging middleware
-app.use(async (ctx, next) => {
-  const requestId = crypto.randomUUID();
-  const startTime = Date.now();
-
-  await withContext({
-    requestId,
-    method: ctx.method,
-    url: ctx.url,
-    userAgent: ctx.get("User-Agent"),
-    ipAddress: ctx.ip
-  }, async () => {
-    logger.info("Request started", {
-      method: ctx.method,
-      url: ctx.url,
-      requestId
-    });
-
-    try {
-      await next();
-
-      const duration = Date.now() - startTime;
-      logger.info("Request completed", {
-        status: ctx.status,
-        duration,
-        requestId
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      logger.error("Request error", {
-        error: {
-          name: error instanceof Error ? error.name : "Unknown",
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
-        },
-        status: ctx.status,
-        duration,
-        requestId
-      });
-
-      throw error; // Re-throw for Koa's error handling
-    }
-  });
+app.use((ctx) => {
+  ctx.body = { hello: "world" };
 });
 
-// Routes
-app.use(async (ctx) => {
-  ctx.body = { message: "Hello from Koa!" };
-});
+app.listen(3000);
+~~~~
 
-app.listen(3000, () => {
-  logger.info("Koa server started", { port: 3000 });
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  category: ["myapp", "http"],
 });
 ~~~~
 
+### Options
+
+The middleware accepts the following options:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  category: ["myapp", "http"],  // Custom category (default: ["koa"])
+  level: "debug",                // Log level (default: "info")
+  format: "dev",                 // Predefined format (default: "combined")
+  skip: (ctx) => ctx.path === "/health",  // Skip health check endpoint
+  logRequest: false,             // Log after response (default: false)
+});
+~~~~
+
+### Predefined formats
+
+The middleware supports Morgan-compatible predefined formats:
+
+- `"combined"`: Apache Combined Log Format with all properties (default)
+- `"common"`: Apache Common Log Format (without referrer/userAgent)
+- `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+- `"short"`: Shorter format with remote address
+- `"tiny"`: Minimal output
+
+### Custom format function
+
+You can also provide a custom format function that returns either a string
+or an object with structured properties:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  format: (ctx, responseTime) => ({
+    method: ctx.method,
+    path: ctx.path,
+    status: ctx.status,
+    duration: responseTime,
+  }),
+});
+~~~~
+
+### Structured logging output
+
+When using the `"combined"` format (default), the middleware logs structured
+data that includes:
+
+- `method`: HTTP request method
+- `url`: Request URL
+- `path`: Request path
+- `status`: HTTP response status code
+- `responseTime`: Response time in milliseconds
+- `contentLength`: Response content-length
+- `remoteAddr`: Remote client address
+- `userAgent`: User-Agent header value
+- `referrer`: Referrer header value
+
+::: tip Proxy configuration
+
+When your Koa application runs behind a reverse proxy, you need to set
+`app.proxy = true` in your Koa configuration for `remoteAddr` to correctly
+reflect the client's IP address from the `X-Forwarded-For` header.
+See [Koa's proxy documentation][koa-proxy] for details.
+
+:::
+
 [Koa]: https://koajs.com/
+[koa-logger]: https://github.com/koajs/logger
+[koa-proxy]: https://koajs.com/#settings
 
 
 SvelteKit
@@ -382,7 +729,7 @@ async function getUsers(): Promise<any[]> {
 
 
 Third-party log integration
-----------------------------
+---------------------------
 
 *This API is available since LogTape 1.1.0.*
 
@@ -425,8 +772,8 @@ logger.emit({
 ~~~~
 
 
-Best practices for web frameworks
----------------------------------
+Best practices
+--------------
 
  1. *Request ID correlation*: Always generate and use request IDs to correlate
     logs across your application:

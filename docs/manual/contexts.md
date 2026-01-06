@@ -58,7 +58,7 @@ across multiple log messages made by different loggers in different modules.
 > JavaScript runtime doesn't support context-local states, LogTape will silently
 > ignore implicit contexts and log messages will not have implicit contexts.
 >
-> As of October 2024, Node.js, Deno, and Bun support implicit contexts.
+> As of November 2025, Node.js, Deno, and Bun support implicit contexts.
 > Web browsers don't support implicit contexts yet.
 >
 > See also [TC39 Async Context proposal] for web browsers.

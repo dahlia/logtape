@@ -1,4 +1,8 @@
-import type { ContextLocalStorage } from "./context.ts";
+import {
+  type ContextLocalStorage,
+  getCategoryPrefix,
+  getImplicitContext,
+} from "./context.ts";
 import type { Filter } from "./filter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -924,9 +928,25 @@ export class LoggerImpl implements Logger {
     record: Omit<LogRecord, "category"> | LogRecord,
     bypassSinks?: Set<Sink>,
   ): void {
-    const fullRecord: LogRecord = "category" in record
-      ? record as LogRecord
-      : { ...record, category: this.category };
+    const categoryPrefix = getCategoryPrefix();
+    const baseCategory = "category" in record
+      ? (record as LogRecord).category
+      : this.category;
+    const fullCategory = categoryPrefix.length > 0
+      ? [...categoryPrefix, ...baseCategory]
+      : baseCategory;
+
+    // Create the full record by copying property descriptors from the original
+    // record, which preserves getters without invoking them (unlike spread).
+    const descriptors = Object.getOwnPropertyDescriptors(record) as
+      & PropertyDescriptorMap
+      & { category?: PropertyDescriptor };
+    descriptors.category = {
+      value: fullCategory,
+      enumerable: true,
+      configurable: true,
+    };
+    const fullRecord = Object.defineProperties({}, descriptors) as LogRecord;
 
     if (
       this.lowestLevel === null ||
@@ -958,8 +978,7 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
-    const implicitContext =
-      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
+    const implicitContext = getImplicitContext();
     let cachedProps: Record<string, unknown> | undefined = undefined;
     const record: LogRecord = typeof properties === "function"
       ? {
@@ -999,8 +1018,7 @@ export class LoggerImpl implements Logger {
     callback: LogCallback,
     properties: Record<string, unknown> = {},
   ): void {
-    const implicitContext =
-      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
+    const implicitContext = getImplicitContext();
     let rawMessage: TemplateStringsArray | undefined = undefined;
     let msg: unknown[] | undefined = undefined;
     function realizeMessage(): [unknown[], TemplateStringsArray] {
@@ -1033,8 +1051,7 @@ export class LoggerImpl implements Logger {
     values: unknown[],
     properties: Record<string, unknown> = {},
   ): void {
-    const implicitContext =
-      LoggerImpl.getLogger().contextLocalStorage?.getStore() ?? {};
+    const implicitContext = getImplicitContext();
     this.emit({
       category: this.category,
       level,
@@ -1382,10 +1399,308 @@ export class LoggerCtx implements Logger {
 const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
 
 /**
+ * Check if a property access key contains nested access patterns.
+ * @param key The property key to check.
+ * @returns True if the key contains nested access patterns.
+ */
+function isNestedAccess(key: string): boolean {
+  return key.includes(".") || key.includes("[") || key.includes("?.");
+}
+
+/**
+ * Safely access an own property from an object, blocking prototype pollution.
+ *
+ * @param obj The object to access the property from.
+ * @param key The property key to access.
+ * @returns The property value or undefined if not accessible.
+ */
+function getOwnProperty(obj: unknown, key: string): unknown {
+  // Block dangerous prototype keys
+  if (key === "__proto__" || key === "prototype" || key === "constructor") {
+    return undefined;
+  }
+
+  if ((typeof obj === "object" || typeof obj === "function") && obj !== null) {
+    return Object.prototype.hasOwnProperty.call(obj, key)
+      ? (obj as Record<string, unknown>)[key]
+      : undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * Result of parsing a single segment from a property path.
+ */
+interface ParseSegmentResult {
+  segment: string | number;
+  nextIndex: number;
+}
+
+/**
+ * Parse the next segment from a property path string.
+ *
+ * @param path The full property path string.
+ * @param fromIndex The index to start parsing from.
+ * @returns The parsed segment and next index, or null if parsing fails.
+ */
+function parseNextSegment(
+  path: string,
+  fromIndex: number,
+): ParseSegmentResult | null {
+  const len = path.length;
+  let i = fromIndex;
+
+  if (i >= len) return null;
+
+  let segment: string | number;
+
+  if (path[i] === "[") {
+    // Bracket notation: [0] or ["prop"]
+    i++;
+    if (i >= len) return null;
+
+    if (path[i] === '"' || path[i] === "'") {
+      // Quoted property name: ["prop-name"]
+      const quote = path[i];
+      i++;
+      // Build segment with proper escape handling
+      let segmentStr = "";
+      while (i < len && path[i] !== quote) {
+        if (path[i] === "\\") {
+          i++; // Skip backslash
+          if (i < len) {
+            // Handle escape sequences according to JavaScript spec
+            const escapeChar = path[i];
+            switch (escapeChar) {
+              case "n":
+                segmentStr += "\n";
+                break;
+              case "t":
+                segmentStr += "\t";
+                break;
+              case "r":
+                segmentStr += "\r";
+                break;
+              case "b":
+                segmentStr += "\b";
+                break;
+              case "f":
+                segmentStr += "\f";
+                break;
+              case "v":
+                segmentStr += "\v";
+                break;
+              case "0":
+                segmentStr += "\0";
+                break;
+              case "\\":
+                segmentStr += "\\";
+                break;
+              case '"':
+                segmentStr += '"';
+                break;
+              case "'":
+                segmentStr += "'";
+                break;
+              case "u":
+                // Unicode escape: \uXXXX
+                if (i + 4 < len) {
+                  const hex = path.slice(i + 1, i + 5);
+                  const codePoint = Number.parseInt(hex, 16);
+                  if (!Number.isNaN(codePoint)) {
+                    segmentStr += String.fromCharCode(codePoint);
+                    i += 4; // Skip the 4 hex digits
+                  } else {
+                    // Invalid unicode escape, keep as-is
+                    segmentStr += escapeChar;
+                  }
+                } else {
+                  // Not enough characters for unicode escape
+                  segmentStr += escapeChar;
+                }
+                break;
+              default:
+                // For any other character after \, just add it as-is
+                segmentStr += escapeChar;
+            }
+            i++;
+          }
+        } else {
+          segmentStr += path[i];
+          i++;
+        }
+      }
+      if (i >= len) return null;
+      segment = segmentStr;
+      i++; // Skip closing quote
+    } else {
+      // Array index: [0]
+      const startIndex = i;
+      while (
+        i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"'
+      ) {
+        i++;
+      }
+      if (i >= len) return null;
+      const indexStr = path.slice(startIndex, i);
+      // Empty bracket is invalid
+      if (indexStr.length === 0) return null;
+      const indexNum = Number(indexStr);
+      segment = Number.isNaN(indexNum) ? indexStr : indexNum;
+    }
+
+    // Skip closing bracket
+    while (i < len && path[i] !== "]") i++;
+    if (i < len) i++;
+  } else {
+    // Dot notation: prop
+    const startIndex = i;
+    while (
+      i < len && path[i] !== "." && path[i] !== "[" && path[i] !== "?" &&
+      path[i] !== "]"
+    ) {
+      i++;
+    }
+    segment = path.slice(startIndex, i);
+    // Empty segment is invalid (e.g., leading dot, double dot, trailing dot)
+    if (segment.length === 0) return null;
+  }
+
+  // Skip dot separator
+  if (i < len && path[i] === ".") i++;
+
+  return { segment, nextIndex: i };
+}
+
+/**
+ * Access a property or index on an object or array.
+ *
+ * @param obj The object or array to access.
+ * @param segment The property key or array index.
+ * @returns The accessed value or undefined if not accessible.
+ */
+function accessProperty(obj: unknown, segment: string | number): unknown {
+  if (typeof segment === "string") {
+    return getOwnProperty(obj, segment);
+  }
+
+  // Numeric index for arrays
+  if (Array.isArray(obj) && segment >= 0 && segment < obj.length) {
+    return obj[segment];
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolve a nested property path from an object.
+ *
+ * There are two types of property access patterns:
+ * 1. Array/index access: [0] or ["prop"]
+ * 2. Property access: prop or prop?.next
+ *
+ * @param obj The object to traverse.
+ * @param path The property path (e.g., "user.name", "users[0].email", "user['full-name']").
+ * @returns The resolved value or undefined if path doesn't exist.
+ */
+function resolvePropertyPath(obj: unknown, path: string): unknown {
+  if (obj == null) return undefined;
+
+  // Check for invalid paths
+  if (path.length === 0 || path.endsWith(".")) return undefined;
+
+  let current: unknown = obj;
+  let i = 0;
+  const len = path.length;
+
+  while (i < len) {
+    // Handle optional chaining
+    const isOptional = path.slice(i, i + 2) === "?.";
+    if (isOptional) {
+      i += 2;
+      if (current == null) return undefined;
+    } else if (current == null) {
+      return undefined;
+    }
+
+    // Parse the next segment
+    const result = parseNextSegment(path, i);
+    if (result === null) return undefined;
+
+    const { segment, nextIndex } = result;
+    i = nextIndex;
+
+    // Access the property/index
+    current = accessProperty(current, segment);
+    if (current === undefined) {
+      return undefined;
+    }
+  }
+
+  return current;
+}
+
+/**
  * Parse a message template into a message template array and a values array.
- * @param template The message template.
+ *
+ * Placeholders to be replaced with `values` are indicated by keys in curly braces
+ * (e.g., `{value}`). The system supports both simple property access and nested
+ * property access patterns:
+ *
+ * **Simple property access:**
+ * ```ts
+ * parseMessageTemplate("Hello, {user}!", { user: "foo" })
+ * // Returns: ["Hello, ", "foo", "!"]
+ * ```
+ *
+ * **Nested property access (dot notation):**
+ * ```ts
+ * parseMessageTemplate("Hello, {user.name}!", {
+ *   user: { name: "foo", email: "foo@example.com" }
+ * })
+ * // Returns: ["Hello, ", "foo", "!"]
+ * ```
+ *
+ * **Array indexing:**
+ * ```ts
+ * parseMessageTemplate("First: {users[0]}", {
+ *   users: ["foo", "bar", "baz"]
+ * })
+ * // Returns: ["First: ", "foo", ""]
+ * ```
+ *
+ * **Bracket notation for special property names:**
+ * ```ts
+ * parseMessageTemplate("Name: {user[\"full-name\"]}", {
+ *   user: { "full-name": "foo bar" }
+ * })
+ * // Returns: ["Name: ", "foo bar", ""]
+ * ```
+ *
+ * **Optional chaining for safe navigation:**
+ * ```ts
+ * parseMessageTemplate("Email: {user?.profile?.email}", {
+ *   user: { name: "foo" }
+ * })
+ * // Returns: ["Email: ", undefined, ""]
+ * ```
+ *
+ * **Wildcard patterns:**
+ * - `{*}` - Replaced with the entire properties object
+ * - `{ key-with-whitespace }` - Whitespace is trimmed when looking up keys
+ *
+ * **Escaping:**
+ * - `{{` and `}}` are escaped literal braces
+ *
+ * **Error handling:**
+ * - Non-existent paths return `undefined`
+ * - Malformed expressions resolve to `undefined` without throwing errors
+ * - Out of bounds array access returns `undefined`
+ *
+ * @param template The message template string containing placeholders.
  * @param properties The values to replace placeholders with.
- * @returns The message template array and the values array.
+ * @returns The message template array with values interleaved between text segments.
  */
 export function parseMessageTemplate(
   template: string,
@@ -1446,6 +1761,11 @@ export function parseMessageTemplate(
         } else {
           // Key has no leading/trailing whitespace
           prop = properties[key];
+        }
+
+        // If property not found directly and this looks like nested access, try nested resolution
+        if (prop === undefined && isNestedAccess(trimmedKey)) {
+          prop = resolvePropertyPath(properties, trimmedKey);
         }
       }
 

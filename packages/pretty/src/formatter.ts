@@ -566,6 +566,24 @@ export interface PrettyFormatterOptions
      * @default `true` (compact formatting)
      */
     readonly compact?: boolean;
+
+    /**
+     * Whether to invoke getter functions during inspection.
+     * (Node.js, Deno, and Bun only; browsers fall back to default behavior.)
+     *
+     * @default Inherited from runtime defaults
+     * @since 1.2.0
+     */
+    readonly getters?: boolean;
+
+    /**
+     * Whether to show Proxy objects with their target and handler.
+     * (Node.js, Deno, and Bun only; browsers fall back to default behavior.)
+     *
+     * @default Inherited from runtime defaults
+     * @since 1.2.0
+     */
+    readonly showProxy?: boolean;
   };
 
   /**

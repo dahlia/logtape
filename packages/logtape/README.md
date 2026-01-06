@@ -5,6 +5,7 @@ LogTape
 
 [![JSR][JSR badge]][JSR]
 [![npm][npm badge]][npm]
+[![Bundlephobia][Bundlephobia badge]][Bundlephobia]
 [![GitHub Actions][GitHub Actions badge]][GitHub Actions]
 [![Codecov][Codecov badge]][Codecov]
 
@@ -39,6 +40,10 @@ The highlights of LogTape are:
 
  -  *[Dead simple sinks]*: You can easily add your own sinks to LogTape.
 
+ -  *[Framework integrations]*: First-class support for popular frameworks
+    like [Express], [Fastify], [Hono], [Koa], and [Drizzle ORM] with automatic
+    HTTP request logging and database query logging.
+
 ![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/web-console.png)
 ![](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
 
@@ -46,6 +51,8 @@ The highlights of LogTape are:
 [JSR badge]: https://jsr.io/badges/@logtape/logtape
 [npm]: https://www.npmjs.com/package/@logtape/logtape
 [npm badge]: https://img.shields.io/npm/v/@logtape/logtape?logo=npm
+[Bundlephobia]: https://bundlephobia.com/package/@logtape/logtape
+[Bundlephobia badge]: https://badgen.net/bundlephobia/dependency-count/@logtape/logtape
 [GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
 [Codecov]: https://codecov.io/gh/dahlia/logtape
@@ -57,6 +64,7 @@ The highlights of LogTape are:
 [Template literals]: https://logtape.org/manual/start#how-to-log
 [Built-in data redaction]: https://logtape.org/manual/redaction
 [Dead simple sinks]: https://logtape.org/manual/sinks
+[Framework integrations]: https://logtape.org/manual/integrations
 
 
 Installation
@@ -90,6 +98,11 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
 | [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
 | [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
+| [*@logtape/drizzle-orm*](/packages/drizzle-orm/)           | [JSR][jsr:@logtape/drizzle-orm]      | [npm][npm:@logtape/drizzle-orm]      | [Drizzle ORM] integration  |
+| [*@logtape/express*](/packages/express/)                   | [JSR][jsr:@logtape/express]          | [npm][npm:@logtape/express]          | [Express] integration      |
+| [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration      |
+| [*@logtape/hono*](/packages/hono/)                         | [JSR][jsr:@logtape/hono]             | [npm][npm:@logtape/hono]             | [Hono] integration         |
+| [*@logtape/koa*](/packages/koa/)                           | [JSR][jsr:@logtape/koa]              | [npm][npm:@logtape/koa]              | [Koa] integration          |
 | [*@logtape/file*](/packages/file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
 | [*@logtape/otel*](/packages/otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
 | [*@logtape/pretty*](/packages/pretty/)                     | [JSR][jsr:@logtape/pretty]           | [npm][npm:@logtape/pretty]           | Beautiful text formatter   |
@@ -99,6 +112,11 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink     |
 
 [AWS CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/
+[Drizzle ORM]: https://orm.drizzle.team/
+[Express]: https://expressjs.com/
+[Fastify]: https://fastify.dev/
+[Hono]: https://hono.dev/
+[Koa]: https://koajs.com/
 [OpenTelemetry]: https://opentelemetry.io/
 [Pino]: https://github.com/pinojs/pino
 [Sentry]: https://sentry.io/
@@ -111,6 +129,16 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/adaptor-winston]: https://www.npmjs.com/package/@logtape/adaptor-winston
 [jsr:@logtape/cloudwatch-logs]: https://jsr.io/@logtape/cloudwatch-logs
 [npm:@logtape/cloudwatch-logs]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
+[jsr:@logtape/drizzle-orm]: https://jsr.io/@logtape/drizzle-orm
+[npm:@logtape/drizzle-orm]: https://www.npmjs.com/package/@logtape/drizzle-orm
+[jsr:@logtape/express]: https://jsr.io/@logtape/express
+[npm:@logtape/express]: https://www.npmjs.com/package/@logtape/express
+[jsr:@logtape/fastify]: https://jsr.io/@logtape/fastify
+[npm:@logtape/fastify]: https://www.npmjs.com/package/@logtape/fastify
+[jsr:@logtape/hono]: https://jsr.io/@logtape/hono
+[npm:@logtape/hono]: https://www.npmjs.com/package/@logtape/hono
+[jsr:@logtape/koa]: https://jsr.io/@logtape/koa
+[npm:@logtape/koa]: https://www.npmjs.com/package/@logtape/koa
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
 [npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
 [jsr:@logtape/otel]: https://jsr.io/@logtape/otel

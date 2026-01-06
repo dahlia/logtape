@@ -1,0 +1,34 @@
+{
+  "name": "@logtape/drizzle-orm",
+  "version": "1.3.6",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "exclude": [
+    "coverage/",
+    "npm/",
+    "dist/"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-env --allow-sys --allow-net",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}

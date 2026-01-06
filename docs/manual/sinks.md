@@ -657,10 +657,87 @@ await configure({
 });
 ~~~~
 
+### Context isolation
+
+*This API is available since LogTape 1.2.0.*
+
+When using implicit contexts (see [*Implicit contexts*](./contexts.md) section),
+you can isolate buffers by context values to handle scenarios like HTTP request
+tracing:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink, withContext, getLogger } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: { keys: ["requestId"] },
+    }),
+  },
+  // Omitted for brevity
+});
+
+const logger = getLogger();
+// ---cut-before---
+// Logs are isolated by requestId context
+function handleRequest(requestId: string) {
+  withContext({ requestId }, () => {
+    // These logs are buffered separately per requestId
+    logger.debug("Processing request");
+    logger.info("Validating input");
+
+    // Only logs from this specific requestId are flushed on error
+    logger.error("Request failed");
+  });
+}
+~~~~
+
+You can also isolate by multiple context keys:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: { keys: ["requestId", "sessionId"] },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+Context isolation can be combined with category isolation:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByCategory: "descendant",
+      isolateByContext: { keys: ["requestId"] },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+With both isolations enabled, buffers are only flushed when both the category
+relationship matches and the context values are the same.
+
 ### Buffer management
 
-The fingers crossed sink automatically manages buffer size to prevent memory
-issues:
+The fingers crossed sink provides several mechanisms to manage memory usage
+and prevent unbounded buffer growth, especially when using context isolation
+where multiple buffers may be created.
+
+#### Basic buffer size limit
+
+The basic buffer size limit prevents any single buffer from growing too large:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
@@ -676,8 +753,104 @@ await configure({
 });
 ~~~~
 
-When the buffer exceeds the maximum size, the oldest records are automatically
+When a buffer exceeds the maximum size, the oldest records are automatically
 dropped to prevent unbounded memory growth.
+
+#### Time-based cleanup (TTL)
+
+*This API is available since LogTape 1.2.0.*
+
+For context-isolated buffers, you can enable automatic cleanup based on time
+to prevent memory leaks from unused contexts:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: {
+        keys: ["requestId"],
+        bufferTtlMs: 300000,        // Remove buffers after 5 minutes
+        cleanupIntervalMs: 60000,   // Check for expired buffers every minute
+      },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+TTL (time to live) cleanup automatically removes context buffers that haven't
+received new log records within the specified time period. This is particularly
+useful for request-scoped contexts that may never trigger an error but should
+not remain in memory indefinitely.
+
+#### Capacity-based eviction (LRU)
+
+*This API is available since LogTape 1.2.0.*
+
+You can limit the total number of context buffers using LRU (least recently
+used) eviction:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: {
+        keys: ["requestId"],
+        maxContexts: 100,  // Keep at most 100 context buffers
+      },
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+When the number of context buffers reaches the limit, the least recently used
+buffers are automatically evicted to make room for new ones. This prevents
+memory usage from growing unbounded in high-traffic applications.
+
+#### Hybrid memory management
+
+TTL and LRU can be used together for comprehensive memory management:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      isolateByContext: {
+        keys: ["requestId", "sessionId"],
+        maxContexts: 200,           // LRU limit: keep at most 200 contexts
+        bufferTtlMs: 600000,        // TTL: remove after 10 minutes
+        cleanupIntervalMs: 120000,  // Check for expired buffers every 2 minutes
+      },
+      maxBufferSize: 500,  // Each buffer keeps at most 500 records
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+This configuration provides three layers of memory protection:
+
+Per-buffer size limit
+:   Each context buffer is limited to 500 records
+
+Total buffer count limit
+:   At most 200 context buffers can exist simultaneously
+
+Time-based cleanup
+:   Unused buffers are removed after 10 minutes
+
+The combination ensures predictable memory usage even in high-volume,
+long-running applications with many unique context combinations.
 
 ### Use cases
 
@@ -703,7 +876,8 @@ Component isolation
 
 Memory usage
 :   Buffered logs consume memory. Use appropriate buffer sizes and consider
-    your application's memory constraints.
+    your application's memory constraints. When using context isolation,
+    memory usage scales with the number of unique context combinations.
 
 Trigger frequency
 :   Frequent trigger events (like `"warning"`s) may reduce the effectiveness of
@@ -713,6 +887,21 @@ Category isolation overhead
 :   Category isolation adds some overhead for category matching.
     For high-volume logging, consider using a single buffer
     if isolation isn't needed.
+
+Context isolation overhead
+:   Context isolation creates separate buffers for each unique context
+    combination, which adds memory and lookup overhead. Use TTL and LRU
+    limits to bound resource usage in high-traffic applications.
+
+TTL cleanup overhead
+:   TTL cleanup runs periodically to remove expired buffers. The
+    `cleanupIntervalMs` setting affects how often this cleanup occurs.
+    More frequent cleanup reduces memory usage but increases CPU overhead.
+
+LRU eviction overhead
+:   LRU eviction tracks access times for each buffer and performs eviction
+    when capacity is exceeded. The overhead is generally minimal but scales
+    with the number of context buffers.
 
 For more details, see the `fingersCrossed()` function and
 `FingersCrossedOptions` interface in the API reference.
@@ -814,6 +1003,86 @@ This will use the default OpenTelemetry configuration, which is to send logs to
 the OpenTelemetry collector running on `localhost:4317` or respects the `OTEL_*`
 environment variables.
 
+> [!NOTE]
+> The `OTEL_LOG_LEVEL` environment variable controls the *internal diagnostic
+> logging* of the OpenTelemetry SDK itself, **not** the log level filtering
+> for your application logs. To filter which logs are sent to the OpenTelemetry
+> collector, use LogTape's `lowestLevel` option in the logger configuration
+> or wrap the sink with `withFilter()`:
+>
+> ~~~~ typescript twoslash
+> // Option 1: Use lowestLevel in logger config
+> import { configure } from "@logtape/logtape";
+> import { getOpenTelemetrySink } from "@logtape/otel";
+>
+> await configure({
+>   sinks: {
+>     otel: getOpenTelemetrySink(),
+>   },
+>   loggers: [
+>     { category: [], sinks: ["otel"], lowestLevel: "warning" },
+>   ],
+> });
+> ~~~~
+>
+> ~~~~ typescript twoslash
+> // Option 2: Use withFilter() for custom filtering
+> import {
+>   configure,
+>   getLevelFilter,
+>   parseLogLevel,
+>   withFilter,
+> } from "@logtape/logtape";
+> import { getOpenTelemetrySink } from "@logtape/otel";
+>
+> await configure({
+>   sinks: {
+>     otel: withFilter(
+>       getOpenTelemetrySink(),
+>       getLevelFilter(parseLogLevel("warning"))
+>     ),
+>   },
+>   loggers: [
+>     { category: [], sinks: ["otel"] },
+>   ],
+> });
+> ~~~~
+
+### Protocol selection
+
+*This API is available since LogTape 1.3.0.*
+
+The OpenTelemetry sink supports three OTLP protocols for exporting logs:
+
+`http/json`
+:   HTTP with JSON encoding (default). Works in all environments including
+    browsers.
+
+`http/protobuf`
+:   HTTP with Protocol Buffers encoding. More efficient than JSON but requires
+    the protobuf library.
+
+`grpc`
+:   gRPC protocol. Most efficient for high-volume logging but only works in
+    Node.js, Deno, and Bun (not in browsers).
+
+The protocol is automatically selected based on the following environment
+variables (in order of precedence):
+
+ 1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` — Protocol specifically for logs
+ 2. `OTEL_EXPORTER_OTLP_PROTOCOL` — Protocol for all OTLP exporters
+
+If neither environment variable is set, the default protocol is `http/json`
+for backward compatibility.
+
+> [!NOTE]
+> The gRPC protocol requires Node.js, Deno, or Bun runtime.  It does not work
+> in browser environments.  When using gRPC, the relevant exporter module is
+> dynamically imported only when needed, so browser bundles won't include
+> the gRPC code if you're not using it.
+
+### Custom configuration
+
 If you want to customize the OpenTelemetry configuration, you can specify
 options to the `getOpenTelemetrySink()` function:
 
@@ -837,7 +1106,45 @@ await configure({
 });
 ~~~~
 
-Or you can even pass an existing OpenTelemetry [`LoggerProvider`] instance:
+### Additional resource attributes
+
+*This API is available since LogTape 1.3.0.*
+
+You can add custom resource attributes (like deployment environment) without
+providing a full custom `loggerProvider` by using the `additionalResource`
+option:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getOpenTelemetrySink } from "@logtape/otel";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
+} from "@opentelemetry/semantic-conventions";
+
+await configure({
+  sinks: {
+    otel: getOpenTelemetrySink({
+      serviceName: "my-service",
+      additionalResource: resourceFromAttributes({
+        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: "production",
+      }),
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+The `additionalResource` is merged with the default resource that includes the
+service name and auto-detected attributes.
+
+### Using an existing LoggerProvider
+
+For maximum control, you can pass an existing OpenTelemetry [`LoggerProvider`]
+instance.  This is the recommended approach for production applications where
+you want full control over the OpenTelemetry configuration:
 
 ~~~~ typescript twoslash
 import { configure } from "@logtape/logtape";
@@ -867,6 +1174,12 @@ await configure({
   ],
 });
 ~~~~
+
+> [!TIP]
+> When providing your own `loggerProvider`, you have full control over the
+> exporter protocol and configuration.  This approach is recommended when you
+> need to integrate with an existing OpenTelemetry setup or require advanced
+> configuration options.
 
 For more information, see the documentation of the `getOpenTelemetrySink()`
 function and `OpenTelemetrySinkOptions` type.
@@ -905,8 +1218,14 @@ bun add @logtape/sentry
 
 :::
 
-The quickest way to get started is to use the `getSentrySink()` function
-without any arguments:
+> [!NOTE]
+> For Deno, you need both `@sentry/deno` and `@sentry/core` at the same version
+> (e.g., both at `9.41.0`) due to Sentry's exact version pinning.
+
+### Basic usage
+
+The quickest way to get started is to use `getSentrySink()` without any
+arguments:
 
 ~~~~ typescript twoslash
 import { configure } from "@logtape/logtape";
@@ -922,26 +1241,82 @@ await configure({
 });
 ~~~~
 
-The log records will show up in the breadcrumbs of the Sentry issues:
+By default, only `error` and `fatal` level logs are captured as Sentry events.
 
-![LogTape records show up in the breadcrumbs of a Sentry issue.](../screenshots/sentry.png)
+### Trace correlation
 
-If you want to explicitly configure the Sentry client, you can pass
-the `Client` instance, which is returned by [`init()`] or [`getClient()`]
-functions, to the `getSentrySink()` function:
+*This feature is available since LogTape 1.3.0.*
+
+When using Sentry's performance monitoring, logs automatically correlate with
+active traces and spans. This happens with zero configuration:
 
 ~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger("app");
+
+Sentry.startSpan({ name: "process-order" }, () => {
+  logger.info("Processing order", { orderId: 123 });
+  // Log automatically includes trace_id and span_id
+});
+~~~~
+
+The trace context (`trace_id`, `span_id`, `parent_span_id`) is automatically
+captured from active Sentry spans and included in all logs, breadcrumbs, and
+events.
+
+### Breadcrumbs
+
+*This feature is available since LogTape 1.3.0.*
+
+You can enable breadcrumbs to create a debugging context trail that shows what
+happened before errors:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
 import { configure } from "@logtape/logtape";
 import { getSentrySink } from "@logtape/sentry";
-import { init } from "@sentry/node";
 
-const client = init({
-  dsn: process.env.SENTRY_DSN,
-});
+Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 await configure({
   sinks: {
-    sentry: getSentrySink(client),
+    sentry: getSentrySink({
+      enableBreadcrumbs: true,
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "info" },
+  ],
+});
+~~~~
+
+When enabled, all log levels become breadcrumbs in Sentry, providing complete
+context for debugging. Use LogTape's `lowestLevel` to control which logs reach
+the sink.
+
+![LogTape records show up in the breadcrumbs of a Sentry issue.](../screenshots/sentry.png)
+
+### Structured logging
+
+*This feature is available since LogTape 1.3.0 (requires Sentry SDK 9.41.0+).*
+
+Send structured, searchable logs using Sentry's Logs API:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN, enableLogs: true });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink(),
   },
   loggers: [
     { category: [], sinks: ["sentry"], lowestLevel: "debug" },
@@ -949,10 +1324,84 @@ await configure({
 });
 ~~~~
 
+The sink automatically detects when the Logs API is available (SDK 9.41.0+ with
+`enableLogs: true`) and uses it for structured logging. When unavailable, logs
+are sent as events and breadcrumbs only.
+
+### Filtering and transformation
+
+*This feature is available since LogTape 1.3.0.*
+
+You can use `beforeSend` to filter or transform log records before they are
+sent to Sentry:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      beforeSend: (record) => {
+        // Filter out debug logs
+        if (record.level === "debug") return null;
+
+        // Redact sensitive data
+        if (record.properties.password) {
+          return {
+            ...record,
+            properties: { ...record.properties, password: "[REDACTED]" }
+          };
+        }
+
+        return record;
+      },
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+Returning `null` from `beforeSend` drops the log record entirely.
+
+### Event capture
+
+*This feature is available since LogTape 1.3.0.*
+
+All `error` and `fatal` level logs create Sentry Issues. If the log contains
+an `Error` instance in its properties, `captureException` is used for better
+stack traces. Otherwise, `captureMessage` is used:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["my-app"]);
+
+// Creates Issue with stack trace (uses captureException)
+logger.error("Database connection failed", { error: new Error("timeout") });
+
+// Creates Issue without stack trace (uses captureMessage)
+logger.error("User not found: {userId}", { userId: 123 });
+
+// Does NOT create Issue - goes to structured logs and/or breadcrumbs only
+logger.info("Request received", { path: "/api/users" });
+~~~~
+
+All logs are sent to Sentry's structured logging (when `enableLogs: true`) and
+can become breadcrumbs (when `enableBreadcrumbs: true`), providing full context
+when errors occur.
+
+For more details, see the `getSentrySink()` function and `SentrySinkOptions`
+interface in the API reference.
+
 [Sentry]: https://sentry.io/
-[@logtape/sentry]: https://github.com/dahlia/logtape-sentry
-[`init()`]: https://docs.sentry.io/platforms/javascript/apis/#init
-[`getClient()`]: https://docs.sentry.io/platforms/javascript/apis/#getClient
 
 
 Syslog sink

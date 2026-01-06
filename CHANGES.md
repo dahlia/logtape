@@ -3,6 +3,449 @@
 LogTape changelog
 =================
 
+Version 1.3.6
+-------------
+
+To be released.
+
+
+Version 1.3.5
+-------------
+
+Released on December 19, 2025.
+
+### @logtape/redaction
+
+ -  Fixed a regression where `Error`, `Date`, `RegExp`, and other built-in
+    objects were incorrectly converted to empty objects `{}` when processed
+    by `redactByField()` and `redactByPattern()`.  These objects are now
+    preserved without modification.  [[#114]]
+
+[#114]: https://github.com/dahlia/logtape/issues/114
+
+
+Version 1.3.4
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
+
+
+Version 1.3.3
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
+
+
+Version 1.3.2
+-------------
+
+Released on December 18, 2025.
+
+ -  Reduced npm package sizes by excluding unnecessary source files from
+    published packages.  Previously, the *src/* directory was included in npm
+    packages, which increased download sizes without providing runtime value.
+    [[#112]]
+
+
+Version 1.3.1
+-------------
+
+Released on December 16, 2025.
+
+### @logtape/otel
+
+ -  Fixed a bug where log records sent during lazy initialization were silently
+    dropped.  Now, log records are buffered during initialization and emitted
+    once the OpenTelemetry logger provider is ready.  [[#110]]
+
+ -  Added `OpenTelemetrySink` interface which extends `Sink` with `ready`
+    property and `AsyncDisposable`.
+
+ -  Added `OpenTelemetrySink.ready` property, a `Promise<void>` that resolves
+    when lazy initialization completes.  For sinks created with an explicit
+    `loggerProvider`, this resolves immediately.
+
+[#110]: https://github.com/dahlia/logtape/issues/110
+
+
+Version 1.3.0
+-------------
+
+Released on December 15, 2025.
+
+### @logtape/logtape
+
+ -  Added context-based category prefix feature for library hierarchies.
+    [[#98]]
+
+    -  Added `withCategoryPrefix()` function to prepend category prefixes
+       to all log records within a callback context.
+    -  Uses the existing `contextLocalStorage` configuration, so no additional
+       setup is required if implicit contexts are already enabled.
+    -  Useful for SDKs that wrap internal libraries and want to show
+       their own category in logs from those libraries.
+    -  Prefixes accumulate when nested, allowing multi-layer architectures.
+
+[#98]: https://github.com/dahlia/logtape/issues/98
+
+### @logtape/drizzle-orm
+
+ -  Added *@logtape/drizzle-orm* package for Drizzle ORM integration.  [[#104]]
+
+    -  Added `getLogger()` function to create a Drizzle ORM-compatible logger.
+    -  Added `DrizzleLoggerOptions` interface for configuration.
+    -  Added `DrizzleLogger` class implementing Drizzle's `Logger` interface.
+    -  Logs queries with structured data: `formattedQuery` (with parameter
+       substitution), `query` (original), and `params` (original array).
+
+[#104]: https://github.com/dahlia/logtape/issues/104
+
+### @logtape/express
+
+ -  Added *@logtape/express* package for Express.js HTTP request logging using
+    LogTape as the backend.  [[#105]]
+
+    -  Added `expressLogger()` function to create Express middleware for
+       request logging.
+    -  Added `ExpressLogTapeOptions` interface for configuration.
+    -  Added `RequestLogProperties` interface for structured log properties.
+    -  Added `FormatFunction` type for custom format functions.
+    -  Added `PredefinedFormat` type for Morgan-compatible format names.
+    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+       `tiny`.
+    -  Supports custom format functions returning strings or objects.
+    -  Supports `skip` function to conditionally skip logging.
+    -  Supports `immediate` option to log on request arrival vs response.
+
+[#105]: https://github.com/dahlia/logtape/issues/105
+
+### @logtape/fastify
+
+ -  Added *@logtape/fastify* package for using LogTape as Fastify's logging
+    backend.  [[#102]]
+
+    -  Added `getLogTapeFastifyLogger()` function to create a Pino-compatible
+       logger wrapper for Fastify's `loggerInstance` option.
+    -  Added `FastifyLogTapeOptions` interface for configuration.
+    -  Added `PinoLikeLogger` interface implementing Pino's logger contract.
+    -  Added `PinoLogMethod` interface for Pino-style log method signatures.
+    -  Added `PinoLevel` type for Pino log levels.
+    -  Supports all Pino method signatures: string messages, object + message,
+       object-only, and printf-style interpolation (`%s`, `%d`, `%j`, `%o`).
+    -  Implements `child(bindings)` method using LogTape's `Logger.with()`.
+
+[#102]: https://github.com/dahlia/logtape/issues/102
+
+### @logtape/hono
+
+ -  Added *@logtape/hono* package for Hono HTTP request logging using
+    LogTape as the backend.  [[#107]]
+
+    -  Added `honoLogger()` function to create Hono middleware for
+       request logging.
+    -  Added `HonoLogTapeOptions` interface for configuration.
+    -  Added `HonoContext` interface for context type compatibility.
+    -  Added `RequestLogProperties` interface for structured log properties.
+    -  Added `FormatFunction` type for custom format functions.
+    -  Added `PredefinedFormat` type for Morgan-compatible format names.
+    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+       `tiny`.
+    -  Supports custom format functions returning strings or objects.
+    -  Supports `skip` function to conditionally skip logging.
+    -  Supports `logRequest` option to log on request arrival vs response.
+    -  Cross-runtime compatible: works on Cloudflare Workers, Deno, Bun,
+       and Node.js.
+
+[#107]: https://github.com/dahlia/logtape/issues/107
+
+### @logtape/koa
+
+ -  Added *@logtape/koa* package for Koa HTTP request logging using
+    LogTape as the backend.  [[#106]]
+
+    -  Added `koaLogger()` function to create Koa middleware for
+       request logging.
+    -  Added `KoaLogTapeOptions` interface for configuration.
+    -  Added `KoaContext` interface for context type compatibility.
+    -  Added `RequestLogProperties` interface for structured log properties.
+    -  Added `FormatFunction` type for custom format functions.
+    -  Added `PredefinedFormat` type for Morgan-compatible format names.
+    -  Supports predefined formats: `combined`, `common`, `dev`, `short`,
+       `tiny`.
+    -  Supports custom format functions returning strings or objects.
+    -  Supports `skip` function to conditionally skip logging.
+    -  Supports `logRequest` option to log on request arrival vs response.
+
+[#106]: https://github.com/dahlia/logtape/issues/106
+
+### @logtape/otel
+
+ -  Added support for gRPC and HTTP/Protobuf protocols for OTLP log export.
+    [[#103]]
+
+    -  Added `@opentelemetry/exporter-logs-otlp-grpc` dependency for gRPC
+       protocol support.
+
+    -  Added `@opentelemetry/exporter-logs-otlp-proto` dependency for
+       HTTP/Protobuf protocol support.
+
+    -  Protocol is determined by environment variables following the
+       OpenTelemetry specification:
+
+        1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
+        2. `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
+        3. Default: `"http/json"` (for backward compatibility)
+
+    -  Added `OtlpProtocol` type for protocol values (`"grpc"`,
+       `"http/protobuf"`, `"http/json"`).
+
+    -  Uses dynamic imports to maintain browser compatibility when gRPC
+       is not used.
+
+ -  Added `OpenTelemetrySinkExporterOptions.additionalResource` option to
+    merge custom resource attributes with the default resource.
+    [[#108] by Nils Bergmann]
+
+    This allows adding attributes like `ATTR_DEPLOYMENT_ENVIRONMENT_NAME`
+    without providing a custom `loggerProvider`:
+
+    ~~~~ typescript
+    import { getOpenTelemetrySink } from "@logtape/otel";
+    import { resourceFromAttributes } from "@opentelemetry/resources";
+    import { SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
+
+    getOpenTelemetrySink({
+      serviceName: "my-service",
+      additionalResource: resourceFromAttributes({
+        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: "production",
+      }),
+    });
+    ~~~~
+
+ -  Refactored `OpenTelemetrySinkOptions` to a discriminated union type for
+    better type safety.
+
+    -  Added `OpenTelemetrySinkProviderOptions` interface for providing a custom
+       `LoggerProvider` (recommended for production use).
+    -  Added `OpenTelemetrySinkExporterOptions` interface for automatic exporter
+       creation based on environment variables.
+    -  `loggerProvider` and exporter options (`serviceName`,
+       `otlpExporterConfig`) are now mutually exclusive at the type level.
+
+ -  Changed the exporter initialization to use lazy loading.  The exporter
+    is now created asynchronously when the first log record is emitted,
+    rather than synchronously when `getOpenTelemetrySink()` is called.
+    This allows the main API to remain synchronous while supporting
+    dynamic imports for protocol selection.
+
+ -  Added automatic fallback to no-op logger when no OTLP endpoint is
+    configured.  This prevents repeated transport errors when environment
+    variables like `OTEL_EXPORTER_OTLP_ENDPOINT` or
+    `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` are not set and no URL is provided
+    in the exporter configuration.
+
+[#103]: https://github.com/dahlia/logtape/issues/103
+[#108]: https://github.com/dahlia/logtape/pull/108
+
+### @logtape/redaction
+
+ -  Fixed a security vulnerability where `redactByField()` and
+    `redactByPattern()` could enter an infinite loop when processing objects
+    with circular references, leading to a denial-of-service (DoS) attack.
+    The redaction functions now correctly handle circular references,
+    preventing stack overflows.
+
+ -  Fixed a security vulnerability where sensitive data in class instances
+    was not being redacted. The redaction logic now recursively processes
+    class instances, ensuring that sensitive fields are redacted regardless
+    of the object's structure.
+
+### @logtape/sentry
+
+ -  Enhanced Sentry sink with modern observability features including automatic
+    trace correlation, breadcrumbs, and structured logging support.  [[#90]]
+
+    -  The `getSentrySink()` function now accepts an optional `SentrySinkOptions`
+       object instead of a Sentry client instance. The old pattern
+       `getSentrySink(getClient())` still works with a deprecation warning.
+    -  Added automatic trace correlation with active Sentry spans (`trace_id`,
+       `span_id` context).
+    -  Added `enableBreadcrumbs` option to create breadcrumbs for all log events.
+    -  Added `beforeSend` hook to transform or filter records before sending.
+    -  Added automatic structured logging support via Sentry's Logs API (SDK
+       v9.41.0+ with `enableLogs: true`).
+    -  Added ParameterizedString support for better message grouping in Sentry.
+
+[#90]: https://github.com/dahlia/logtape/pull/90
+
+### @logtape/syslog
+
+ -  Added `SyslogSinkOptions.secure` option to enable TLS for TCP connections,
+    addressing a vulnerability where logs were sent in plaintext over the
+    network.
+
+ -  Added `SyslogSinkOptions.tlsOptions` option to configure TLS connections.
+
+    -  Added `SyslogTlsOptions` interface for TLS configuration.
+    -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
+       certificate validation (defaults to `true` for security).
+    -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
+
+Version 1.2.5
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to use redacted property values for all message
+    placeholders, not just those directly matching field patterns.  Previously,
+    named placeholders like `{args}` would use original values even when
+    containing nested sensitive fields (e.g., `args[0].email`), exposing
+    sensitive data in the log message.  [[#99]]
+
+
+Version 1.2.4
+-------------
+
+Released on December 18, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to recursively process arrays, ensuring that
+    sensitive fields inside objects within arrays are properly redacted.
+    Previously, arrays were not traversed, so sensitive data in nested
+    structures like `{ args: [{ email: "..." }] }` would not be redacted.
+    [[#99]]
+
+
+Version 1.2.3
+-------------
+
+Released on December 18, 2025.
+
+ -  Reduced npm package sizes by excluding unnecessary source files from
+    published packages.  Previously, the *src/* directory was included in npm
+    packages, which increased download sizes without providing runtime value.
+    [[#112]]
+
+
+Version 1.2.2
+-------------
+
+Released on November 29, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to properly redact sensitive fields in objects
+    passed via the `{*}` wildcard placeholder.  Previously, the original
+    object reference was kept in the message array, exposing sensitive
+    field values even when they were redacted in properties.  [[#99]]
+
+
+Version 1.2.1
+-------------
+
+Released on November 28, 2025.
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` to also redact sensitive values in the `message`
+    array, not just in `properties`.  Previously, sensitive field values
+    were exposed in the log message even when the corresponding property
+    was redacted.  [[#99]]
+
+
+Version 1.2.0
+-------------
+
+Released on November 11, 2025.
+
+### @logtape/logtape
+
+ -  Added support for nested property access in message template placeholders,
+    enabling direct access to nested objects, arrays, and complex data
+    structures without manual property extraction.  [[#91], [#93] by 伍闲犬]
+
+    -  Dot notation: `{user.name}`, `{order.customer.profile.tier}`
+    -  Array indexing: `{users[0]}`, `{users[0].name}`
+    -  Bracket notation with quotes: `{user["full-name"]}`, `{data["a.b c"]}`
+    -  Escape sequences in quoted strings: `\"`, `\'`, `\\`, `\n`, `\t`, `\r`,
+       `\b`, `\f`, `\v`, `\0`, and Unicode escapes (`\uXXXX`)
+    -  Optional chaining: `{user?.profile?.email}`, `{data?.items?.[0]?.name}`
+    -  Combined patterns: `{users[0]?.profile?.["contact-info"]?.email}`
+    -  Enhanced security: blocks access to `__proto__`, `prototype`, and
+       `constructor` at any depth to prevent prototype pollution
+
+ -  Added context-based isolation for fingers crossed sink to handle scenarios
+    like HTTP request tracing where logs should be isolated by implicit
+    context values.  [[#86]]
+
+    -  Added `isolateByContext` option to `FingersCrossedOptions` for isolating
+       buffers based on specified context keys from log record properties.
+    -  Context isolation can be combined with existing category isolation for
+       fine-grained control over buffer flushing behavior.
+    -  Each context buffer maintains separate trigger states and size limits,
+       preventing unrelated logs from being flushed together.
+    -  Added memory management options for context isolation to prevent memory
+       leaks in high-traffic applications: `bufferTtlMs` for time-based cleanup,
+       `cleanupIntervalMs` for configurable cleanup intervals, and `maxContexts`
+       for LRU-based capacity limits. TTL and LRU can be used independently or
+       together for comprehensive memory management.
+
+ -  Changed the type of the `TextFormatterOptions.value` callback to accept
+    a second parameter that provides access to the default cross-runtime
+    `inspect()` function, making it easier to implement custom value formatting
+    with fallback to default behavior.
+
+    -  Changed the type of `TextFormatterOptions.value` to `(value: unknown,
+       inspect: (value: unknown, options?: { colors?: boolean }) => string)
+       => string` (was `(value: unknown) => string`).
+    -  The second parameter is optional and can be ignored for backward
+       compatibility.
+    -  Users can now customize formatting for specific value types while
+       falling back to the cross-runtime `inspect()` function for others,
+       without needing to reimplement the complex runtime detection logic.
+
+[#86]: https://github.com/dahlia/logtape/issues/86
+[#91]: https://github.com/dahlia/logtape/issues/91
+[#93]: https://github.com/dahlia/logtape/pull/93
+
+### @logtape/pretty
+
+ -  Added support for `getters` and `showProxy` options in `inspectOptions`
+    to allow fine-grained control over how objects and proxies are displayed.
+    These options are available in Node.js, Deno, and Bun runtimes, providing
+    consistent behavior across platforms.  [[#95]]
+
+[#95]: https://github.com/dahlia/logtape/issues/95
+
+### @logtape/redaction
+
+ -  Extended field-based redaction to recursively redact sensitive fields in
+    objects nested within arrays, providing more comprehensive protection for
+    structured data.  [[#94]]
+
+[#94]: https://github.com/dahlia/logtape/issues/94
+
+
 Version 1.1.7
 -------------
 

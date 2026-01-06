@@ -2,7 +2,12 @@ packages:
 - packages/logtape
 - packages/adaptor-pino
 - packages/adaptor-winston
+- packages/drizzle-orm
+- packages/express
+- packages/fastify
 - packages/file
+- packages/hono
+- packages/koa
 - packages/otel
 - packages/pretty
 - packages/redaction
@@ -16,11 +21,26 @@ packages:
 catalog:
   "@alinea/suite": ^0.6.3
   "@david/which-runtime": jsr:^0.2.1
+  "@opentelemetry/api": ^1.9.0
+  "@opentelemetry/api-logs": ^0.208.0
+  "@opentelemetry/exporter-logs-otlp-grpc": ^0.208.0
+  "@opentelemetry/exporter-logs-otlp-http": ^0.208.0
+  "@opentelemetry/exporter-logs-otlp-proto": ^0.208.0
+  "@opentelemetry/otlp-exporter-base": ^0.208.0
+  "@opentelemetry/resources": ^2.2.0
+  "@opentelemetry/sdk-logs": ^0.208.0
+  "@opentelemetry/semantic-conventions": ^1.38.0
   "@std/assert": jsr:^1.0.13
   "@std/async": jsr:^1.0.13
   "@std/dotenv": jsr:^0.225.5
   "@std/path": jsr:^1.1.0
+  "@types/express": ^5.0.6
+  "@types/koa": ^2.15.0
   consolemock: ^1.1.0
+  express: ^5.2.1
+  fastify: ^5.0.0
+  hono: ^4.0.0
+  koa: ^2.16.1
   tsdown: ^0.12.7
   typescript: ^5.8.3
 

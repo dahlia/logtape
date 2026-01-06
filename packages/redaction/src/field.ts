@@ -157,29 +157,38 @@ export function redactByField(
 export function redactProperties(
   properties: Record<string, unknown>,
   options: FieldRedactionOptions,
+  visited = new Map<object, object>(),
 ): Record<string, unknown> {
-  const copy = { ...properties };
-  for (const field in copy) {
+  if (visited.has(properties)) {
+    return visited.get(properties) as Record<string, unknown>;
+  }
+
+  const copy: Record<string, unknown> = {};
+  visited.set(properties, copy);
+
+  for (const field in properties) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
-      if (options.action == null || options.action === "delete") {
-        delete copy[field];
-      } else {
-        copy[field] = options.action(copy[field]);
+      if (typeof options.action === "function") {
+        copy[field] = options.action(properties[field]);
       }
       continue;
     }
-    const value = copy[field];
-    // Check if value is an array:
+
+    const value = properties[field];
     if (Array.isArray(value)) {
-      copy[field] = redactArray(value, options);
-    } // Check if value is a vanilla object:
-    else if (
-      typeof value === "object" && value !== null &&
-      (Object.getPrototypeOf(value) === Object.prototype ||
-        Object.getPrototypeOf(value) === null)
-    ) {
-      // @ts-ignore: value is always Record<string, unknown>
-      copy[field] = redactProperties(value, options);
+      copy[field] = redactArray(value, options, visited);
+    } else if (typeof value === "object" && value !== null) {
+      if (isBuiltInObject(value)) {
+        copy[field] = value;
+      } else {
+        copy[field] = redactProperties(
+          value as Record<string, unknown>,
+          options,
+          visited,
+        );
+      }
+    } else {
+      copy[field] = value;
     }
   }
   return copy;
@@ -189,25 +198,51 @@ export function redactProperties(
  * Redacts sensitive fields in an array recursively.
  * @param array The array to process.
  * @param options The redaction options.
+ * @param visited Map of visited objects to prevent circular reference issues.
  * @returns A new array with redacted values.
  */
 function redactArray(
   array: unknown[],
   options: FieldRedactionOptions,
+  visited: Map<object, object>,
 ): unknown[] {
   return array.map((item) => {
     if (Array.isArray(item)) {
-      return redactArray(item, options);
+      return redactArray(item, options, visited);
     }
-    if (
-      typeof item === "object" && item !== null &&
-      (Object.getPrototypeOf(item) === Object.prototype ||
-        Object.getPrototypeOf(item) === null)
-    ) {
-      return redactProperties(item as Record<string, unknown>, options);
+    if (typeof item === "object" && item !== null) {
+      if (isBuiltInObject(item)) {
+        return item;
+      }
+      return redactProperties(
+        item as Record<string, unknown>,
+        options,
+        visited,
+      );
     }
     return item;
   });
+}
+
+/**
+ * Checks if a value is a built-in object that should not be recursively
+ * processed (e.g., Error, Date, RegExp, Map, Set, etc.).
+ * @param value The value to check.
+ * @returns `true` if the value is a built-in object, `false` otherwise.
+ */
+function isBuiltInObject(value: object): boolean {
+  return value instanceof Error ||
+    value instanceof Date ||
+    value instanceof RegExp ||
+    value instanceof Map ||
+    value instanceof Set ||
+    value instanceof WeakMap ||
+    value instanceof WeakSet ||
+    value instanceof Promise ||
+    value instanceof ArrayBuffer ||
+    (typeof SharedArrayBuffer !== "undefined" &&
+      value instanceof SharedArrayBuffer) ||
+    ArrayBuffer.isView(value);
 }
 
 /**

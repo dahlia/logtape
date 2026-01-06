@@ -117,6 +117,214 @@ test("redactProperties()", () => {
     assertEquals(result.data, { nested: "value" });
     assertFalse("sensitive" in result);
   }
+
+  { // redacts fields in objects within arrays
+    const properties = {
+      configs: [
+        { password: "secret", username: "user1" },
+        { token: "abc", email: "user2@example.com" },
+      ],
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password", "token"],
+    });
+
+    // deno-lint-ignore no-explicit-any
+    const configs = result.configs as any;
+    assertEquals(configs.length, 2);
+    assertEquals(configs[0], { username: "user1" });
+    assertEquals(configs[1], { email: "user2@example.com" });
+  }
+
+  { // preserves non-object items in arrays
+    const properties = {
+      data: [
+        { password: "secret" },
+        "plain string",
+        42,
+        { token: "abc" },
+      ],
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password", "token"],
+    });
+
+    // deno-lint-ignore no-explicit-any
+    const data = result.data as any;
+    assertEquals(data.length, 4);
+    assertEquals(data[0], {});
+    assertEquals(data[1], "plain string");
+    assertEquals(data[2], 42);
+    assertEquals(data[3], {});
+  }
+
+  { // redacts nested arrays within objects in arrays
+    const properties = {
+      items: [
+        {
+          config: {
+            password: "secret",
+            nestedArray: [
+              { token: "abc", value: 1 },
+              { key: "xyz", value: 2 },
+            ],
+          },
+        },
+      ],
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password", "token", "key"],
+    });
+
+    // deno-lint-ignore no-explicit-any
+    const items = result.items as any;
+    // deno-lint-ignore no-explicit-any
+    const first = items[0] as any;
+    // deno-lint-ignore no-explicit-any
+    const nestedArray = first.config.nestedArray as any;
+    assertEquals(items.length, 1);
+    assertEquals(first.config.password, undefined);
+    assertEquals(nestedArray.length, 2);
+    assertEquals(nestedArray[0], { value: 1 });
+    assertEquals(nestedArray[1], { value: 2 });
+  }
+
+  { // uses custom action in arrays
+    const properties = {
+      users: [
+        { password: "secret1", name: "user1" },
+        { password: "secret2", name: "user2" },
+      ],
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    // deno-lint-ignore no-explicit-any
+    const users = result.users as any;
+    assertEquals(users.length, 2);
+    assertEquals(users[0], {
+      password: "[REDACTED]",
+      name: "user1",
+    });
+    assertEquals(users[1], {
+      password: "[REDACTED]",
+      name: "user2",
+    });
+  }
+
+  { // handles circular references to prevent stack overflow
+    const obj: Record<string, unknown> = {
+      a: 1,
+      password: "some-password",
+    };
+    obj.self = obj; // Create circular reference
+
+    const result = redactProperties(obj, {
+      fieldPatterns: ["password"],
+      action: () => "REDACTED",
+    });
+
+    assertEquals(result.a, 1);
+    assertEquals(result.password, "REDACTED");
+    assert(result.self === result, "Circular reference should be preserved");
+  }
+
+  { // redacts fields in class instances
+    class User {
+      constructor(public name: string, public password: string) {}
+    }
+
+    const properties = {
+      user: new User("Alice", "alice-secret-password"),
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "REDACTED",
+    });
+
+    const redactedUser = result.user as User;
+    assertEquals(redactedUser.name, "Alice");
+    assertEquals(redactedUser.password, "REDACTED");
+  }
+
+  { // preserves Error objects without modification
+    const err = new Error("test error");
+    const properties = {
+      err,
+      data: { password: "secret" },
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    assert(result.err instanceof Error);
+    assertEquals((result.err as Error).message, "test error");
+    assert(result.err === err, "Error should be the same instance");
+    assertEquals((result.data as { password: string }).password, "[REDACTED]");
+  }
+
+  { // preserves Date objects without modification
+    const date = new Date("2024-01-01T00:00:00Z");
+    const properties = {
+      createdAt: date,
+      password: "secret",
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    assert(result.createdAt instanceof Date);
+    assertEquals((result.createdAt as Date).toISOString(), date.toISOString());
+    assert(result.createdAt === date, "Date should be the same instance");
+  }
+
+  { // preserves RegExp objects without modification
+    const regex = /test/gi;
+    const properties = {
+      pattern: regex,
+      password: "secret",
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    assert(result.pattern instanceof RegExp);
+    assertEquals((result.pattern as RegExp).source, "test");
+    assert(result.pattern === regex, "RegExp should be the same instance");
+  }
+
+  { // preserves built-in objects in arrays
+    const err = new Error("array error");
+    const date = new Date();
+    const properties = {
+      items: [err, date, { password: "secret" }],
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    const items = result.items as unknown[];
+    assert(items[0] instanceof Error);
+    assert(items[0] === err, "Error in array should be same instance");
+    assert(items[1] instanceof Date);
+    assert(items[1] === date, "Date in array should be same instance");
+    assertEquals((items[2] as { password: string }).password, "[REDACTED]");
+  }
 });
 
 test("redactByField()", async () => {
@@ -213,6 +421,33 @@ test("redactByField()", async () => {
     assert(Symbol.asyncDispose in wrappedSink);
     await wrappedSink[Symbol.asyncDispose]();
     assert(disposed);
+  }
+
+  { // redacts fields in arrays from issue #94
+    const records: LogRecord[] = [];
+    const originalSink: Sink = (record) => records.push(record);
+
+    const wrappedSink = redactByField(originalSink, {
+      fieldPatterns: ["password"],
+    });
+
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: ["Loaded config"],
+      rawMessage: "Loaded config",
+      timestamp: Date.now(),
+      properties: {
+        configs: [{ password: "secret", username: "user" }],
+      },
+    };
+
+    wrappedSink(record);
+
+    assertEquals(records.length, 1);
+    // deno-lint-ignore no-explicit-any
+    const configs = records[0].properties.configs as any;
+    assertEquals(configs[0], { username: "user" });
   }
 
   { // redacts values in message array (string template)

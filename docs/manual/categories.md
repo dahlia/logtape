@@ -7,7 +7,7 @@ a list of strings.  For example, `["my-app", "my-module"]` is a category.
 When you log a message, it is dispatched to all loggers whose categories are
 prefixes of the category of the logger.  For example, if you log a message
 with the category `["my-app", "my-module", "my-submodule"]`, it is dispatched
-to loggers whose categories are `["my-app", "my-module"]` and `["my-app"]`.
+to loggers whose categories are `["my-app"]` and `["my-app", "my-module"]`.
 
 This behavior allows you to control the verbosity of log messages by setting
 the `~LoggerConfig.lowestLevel` of loggers at different levels of the category
@@ -231,3 +231,118 @@ to an empty array.
 >     { category: ["your-app"], sinks: ["main"] },
 >   ],
 > });
+
+
+Category prefix
+---------------
+
+*Category prefix is available since LogTape 1.3.0.*
+
+When building layered library architectures (core libraries → SDKs →
+applications), you may want logs from internal libraries to appear under your
+SDK's category.  The `withCategoryPrefix()` function allows you to prepend a
+category prefix to all log records within a callback context.
+
+### Settings
+
+> [!CAUTION]
+> In order to use `withCategoryPrefix()`, your JavaScript runtime must support
+> context-local states (like Node.js's [`node:async_hooks`] module).  If your
+> JavaScript runtime doesn't support context-local states, LogTape will silently
+> ignore the category prefix.
+>
+> As of November 2025, Node.js, Deno, and Bun support this feature.
+> Web browsers don't support it yet.
+>
+> See also [TC39 Async Context proposal] for web browsers.
+
+To enable `withCategoryPrefix()`, you need to set a `~Config.contextLocalStorage`
+option in the `configure()` function.  In Node.js, Deno, and Bun, you can use
+[`AsyncLocalStorage`] from the [`node:async_hooks`] module:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  // ... other settings ...
+  // ---cut-start---
+  sinks: {},
+  loggers: [],
+  // ---cut-end---
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+~~~~
+
+> [!NOTE]
+> Without the `~Config.contextLocalStorage` option, `withCategoryPrefix()`
+> will not prepend any prefix and will log a warning to the meta logger
+> (`["logtape", "meta"]`).
+
+[`node:async_hooks`]: https://nodejs.org/api/async_context.html
+[TC39 Async Context proposal]: https://tc39.es/proposal-async-context/
+[`AsyncLocalStorage`]: https://nodejs.org/api/async_context.html#class-asynclocalstorage
+
+
+### Basic usage
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { getLogger, withCategoryPrefix } from "@logtape/logtape";
+import { coreLibraryFunction } from "core-library";
+
+export function sdkFunction() {
+  return withCategoryPrefix(["my-sdk"], () => {
+    // Any logs from core-library within this context
+    // will have ["my-sdk"] prepended to their category
+    return coreLibraryFunction();
+  });
+}
+~~~~
+
+If `coreLibraryFunction()` logs with `getLogger(["core-library"])`, the final
+category will become `["my-sdk", "core-library"]`.
+
+You can also pass a string instead of an array:
+
+~~~~ typescript twoslash
+import { withCategoryPrefix } from "@logtape/logtape";
+
+withCategoryPrefix("my-sdk", () => {
+  // Equivalent to withCategoryPrefix(["my-sdk"], () => { ... })
+});
+~~~~
+
+
+### Nesting
+
+Category prefixes can be nested and accumulate:
+
+~~~~ typescript twoslash
+import { getLogger, withCategoryPrefix } from "@logtape/logtape";
+
+withCategoryPrefix(["app"], () => {
+  withCategoryPrefix(["sdk-1"], () => {
+    getLogger(["core-lib"]).info("Hello");
+    // Category: ["app", "sdk-1", "core-lib"]
+  });
+});
+~~~~
+
+
+### Combining with implicit contexts
+
+`withCategoryPrefix()` works seamlessly with `withContext()`:
+
+~~~~ typescript twoslash
+import { getLogger, withContext, withCategoryPrefix } from "@logtape/logtape";
+
+withCategoryPrefix(["my-sdk"], () => {
+  withContext({ requestId: "abc-123" }, () => {
+    getLogger(["internal"]).info("Processing request: {requestId}");
+    // Category: ["my-sdk", "internal"]
+    // Properties include: { requestId: "abc-123" }
+  });
+});
+~~~~

@@ -10,7 +10,11 @@ export {
   reset,
   resetSync,
 } from "./config.ts";
-export { type ContextLocalStorage, withContext } from "./context.ts";
+export {
+  type ContextLocalStorage,
+  withCategoryPrefix,
+  withContext,
+} from "./context.ts";
 export {
   type Filter,
   type FilterLike,
