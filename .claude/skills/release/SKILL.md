@@ -229,6 +229,12 @@ branches and eventually to `main`.
     git push origin main
     ~~~~
 
+    > [!IMPORTANT]
+    > Do *not* copy changelog entries to `main`.  The `main` branch tracks
+    > the next major/minor release, so patch release entries should not be
+    > duplicated there.  Just resolve conflicts and keep the existing
+    > unreleased section as-is.
+
 
 Major/minor releases
 --------------------
