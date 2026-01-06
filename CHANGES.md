@@ -107,6 +107,12 @@ To be released.
 
 [#111]: https://github.com/dahlia/logtape/issues/111
 
+### @logtape/otel
+
+ -  Improved serialization of `Error` and `AggregateError` values in properties
+    and message values so that `name`, `message`, `stack`, `cause`, and `errors`
+    are preserved in OpenTelemetry log attributes.  [[#123]]
+
 ### @logtape/file
 
  -  Added `getTimeRotatingFileSink()` function for time-based log file rotation.

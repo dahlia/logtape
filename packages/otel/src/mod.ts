@@ -586,6 +586,55 @@ function convertToAttributes(
   return attributes;
 }
 
+function serializeValue(value: unknown): unknown {
+  if (value instanceof Error) {
+    const serialized: Record<string, unknown> = {
+      name: value.name,
+      message: value.message,
+    };
+
+    if (typeof value.stack === "string") {
+      serialized.stack = value.stack;
+    }
+
+    const cause = (value as { cause?: unknown }).cause;
+    if (cause !== undefined) {
+      serialized.cause = serializeValue(cause);
+    }
+
+    if (
+      typeof AggregateError !== "undefined" &&
+      value instanceof AggregateError
+    ) {
+      serialized.errors = value.errors.map(serializeValue);
+    }
+
+    for (const key of Object.keys(value)) {
+      if (!(key in serialized)) {
+        serialized[key] = serializeValue(
+          (value as unknown as Record<string, unknown>)[key],
+        );
+      }
+    }
+
+    return serialized;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(serializeValue);
+  }
+
+  if (value !== null && typeof value === "object") {
+    const serialized: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      serialized[key] = serializeValue(val);
+    }
+    return serialized;
+  }
+
+  return value;
+}
+
 function convertToString(
   value: unknown,
   objectRenderer: ObjectRenderer,
@@ -597,7 +646,9 @@ function convertToString(
   if (typeof value === "number" || typeof value === "boolean") {
     return value.toString();
   } else if (value instanceof Date) return value.toISOString();
-  else return JSON.stringify(value);
+  else if (value instanceof Error) {
+    return JSON.stringify(serializeValue(value));
+  } else return JSON.stringify(value);
 }
 
 function convertMessageToArray(

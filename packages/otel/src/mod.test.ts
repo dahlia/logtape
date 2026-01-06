@@ -799,3 +799,134 @@ test("OpenTelemetrySink type has ready property", () => {
   const _ready: Promise<void> = sink.ready;
   assertExists(_ready);
 });
+
+// =============================================================================
+// Error object serialization tests (issue #123)
+// =============================================================================
+
+test("sink serializes Error objects in properties with JSON renderer", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const testError = new Error("Something went wrong");
+  testError.stack = "Error: Something went wrong\n  at test.ts:1:1";
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  // Should not be an empty object
+  assertEquals(errorAttr.includes("Something went wrong"), true);
+  assertEquals(errorAttr.includes("name"), true);
+  assertEquals(errorAttr.includes("message"), true);
+  assertEquals(errorAttr.includes("stack"), true);
+});
+
+test("sink serializes Error with cause", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const cause = new Error("Root cause");
+  const testError = new Error("Something went wrong", { cause });
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  assertEquals(errorAttr.includes("cause"), true);
+  assertEquals(errorAttr.includes("Root cause"), true);
+});
+
+test("sink serializes AggregateError with errors array", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const errors = [
+    new Error("Error 1"),
+    new Error("Error 2"),
+  ];
+  const aggregateError = new AggregateError(
+    errors,
+    "Multiple errors occurred",
+  );
+
+  const record = createMockLogRecord({
+    properties: {
+      error: aggregateError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  assertEquals(errorAttr.includes("errors"), true);
+  assertEquals(errorAttr.includes("Error 1"), true);
+  assertEquals(errorAttr.includes("Error 2"), true);
+});
+
+test("sink serializes Error with custom properties", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const testError = new Error("Custom error") as Error & {
+    code: string;
+    statusCode: number;
+  };
+  testError.code = "ERR_CUSTOM";
+  testError.statusCode = 500;
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  assertEquals(errorAttr.includes("ERR_CUSTOM"), true);
+  assertEquals(errorAttr.includes("500"), true);
+});
+
+test("sink handles Error in message values with JSON renderer", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+    messageType: "string",
+  });
+
+  const testError = new Error("Message error");
+
+  const record = createMockLogRecord({
+    message: ["Error occurred: ", testError, ""],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const body = emittedRecords[0].body as string;
+  assertEquals(body.includes("Message error"), true);
+  assertEquals(body.includes("name"), true);
+});
