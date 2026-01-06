@@ -13,9 +13,17 @@ import { assertEquals, assertInstanceOf } from "@std/assert";
 import process from "node:process";
 import { getCloudWatchLogsSink } from "./sink.ts";
 
-type Describe = (name: string, run: () => void | Promise<void>) => void;
+type Describe = {
+  (name: string, run: () => void | Promise<void>): void;
+  (
+    name: string,
+    options: { sanitizeResources?: boolean; sanitizeOps?: boolean },
+    run: () => void | Promise<void>,
+  ): void;
+  skip?: Describe;
+};
 
-let test: Describe & { skip?: Describe } = suite(import.meta);
+let test: Describe = suite(import.meta) as Describe;
 
 // Skip integration tests unless AWS credentials are provided
 // Also skip on Bun due to AWS SDK response parsing issues
@@ -42,7 +50,10 @@ if (skipIntegrationTests) {
 const testLogGroupName = `/logtape/integration-test-${Date.now()}`;
 const testLogStreamName = `test-stream-${Date.now()}`;
 
-test("Integration: CloudWatch Logs sink with real AWS service", async () => {
+test("Integration: CloudWatch Logs sink with real AWS service", {
+  sanitizeResources: false,
+  sanitizeOps: false,
+}, async () => {
   const client = new CloudWatchLogsClient({
     region: process.env.AWS_REGION,
     credentials: {
@@ -137,10 +148,14 @@ test("Integration: CloudWatch Logs sink with real AWS service", async () => {
     } catch (error) {
       console.warn("Failed to cleanup test log group:", error);
     }
+    client.destroy();
   }
 });
 
-test("Integration: CloudWatch Logs sink with batch processing", async () => {
+test("Integration: CloudWatch Logs sink with batch processing", {
+  sanitizeResources: false,
+  sanitizeOps: false,
+}, async () => {
   const client = new CloudWatchLogsClient({
     region: process.env.AWS_REGION,
     credentials: {
@@ -230,10 +245,14 @@ test("Integration: CloudWatch Logs sink with batch processing", async () => {
     } catch (error) {
       console.warn("Failed to cleanup batch test log group:", error);
     }
+    client.destroy();
   }
 });
 
-test("Integration: CloudWatch Logs sink with credentials from options", async () => {
+test("Integration: CloudWatch Logs sink with credentials from options", {
+  sanitizeResources: false,
+  sanitizeOps: false,
+}, async () => {
   const credentialsTestLogGroupName = `/logtape/credentials-test-${Date.now()}`;
   const credentialsTestLogStreamName = `credentials-test-stream-${Date.now()}`;
 
@@ -333,10 +352,14 @@ test("Integration: CloudWatch Logs sink with credentials from options", async ()
     } catch (error) {
       console.warn("Failed to cleanup credentials test log group:", error);
     }
+    client.destroy();
   }
 });
 
-test("Integration: CloudWatch Logs sink with JSON Lines formatter", async () => {
+test("Integration: CloudWatch Logs sink with JSON Lines formatter", {
+  sanitizeResources: false,
+  sanitizeOps: false,
+}, async () => {
   const structuredTestLogGroupName = `/logtape/structured-test-${Date.now()}`;
   const structuredTestLogStreamName = `structured-test-stream-${Date.now()}`;
 
@@ -447,5 +470,6 @@ test("Integration: CloudWatch Logs sink with JSON Lines formatter", async () => 
     } catch (error) {
       console.warn("Failed to cleanup structured test log group:", error);
     }
+    client.destroy();
   }
 });
