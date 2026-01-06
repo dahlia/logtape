@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.1.8
 -------------
 
-To be released.
+Released on January 7, 2026.
 
 ### @logtape/cloudwatch-logs
 
