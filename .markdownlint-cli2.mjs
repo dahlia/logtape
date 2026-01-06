@@ -2,6 +2,7 @@ import customRules from "@hongminhee/markdownlint-rules";
 import preset from "@hongminhee/markdownlint-rules/preset";
 
 export default {
+  globs: ["**/*.md"],
   customRules,
   config: {
     ...preset,
