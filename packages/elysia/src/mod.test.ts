@@ -798,3 +798,27 @@ test("elysiaLogger(): handles query parameters in url", async () => {
     await cleanup();
   }
 });
+
+// ============================================
+// Error Status Code Tests (Issue #128)
+// ============================================
+
+test("elysiaLogger(): logs correct 404 status code for NOT_FOUND errors", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger())
+      .get("/exists", () => "Hello");
+
+    // Request non-existent route to trigger NOT_FOUND
+    const res = await app.handle(new Request("http://localhost/not-found"));
+    assertEquals(res.status, 404);
+
+    // Should have error log with 404 status
+    const errorLogs = logs.filter((log) => log.level === "error");
+    assertEquals(errorLogs.length, 1);
+    assertEquals(errorLogs[0].properties.status, 404);
+  } finally {
+    await cleanup();
+  }
+});

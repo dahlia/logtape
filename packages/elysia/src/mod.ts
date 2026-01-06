@@ -275,6 +275,48 @@ function normalizeCategory(
 }
 
 /**
+ * Mapping of Elysia error codes to HTTP status codes.
+ */
+const errorCodeToStatus: Record<string, number> = {
+  NOT_FOUND: 404,
+  VALIDATION: 422,
+  PARSE: 400,
+  INTERNAL_SERVER_ERROR: 500,
+  INVALID_COOKIE_SIGNATURE: 400,
+  UNKNOWN: 500,
+};
+
+/**
+ * Get the HTTP status code from an error context.
+ * Checks error.status first, then falls back to error code mapping.
+ */
+function getErrorStatus(
+  code: string | number,
+  error: unknown,
+  setStatus: number,
+): number {
+  // If code is already a number, use it as status
+  if (typeof code === "number") {
+    return code;
+  }
+  // Check if error has a status property (Elysia custom errors)
+  if (
+    error != null &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof error.status === "number"
+  ) {
+    return error.status;
+  }
+  // Fall back to error code mapping
+  if (code in errorCodeToStatus) {
+    return errorCodeToStatus[code];
+  }
+  // Use set.status as last resort
+  return setStatus;
+}
+
+/**
  * Internal store type for timing.
  */
 interface LoggerStore {
@@ -398,6 +440,8 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     if (skip(elysiaCtx)) return;
 
     const props = buildProperties(elysiaCtx, responseTime);
+    // Get the correct HTTP status code from error context
+    const status = getErrorStatus(ctx.code, ctx.error, elysiaCtx.set.status);
     // Extract error message safely
     const error = ctx.error as { message?: string } | undefined;
     const errorMessage = error?.message ?? "Unknown error";
@@ -405,6 +449,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
       "Error: {method} {url} {status} - {responseTime} ms - {errorMessage}",
       {
         ...props,
+        status,
         errorMessage,
         errorCode: ctx.code,
       },
