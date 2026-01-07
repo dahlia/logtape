@@ -65,6 +65,15 @@ To be released.
      -  Throws `RangeError` if `bufferLevel` is greater than or equal to
         `triggerLevel`.
 
+ -  Added `Logger.isEnabledFor()` method to check if a log level would be
+    processed by the logger.  [[#129]]
+
+     -  Returns `true` if the level is at or above `lowestLevel` and at least
+        one sink is configured to receive logs at that level.
+     -  Useful for conditionally executing expensive computations before
+        logging, particularly for async operations where lazy evaluation
+        callbacks cannot be used.
+
 [#79]: https://github.com/dahlia/logtape/issues/79
 [#113]: https://github.com/dahlia/logtape/pull/113
 [#120]: https://github.com/dahlia/logtape/issues/120
@@ -73,6 +82,7 @@ To be released.
 [#124]: https://github.com/dahlia/logtape/issues/124
 [#125]: https://github.com/dahlia/logtape/pull/125
 [#126]: https://github.com/dahlia/logtape/issues/126
+[#129]: https://github.com/dahlia/logtape/issues/129
 
 ### @logtape/config
 

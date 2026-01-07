@@ -1768,3 +1768,76 @@ test("Logger.emit() respects log level threshold", () => {
     (logger as LoggerImpl).reset();
   }
 });
+
+test("Logger.isEnabledFor()", () => {
+  const logger = LoggerImpl.getLogger("isEnabledFor");
+
+  try {
+    const sink: Sink = () => {};
+    logger.sinks.push(sink);
+
+    // With default lowestLevel ("trace"), all levels are enabled
+    assert(logger.isEnabledFor("trace"));
+    assert(logger.isEnabledFor("debug"));
+    assert(logger.isEnabledFor("info"));
+    assert(logger.isEnabledFor("warning"));
+    assert(logger.isEnabledFor("error"));
+    assert(logger.isEnabledFor("fatal"));
+
+    // Set lowestLevel to "warning"
+    logger.lowestLevel = "warning";
+    assertFalse(logger.isEnabledFor("trace"));
+    assertFalse(logger.isEnabledFor("debug"));
+    assertFalse(logger.isEnabledFor("info"));
+    assert(logger.isEnabledFor("warning"));
+    assert(logger.isEnabledFor("error"));
+    assert(logger.isEnabledFor("fatal"));
+
+    // Set lowestLevel to null (disabled)
+    logger.lowestLevel = null;
+    assertFalse(logger.isEnabledFor("trace"));
+    assertFalse(logger.isEnabledFor("debug"));
+    assertFalse(logger.isEnabledFor("info"));
+    assertFalse(logger.isEnabledFor("warning"));
+    assertFalse(logger.isEnabledFor("error"));
+    assertFalse(logger.isEnabledFor("fatal"));
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.isEnabledFor() without sinks", () => {
+  const logger = LoggerImpl.getLogger("isEnabledFor-noSinks");
+
+  try {
+    // No sinks configured - should return false
+    assertFalse(logger.isEnabledFor("trace"));
+    assertFalse(logger.isEnabledFor("debug"));
+    assertFalse(logger.isEnabledFor("info"));
+    assertFalse(logger.isEnabledFor("warning"));
+    assertFalse(logger.isEnabledFor("error"));
+    assertFalse(logger.isEnabledFor("fatal"));
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("LoggerCtx.isEnabledFor()", () => {
+  const logger = LoggerImpl.getLogger("isEnabledFor-ctx");
+  const ctx = new LoggerCtx(logger, { a: 1 });
+
+  try {
+    const sink: Sink = () => {};
+    logger.sinks.push(sink);
+    logger.lowestLevel = "warning";
+
+    assertFalse(ctx.isEnabledFor("trace"));
+    assertFalse(ctx.isEnabledFor("debug"));
+    assertFalse(ctx.isEnabledFor("info"));
+    assert(ctx.isEnabledFor("warning"));
+    assert(ctx.isEnabledFor("error"));
+    assert(ctx.isEnabledFor("fatal"));
+  } finally {
+    logger.resetDescendants();
+  }
+});

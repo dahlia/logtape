@@ -848,6 +848,28 @@ export interface Logger {
    * @since 1.1.0
    */
   emit(record: Omit<LogRecord, "category">): void;
+
+  /**
+   * Check if a message of the given severity level would be processed by
+   * this logger.
+   *
+   * This is useful for conditionally executing expensive computations
+   * before logging, particularly for async operations where lazy
+   * evaluation callbacks cannot be used:
+   *
+   * ```typescript
+   * if (logger.isEnabledFor("debug")) {
+   *   const result = await expensiveAsync();
+   *   logger.debug("Result: {result}", { result });
+   * }
+   * ```
+   *
+   * @param level The log level to check.
+   * @returns `true` if a message of the given level would be logged,
+   *          `false` otherwise.
+   * @since 1.4.0
+   */
+  isEnabledFor(level: LogLevel): boolean;
 }
 
 /**
@@ -1048,6 +1070,18 @@ export class LoggerImpl implements Logger {
       for (const sink of this.parent.getSinks(level)) yield sink;
     }
     for (const sink of this.sinks) yield sink;
+  }
+
+  isEnabledFor(level: LogLevel): boolean {
+    if (
+      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
+    ) {
+      return false;
+    }
+    for (const _ of this.getSinks(level)) {
+      return true;
+    }
+    return false;
   }
 
   emit(record: Omit<LogRecord, "category">): void;
@@ -1457,6 +1491,10 @@ export class LoggerCtx implements Logger {
       properties: { ...this.properties, ...record.properties },
     };
     this.logger.emit(recordWithContext);
+  }
+
+  isEnabledFor(level: LogLevel): boolean {
+    return this.logger.isEnabledFor(level);
   }
 
   trace(

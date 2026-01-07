@@ -136,3 +136,31 @@ logger.debug("Or you can use a function call: {value}.", () => {
   return { value: computeValue() };
 });
 ~~~~
+
+
+### Checking if a level is enabled
+
+*This API is available since LogTape 1.4.0.*
+
+For async operations, lazy evaluation callbacks cannot be used because they
+must return synchronously.  In such cases, you can use the `isEnabledFor()`
+method to check if a log level is enabled before performing expensive async
+computations:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger([]);
+/**
+ * A hypothetical async function that is expensive.
+ * @returns The computed value.
+ */
+async function expensiveAsync(): Promise<unknown> { return 0; }
+// ---cut-before---
+if (logger.isEnabledFor("debug")) {
+  const value = await expensiveAsync();
+  logger.debug("Async result: {value}", { value });
+}
+~~~~
+
+This method checks both the logger's `lowestLevel` and whether any sinks are
+configured to receive logs at that level.
