@@ -142,9 +142,25 @@ To be released.
 
 ### @logtape/otel
 
+ -  Removed the `attributes.` prefix from property keys when converting LogTape
+    properties to OpenTelemetry attributes.  Properties are now sent with their
+    original key names as flat attributes, which aligns with standard
+    OpenTelemetry conventions and prevents double nesting (e.g.,
+    `attributes.attributes.method`) in OpenTelemetry backends.  [[#127], [#130]]
+
+     -  Changed `convertToAttributes()` to use property keys directly without
+        adding an `attributes.` prefix.
+     -  This is a breaking change: existing users with queries or dashboards
+        that rely on the `attributes.*` key names will need to update them to
+        use the new flat key names (e.g., `attributes.method` becomes `method`
+        in the attributes field).
+
  -  Improved serialization of `Error` and `AggregateError` values in properties
     and message values so that `name`, `message`, `stack`, `cause`, and `errors`
     are preserved in OpenTelemetry log attributes.  [[#123]]
+
+[#127]: https://github.com/dahlia/logtape/discussions/127
+[#130]: https://github.com/dahlia/logtape/issues/130
 
 ### @logtape/file
 

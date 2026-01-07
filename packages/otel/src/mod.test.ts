@@ -291,10 +291,10 @@ test("sink converts properties to attributes", () => {
   sink(record);
 
   assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].attributes["attributes.userId"], "123");
-  assertEquals(emittedRecords[0].attributes["attributes.action"], "login");
+  assertEquals(emittedRecords[0].attributes["userId"], "123");
+  assertEquals(emittedRecords[0].attributes["action"], "login");
   assertEquals(
-    emittedRecords[0].attributes["attributes.details"],
+    emittedRecords[0].attributes["details"],
     '{"ip":"127.0.0.1"}',
   );
 });
@@ -427,14 +427,14 @@ test("sink handles null/undefined values in properties", () => {
   assertEquals(emittedRecords.length, 1);
   // null and undefined should be skipped
   assertEquals(
-    emittedRecords[0].attributes["attributes.nullValue"],
+    emittedRecords[0].attributes["nullValue"],
     undefined,
   );
   assertEquals(
-    emittedRecords[0].attributes["attributes.undefinedValue"],
+    emittedRecords[0].attributes["undefinedValue"],
     undefined,
   );
-  assertEquals(emittedRecords[0].attributes["attributes.validValue"], "test");
+  assertEquals(emittedRecords[0].attributes["validValue"], "test");
 });
 
 test("sink handles array values in properties", () => {
@@ -454,12 +454,12 @@ test("sink handles array values in properties", () => {
 
   assertEquals(emittedRecords.length, 1);
   assertEquals(
-    emittedRecords[0].attributes["attributes.tags"],
+    emittedRecords[0].attributes["tags"],
     ["a", "b", "c"],
   );
   // Mixed arrays: implementation converts to strings when types differ
   // but the actual behavior is that it keeps original values after detecting mixed types
-  assertEquals(emittedRecords[0].attributes["attributes.mixedArray"], [
+  assertEquals(emittedRecords[0].attributes["mixedArray"], [
     1,
     "two",
     3,
@@ -483,7 +483,7 @@ test("sink handles Date objects in properties", () => {
 
   assertEquals(emittedRecords.length, 1);
   assertEquals(
-    emittedRecords[0].attributes["attributes.timestamp"],
+    emittedRecords[0].attributes["timestamp"],
     "2024-01-15T10:30:00.000Z",
   );
 });
@@ -822,7 +822,7 @@ test("sink serializes Error objects in properties with JSON renderer", () => {
   sink(record);
 
   assertEquals(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  const errorAttr = emittedRecords[0].attributes["error"] as string;
   // Should not be an empty object
   assertEquals(errorAttr.includes("Something went wrong"), true);
   assertEquals(errorAttr.includes("name"), true);
@@ -848,7 +848,7 @@ test("sink serializes Error with cause", () => {
   sink(record);
 
   assertEquals(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  const errorAttr = emittedRecords[0].attributes["error"] as string;
   assertEquals(errorAttr.includes("cause"), true);
   assertEquals(errorAttr.includes("Root cause"), true);
 });
@@ -877,7 +877,7 @@ test("sink serializes AggregateError with errors array", () => {
   sink(record);
 
   assertEquals(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  const errorAttr = emittedRecords[0].attributes["error"] as string;
   assertEquals(errorAttr.includes("errors"), true);
   assertEquals(errorAttr.includes("Error 1"), true);
   assertEquals(errorAttr.includes("Error 2"), true);
@@ -905,7 +905,7 @@ test("sink serializes Error with custom properties", () => {
   sink(record);
 
   assertEquals(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["attributes.error"] as string;
+  const errorAttr = emittedRecords[0].attributes["error"] as string;
   assertEquals(errorAttr.includes("ERR_CUSTOM"), true);
   assertEquals(errorAttr.includes("500"), true);
 });

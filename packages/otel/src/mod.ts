@@ -562,25 +562,24 @@ function convertToAttributes(
 ): Record<string, AnyValue> {
   const attributes: Record<string, AnyValue> = {};
   for (const [name, value] of Object.entries(properties)) {
-    const key = `attributes.${name}`;
     if (value == null) continue;
     if (Array.isArray(value)) {
       let t = null;
       for (const v of value) {
         if (v == null) continue;
         if (t != null && typeof v !== t) {
-          attributes[key] = value.map((v) =>
+          attributes[name] = value.map((v) =>
             convertToString(v, objectRenderer)
           );
           break;
         }
         t = typeof v;
       }
-      attributes[key] = value;
+      attributes[name] = value;
     } else {
       const encoded = convertToString(value, objectRenderer);
       if (encoded == null) continue;
-      attributes[key] = encoded;
+      attributes[name] = encoded;
     }
   }
   return attributes;
