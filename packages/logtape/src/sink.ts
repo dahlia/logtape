@@ -460,6 +460,32 @@ export interface FingersCrossedOptions {
   readonly triggerLevel?: LogLevel;
 
   /**
+   * Maximum log level that will be buffered.
+   * Log records at or below this level are buffered, while records above
+   * this level (but below {@link triggerLevel}) pass through immediately
+   * without buffering.
+   *
+   * When `undefined` (default), all records below {@link triggerLevel} are
+   * buffered (equivalent to setting this to the level just below triggerLevel).
+   *
+   * When `null`, all records below {@link triggerLevel} are buffered
+   * (same as `undefined`, but explicit).
+   *
+   * @example Buffer only trace and debug, pass through info immediately
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   bufferLevel: "debug",     // trace, debug → buffered
+   *   triggerLevel: "warning",  // warning+ → trigger flush
+   *   // info → passes through immediately (not buffered, not trigger)
+   * })
+   * ```
+   *
+   * @default `undefined` (buffer all levels below triggerLevel)
+   * @since 1.4.0
+   */
+  readonly bufferLevel?: LogLevel | null;
+
+  /**
    * Maximum buffer size before oldest records are dropped.
    * When the buffer exceeds this size, the oldest records are removed
    * to prevent unbounded memory growth.
@@ -632,6 +658,7 @@ export function fingersCrossed(
   options: FingersCrossedOptions = {},
 ): Sink | (Sink & Disposable) {
   const triggerLevel = options.triggerLevel ?? "error";
+  const bufferLevel = options.bufferLevel;
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
   const isolateByCategory = options.isolateByCategory;
   const isolateByContext = options.isolateByContext;
@@ -652,6 +679,27 @@ export function fingersCrossed(
         error instanceof Error ? error.message : String(error)
       }`,
     );
+  }
+
+  // Validate buffer level if provided
+  if (bufferLevel != null) {
+    try {
+      compareLogLevel("trace", bufferLevel); // Test with any valid level
+    } catch (error) {
+      throw new TypeError(
+        `Invalid bufferLevel: ${JSON.stringify(bufferLevel)}. ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    // bufferLevel must be strictly less than triggerLevel
+    if (compareLogLevel(bufferLevel, triggerLevel) >= 0) {
+      throw new RangeError(
+        `bufferLevel (${JSON.stringify(bufferLevel)}) must be lower than ` +
+          `triggerLevel (${JSON.stringify(triggerLevel)}).`,
+      );
+    }
   }
 
   // Helper functions for category matching
@@ -830,6 +878,12 @@ export function fingersCrossed(
 
         // Send trigger record
         sink(record);
+      } else if (
+        bufferLevel != null &&
+        compareLogLevel(record.level, bufferLevel) > 0
+      ) {
+        // Record is above bufferLevel but below triggerLevel: pass through
+        sink(record);
       } else {
         // Buffer the record
         buffer.push(record);
@@ -929,6 +983,12 @@ export function fingersCrossed(
 
         // Mark trigger buffer as triggered and send trigger record
         triggered.add(bufferKey);
+        sink(record);
+      } else if (
+        bufferLevel != null &&
+        compareLogLevel(record.level, bufferLevel) > 0
+      ) {
+        // Record is above bufferLevel but below triggerLevel: pass through
         sink(record);
       } else {
         // Buffer the record

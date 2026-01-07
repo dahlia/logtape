@@ -2588,3 +2588,192 @@ test("fingersCrossed() - LRU priority over TTL for active contexts", () => {
     sink[Symbol.dispose]();
   }
 });
+
+test("fingersCrossed() - bufferLevel basic functionality", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    bufferLevel: "debug", // Only buffer trace and debug
+    triggerLevel: "warning", // Trigger on warning or higher
+  });
+
+  // trace and debug should be buffered
+  sink(trace);
+  sink(debug);
+  assertEquals(buffer.length, 0);
+
+  // info should pass through immediately (above bufferLevel, below triggerLevel)
+  sink(info);
+  assertEquals(buffer, [info]);
+
+  // warning should trigger flush and include itself
+  sink(warning);
+  assertEquals(buffer, [info, trace, debug, warning]);
+
+  // After trigger, all logs pass through
+  sink(trace);
+  assertEquals(buffer, [info, trace, debug, warning, trace]);
+});
+
+test("fingersCrossed() - bufferLevel with null value", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    bufferLevel: null, // Explicit null means buffer all below triggerLevel
+    triggerLevel: "error",
+  });
+
+  // All levels below error should be buffered
+  sink(trace);
+  sink(debug);
+  sink(info);
+  sink(warning);
+  assertEquals(buffer.length, 0);
+
+  // error triggers flush
+  sink(error);
+  assertEquals(buffer, [trace, debug, info, warning, error]);
+});
+
+test("fingersCrossed() - bufferLevel validation: invalid level", () => {
+  assertThrows(
+    () =>
+      fingersCrossed(() => {}, {
+        bufferLevel: "invalid" as LogLevel,
+        triggerLevel: "error",
+      }),
+    TypeError,
+    "Invalid bufferLevel",
+  );
+});
+
+test("fingersCrossed() - bufferLevel validation: bufferLevel >= triggerLevel", () => {
+  // bufferLevel same as triggerLevel
+  assertThrows(
+    () =>
+      fingersCrossed(() => {}, {
+        bufferLevel: "error",
+        triggerLevel: "error",
+      }),
+    RangeError,
+    "bufferLevel",
+  );
+
+  // bufferLevel higher than triggerLevel
+  assertThrows(
+    () =>
+      fingersCrossed(() => {}, {
+        bufferLevel: "fatal",
+        triggerLevel: "error",
+      }),
+    RangeError,
+    "bufferLevel",
+  );
+});
+
+test("fingersCrossed() - bufferLevel with category isolation", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    bufferLevel: "debug",
+    triggerLevel: "error",
+    isolateByCategory: "descendant",
+  });
+
+  const appDebug: LogRecord = { ...debug, category: ["app"] };
+  const appInfo: LogRecord = { ...info, category: ["app"] };
+  const appError: LogRecord = { ...error, category: ["app"] };
+
+  // debug buffered, info passes through
+  sink(appDebug);
+  assertEquals(buffer.length, 0);
+
+  sink(appInfo);
+  assertEquals(buffer, [appInfo]);
+
+  // error triggers flush
+  sink(appError);
+  assertEquals(buffer, [appInfo, appDebug, appError]);
+});
+
+test("fingersCrossed() - bufferLevel with context isolation", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    bufferLevel: "debug",
+    triggerLevel: "error",
+    isolateByContext: { keys: ["requestId"] },
+  }) as Sink & Disposable;
+
+  try {
+    const req1Debug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+    };
+    const req1Info: LogRecord = {
+      ...info,
+      properties: { requestId: "req-1" },
+    };
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+    };
+
+    // debug buffered
+    sink(req1Debug);
+    assertEquals(buffer.length, 0);
+
+    // info passes through immediately
+    sink(req1Info);
+    assertEquals(buffer, [req1Info]);
+
+    // error triggers flush
+    sink(req1Error);
+    assertEquals(buffer, [req1Info, req1Debug, req1Error]);
+  } finally {
+    sink[Symbol.dispose]?.();
+  }
+});
+
+test("fingersCrossed() - bufferLevel edge case: trace as bufferLevel", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    bufferLevel: "trace", // Only buffer trace
+    triggerLevel: "error",
+  });
+
+  // Only trace is buffered
+  sink(trace);
+  assertEquals(buffer.length, 0);
+
+  // debug and above pass through immediately
+  sink(debug);
+  assertEquals(buffer, [debug]);
+
+  sink(info);
+  assertEquals(buffer, [debug, info]);
+
+  // error triggers flush
+  sink(error);
+  assertEquals(buffer, [debug, info, trace, error]);
+});
+
+test("fingersCrossed() - bufferLevel preserves chronological order on flush", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    bufferLevel: "debug",
+    triggerLevel: "error",
+  });
+
+  // Mix buffered and pass-through records
+  const t1 = { ...trace, timestamp: 1 };
+  const t2 = { ...info, timestamp: 2 }; // pass-through
+  const t3 = { ...debug, timestamp: 3 };
+  const t4 = { ...info, timestamp: 4 }; // pass-through
+  const t5 = { ...error, timestamp: 5 }; // trigger
+
+  sink(t1);
+  sink(t2);
+  sink(t3);
+  sink(t4);
+  sink(t5);
+
+  // info records passed through first, then buffered records flushed, then trigger
+  assertEquals(buffer, [t2, t4, t1, t3, t5]);
+});

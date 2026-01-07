@@ -56,13 +56,23 @@ To be released.
     Note that Deno continues to use the `unload` event since it does not
     support `pagehide`.
 
+ -  Added `FingersCrossedOptions.bufferLevel` option to configure which severity
+    levels are buffered separately from the trigger level.  [[#126]]
+
+     -  When set, only log records at or below `bufferLevel` are buffered.
+     -  Records above `bufferLevel` but below `triggerLevel` pass through
+        immediately without buffering.
+     -  Throws `RangeError` if `bufferLevel` is greater than or equal to
+        `triggerLevel`.
+
 [#79]: https://github.com/dahlia/logtape/issues/79
 [#113]: https://github.com/dahlia/logtape/pull/113
-[#124]: https://github.com/dahlia/logtape/issues/124
-[#125]: https://github.com/dahlia/logtape/pull/125
 [#120]: https://github.com/dahlia/logtape/issues/120
 [#121]: https://github.com/dahlia/logtape/pull/121
 [#123]: https://github.com/dahlia/logtape/issues/123
+[#124]: https://github.com/dahlia/logtape/issues/124
+[#125]: https://github.com/dahlia/logtape/pull/125
+[#126]: https://github.com/dahlia/logtape/issues/126
 
 ### @logtape/config
 
