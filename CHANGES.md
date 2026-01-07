@@ -74,6 +74,19 @@ To be released.
         logging, particularly for async operations where lazy evaluation
         callbacks cannot be used.
 
+ -  Added async callback support for lazy evaluation of structured data.
+    [[#129]]
+
+     -  All logging methods (`trace()`, `debug()`, `info()`, `warn()`,
+        `warning()`, `error()`, `fatal()`) now accept async callbacks
+        that return `Promise<Record<string, unknown>>`.
+     -  When an async callback is passed, the method returns `Promise<void>`.
+     -  The async callback is only invoked if the log level is enabled;
+        if disabled, the callback is never called and the returned `Promise`
+        resolves immediately.
+     -  Added corresponding overloads to `Logger` interface and `LogMethod`
+        interface.
+
 [#79]: https://github.com/dahlia/logtape/issues/79
 [#113]: https://github.com/dahlia/logtape/pull/113
 [#120]: https://github.com/dahlia/logtape/issues/120

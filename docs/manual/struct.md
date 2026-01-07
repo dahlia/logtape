@@ -324,6 +324,44 @@ logger.debug("Expensive operation completed", () => ({
 The function will only be called if the debug log level is enabled.
 
 
+### Async lazy evaluation
+
+*This API is available since LogTape 1.4.0.*
+
+For async operations, you can use an async callback to compute the structured
+data.  When you pass an async function, the logging method returns a `Promise`
+that you should `await`:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+/**
+ * A hypothetical async function that is expensive.
+ * @returns The computed value.
+ */
+async function fetchUserDetails(): Promise<unknown> { return {}; }
+// ---cut-before---
+await logger.info("User details fetched", async () => ({
+  user: await fetchUserDetails(),
+}));
+~~~~
+
+The async callback will only be invoked if the log level is enabled.  If the
+log level is disabled, the callback is never called and the returned `Promise`
+resolves immediately.
+
+> [!TIP]
+> If you forget to `await` the returned `Promise`, TypeScript will warn you
+> about the unhandled promise.  This helps ensure you don't accidentally
+> ignore the async operation.
+
+> [!NOTE]
+> For checking if a log level is enabled before performing expensive async
+> computations, you can also use the `isEnabledFor()` method.  See
+> [*Checking if a level is enabled*](./start.md#checking-if-a-level-is-enabled)
+> for details.
+
+
 Configuring sinks for structured logging
 ----------------------------------------
 

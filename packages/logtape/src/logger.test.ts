@@ -1841,3 +1841,132 @@ test("LoggerCtx.isEnabledFor()", () => {
     logger.resetDescendants();
   }
 });
+
+type LogMethodName =
+  | "trace"
+  | "debug"
+  | "info"
+  | "warn"
+  | "warning"
+  | "error"
+  | "fatal";
+
+for (
+  const method of [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "warning",
+    "error",
+    "fatal",
+  ] as LogMethodName[]
+) {
+  test(`Logger.${method}() [async callback]`, async () => {
+    const logger = LoggerImpl.getLogger("async-callback");
+    const ctx = new LoggerCtx(logger, { ctx: "value" });
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+
+      // Test LoggerImpl with async callback
+      const result = logger[method](
+        "Async message with {value}.",
+        // deno-lint-ignore require-await
+        async () => ({ value: 42 }),
+      );
+      assert(result instanceof Promise, "Should return a Promise");
+      await result;
+
+      assertEquals(logs.length, 1);
+      assertEquals(logs[0].message, ["Async message with ", 42, "."]);
+      assertEquals(logs[0].rawMessage, "Async message with {value}.");
+      assertEquals(logs[0].properties, { value: 42 });
+
+      // Test LoggerCtx with async callback
+      logs.length = 0;
+      const ctxResult = ctx[method](
+        "Async ctx message with {value}.",
+        // deno-lint-ignore require-await
+        async () => ({ value: 123 }),
+      );
+      assert(ctxResult instanceof Promise, "Should return a Promise");
+      await ctxResult;
+
+      assertEquals(logs.length, 1);
+      assertEquals(logs[0].message, ["Async ctx message with ", 123, "."]);
+      assertEquals(logs[0].rawMessage, "Async ctx message with {value}.");
+      assertEquals(logs[0].properties, { ctx: "value", value: 123 });
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
+  test(`Logger.${method}() [async callback disabled]`, async () => {
+    const logger = LoggerImpl.getLogger("async-callback-disabled");
+    const ctx = new LoggerCtx(logger, { ctx: "value" });
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+      logger.lowestLevel = "fatal"; // Set to highest level so most are disabled
+
+      let callbackCalled = false;
+      const result = logger[method](
+        "Async message with {value}.",
+        // deno-lint-ignore require-await
+        async () => {
+          callbackCalled = true;
+          return { value: 42 };
+        },
+      );
+
+      if (method === "fatal") {
+        // fatal is enabled, so callback should be called
+        assert(result instanceof Promise, "Should return a Promise");
+        await result;
+        assert(callbackCalled, "Callback should be called for enabled level");
+        assertEquals(logs.length, 1);
+      } else {
+        // Other levels are disabled
+        assert(result instanceof Promise, "Should return a Promise");
+        await result;
+        assertFalse(
+          callbackCalled,
+          "Callback should NOT be called for disabled level",
+        );
+        assertEquals(logs.length, 0);
+      }
+
+      // Test LoggerCtx with disabled level
+      callbackCalled = false;
+      logs.length = 0;
+      const ctxResult = ctx[method](
+        "Async ctx message with {value}.",
+        // deno-lint-ignore require-await
+        async () => {
+          callbackCalled = true;
+          return { value: 123 };
+        },
+      );
+
+      if (method === "fatal") {
+        assert(ctxResult instanceof Promise, "Should return a Promise");
+        await ctxResult;
+        assert(callbackCalled, "Callback should be called for enabled level");
+        assertEquals(logs.length, 1);
+      } else {
+        assert(ctxResult instanceof Promise, "Should return a Promise");
+        await ctxResult;
+        assertFalse(
+          callbackCalled,
+          "Callback should NOT be called for disabled level",
+        );
+        assertEquals(logs.length, 0);
+      }
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+}
