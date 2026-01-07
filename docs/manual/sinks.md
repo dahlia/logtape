@@ -1245,6 +1245,94 @@ await configure({
 The `additionalResource` is merged with the default resource that includes the
 service name and auto-detected attributes.
 
+### Error object handling
+
+When logging Error objects in properties, the OpenTelemetry sink provides
+three modes for handling them via the `exceptionAttributes` option:
+
+`"semconv"` (default)
+:   Follows the [OpenTelemetry semantic conventions for exceptions].  Error
+    objects in properties are converted to three standard attributes:
+    `exception.type`, `exception.message`, and `exception.stacktrace`.
+    This is the recommended mode for OpenTelemetry-compliant logging.
+
+`"raw"`
+:   Serializes Error objects as JSON strings with their properties
+    (`name`, `message`, `stack`, `cause`, etc.).  The Error remains in its
+    original property name.  Use this mode if you need to preserve custom
+    error properties or don't want to follow semantic conventions.
+
+`false`
+:   Treats Error objects like any other object, which typically results in
+    empty objects (`{}`) since Error objects have no enumerable properties.
+    This mode is rarely useful.
+
+Example using semantic conventions (default):
+
+~~~~ typescript twoslash
+import { configure, getLogger } from "@logtape/logtape";
+import { getOpenTelemetrySink } from "@logtape/otel";
+
+await configure({
+  sinks: {
+    otel: getOpenTelemetrySink({
+      // exceptionAttributes: "semconv" is the default
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
+  ],
+});
+
+const logger = getLogger(["my-app"]);
+
+try {
+  // Some operation that might fail
+  throw new Error("Database connection failed");
+} catch (error) {
+  logger.error("Operation failed", { error });
+  // This creates attributes:
+  // - exception.type: "Error"
+  // - exception.message: "Database connection failed"
+  // - exception.stacktrace: "Error: Database connection failed\n  at ..."
+}
+~~~~
+
+Example using raw mode:
+
+~~~~ typescript twoslash
+import { configure, getLogger } from "@logtape/logtape";
+import { getOpenTelemetrySink } from "@logtape/otel";
+
+await configure({
+  sinks: {
+    otel: getOpenTelemetrySink({
+      exceptionAttributes: "raw",
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["otel"], lowestLevel: "debug" },
+  ],
+});
+
+const logger = getLogger(["my-app"]);
+
+try {
+  throw new Error("Custom error");
+} catch (error) {
+  logger.error("Operation failed", { error });
+  // This creates a single attribute:
+  // - error: '{"name":"Error","message":"Custom error","stack":"..."}'
+}
+~~~~
+
+> [!NOTE]
+> Error objects appearing in log message values (not properties) are always
+> serialized as JSON strings regardless of the `exceptionAttributes` setting.
+> The semantic conventions only apply to Error objects in properties.
+
+[OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
+
 ### Using an existing LoggerProvider
 
 For maximum control, you can pass an existing OpenTelemetry [`LoggerProvider`]

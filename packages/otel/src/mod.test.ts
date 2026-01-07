@@ -291,7 +291,7 @@ test("sink converts properties to attributes", () => {
   sink(record);
 
   assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].attributes["userId"], "123");
+  assertEquals(emittedRecords[0].attributes["userId"], 123);
   assertEquals(emittedRecords[0].attributes["action"], "login");
   assertEquals(
     emittedRecords[0].attributes["details"],
@@ -804,11 +804,12 @@ test("OpenTelemetrySink type has ready property", () => {
 // Error object serialization tests (issue #123)
 // =============================================================================
 
-test("sink serializes Error objects in properties with JSON renderer", () => {
+test("sink serializes Error objects in properties with JSON renderer (raw mode)", () => {
   const { provider, emittedRecords } = createMockLoggerProvider();
   const sink = getOpenTelemetrySink({
     loggerProvider: provider as never,
     objectRenderer: "json",
+    exceptionAttributes: "raw",
   });
 
   const testError = new Error("Something went wrong");
@@ -830,11 +831,12 @@ test("sink serializes Error objects in properties with JSON renderer", () => {
   assertEquals(errorAttr.includes("stack"), true);
 });
 
-test("sink serializes Error with cause", () => {
+test("sink serializes Error with cause (raw mode)", () => {
   const { provider, emittedRecords } = createMockLoggerProvider();
   const sink = getOpenTelemetrySink({
     loggerProvider: provider as never,
     objectRenderer: "json",
+    exceptionAttributes: "raw",
   });
 
   const cause = new Error("Root cause");
@@ -853,11 +855,12 @@ test("sink serializes Error with cause", () => {
   assertEquals(errorAttr.includes("Root cause"), true);
 });
 
-test("sink serializes AggregateError with errors array", () => {
+test("sink serializes AggregateError with errors array (raw mode)", () => {
   const { provider, emittedRecords } = createMockLoggerProvider();
   const sink = getOpenTelemetrySink({
     loggerProvider: provider as never,
     objectRenderer: "json",
+    exceptionAttributes: "raw",
   });
 
   const errors = [
@@ -883,11 +886,12 @@ test("sink serializes AggregateError with errors array", () => {
   assertEquals(errorAttr.includes("Error 2"), true);
 });
 
-test("sink serializes Error with custom properties", () => {
+test("sink serializes Error with custom properties (raw mode)", () => {
   const { provider, emittedRecords } = createMockLoggerProvider();
   const sink = getOpenTelemetrySink({
     loggerProvider: provider as never,
     objectRenderer: "json",
+    exceptionAttributes: "raw",
   });
 
   const testError = new Error("Custom error") as Error & {
@@ -910,12 +914,13 @@ test("sink serializes Error with custom properties", () => {
   assertEquals(errorAttr.includes("500"), true);
 });
 
-test("sink handles Error in message values with JSON renderer", () => {
+test("sink handles Error in message values with JSON renderer (raw mode)", () => {
   const { provider, emittedRecords } = createMockLoggerProvider();
   const sink = getOpenTelemetrySink({
     loggerProvider: provider as never,
     objectRenderer: "json",
     messageType: "string",
+    exceptionAttributes: "raw",
   });
 
   const testError = new Error("Message error");
@@ -929,4 +934,165 @@ test("sink handles Error in message values with JSON renderer", () => {
   const body = emittedRecords[0].body as string;
   assertEquals(body.includes("Message error"), true);
   assertEquals(body.includes("name"), true);
+});
+
+test("sink uses semantic conventions for Error in properties (default)", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const testError = new Error("Something went wrong");
+  testError.stack = "Error: Something went wrong\n  at test.ts:1:1";
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+  assertEquals(attrs["exception.type"], "Error");
+  assertEquals(attrs["exception.message"], "Something went wrong");
+  assertEquals(
+    attrs["exception.stacktrace"],
+    "Error: Something went wrong\n  at test.ts:1:1",
+  );
+  // Original error property should not exist
+  assertEquals(attrs["error"], undefined);
+});
+
+test("sink uses semantic conventions for Error with explicit semconv mode", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+    exceptionAttributes: "semconv",
+  });
+
+  const testError = new TypeError("Type mismatch");
+  testError.stack = "TypeError: Type mismatch\n  at check.ts:42:10";
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+  assertEquals(attrs["exception.type"], "TypeError");
+  assertEquals(attrs["exception.message"], "Type mismatch");
+  assertEquals(
+    attrs["exception.stacktrace"],
+    "TypeError: Type mismatch\n  at check.ts:42:10",
+  );
+});
+
+test("sink handles Error without stack in semconv mode", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    exceptionAttributes: "semconv",
+  });
+
+  const testError = new Error("No stack");
+  delete testError.stack;
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+  assertEquals(attrs["exception.type"], "Error");
+  assertEquals(attrs["exception.message"], "No stack");
+  assertEquals(attrs["exception.stacktrace"], undefined);
+});
+
+test("sink preserves non-Error properties with semconv mode", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    exceptionAttributes: "semconv",
+  });
+
+  const testError = new Error("Test error");
+  testError.stack = "Error: Test error\n  at test.ts:1:1";
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+      requestId: "abc123",
+      userId: 42,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+  assertEquals(attrs["exception.type"], "Error");
+  assertEquals(attrs["exception.message"], "Test error");
+  assertEquals(attrs["requestId"], "abc123");
+  assertEquals(attrs["userId"], 42);
+});
+
+test("sink with exceptionAttributes: false treats Error as object", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+    exceptionAttributes: false,
+  });
+
+  const testError = new Error("Treated as object");
+
+  const record = createMockLogRecord({
+    properties: {
+      error: testError,
+    },
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+  // Should be serialized as JSON, but as a plain object (likely empty {})
+  assertEquals(attrs["error"], "{}");
+  assertEquals(attrs["exception.type"], undefined);
+  assertEquals(attrs["exception.message"], undefined);
+  assertEquals(attrs["exception.stacktrace"], undefined);
+});
+
+test("sink handles Error in message body with semconv mode", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+    messageType: "string",
+    exceptionAttributes: "semconv",
+  });
+
+  const testError = new Error("Message error");
+  testError.stack = "Error: Message error\n  at app.ts:10:5";
+
+  const record = createMockLogRecord({
+    message: ["Error occurred: ", testError, ""],
+  });
+  sink(record);
+
+  assertEquals(emittedRecords.length, 1);
+  const body = emittedRecords[0].body as string;
+  // In message body, errors are still serialized as JSON (not converted to semconv)
+  assertEquals(body.includes("Message error"), true);
+  assertEquals(body.includes("name"), true);
+  // Semantic conventions should NOT be in attributes for message-level errors
+  const attrs = emittedRecords[0].attributes;
+  assertEquals(attrs["exception.type"], undefined);
 });

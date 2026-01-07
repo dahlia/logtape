@@ -155,12 +155,30 @@ To be released.
         use the new flat key names (e.g., `attributes.method` becomes `method`
         in the attributes field).
 
- -  Improved serialization of `Error` and `AggregateError` values in properties
-    and message values so that `name`, `message`, `stack`, `cause`, and `errors`
-    are preserved in OpenTelemetry log attributes.  [[#123]]
+ -  Added `exceptionAttributes` option to control how `Error` objects in
+    properties are handled.  [[#123]]
 
+     -  `"semconv"` (default): Follows [OpenTelemetry semantic conventions for
+        exceptions], converting Error objects to `exception.type`,
+        `exception.message`, and `exception.stacktrace` attributes.
+     -  `"raw"`: Serializes Error objects as JSON strings with their properties
+        (`name`, `message`, `stack`, `cause`, `errors`) preserved.
+     -  `false`: Treats Error objects as regular objects (typically results in
+        empty objects).
+
+    > [!IMPORTANT]
+    > This is a behavior change: Error objects in properties now follow
+    > semantic conventions by default instead of being serialized as JSON
+    > strings.  If you need the previous behavior, set
+    > `exceptionAttributes: "raw"`.
+
+ -  Fixed primitive type preservation in attributes: numbers and booleans are
+    now preserved as their original types instead of being converted to strings.
+
+[#123]: https://github.com/dahlia/logtape/issues/123
 [#127]: https://github.com/dahlia/logtape/discussions/127
 [#130]: https://github.com/dahlia/logtape/issues/130
+[OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
 
 ### @logtape/file
 

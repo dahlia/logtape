@@ -195,6 +195,12 @@ export type BodyFormatter = (message: Message) => AnyValue;
 export type OtlpProtocol = "grpc" | "http/protobuf" | "http/json";
 
 /**
+ * How to serialize `Error` objects in log attributes.
+ * @since 1.4.0
+ */
+export type ExceptionAttributeMode = "semconv" | "raw" | false;
+
+/**
  * Base options shared by all OpenTelemetry sink configurations.
  */
 interface OpenTelemetrySinkOptionsBase {
@@ -216,6 +222,21 @@ interface OpenTelemetrySinkOptionsBase {
    * `Deno.inspect` in Deno.  `"inspect"` by default.
    */
   objectRenderer?: ObjectRenderer;
+
+  /**
+   * How to serialize `Error` objects in log attributes.
+   *
+   * - `"semconv"` (default): Follow OpenTelemetry semantic conventions,
+   *   converting `Error` objects to `exception.type`, `exception.message`,
+   *   and `exception.stacktrace` attributes.
+   * - `"raw"`: Serialize `Error` objects as JSON strings with fields like
+   *   `name`, `message`, `stack`, etc.
+   * - `false`: Treat `Error` objects like regular objects without special
+   *   handling.
+   *
+   * @since 1.4.0
+   */
+  exceptionAttributes?: ExceptionAttributeMode;
 
   /**
    * Whether to log diagnostics.  Diagnostic logs are logged to
@@ -373,9 +394,14 @@ function emitLogRecord(
   options: OpenTelemetrySinkOptions,
 ): void {
   const objectRenderer = options.objectRenderer ?? "inspect";
+  const exceptionMode = options.exceptionAttributes ?? "semconv";
   const { category, level, message, timestamp, properties } = record;
   const severityNumber = mapLevelToSeverityNumber(level);
-  const attributes = convertToAttributes(properties, objectRenderer);
+  const attributes = convertToAttributes(
+    properties,
+    objectRenderer,
+    exceptionMode,
+  );
   attributes["category"] = [...category];
   logger.emit(
     {
@@ -385,11 +411,12 @@ function emitLogRecord(
         ? convertMessageToCustomBodyFormat(
           message,
           objectRenderer,
+          exceptionMode,
           options.messageType,
         )
         : options.messageType === "array"
-        ? convertMessageToArray(message, objectRenderer)
-        : convertMessageToString(message, objectRenderer),
+        ? convertMessageToArray(message, objectRenderer, exceptionMode)
+        : convertMessageToString(message, objectRenderer, exceptionMode),
       attributes,
       timestamp: new Date(timestamp),
     } satisfies OTLogRecord,
@@ -559,25 +586,44 @@ function mapLevelToSeverityNumber(level: string): number {
 function convertToAttributes(
   properties: Record<string, unknown>,
   objectRenderer: ObjectRenderer,
+  exceptionMode: ExceptionAttributeMode,
 ): Record<string, AnyValue> {
   const attributes: Record<string, AnyValue> = {};
   for (const [name, value] of Object.entries(properties)) {
     if (value == null) continue;
+
+    // Special handling for Error objects based on exceptionAttributes option
+    if (value instanceof Error && exceptionMode === "semconv") {
+      // Follow OpenTelemetry semantic conventions for exceptions
+      attributes["exception.type"] = value.name;
+      attributes["exception.message"] = value.message;
+      if (typeof value.stack === "string") {
+        attributes["exception.stacktrace"] = value.stack;
+      }
+      continue;
+    }
+
     if (Array.isArray(value)) {
       let t = null;
       for (const v of value) {
         if (v == null) continue;
         if (t != null && typeof v !== t) {
           attributes[name] = value.map((v) =>
-            convertToString(v, objectRenderer)
+            convertToString(v, objectRenderer, exceptionMode)
           );
           break;
         }
         t = typeof v;
       }
       attributes[name] = value;
+    } else if (
+      typeof value === "string" || typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      // Preserve primitive types as-is
+      attributes[name] = value;
     } else {
-      const encoded = convertToString(value, objectRenderer);
+      const encoded = convertToString(value, objectRenderer, exceptionMode);
       if (encoded == null) continue;
       attributes[name] = encoded;
     }
@@ -637,6 +683,7 @@ function serializeValue(value: unknown): unknown {
 function convertToString(
   value: unknown,
   objectRenderer: ObjectRenderer,
+  exceptionMode: ExceptionAttributeMode,
 ): string | null | undefined {
   if (value === null || value === undefined || typeof value === "string") {
     return value;
@@ -645,7 +692,13 @@ function convertToString(
   if (typeof value === "number" || typeof value === "boolean") {
     return value.toString();
   } else if (value instanceof Date) return value.toISOString();
-  else if (value instanceof Error) {
+  else if (
+    value instanceof Error &&
+    (exceptionMode === "raw" || exceptionMode === "semconv")
+  ) {
+    // In message bodies, serialize Error objects with serializeValue for "raw" and "semconv" modes
+    // (semantic conventions only apply to Error objects in properties, not message bodies)
+    // When exceptionMode is false, treat Error as a regular object (JSON.stringify)
     return JSON.stringify(serializeValue(value));
   } else return JSON.stringify(value);
 }
@@ -653,6 +706,7 @@ function convertToString(
 function convertMessageToArray(
   message: readonly unknown[],
   objectRenderer: ObjectRenderer,
+  exceptionMode: ExceptionAttributeMode,
 ): AnyValue {
   const body: (string | null | undefined)[] = [];
   for (let i = 0; i < message.length; i += 2) {
@@ -660,7 +714,7 @@ function convertMessageToArray(
     body.push(msg);
     if (message.length <= i + 1) break;
     const val = message[i + 1];
-    body.push(convertToString(val, objectRenderer));
+    body.push(convertToString(val, objectRenderer, exceptionMode));
   }
   return body;
 }
@@ -668,6 +722,7 @@ function convertMessageToArray(
 function convertMessageToString(
   message: readonly unknown[],
   objectRenderer: ObjectRenderer,
+  exceptionMode: ExceptionAttributeMode,
 ): AnyValue {
   let body = "";
   for (let i = 0; i < message.length; i += 2) {
@@ -675,7 +730,7 @@ function convertMessageToString(
     body += msg;
     if (message.length <= i + 1) break;
     const val = message[i + 1];
-    const extra = convertToString(val, objectRenderer);
+    const extra = convertToString(val, objectRenderer, exceptionMode);
     body += extra ?? JSON.stringify(extra);
   }
   return body;
@@ -684,9 +739,12 @@ function convertMessageToString(
 function convertMessageToCustomBodyFormat(
   message: readonly unknown[],
   objectRenderer: ObjectRenderer,
+  exceptionMode: ExceptionAttributeMode,
   bodyFormatter: BodyFormatter,
 ): AnyValue {
-  const body = message.map((msg) => convertToString(msg, objectRenderer));
+  const body = message.map((msg) =>
+    convertToString(msg, objectRenderer, exceptionMode)
+  );
   return bodyFormatter(body);
 }
 
