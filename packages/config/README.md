@@ -7,10 +7,10 @@
 This package provides functionality to configure [LogTape] from plain objects,
 such as those loaded from JSON or YAML files.
 
-[JSR]: https://jsr.io/@logtape/config
 [JSR badge]: https://jsr.io/badges/@logtape/config
-[npm]: https://www.npmjs.com/package/@logtape/config
+[JSR]: https://jsr.io/@logtape/config
 [npm badge]: https://img.shields.io/npm/v/@logtape/config?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/config
 [LogTape]: https://logtape.org/
 
 

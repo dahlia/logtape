@@ -389,8 +389,8 @@ Hono
 ----
 
 [Hono] is a modern web framework that works across multiple JavaScript runtimes.
-LogTape provides a Hono adapter through the *@logtape/hono* package, allowing you
-to use LogTape as Hono's logging backend with HTTP request logging:
+LogTape provides a Hono adapter through the *@logtape/hono* package, allowing
+you to use LogTape as Hono's logging backend with HTTP request logging:
 
 ::: code-group
 
@@ -927,7 +927,7 @@ logger.emit({
 Best practices
 --------------
 
- 1. *Request ID correlation*: Always generate and use request IDs to correlate
+1.  *Request ID correlation*: Always generate and use request IDs to correlate
     logs across your application:
 
     ~~~~ typescript
@@ -936,21 +936,21 @@ Best practices
     const requestId = Math.random().toString(36).substring(2, 11);
     ~~~~
 
- 2. *Context management*: Use [`withContext()`](./contexts.md#implicit-contexts)
+2.  *Context management*: Use [`withContext()`](./contexts.md#implicit-contexts)
     to automatically include request metadata in all logs within the request
     scope.
 
- 3. *Error handling*: Always log errors with structured information including
+3.  *Error handling*: Always log errors with structured information including
     exception object and request context.
 
- 4. *Performance monitoring*: Log request duration and response sizes to monitor
+4.  *Performance monitoring*: Log request duration and response sizes to monitor
     application performance.
 
- 5. *Security considerations*: Be careful not to log sensitive information like
+5.  *Security considerations*: Be careful not to log sensitive information like
     passwords, tokens, or personal data.
     Use the [*@logtape/redaction*](./redaction.md) package for data sanitization
     patterns.
 
- 6. *Environment-specific configuration*: Configure different log levels and
+6.  *Environment-specific configuration*: Configure different log levels and
     sinks for development vs production environments to balance verbosity with
     performance.

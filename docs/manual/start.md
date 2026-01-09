@@ -1,4 +1,3 @@
-
 Quick start
 ===========
 
@@ -115,7 +114,6 @@ logger.fatal("This is a fatal message with {value}.", { value });
 
 For detailed information, see [*Structured logging*](./struct.md).
 
-
 ### Lazy evaluation
 
 Sometimes, values to be logged are expensive to compute.  In such cases, you
@@ -136,7 +134,6 @@ logger.debug("Or you can use a function call: {value}.", () => {
   return { value: computeValue() };
 });
 ~~~~
-
 
 ### Checking if a level is enabled
 

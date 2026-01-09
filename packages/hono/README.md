@@ -10,10 +10,10 @@ This package provides [Hono] middleware for HTTP request logging using
 [LogTape] as the backend, as an alternative to Hono's built-in logger
 middleware.
 
-[JSR]: https://jsr.io/@logtape/hono
 [JSR badge]: https://jsr.io/badges/@logtape/hono
-[npm]: https://www.npmjs.com/package/@logtape/hono
+[JSR]: https://jsr.io/@logtape/hono
 [npm badge]: https://img.shields.io/npm/v/@logtape/hono?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/hono
 [Hono]: https://hono.dev/
 [LogTape]: https://logtape.org/
 

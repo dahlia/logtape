@@ -11,12 +11,12 @@
 enables seamless integration between Drizzle ORM applications and LogTape's
 structured logging capabilities.
 
-[JSR]: https://jsr.io/@logtape/drizzle-orm
 [JSR badge]: https://jsr.io/badges/@logtape/drizzle-orm
-[npm]: https://www.npmjs.com/package/@logtape/drizzle-orm
+[JSR]: https://jsr.io/@logtape/drizzle-orm
 [npm badge]: https://img.shields.io/npm/v/@logtape/drizzle-orm?logo=npm
-[LogTape]: https://logtape.org/
+[npm]: https://www.npmjs.com/package/@logtape/drizzle-orm
 [Drizzle ORM]: https://orm.drizzle.team/
+[LogTape]: https://logtape.org/
 
 
 Installation

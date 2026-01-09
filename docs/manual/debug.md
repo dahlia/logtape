@@ -45,10 +45,10 @@ await configure({
 
 When a sink throws an exception, LogTape:
 
- 1. Suppresses the exception to prevent application crashes
- 2. Logs the error to the meta logger
- 3. Continues processing other sinks
- 4. Prevents infinite recursion by bypassing the failing sink for meta logs
+1.  Suppresses the exception to prevent application crashes
+2.  Logs the error to the meta logger
+3.  Continues processing other sinks
+4.  Prevents infinite recursion by bypassing the failing sink for meta logs
 
 ~~~~ typescript {19,22} twoslash
 import {

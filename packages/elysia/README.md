@@ -9,10 +9,10 @@
 This package provides an [Elysia] plugin for HTTP request logging using
 [LogTape] as the backend.
 
-[JSR]: https://jsr.io/@logtape/elysia
 [JSR badge]: https://jsr.io/badges/@logtape/elysia
-[npm]: https://www.npmjs.com/package/@logtape/elysia
+[JSR]: https://jsr.io/@logtape/elysia
 [npm badge]: https://img.shields.io/npm/v/@logtape/elysia?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/elysia
 [Elysia]: https://elysiajs.com/
 [LogTape]: https://logtape.org/
 

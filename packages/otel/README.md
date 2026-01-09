@@ -8,12 +8,12 @@
 This package provides an [OpenTelemetry] sink for [LogTape]. It allows you to
 send your LogTape logs to OpenTelemetry-compatible backends.
 
-[JSR]: https://jsr.io/@logtape/otel
 [JSR badge]: https://jsr.io/badges/@logtape/otel
-[npm]: https://www.npmjs.com/package/@logtape/otel
+[JSR]: https://jsr.io/@logtape/otel
 [npm badge]: https://img.shields.io/npm/v/@logtape/otel?logo=npm
-[GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
+[npm]: https://www.npmjs.com/package/@logtape/otel
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
+[GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [OpenTelemetry]: https://opentelemetry.io/
 [LogTape]: https://github.com/dahlia/logtape
 
@@ -112,8 +112,8 @@ For more information, see the documentation of the [`getOpenTelemetrySink()`]
 function and [`OpenTelemetrySinkOptions`] type.
 
 [`getOpenTelemetrySink()`]: https://jsr.io/@logtape/otel/doc/~/getOpenTelemetrySink
-[`OpenTelemetrySinkOptions`]: https://jsr.io/@logtape/otel/doc/~/OpenTelemetrySinkOptions
 [`LoggerProvider`]: https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_sdk_logs.LoggerProvider.html
+[`OpenTelemetrySinkOptions`]: https://jsr.io/@logtape/otel/doc/~/OpenTelemetrySinkOptions
 
 
 Protocol selection
@@ -159,9 +159,9 @@ OpenTelemetry is not set up.
 
 The sink checks for endpoints in the following order:
 
- 1. `otlpExporterConfig.url` option
- 2. `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` environment variable
- 3. `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable
+1.  `otlpExporterConfig.url` option
+2.  `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` environment variable
+3.  `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable
 
 If none of these are set, the no-op fallback is used.
 

@@ -10,10 +10,10 @@ Beautiful text formatter for [LogTape]—perfect for local development!
 This package provides a visually appealing formatter inspired by [Signale],
 designed to make your development logs easier to read and debug.
 
-[JSR]: https://jsr.io/@logtape/pretty
 [JSR badge]: https://jsr.io/badges/@logtape/pretty
-[npm]: https://www.npmjs.com/package/@logtape/pretty
+[JSR]: https://jsr.io/@logtape/pretty
 [npm badge]: https://img.shields.io/npm/v/@logtape/pretty?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/pretty
 [LogTape]: https://logtape.org/
 [Signale]: https://github.com/klaudiosinani/signale
 

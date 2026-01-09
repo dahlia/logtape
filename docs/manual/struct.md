@@ -268,7 +268,8 @@ logger.info(
 
 > [!NOTE]
 > If a property path doesn't exist or encounters a `null`/`undefined` value
-> (without optional chaining), the placeholder will be replaced with `undefined`.
+> (without optional chaining), the placeholder will be replaced with
+> `undefined`.
 
 
 Including all properties in log messages
@@ -278,7 +279,8 @@ Including all properties in log messages
 
 Sometimes, you may want to include all the properties into the log message,
 but without listing them all explicitly.  You can use the special placeholder
-`{*}` to include all properties of the structured data object in the log message:
+`{*}` to include all properties of the structured data object in the log
+message:
 
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/logtape";
@@ -322,7 +324,6 @@ logger.debug("Expensive operation completed", () => ({
 ~~~~
 
 The function will only be called if the debug log level is enabled.
-
 
 ### Async lazy evaluation
 
@@ -421,7 +422,6 @@ preserving the structure of your log data.
 > tail -f log.jsonl | jq .
 > ~~~~
 
-[JSON Lines]: https://jsonlines.org/
 [`jq`]: https://jqlang.github.io/jq/
 
 
@@ -458,21 +458,21 @@ pass through.
 Best practices
 --------------
 
- 1. *Be consistent*: Use consistent field names across your application for
+1.  *Be consistent*: Use consistent field names across your application for
     similar types of data.
 
- 2. *Use appropriate data types*: Ensure that the values in your structured data
+2.  *Use appropriate data types*: Ensure that the values in your structured data
     are of appropriate types (e.g., numbers for numeric values, booleans for
     true/false values).
 
- 3. *Don't overload*: While it's tempting to include lots of data, be mindful of
+3.  *Don't overload*: While it's tempting to include lots of data, be mindful of
     the volume of data you're logging.  Include what's necessary for debugging
     and analysis, but avoid logging sensitive or redundant information.
 
- 4. *Use nested structures when appropriate*: For complex data, consider using
+4.  *Use nested structures when appropriate*: For complex data, consider using
     nested objects to maintain a logical structure.
 
- 5. *Consider performance*: If you're logging high-volume data, be aware of
+5.  *Consider performance*: If you're logging high-volume data, be aware of
     the performance impact of generating and processing structured logs.
 
 <!-- cSpell: ignore johndoe janedoe -->

@@ -163,8 +163,8 @@ winston adapter
 
 *This API is available since LogTape 1.0.0.*
 
-The *@logtape/adaptor-winston* forwards LogTape log records to [winston] loggers,
-providing flexible level mapping and category formatting options:
+The *@logtape/adaptor-winston* forwards LogTape log records to [winston]
+loggers, providing flexible level mapping and category formatting options:
 
 ::: code-group
 
@@ -371,12 +371,12 @@ function formatMessage(messageParts: readonly (string | unknown)[]): string {
 
 When creating adapters for popular logging libraries:
 
- 1. *Follow naming conventions*: Use `@logtape/adaptor-{library-name}`
- 2. *Implement comprehensive tests*: Cover level mapping, category formatting,
+1.  *Follow naming conventions*: Use `@logtape/adaptor-{library-name}`
+2.  *Implement comprehensive tests*: Cover level mapping, category formatting,
     and error scenarios
- 3. *Provide TypeScript definitions*: Ensure full type safety
- 4. *Document thoroughly*: Include usage examples and configuration options
- 5. *Consider performance*: Minimize overhead in the adaptation layer
+3.  *Provide TypeScript definitions*: Ensure full type safety
+4.  *Document thoroughly*: Include usage examples and configuration options
+5.  *Consider performance*: Minimize overhead in the adaptation layer
 
 See the [*@logtape/adaptor-pino* source code] as a reference implementation.
 

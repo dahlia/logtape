@@ -9,12 +9,12 @@
 *@logtape/express* is an [Express] middleware adapter that provides HTTP
 request logging using [LogTape] as the backend, as an alternative to [Morgan].
 
-[JSR]: https://jsr.io/@logtape/express
 [JSR badge]: https://jsr.io/badges/@logtape/express
-[npm]: https://www.npmjs.com/package/@logtape/express
+[JSR]: https://jsr.io/@logtape/express
 [npm badge]: https://img.shields.io/npm/v/@logtape/express?logo=npm
-[LogTape]: https://logtape.org/
+[npm]: https://www.npmjs.com/package/@logtape/express
 [Express]: https://expressjs.com/
+[LogTape]: https://logtape.org/
 [Morgan]: https://github.com/expressjs/morgan
 
 

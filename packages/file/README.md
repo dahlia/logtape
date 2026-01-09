@@ -12,10 +12,10 @@ write log records to files.  For details, read the docs:
  -  [File sink]
  -  [Rotating file sink]
 
-[JSR]: https://jsr.io/@logtape/file
 [JSR badge]: https://jsr.io/badges/@logtape/file
-[npm]: https://www.npmjs.com/package/@logtape/file
+[JSR]: https://jsr.io/@logtape/file
 [npm badge]: https://img.shields.io/npm/v/@logtape/file?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/file
 [LogTape]: https://logtape.org/
 [File sink]: https://logtape.org/manual/sinks#file-sink
 [Rotating file sink]: https://logtape.org/manual/sinks#rotating-file-sink

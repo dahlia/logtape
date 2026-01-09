@@ -10,10 +10,10 @@
 [Pino] loggers, enabling seamless integration between LogTape-enabled libraries
 and applications using Pino for logging infrastructure.
 
-[JSR]: https://jsr.io/@logtape/adaptor-pino
 [JSR badge]: https://jsr.io/badges/@logtape/adaptor-pino
-[npm]: https://www.npmjs.com/package/@logtape/adaptor-pino
+[JSR]: https://jsr.io/@logtape/adaptor-pino
 [npm badge]: https://img.shields.io/npm/v/@logtape/adaptor-pino?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/adaptor-pino
 [LogTape]: https://logtape.org/
 [Pino]: https://getpino.io/
 
@@ -35,7 +35,8 @@ Usage
 
 ### Using the install() function
 
-The simplest way to integrate LogTape with Pino is to use the `install()` function:
+The simplest way to integrate LogTape with Pino is to use the `install()`
+function:
 
 ~~~~ typescript
 import pino from "pino";
@@ -116,7 +117,7 @@ Category formatting
 
 The adapter supports flexible category formatting options:
 
-~~~~typescript
+~~~~ typescript
 import { getPinoSink } from "@logtape/adaptor-pino";
 
 // Hide categories completely

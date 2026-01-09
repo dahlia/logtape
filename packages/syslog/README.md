@@ -9,10 +9,10 @@ LogTape syslog sink
 Syslog sink for [LogTape]. This package provides a syslog sink that sends log
 messages to a syslog server following the [RFC 5424] specification.
 
-[JSR]: https://jsr.io/@logtape/syslog
 [JSR badge]: https://jsr.io/badges/@logtape/syslog
-[npm]: https://www.npmjs.com/package/@logtape/syslog
+[JSR]: https://jsr.io/@logtape/syslog
 [npm badge]: https://img.shields.io/npm/v/@logtape/syslog?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/syslog
 [LogTape]: https://logtape.org/
 [RFC 5424]: https://tools.ietf.org/rfc/rfc5424.txt
 

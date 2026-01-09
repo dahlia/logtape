@@ -58,9 +58,9 @@ It formats log records like this:
 Newline-Delimited JSON or NDJSON). Each log record is rendered as a JSON object
 on a single line, which is a common format for structured logging.
 
-When an `Error` (or `AggregateError`) object is present in structured properties,
-it is serialized as a plain object so that error details (like `message` and
-`stack`) are reliably preserved in JSON output.
+When an `Error` (or `AggregateError`) object is present in structured
+properties, it is serialized as a plain object so that error details (like
+`message` and `stack`) are reliably preserved in JSON output.
 
 It formats log records like this:
 
@@ -141,7 +141,6 @@ It formats log records like this:
                                     at file:///tmp/test.ts:23:10[2m[38;2;148;163;184m[0m
 💀 [4m[38;2;220;38;38mfatal[0m   [2m[3m[38;2;100;116;139mmyapp[0m                [2m[38;2;148;163;184mThis is a fatal error.[0m
 ~~~~
-
 
 [Signale]: https://github.com/klaudiosinani/signale
 
@@ -227,8 +226,8 @@ render the values in the log record.  The default is a cross-runtime
 
 The function receives two parameters:
 
- 1. `value`: The value to render
- 2. `inspect`: The default cross-runtime inspect function that can be used
+1.  `value`: The value to render
+2.  `inspect`: The default cross-runtime inspect function that can be used
     as a fallback (this parameter is added since LogTape 1.2.0)
 
 This allows you to customize formatting for specific value types while falling
@@ -249,9 +248,6 @@ const formatter = getTextFormatter({
 });
 ~~~~
 
-[`util.inspect()`]: https://nodejs.org/api/util.html#utilinspectobject-options
-[`Deno.inspect()`]: https://docs.deno.com/api/deno/~/Deno.inspect
-
 #### `~TextFormatterOptions.format`
 
 How those formatted parts are concatenated.
@@ -265,6 +261,9 @@ By default, this is a function that formats the log record as follows:
 ~~~~
 2023-11-14 22:13:20.000 +00:00 [INF] category·subcategory: Hello, world!
 ~~~~
+
+[`util.inspect()`]: https://nodejs.org/api/util.html#utilinspectobject-options
+[`Deno.inspect()`]: https://docs.deno.com/api/deno/~/Deno.inspect
 
 ### ANSI color formatter
 
@@ -438,7 +437,8 @@ The visual style applied to timestamp text. Controls text appearance like
 boldness, dimming, etc. Supports single styles, multiple styles combined,
 or no styling.
 
-Examples: `"dim"`, `"bold"`, `["bold", "underline"]`, `["dim", "italic"]`, `null`.
+Examples: `"dim"`, `"bold"`, `["bold", "underline"]`, `["dim", "italic"]`,
+`null`.
 
 The default is `"dim"`.
 
@@ -459,7 +459,8 @@ The default is `true`.
 Custom colors for each log level. Allows fine-grained control over level
 appearance. Each level can have its own color scheme.
 
-Example: `{ info: "#00ff00", error: "#ff0000", warning: "orange", debug: null }`.
+Example:
+`{ info: "#00ff00", error: "#ff0000", warning: "orange", debug: null }`.
 
 The default uses a built-in color scheme.
 
@@ -513,6 +514,7 @@ Category-specific color mapping based on prefixes. Maps category prefixes
 take precedence over shorter ones.
 
 Example:
+
 ~~~~ typescript
 new Map([
   [["app", "auth"], "#ff6b6b"],     // app.auth.* -> red
@@ -651,5 +653,3 @@ function jsonLinesFormatter(record: LogRecord): string {
 
 Of course, you can use the built-in `getJsonLinesFormatter()` function for
 more sophisticated JSON Lines formatting with customizable options.
-
-[JSON Lines]: https://jsonlines.org/

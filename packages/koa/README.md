@@ -10,10 +10,10 @@ This package provides [Koa] middleware for HTTP request logging using [LogTape]
 as the backend. It serves as an alternative to [koa-logger] with structured
 logging support.
 
-[JSR]: https://jsr.io/@logtape/koa
 [JSR badge]: https://jsr.io/badges/@logtape/koa
-[npm]: https://www.npmjs.com/package/@logtape/koa
+[JSR]: https://jsr.io/@logtape/koa
 [npm badge]: https://img.shields.io/npm/v/@logtape/koa?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/koa
 [Koa]: https://koajs.com/
 [LogTape]: https://logtape.org/
 [koa-logger]: https://github.com/koajs/logger

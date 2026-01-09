@@ -10,12 +10,12 @@ capture your LogTape logs and send them to Sentry.
 
 ![LogTape records show up in the breadcrumbs of a Sentry issue.](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/sentry.png)
 
-[JSR]: https://jsr.io/@logtape/sentry
 [JSR badge]: https://jsr.io/badges/@logtape/sentry
-[npm]: https://www.npmjs.com/package/@logtape/sentry
+[JSR]: https://jsr.io/@logtape/sentry
 [npm badge]: https://img.shields.io/npm/v/@logtape/sentry?logo=npm
-[GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
+[npm]: https://www.npmjs.com/package/@logtape/sentry
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
+[GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [Sentry]: https://sentry.io/
 [LogTape]: https://logtape.org/
 
@@ -51,6 +51,7 @@ bun add @sentry/bun
 Docs
 ----
 
-The documentation for this package is available at <https://logtape.org/manual/sinks#sentry-sink>.
+The documentation for this package is available at
+<https://logtape.org/manual/sinks#sentry-sink>.
 
 For API references, see <https://jsr.io/@logtape/sentry>.

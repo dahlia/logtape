@@ -16,7 +16,7 @@ this seamlessly.
 
 ### Best practices for library authors
 
- 1. *Use namespaced categories*: Start your log categories with your library
+1.  *Use namespaced categories*: Start your log categories with your library
     name to avoid conflicts.
 
     ~~~~ typescript twoslash
@@ -25,15 +25,15 @@ this seamlessly.
     const logger = getLogger(["my-awesome-lib", "database"]);
     ~~~~
 
- 2. *Don't `configure()` LogTape in your library*: Leave configuration
+2.  *Don't `configure()` LogTape in your library*: Leave configuration
     to the application developer.
 
- 3. *Use appropriate log levels*: Use log levels judiciously.
+3.  *Use appropriate log levels*: Use log levels judiciously.
     Reserve `"error"` for actual errors, use `"info"` for important
     but normal operations, and `"debug"` for detailed information useful
     during development.
 
- 4. *Provide context*: Use [structured logging](./struct.md) to provide
+4.  *Provide context*: Use [structured logging](./struct.md) to provide
     relevant context with each log message.
 
     ~~~~ typescript twoslash
@@ -104,13 +104,13 @@ you have full control over how logs from that library are handled.
 
 ### Configuring logs for a library
 
- 1. *Set up sinks*: Decide where you want logs to go (console, file, etc.)
+1.  *Set up sinks*: Decide where you want logs to go (console, file, etc.)
     and set up appropriate [sinks](./sinks.md).
 
- 2. *Configure log levels*: You can set different log levels for different
+2.  *Configure log levels*: You can set different log levels for different
     parts of the library.
 
- 3. *Add filters*: You can add [filters](./filters.md) to fine-tune which
+3.  *Add filters*: You can add [filters](./filters.md) to fine-tune which
     log messages you want to see.
 
 ### Example: Configuring logs for a library
@@ -203,8 +203,8 @@ your SDK's internal logs using a single category configuration.
 > [!IMPORTANT]
 > In order to use `withCategoryPrefix()`, the application must configure
 > `~Config.contextLocalStorage` option.  Without this, the category prefix
-> will not be applied.  See the [Category prefix](./categories.md#category-prefix)
-> section for more details.
+> will not be applied.  See the
+> [Category prefix](./categories.md#category-prefix) section for more details.
 
 ~~~~ typescript twoslash
 // @noErrors: 2307

@@ -51,7 +51,6 @@ Crafting your configuration
 > The `configure()` is an asynchronous function.  Always use `await` or handle
 > the returned `Promise` appropriately.
 
-
 ### Setting up sinks
 
 [Sinks](./sinks.md) determine where your logs end up. You can have multiple
@@ -305,15 +304,15 @@ resetSync();
 Best practices
 --------------
 
- 1. *Configure early*: Set up your LogTape configuration early in your
+1.  *Configure early*: Set up your LogTape configuration early in your
     application's lifecycle, ideally before any logging calls are made.
- 2. [*Use categories wisely*](./categories.md): Create a logical hierarchy with
+2.  [*Use categories wisely*](./categories.md): Create a logical hierarchy with
     your categories to make filtering and management easier.
- 3. *Configure for different environments*: Have different configurations for
+3.  *Configure for different environments*: Have different configurations for
     development, testing, and production.
- 4. *Don't overuse [filters](./filters.md)*: While powerful, too many filters can
+4.  *Don't overuse [filters](./filters.md)*: While powerful, too many filters can
     make your logging system complex and hard to maintain.
- 5. *Monitor performance*: Be mindful of the performance impact of your logging,
+5.  *Monitor performance*: Be mindful of the performance impact of your logging,
     especially in production environments.
 
 
@@ -387,7 +386,7 @@ await configureFromObject(config);
 The `type` field uses a special syntax to reference modules and exports:
 
 | Format            | Description                          |
-|-------------------|--------------------------------------|
+| ----------------- | ------------------------------------ |
 | `#shorthand()`    | Built-in shorthand, factory function |
 | `#shorthand`      | Built-in shorthand, direct value     |
 | `module#export()` | Named export, factory function       |
@@ -400,13 +399,13 @@ be called with the remaining configuration options as its argument.
 
 #### Built-in shorthands
 
-| Shorthand     | Maps to                                  |
-|---------------|------------------------------------------|
-| `#console`    | `@logtape/logtape#getConsoleSink`        |
-| `#stream`     | `@logtape/logtape#getStreamSink`         |
-| `#text`       | `@logtape/logtape#getTextFormatter`      |
-| `#ansiColor`  | `@logtape/logtape#getAnsiColorFormatter` |
-| `#jsonLines`  | `@logtape/logtape#getJsonLinesFormatter` |
+| Shorthand    | Maps to                                  |
+| ------------ | ---------------------------------------- |
+| `#console`   | `@logtape/logtape#getConsoleSink`        |
+| `#stream`    | `@logtape/logtape#getStreamSink`         |
+| `#text`      | `@logtape/logtape#getTextFormatter`      |
+| `#ansiColor` | `@logtape/logtape#getAnsiColorFormatter` |
+| `#jsonLines` | `@logtape/logtape#getJsonLinesFormatter` |
 
 #### Formatters
 

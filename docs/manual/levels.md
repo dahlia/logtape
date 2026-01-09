@@ -14,14 +14,14 @@ Six severity levels
 LogTape uses the following severity levels, listed from lowest to highest
 severity:
 
- 1. *Trace*: The most detailed level, used for tracing the flow of execution.
- 2. *Debug*: Detailed information useful for diagnosing problems.
- 3. *Information*: General information about the application's operation.
- 4. *Warning*: An unexpected event that doesn't prevent the application
+1.  *Trace*: The most detailed level, used for tracing the flow of execution.
+2.  *Debug*: Detailed information useful for diagnosing problems.
+3.  *Information*: General information about the application's operation.
+4.  *Warning*: An unexpected event that doesn't prevent the application
     from functioning.
- 5. *Error*: A significant problem that prevented a specific operation from
+5.  *Error*: A significant problem that prevented a specific operation from
     being completed.
- 6. *Fatal error*: A critical error that causes the application to abort.
+6.  *Fatal error*: A critical error that causes the application to abort.
 
 > [!NOTE]
 > Previous versions of LogTape had only five severity levels: *Debug*,
@@ -362,12 +362,12 @@ const methods: LogMethod[] = getLogLevels()
 Best practices
 --------------
 
- 1. *Be consistent*: Use levels consistently across your application.
- 2. *Don't over-use lower levels*: Too many debug or info logs can make it
+1.  *Be consistent*: Use levels consistently across your application.
+2.  *Don't over-use lower levels*: Too many debug or info logs can make it
     harder to find important information.
- 3. *Include context*: Especially for higher severity levels, include relevant
+3.  *Include context*: Especially for higher severity levels, include relevant
     data to help diagnose the issue.
- 4. *Consider performance*: Remember that logging, especially at lower levels,
+4.  *Consider performance*: Remember that logging, especially at lower levels,
     can impact performance in high-volume scenarios.
 
 By using severity levels effectively, you can create logs that are informative,

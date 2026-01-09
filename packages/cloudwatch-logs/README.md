@@ -9,12 +9,12 @@ This package provides an [AWS CloudWatch Logs] sink for [LogTape]. It allows
 you to send your LogTape logs directly to AWS CloudWatch Logs with intelligent
 batching and error handling.
 
-[JSR]: https://jsr.io/@logtape/cloudwatch-logs
 [JSR badge]: https://jsr.io/badges/@logtape/cloudwatch-logs
-[npm]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
+[JSR]: https://jsr.io/@logtape/cloudwatch-logs
 [npm badge]: https://img.shields.io/npm/v/@logtape/cloudwatch-logs?logo=npm
-[GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
+[npm]: https://www.npmjs.com/package/@logtape/cloudwatch-logs
 [GitHub Actions badge]: https://github.com/dahlia/logtape/actions/workflows/main.yaml/badge.svg
+[GitHub Actions]: https://github.com/dahlia/logtape/actions/workflows/main.yaml
 [AWS CloudWatch Logs]: https://aws.amazon.com/cloudwatch/
 [LogTape]: https://logtape.org/
 

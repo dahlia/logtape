@@ -10,10 +10,10 @@ Windows Event Log sink for [LogTape]. This package provides a Windows Event Log
 sink that sends log messages directly to the Windows Event Log system with
 cross-runtime support and optimal performance.
 
-[JSR]: https://jsr.io/@logtape/windows-eventlog
 [JSR badge]: https://jsr.io/badges/@logtape/windows-eventlog
-[npm]: https://www.npmjs.com/package/@logtape/windows-eventlog
+[JSR]: https://jsr.io/@logtape/windows-eventlog
 [npm badge]: https://img.shields.io/npm/v/@logtape/windows-eventlog?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/windows-eventlog
 [LogTape]: https://logtape.org/
 
 
@@ -102,8 +102,9 @@ await configure({
 
 > [!NOTE]
 > The event ID is used to lookup a string resource from a dynamic link library.
-> If you do not register a library, “the system cannot open the file” will be
-> printed as description in the Event Log regardless of the parameters passed.
+> If you do not register a library, “the system cannot open the file” will
+> be printed as description in the Event Log regardless of the parameters
+> passed.
 
 If you want to log only the text supplied by the formatter into the event log,
 you can register the system generic string library using this command:
@@ -146,11 +147,14 @@ The Windows Event Log sink works across multiple JavaScript runtimes on Windows:
 Viewing logs
 ------------
 
-Once your application writes to the Windows Event Log, you can view the logs using:
+Once your application writes to the Windows Event Log, you can view the logs
+using:
 
  -  *Event Viewer* (*eventvwr.msc*)
- -  *PowerShell*: `Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='MyApplication'}`
- -  *Command Prompt*: `wevtutil qe Application /f:text /q:"*[System[Provider[@Name='MyApplication']]]"`
+ -  *PowerShell*:
+    `Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='MyApplication'}`
+ -  *Command Prompt*:
+    `wevtutil qe Application /f:text /q:"*[System[Provider[@Name='MyApplication']]]"`
 
 
 Docs

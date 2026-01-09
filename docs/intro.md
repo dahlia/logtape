@@ -1,5 +1,5 @@
 What is LogTape?
-===============
+================
 
 LogTape is a logging library for JavaScript and TypeScript.  It provides a
 simple and flexible logging system that is easy to use and easy to extend.

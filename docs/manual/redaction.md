@@ -18,9 +18,9 @@ LogTape has two distinct approaches to redact sensitive data:
 This guide will help you understand when and how to use each.
 
 > [!WARNING]
-> No redaction system is perfect. Even with redaction in place, be cautious about
-> what information you log. It's better to avoid logging sensitive data in the
-> first place when possible.
+> No redaction system is perfect. Even with redaction in place, be cautious
+> about what information you log. It's better to avoid logging sensitive data
+> in the first place when possible.
 
 
 Installation
@@ -230,7 +230,7 @@ Cons:
 
 
 Usage examples
--------------
+--------------
 
 ### Basic pattern-based redaction
 
@@ -375,33 +375,33 @@ await configure({
 Best practices
 --------------
 
- 1. *Choose the right approach*:
+1.  *Choose the right approach*:
 
      -  Use pattern-based redaction when you need to catch sensitive data in
         message strings and have well-defined patterns
      -  Use field-based redaction for structured data with known field names
      -  Combine both approaches for maximum security
 
- 2. *Be comprehensive*:
+2.  *Be comprehensive*:
 
      -  Define patterns for all types of sensitive data your application handles
      -  Regularly review and update your redaction patterns as new types of
         sensitive data are introduced
 
- 3. *Test your redaction*:
+3.  *Test your redaction*:
 
      -  Verify that sensitive data is properly redacted by examining your logs
      -  Include edge cases in your testing (partial matches, data spanning
         multiple lines, etc.)
 
- 4. *Balance performance and security*:
+4.  *Balance performance and security*:
 
      -  For high-volume logs, consider using field-based redaction which is
         generally more efficient
      -  For security-critical applications, use both approaches even if it means
         some performance overhead
 
- 5. *Document your approach*:
+5.  *Document your approach*:
 
      -  Make sure your team understands which data is being redacted and how
      -  Include redaction strategies in your security documentation

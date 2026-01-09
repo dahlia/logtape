@@ -49,7 +49,6 @@ which works like environment variables in a process.
 Implicit contexts are useful when you want to trace a request or a session
 across multiple log messages made by different loggers in different modules.
 
-
 ### Settings
 
 > [!CAUTION]
@@ -94,7 +93,6 @@ await configure({
 [`node:async_hooks`]: https://nodejs.org/api/async_context.html
 [TC39 Async Context proposal]: https://tc39.es/proposal-async-context/
 [`AsyncLocalStorage`]: https://nodejs.org/api/async_context.html#class-asynclocalstorage
-
 
 ### Basic usage
 

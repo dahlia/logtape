@@ -7,13 +7,13 @@
 [![npm][npm badge]][npm]
 
 *@logtape/adaptor-winston* is a [LogTape] adapter that forwards log records to
-[winston] loggers, enabling seamless integration between LogTape-enabled libraries
-and applications using winston for logging infrastructure.
+[winston] loggers, enabling seamless integration between LogTape-enabled
+libraries and applications using winston for logging infrastructure.
 
-[JSR]: https://jsr.io/@logtape/adaptor-winston
 [JSR badge]: https://jsr.io/badges/@logtape/adaptor-winston
-[npm]: https://www.npmjs.com/package/@logtape/adaptor-winston
+[JSR]: https://jsr.io/@logtape/adaptor-winston
 [npm badge]: https://img.shields.io/npm/v/@logtape/adaptor-winston?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/adaptor-winston
 [LogTape]: https://logtape.org/
 [winston]: https://github.com/winstonjs/winston
 
@@ -33,7 +33,8 @@ bun  add     @logtape/adaptor-winston  # for Bun
 Quick start
 -----------
 
-The simplest way to integrate LogTape with winston is to import the auto-installer:
+The simplest way to integrate LogTape with winston is to import the
+auto-installer:
 
 ~~~~ typescript
 import "@logtape/adaptor-winston/install";
@@ -146,7 +147,7 @@ Level mapping
 LogTape log levels are mapped to winston levels as follows:
 
 | LogTape Level | winston Level |
-|---------------|---------------|
+| ------------- | ------------- |
 | `trace`       | `silly`       |
 | `debug`       | `debug`       |
 | `info`        | `info`        |
@@ -177,7 +178,7 @@ Category formatting
 
 The adapter supports flexible category formatting options:
 
-~~~~typescript
+~~~~ typescript
 import { install } from "@logtape/adaptor-winston";
 
 // Hide categories completely

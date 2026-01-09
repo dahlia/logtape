@@ -70,7 +70,6 @@ getLogger(["my-app", "my-module"]).info("bar");
 // b = [                         { message: "bar", ... }]
 ~~~~
 
-
 You can override the sinks inherited from the parent loggers by specifying
 `parentSinks: "override"` in the logger configuration.  This is useful when you
 want to replace the inherited sinks with a different set of sinks:
@@ -231,6 +230,7 @@ to an empty array.
 >     { category: ["your-app"], sinks: ["main"] },
 >   ],
 > });
+> ~~~~
 
 
 Category prefix
@@ -256,9 +256,10 @@ category prefix to all log records within a callback context.
 >
 > See also [TC39 Async Context proposal] for web browsers.
 
-To enable `withCategoryPrefix()`, you need to set a `~Config.contextLocalStorage`
-option in the `configure()` function.  In Node.js, Deno, and Bun, you can use
-[`AsyncLocalStorage`] from the [`node:async_hooks`] module:
+To enable `withCategoryPrefix()`, you need to set a
+`~Config.contextLocalStorage` option in the `configure()` function.  In
+Node.js, Deno, and Bun, you can use [`AsyncLocalStorage`] from the
+[`node:async_hooks`] module:
 
 ~~~~ typescript twoslash
 // @noErrors: 2307
@@ -283,7 +284,6 @@ await configure({
 [`node:async_hooks`]: https://nodejs.org/api/async_context.html
 [TC39 Async Context proposal]: https://tc39.es/proposal-async-context/
 [`AsyncLocalStorage`]: https://nodejs.org/api/async_context.html#class-asynclocalstorage
-
 
 ### Basic usage
 
@@ -314,7 +314,6 @@ withCategoryPrefix("my-sdk", () => {
 });
 ~~~~
 
-
 ### Nesting
 
 Category prefixes can be nested and accumulate:
@@ -329,7 +328,6 @@ withCategoryPrefix(["app"], () => {
   });
 });
 ~~~~
-
 
 ### Combining with implicit contexts
 

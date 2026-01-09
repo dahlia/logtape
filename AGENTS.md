@@ -97,8 +97,8 @@ All packages are located in the *packages/* directory:
 Each package follows a consistent structure with:
 
  -  *mod.ts*: Main entry point exposing the public API
- -  *\*.ts*: Implementation files
- -  *\*.test.ts*: Test files matching their respective implementation
+ -  _\*.ts_: Implementation files
+ -  _\*.test.ts_: Test files matching their respective implementation
  -  *deno.json*: Deno configuration and workspace membership
  -  *package.json*: npm package configuration and workspace membership
  -  *tsdown.config.ts*: Cross-platform build configuration (replaces *dnt.ts*)
@@ -107,13 +107,13 @@ Each package follows a consistent structure with:
 
 When adding a new package to the workspace:
 
- 1. Create the package directory inside *packages/* with both *deno.json* and
+1.  Create the package directory inside *packages/* with both *deno.json* and
     *package.json*
- 2. Add the package to *both* workspace configurations:
+2.  Add the package to *both* workspace configurations:
      -  Add to `packages:` array in *pnpm-workspace.yaml*
      -  Add to `workspace:` array in root *deno.json*
- 3. Configure dependencies using the dual dependency management system
- 4. Update documentation:
+3.  Configure dependencies using the dual dependency management system
+4.  Update documentation:
      -  Add JSR ref configuration and register it in *docs/.vitepress/config.mts*
         (add to both the `jsrRef_*` variables and the `REFERENCES` constant)
      -  Add the package to the packages table in the root *README.md*
@@ -124,30 +124,30 @@ Coding conventions
 
 ### TypeScript standards
 
- 1. *Strict TypeScript*: The project uses strict TypeScript. All code must be
+1.  *Strict TypeScript*: The project uses strict TypeScript. All code must be
     properly typed.
- 2. *Explicit types*: Prefer explicit type annotations for function parameters
+2.  *Explicit types*: Prefer explicit type annotations for function parameters
     and return types.
- 3. *Interfaces vs types*: Use `interface` for public APIs and `type` for
+3.  *Interfaces vs types*: Use `interface` for public APIs and `type` for
     complex types.
- 4. *Readonly*: Use `readonly` for immutable properties.
- 5. *Type guards*: Use type guards for runtime type checking.
+4.  *Readonly*: Use `readonly` for immutable properties.
+5.  *Type guards*: Use type guards for runtime type checking.
 
 ### Naming conventions
 
- 1. *Modules*: Use camelCase for filenames and import specifiers.
- 2. *Classes/Interfaces*: Use PascalCase.
- 3. *Variables/Functions/Methods*: Use camelCase.
- 4. *Constants*: Use camelCase for constants (NOT ALL_CAPS).
- 5. *Private members*: Prefix with `_` (e.g., `_privateMethod`).
+1.  *Modules*: Use camelCase for filenames and import specifiers.
+2.  *Classes/Interfaces*: Use PascalCase.
+3.  *Variables/Functions/Methods*: Use camelCase.
+4.  *Constants*: Use camelCase for constants (NOT ALL\_CAPS).
+5.  *Private members*: Prefix with `_` (e.g., `_privateMethod`).
 
 ### Code style
 
- 1. *Formatting*: The project uses `deno fmt` for formatting.
- 2. *Comments*: Use JSDoc for all public APIs.
- 3. *Line length*: Keep lines under 80 characters when possible.
- 4. *Import organization*: Organize imports alphabetically.
- 5. *Error handling*: Always handle errors explicitly, never swallow them.
+1.  *Formatting*: The project uses `deno fmt` for formatting.
+2.  *Comments*: Use JSDoc for all public APIs.
+3.  *Line length*: Keep lines under 80 characters when possible.
+4.  *Import organization*: Organize imports alphabetically.
+5.  *Error handling*: Always handle errors explicitly, never swallow them.
 
 ### Branch structure
 
@@ -166,10 +166,10 @@ along with `@std/assert` for assertions.
 
 ### Test organization
 
- 1. Each implementation file has a corresponding *\*.test.ts* file
- 2. Tests are organized using *@alinea/suite*'s `suite()` function
- 3. Each test should focus on a single piece of functionality
- 4. Tests run across multiple runtimes: Deno, Node.js, and Bun
+1.  Each implementation file has a corresponding _\*.test.ts_ file
+2.  Tests are organized using *@alinea/suite*'s `suite()` function
+3.  Each test should focus on a single piece of functionality
+4.  Tests run across multiple runtimes: Deno, Node.js, and Bun
 
 ### Test structure
 
@@ -228,9 +228,9 @@ deno task test:bun:file        # Test file package in Bun
 
 For Node.js and Bun testing:
 
- 1. Packages are built using *tsdown* to generate CommonJS/ESM outputs
- 2. Tests run against the built packages in *dist/* directories
- 3. This ensures cross-runtime compatibility of the published packages
+1.  Packages are built using *tsdown* to generate CommonJS/ESM outputs
+2.  Tests run against the built packages in *dist/* directories
+3.  This ensures cross-runtime compatibility of the published packages
 
 
 Development workflow
@@ -400,7 +400,9 @@ documentation:
 ### Lists
 
  -  Use ` -  ` (space-hyphen-two spaces) for unordered list items
+
  -  Indent nested items with 4 spaces
+
  -  Align continuation text with the item content:
 
     ~~~~
@@ -412,6 +414,7 @@ documentation:
 ### Code blocks
 
  -  Use four tildes (`~~~~`) for code fences instead of backticks
+
  -  Always specify the language identifier:
 
     ~~~~~
@@ -432,6 +435,7 @@ documentation:
 
  -  Use reference-style links placed at the *end of each section*
     (not at document end)
+
  -  Format reference links with consistent spacing:
 
     ~~~~
@@ -484,21 +488,21 @@ principles and formatting:
 
 ### Changelog principles
 
- 1. *User-focused changes*: Document changes from the user's perspective, not
+1.  *User-focused changes*: Document changes from the user's perspective, not
     implementation details. Focus on what users of the library will experience,
     not how it was implemented.
 
- 2. *API documentation*: Clearly document all API changes, including:
+2.  *API documentation*: Clearly document all API changes, including:
      -  Additions of new functions, types, interfaces, or constants
      -  Changes to existing API types or signatures (include both old and new
         types)
      -  Deprecation notices
      -  Removals or relocations of APIs between packages
 
- 3. *Attribution*: Include attribution to contributors where applicable, with
+3.  *Attribution*: Include attribution to contributors where applicable, with
     links to their PRs or issues.
 
- 4. *Versioning*: Each version has its own section with release date (when
+4.  *Versioning*: Each version has its own section with release date (when
     applicable).
 
 ### When to update the changelog
@@ -520,19 +524,19 @@ Do NOT update the changelog for:
 
 ### Changelog format
 
- 1. *Structure*:
+1.  *Structure*:
      -  Top-level heading for the project name
      -  Second-level heading for each version number
      -  Version status ("To be released" or "Released on DATE")
      -  Bulleted list of changes
 
- 2. *Entry format*:
+2.  *Entry format*:
      -  Use `-` for list items
      -  Nest related sub-items with indentation
      -  Link issue/PR numbers using `[[#XX]]` or `[[#XX] by Contributor Name]`
      -  For API changes, include the full type signature changes
 
- 3. *Order*:
+3.  *Order*:
      -  Group related changes together
      -  List additions first, then changes, then fixes
 
@@ -594,10 +598,10 @@ consistency across packages and runtimes:
 
 When adding a new dependency:
 
- 1. *For workspace-wide dependencies*: Add to both pnpm catalog and Deno
+1.  *For workspace-wide dependencies*: Add to both pnpm catalog and Deno
     imports
- 2. *In individual packages*: Reference using `"catalog:"` in *package.json*
- 3. *Version consistency*: Ensure versions match between catalog and imports
+2.  *In individual packages*: Reference using `"catalog:"` in *package.json*
+3.  *Version consistency*: Ensure versions match between catalog and imports
 
 
 Package management
@@ -615,12 +619,12 @@ across the entire workspace.
 Best practices
 --------------
 
- 1. *Zero dependencies*: Avoid adding external dependencies.
- 2. *Performance*: Consider performance implications, especially for logging
+1.  *Zero dependencies*: Avoid adding external dependencies.
+2.  *Performance*: Consider performance implications, especially for logging
     operations.
- 3. *Error handling*: Ensure logging errors don't crash applications.
- 4. *Backward compatibility*: Maintain compatibility with existing APIs.
- 5. *Security*: Be careful with sensitive data in logs.
+3.  *Error handling*: Ensure logging errors don't crash applications.
+4.  *Backward compatibility*: Maintain compatibility with existing APIs.
+5.  *Security*: Be careful with sensitive data in logs.
 
 
 Specific component guidelines

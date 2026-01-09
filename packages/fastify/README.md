@@ -10,13 +10,13 @@
 [LogTape] as [Fastify]'s logging backend.  This enables seamless integration
 between Fastify applications and LogTape's structured logging capabilities.
 
-[JSR]: https://jsr.io/@logtape/fastify
 [JSR badge]: https://jsr.io/badges/@logtape/fastify
-[npm]: https://www.npmjs.com/package/@logtape/fastify
+[JSR]: https://jsr.io/@logtape/fastify
 [npm badge]: https://img.shields.io/npm/v/@logtape/fastify?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/fastify
+[Pino]: https://getpino.io/
 [LogTape]: https://logtape.org/
 [Fastify]: https://fastify.dev/
-[Pino]: https://getpino.io/
 
 
 Installation

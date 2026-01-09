@@ -302,12 +302,15 @@ Buffer overflow protection
     to make room for new ones.
 
 Performance characteristics
-:    -  **Buffer-full flushes**: When the buffer reaches capacity, flushes are
-        scheduled asynchronously (non-blocking) rather than executed immediately
-     -  **Memory overhead**: Small, bounded by the overflow protection mechanism
-     -  **Latency**: Log visibility may be delayed by up to the flush interval
-     -  **Throughput**: Significantly higher than blocking mode for high-volume
-        scenarios
+:
+
+ -  **Buffer-full flushes**: When the buffer reaches capacity, flushes are
+    scheduled asynchronously (non-blocking) rather than executed
+    immediately
+ -  **Memory overhead**: Small, bounded by the overflow protection mechanism
+ -  **Latency**: Log visibility may be delayed by up to the flush interval
+ -  **Throughput**: Significantly higher than blocking mode for high-volume
+    scenarios
 
 Use cases
 :   Non-blocking mode is ideal for:
@@ -391,12 +394,12 @@ await configure({
 > Set `flushInterval: 0` to disable time-based flushing, or `bufferSize: 0` to
 > disable buffering entirely for immediate writes.
 >
-> File sinks also support non-blocking mode through the `~FileSinkOptions.nonBlocking`
-> option. When enabled, flush operations are performed asynchronously to prevent
-> blocking the main thread during file I/O operations. In non-blocking mode,
-> the sink returns `Sink & AsyncDisposable` instead of `Sink & Disposable`.
-> Errors during background flushing are silently ignored to prevent
-> application disruption.
+> File sinks also support non-blocking mode through the
+> `~FileSinkOptions.nonBlocking` option. When enabled, flush operations are
+> performed asynchronously to prevent blocking the main thread during file I/O
+> operations. In non-blocking mode, the sink returns `Sink & AsyncDisposable`
+> instead of `Sink & Disposable`. Errors during background flushing are
+> silently ignored to prevent application disruption.
 
 ### High-performance stream file sink
 
@@ -421,8 +424,6 @@ await configure({
 });
 ~~~~
 
-[`PassThrough`]: https://nodejs.org/api/stream.html#class-streampassthrough
-
 #### When to use the stream file sink
 
 Use `getStreamFileSink()` when you need:
@@ -442,15 +443,15 @@ Use `getStreamFileSink()` when you need:
 #### Stream vs. standard file sink comparison
 
 | Feature         | Stream File Sink                              | Standard File Sink                                           |
-|-----------------|-----------------------------------------------|--------------------------------------------------------------|
+| --------------- | --------------------------------------------- | ------------------------------------------------------------ |
 | *Performance*   | Higher throughput, optimized for volume       | Good performance with configurable buffering                 |
 | *Configuration* | Simple (just `highWaterMark` and `formatter`) | Comprehensive (buffer size, flush intervals, blocking modes) |
 | *Buffering*     | Automatic via PassThrough streams             | Manual control with size and time-based flushing             |
 | *Use case*      | High-volume production logging                | General-purpose with fine-grained control                    |
 
 For more control over buffering behavior and advanced options like non-blocking
-modes, lazy loading, and custom flush intervals, use the standard `getFileSink()`
-function instead.
+modes, lazy loading, and custom flush intervals, use the standard
+`getFileSink()` function instead.
 
 See also `getFileSink()` and `getStreamFileSink()` functions along with
 `FileSinkOptions` and `StreamFileSinkOptions` interfaces in the API reference
@@ -459,6 +460,8 @@ for more details.
 > [!NOTE]
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
 > flag to use file sinks.
+
+[`PassThrough`]: https://nodejs.org/api/stream.html#class-streampassthrough
 
 
 Rotating file sink
@@ -474,10 +477,10 @@ or environments where log file size can grow significantly over time.
 It writes log records to a file, but unlike a standard file sink, it has
 the ability to *rotate* the log file when it reaches a certain size. This means:
 
- 1. When the current log file reaches a specified maximum size, it is closed and
+1.  When the current log file reaches a specified maximum size, it is closed and
     renamed.
- 2. A new log file is created with the original name to continue logging.
- 3. Old log files are kept up to a specified maximum number, with the oldest
+2.  A new log file is created with the original name to continue logging.
+3.  Old log files are kept up to a specified maximum number, with the oldest
     being deleted when this limit is reached.
 
 This rotation process helps prevent any single log file from growing too large,
@@ -561,9 +564,9 @@ period, making it easier to find logs from specific time ranges.
 
 Unlike the size-based rotating file sink, the time-based version:
 
- 1. Creates new log files at specified time intervals (hourly, daily, or weekly).
- 2. Names files based on the date/time they cover.
- 3. Can automatically delete old log files based on age.
+1.  Creates new log files at specified time intervals (hourly, daily, or weekly).
+2.  Names files based on the date/time they cover.
+3.  Can automatically delete old log files based on age.
 
 To use the time-based rotating file sink, use the `getTimeRotatingFileSink()`
 function from the *@logtape/file* package:
@@ -664,11 +667,11 @@ Fingers crossed sink
 
 *This API is available since LogTape 1.1.0.*
 
-The fingers crossed sink implements a “fingers crossed” logging pattern where
-debug and low-level logs are buffered in memory and only output when
-a significant event (like an `"error"`) occurs. This pattern reduces log noise
-in normal operations while providing detailed context when issues arise,
-making logs more readable and actionable.
+The fingers crossed sink implements a “fingers crossed” logging pattern
+where debug and low-level logs are buffered in memory and only output when a
+significant event (like an `"error"`) occurs. This pattern reduces log noise in
+normal operations while providing detailed context when issues arise, making
+logs more readable and actionable.
 
 ### Basic usage
 
@@ -1101,8 +1104,6 @@ It would look like this:
 [2m2025-06-12 10:34:10.475 +00[0m [1m[35mFTL[0m [2mmy-app:[0m This is a fatal error.
 ~~~~
 
-[JSON Lines]: https://jsonlines.org/
-
 
 OpenTelemetry sink
 ------------------
@@ -1174,8 +1175,8 @@ The OpenTelemetry sink supports three OTLP protocols for exporting logs:
 The protocol is automatically selected based on the following environment
 variables (in order of precedence):
 
- 1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` — Protocol specifically for logs
- 2. `OTEL_EXPORTER_OTLP_PROTOCOL` — Protocol for all OTLP exporters
+1.  `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` — Protocol specifically for logs
+2.  `OTEL_EXPORTER_OTLP_PROTOCOL` — Protocol for all OTLP exporters
 
 If neither environment variable is set, the default protocol is `http/json`
 for backward compatibility.
@@ -1997,8 +1998,8 @@ Windows Event Log sink
 
 *This API is available since LogTape 1.0.0.*
 
-If you are running your application on Windows, you can use the Windows Event Log
-sink to send log messages directly to the Windows Event Log system using
+If you are running your application on Windows, you can use the Windows Event
+Log sink to send log messages directly to the Windows Event Log system using
 *@logtape/windows-eventlog* package:
 
 ::: code-group
@@ -2161,15 +2162,17 @@ The sink uses graceful error handling:
 
 ### Viewing logs
 
-Once your application writes to the Windows Event Log, you can view the logs using:
+Once your application writes to the Windows Event Log, you can view the logs
+using:
 
  -  *Event Viewer* (*eventvwr.msc*)
- -  *PowerShell*: `Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='MyApplication'}`
- -  *Command Prompt*: `wevtutil qe Application /f:text /q:"*[System[Provider[@Name='MyApplication']]]"`
+ -  *PowerShell*:
+    `Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='MyApplication'}`
+ -  *Command Prompt*:
+    `wevtutil qe Application /f:text /q:"*[System[Provider[@Name='MyApplication']]]"`
 
 For more details, see the `getWindowsEventLogSink()` function and
 `WindowsEventLogSinkOptions` interface in the API reference.
-
 
 
 Async sink adapter
@@ -2220,11 +2223,11 @@ const sink = fromAsyncSink(webhookSink);
 
 The `fromAsyncSink()` function:
 
- 1. *Chains async operations*: Each log call is chained to the previous one
+1.  *Chains async operations*: Each log call is chained to the previous one
     using Promise chaining, ensuring logs are processed in order.
- 2. *Handles errors gracefully*: If an async operation fails, the error is
+2.  *Handles errors gracefully*: If an async operation fails, the error is
     caught to prevent breaking the chain for subsequent logs.
- 3. [*Implements `AsyncDisposable`*](#disposable-sink): The returned sink can be
+3.  [*Implements `AsyncDisposable`*](#disposable-sink): The returned sink can be
     properly disposed, waiting for all pending operations to complete.
 
 ### Example: Database logging
@@ -2377,6 +2380,6 @@ export default {
 } satisfies ExportedHandler;
 ~~~~
 
-<!-- cSpell: ignore otel -->
-
 [`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
+
+<!-- cSpell: ignore otel -->

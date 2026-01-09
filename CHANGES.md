@@ -13,19 +13,19 @@ To be released.
  -  Added `Error` overloads for `Logger.error()`,
     `Logger.warn()`/`Logger.warning()`, and `Logger.fatal()` as a shorthand for
     logging errors as structured properties.
-    The default message template for `logger.error(error)` (and the corresponding
-    warning/fatal overloads) is `{error.message}`.
-    Note that `logger.warn(new Error(...))` and `logger.fatal(new Error(...))`
-    may result in slightly different output compared to previous versions,
-    where this looked like a `{*}` (properties-only) shorthand.  [[#123]]
+    The default message template for `logger.error(error)` (and the
+    corresponding warning/fatal overloads) is `{error.message}`. Note that
+    `logger.warn(new Error(...))` and `logger.fatal(new Error(...))` may result
+    in slightly different output compared to previous versions, where this
+    looked like a `{*}` (properties-only) shorthand.  [[#123]]
 
  -  Improved JSON Lines formatter serialization of `Error` and `AggregateError`
     values in properties so that `name`, `message`, `stack`, `cause`, and
     `errors` are preserved in JSON output.  [[#123]]
 
- -  Added `"none"` and `"disabled"` options for `AnsiColorFormatterOptions.timestamp`
-    to disable timestamp display, consistent with `TextFormatterOptions`.
-    [[#120], [#121] by Jonathan Wilbur]
+ -  Added `"none"` and `"disabled"` options for
+    `AnsiColorFormatterOptions.timestamp` to disable timestamp display,
+    consistent with `TextFormatterOptions`. [[#120], [#121] by Jonathan Wilbur]
 
      -  Added `"none"` and `"disabled"` to the `timestamp` option type.
      -  Changed the custom timestamp formatter return type to `string | null`
@@ -158,13 +158,15 @@ To be released.
  -  Added `exceptionAttributes` option to control how `Error` objects in
     properties are handled.  [[#123]]
 
-     -  `"semconv"` (default): Follows [OpenTelemetry semantic conventions for
-        exceptions], converting Error objects to `exception.type`,
-        `exception.message`, and `exception.stacktrace` attributes.
+     -  `"semconv"` (default): Follows
+        [OpenTelemetry semantic conventions for exceptions], converting Error
+        objects to `exception.type`, `exception.message`, and
+        `exception.stacktrace` attributes.
      -  `"raw"`: Serializes Error objects as JSON strings with their properties
         (`name`, `message`, `stack`, `cause`, `errors`) preserved.
      -  `false`: Treats Error objects as regular objects (typically results in
         empty objects).
+
 
     > [!IMPORTANT]
     > This is a behavior change: Error objects in properties now follow
@@ -175,10 +177,9 @@ To be released.
  -  Fixed primitive type preservation in attributes: numbers and booleans are
     now preserved as their original types instead of being converted to strings.
 
-[#123]: https://github.com/dahlia/logtape/issues/123
+[OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
 [#127]: https://github.com/dahlia/logtape/discussions/127
 [#130]: https://github.com/dahlia/logtape/issues/130
-[OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
 
 ### @logtape/file
 
@@ -258,6 +259,8 @@ Released on December 18, 2025.
     containing nested sensitive fields (e.g., `args[0].email`), exposing
     sensitive data in the log message.  [[#99]]
 
+[#99]: https://github.com/dahlia/logtape/issues/99
+
 
 Version 1.3.3
 -------------
@@ -282,6 +285,8 @@ Released on December 18, 2025.
     published packages.  Previously, the *src/* directory was included in npm
     packages, which increased download sizes without providing runtime value.
     [[#112]]
+
+[#112]: https://github.com/dahlia/logtape/issues/112
 
 
 Version 1.3.1
@@ -429,9 +434,9 @@ Released on December 15, 2025.
      -  Protocol is determined by environment variables following the
         OpenTelemetry specification:
 
-         1. `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
-         2. `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
-         3. Default: `"http/json"` (for backward compatibility)
+        1.  `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` (highest priority)
+        2.  `OTEL_EXPORTER_OTLP_PROTOCOL` (fallback)
+        3.  Default: `"http/json"` (for backward compatibility)
 
      -  Added `OtlpProtocol` type for protocol values (`"grpc"`,
         `"http/protobuf"`, `"http/json"`).
@@ -640,19 +645,19 @@ Released on November 11, 2025.
      -  Each context buffer maintains separate trigger states and size limits,
         preventing unrelated logs from being flushed together.
      -  Added memory management options for context isolation to prevent memory
-        leaks in high-traffic applications: `bufferTtlMs` for time-based cleanup,
-        `cleanupIntervalMs` for configurable cleanup intervals, and `maxContexts`
-        for LRU-based capacity limits. TTL and LRU can be used independently or
-        together for comprehensive memory management.
+        leaks in high-traffic applications: `bufferTtlMs` for time-based
+        cleanup, `cleanupIntervalMs` for configurable cleanup intervals, and
+        `maxContexts` for LRU-based capacity limits. TTL and LRU can be used
+        independently or together for comprehensive memory management.
 
  -  Changed the type of the `TextFormatterOptions.value` callback to accept
     a second parameter that provides access to the default cross-runtime
     `inspect()` function, making it easier to implement custom value formatting
     with fallback to default behavior.
 
-     -  Changed the type of `TextFormatterOptions.value` to `(value: unknown,
-        inspect: (value: unknown, options?: { colors?: boolean }) => string)
-        => string` (was `(value: unknown) => string`).
+     -  Changed the type of `TextFormatterOptions.value` to
+        `(value: unknown, inspect: (value: unknown, options?: { colors?: boolean }) => string) => string`
+        (was `(value: unknown) => string`).
      -  The second parameter is optional and can be ignored for backward
         compatibility.
      -  Users can now customize formatting for specific value types while
@@ -733,8 +738,6 @@ Released on December 18, 2025.
     packages, which increased download sizes without providing runtime value.
     [[#112]]
 
-[#112]: https://github.com/dahlia/logtape/issues/112
-
 
 Version 1.1.4
 -------------
@@ -761,8 +764,6 @@ Released on November 28, 2025.
     were exposed in the log message even when the corresponding property
     was redacted.  [[#99]]
 
-[#99]: https://github.com/dahlia/logtape/issues/99
-
 
 Version 1.1.2
 -------------
@@ -775,6 +776,8 @@ Released on October 22, 2025.
     with both `EdgeRuntime` global variable detection and dynamic bracket
     notation access (`proc?.["on"]`) to avoid static analysis detection while
     ensuring runtime safety.  [[#92]]
+
+[#92]: https://github.com/dahlia/logtape/issues/92
 
 
 Version 1.1.1
@@ -874,8 +877,6 @@ Released on October 22, 2025.
     properly waits for both the stream 'finish' event and file handle closure,
     ensuring all data is written and resources are cleaned up correctly.
 
-[#92]: https://github.com/dahlia/logtape/issues/92
-
 
 Version 1.0.5
 -------------
@@ -936,9 +937,10 @@ Released on July 3, 2025.
     via *package.json* imports map.  [[#63]]
 
  -  Fixed compatibility issue with Cloudflare Workers where `process.on()` is
-    not available, causing configuration to fail with `process.on is not a
-    function` error. LogTape now checks for `process.on()` availability before
-    attempting to register exit handlers.  [[#64], [#65] by Martin Petrovsky]
+    not available, causing configuration to fail with
+    `process.on is not a function` error. LogTape now checks for `process.on()`
+    availability before attempting to register exit handlers.
+    [[#64], [#65] by Martin Petrovsky]
 
 [#63]: https://github.com/dahlia/logtape/issues/63
 [#64]: https://github.com/dahlia/logtape/issues/64
@@ -959,8 +961,9 @@ Released on June 22, 2025.
     scenarios. When enabled, log records are buffered and flushed in the
     background, preventing blocking of the main thread.
 
-     -  Console and stream sinks accept `nonBlocking?: boolean | {
-        bufferSize?: number; flushInterval?: number }` option.
+     -  Console and stream sinks accept
+        `nonBlocking?: boolean | { bufferSize?: number; flushInterval?: number }`
+        option.
      -  File sinks accept `nonBlocking?: boolean` option.
      -  Default buffer size is 100 records for console/stream sinks and
         background flushing for file sinks.
@@ -990,7 +993,6 @@ Released on June 22, 2025.
         interface.
      -  Ideal for production applications requiring high-performance file logging
         without complex buffering configuration.
-
 
  -  Added `fromAsyncSink()` function to convert async sinks to regular sinks
     with proper async handling.
@@ -1288,11 +1290,9 @@ Released on May 19, 2025.
     [[#35] by Ooker]
 
      -  Changed the type of the `TextFormatterOptions.timestamp` option to
-        `"date-time-timezone" | "date-time-tz" | "date-time" | "time-timezone"
-        | "time-tz" | "time" | "date" | "rfc3339" | "none" | "disabled"
-        | ((ts: number) => string | null)` (was `"date-time-timezone"
-        | "date-time-tz" | "date-time" | "time-timezone" | "time-tz" | "time"
-        | "date" | "rfc3339" | ((ts: number) => string)`).
+        `"date-time-timezone" | "date-time-tz" | "date-time" | "time-timezone" | "time-tz" | "time" | "date" | "rfc3339" | "none" | "disabled" | ((ts: number) => string | null)`
+        (was
+        `"date-time-timezone" | "date-time-tz" | "date-time" | "time-timezone" | "time-tz" | "time" | "date" | "rfc3339" | ((ts: number) => string)`).
      -  Changed the type of the `FormattedValues.timestamp` property to
         `string | null` (was `string`).
 
@@ -1369,6 +1369,8 @@ Released on February 11, 2025.
  -  Fixed a bug of text formatters where they truncated string and array values
     in the formatted message.  [[#30]]
 
+[#30]: https://github.com/dahlia/logtape/issues/30
+
 
 Version 0.8.1
 -------------
@@ -1436,8 +1438,6 @@ Released on February 11, 2025.
  -  Fixed a bug of text formatters where they truncated string and array values
     in the formatted message.  [[#30]]
 
-[#30]: https://github.com/dahlia/logtape/issues/30
-
 
 Version 0.6.4
 -------------
@@ -1447,8 +1447,6 @@ Released on October 28, 2024.
  -  Fixed a build warning due to importing `node:fs` and `node:util` modules on
     Next.js' client rendering.  [[#19]]
  -  Made it to work on Deno 2.0.0 or higher.
-
-[#19]: https://github.com/dahlia/logtape/issues/19
 
 
 Version 0.6.3

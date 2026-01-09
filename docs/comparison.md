@@ -89,13 +89,13 @@ Bundle size matters, especially for frontend applications and libraries.
 Here's how LogTape compares to other popular logging libraries:[^1]
 
 | Library     | Version    | Minified + gzipped | Dependencies | Tree-shakable |
-|-------------|------------|-------------------:|-------------:|:-------------:|
-| **LogTape** | **0.12.1** | **5.3 KB**         |        **0** |      ✅       |
-| Pino        | 9.7.0      | 3.1 KB             |            1 |      ❌       |
-| bunyan      | 1.8.15     | 5.7 KB             |            0 |      ❌       |
-| log4js      | 6.9.1      | 12.9 KB            |            5 |      ❌       |
-| Signale     | 1.4.0      | 16.4 KB            |           23 |      ❌       |
-| winston     | 3.17.0     | 38.3 KB            |           17 |      ❌       |
+| ----------- | ---------- | -----------------: | -----------: | :-----------: |
+| **LogTape** | **0.12.1** |         **5.3 KB** |        **0** |      ✅       |
+| Pino        | 9.7.0      |             3.1 KB |            1 |      ❌       |
+| bunyan      | 1.8.15     |             5.7 KB |            0 |      ❌       |
+| log4js      | 6.9.1      |            12.9 KB |            5 |      ❌       |
+| Signale     | 1.4.0      |            16.4 KB |           23 |      ❌       |
+| winston     | 3.17.0     |            38.3 KB |           17 |      ❌       |
 
 [^1]: Sizes measured using [Bundlephobia].
 
@@ -202,14 +202,14 @@ comprehensive benchmarks across different runtimes:
 
 ### Console logging (nanoseconds per iteration)
 
-| Library     | Node.js | Deno    | Bun     | Average |
-|-------------|--------:|--------:|--------:|--------:|
+| Library     | Node.js |    Deno |     Bun | Average |
+| ----------- | ------: | ------: | ------: | ------: |
 | **LogTape** | **214** | **236** | **225** | **225** |
-| Pino        | 326     | 302     | 874     | 501     |
-| winston     | 2,050   | 3,370   | 1,770   | 2,397   |
-| bunyan      | 2,390   | 3,260   | 2,020   | 2,557   |
-| log4js      | 3,600   | 4,430   | 3,540   | 3,857   |
-| Signale     | 4,110   | 3,020   | 2,110   | 3,080   |
+| Pino        |     326 |     302 |     874 |     501 |
+| winston     |   2,050 |   3,370 |   1,770 |   2,397 |
+| bunyan      |   2,390 |   3,260 |   2,020 |   2,557 |
+| log4js      |   3,600 |   4,430 |   3,540 |   3,857 |
+| Signale     |   4,110 |   3,020 |   2,110 |   3,080 |
 
 LogTape consistently delivers the best console logging performance across
 all runtimes, often by a significant margin.
@@ -218,13 +218,13 @@ all runtimes, often by a significant margin.
 
 This measures the overhead when logs are disabled:
 
-| Library     | Node.js | Deno    | Bun     |
-|-------------|--------:|--------:|--------:|
-| Hive Logger | 158     | 2,390   | 157     |
+| Library     | Node.js |    Deno |     Bun |
+| ----------- | ------: | ------: | ------: |
+| Hive Logger |     158 |   2,390 |     157 |
 | **LogTape** | **163** | **178** | **187** |
-| log4js      | 279     | 274     | 261     |
-| Pino        | 570     | 1,060   | 715     |
-| winston     | 701     | 757     | 569     |
+| log4js      |     279 |     274 |     261 |
+| Pino        |     570 |   1,060 |     715 |
+| winston     |     701 |     757 |     569 |
 
 When logging is disabled, LogTape has minimal overhead, making it ideal for
 performance-critical applications.
@@ -235,28 +235,29 @@ Feature comparison
 
 ### Core logging features
 
-| Feature                     | LogTape  | winston  |  Pino   | bunyan  |  log4js | Signale |
-|-----------------------------|:--------:|:--------:|:-------:|:-------:|:-------:|:-------:|
-| **Log levels**              |    6     |    6     |    6    |    6    |    6    |  Custom |
-| **Child loggers**           |    ✅    |    ✅    |    ✅   |    ✅   |    ✅   |    ❌   |
-| **Structured logging**      |    ✅    |    ✅    |    ✅   |    ✅   |    ✅   |    ❌   |
-| **Multiple sinks**          |    ✅    |    ✅    |    ✅   |    ✅   |    ✅   |    ❌   |
-| **Filtering**               |    ✅    |    ✅    |    ✅   |    ✅   |    ✅   |    ❌   |
-| **Custom sinks/transports** |    ✅    |    ✅    |    ✅   |    ✅   |    ✅   |    ❌   |
-| **Custom filters**          |    ✅    |    ✅    |  ⚠️[^3] | ⚠️[^4]  |    ✅   |    ❌   |
-| **Custom formatters**       |    ✅    |    ✅    |    ✅   | ⚠️[^5]  |    ✅   |    ✅   |
-| **Explicit context**        |    ✅    |    ⚠️    |    ✅   |    ✅   |    ❌   |    ❌   |
-| **Implicit context**        |    ✅    |    ⚠️    |    ⚠️   |    ⚠️   |    ❌   |    ❌   |
-| **Middleware support**      |  ✅[^18] |  ✅[^6]  | ✅[^7]  |    ❌   |    ❌   |    ❌   |
-| **Pretty console output**   |  ✅[^8]  |  ✅[^9]  | ✅[^10] | ✅[^11] | ✅[^12] | ✅[^13] |
-| **JSON Lines formatter**    |  ✅[^14] |  ⚠️[^15] |    ❌   |    ❌   |    ❌   |    ❌   |
-| **Data redaction**          |  ✅[^16] |    ❌    | ✅[^17] |    ❌   |    ❌   |    ❌   |
+| Feature                     | LogTape | winston |  Pino   | bunyan  | log4js  | Signale |
+| --------------------------- | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: |
+| **Log levels**              |    6    |    6    |    6    |    6    |    6    | Custom  |
+| **Child loggers**           |   ✅    |   ✅    |   ✅    |   ✅    |   ✅    |   ❌    |
+| **Structured logging**      |   ✅    |   ✅    |   ✅    |   ✅    |   ✅    |   ❌    |
+| **Multiple sinks**          |   ✅    |   ✅    |   ✅    |   ✅    |   ✅    |   ❌    |
+| **Filtering**               |   ✅    |   ✅    |   ✅    |   ✅    |   ✅    |   ❌    |
+| **Custom sinks/transports** |   ✅    |   ✅    |   ✅    |   ✅    |   ✅    |   ❌    |
+| **Custom filters**          |   ✅    |   ✅    | ⚠️[^3]  | ⚠️[^4]  |   ✅    |   ❌    |
+| **Custom formatters**       |   ✅    |   ✅    |   ✅    | ⚠️[^5]  |   ✅    |   ✅    |
+| **Explicit context**        |   ✅    |   ⚠️    |   ✅    |   ✅    |   ❌    |   ❌    |
+| **Implicit context**        |   ✅    |   ⚠️    |   ⚠️    |   ⚠️    |   ❌    |   ❌    |
+| **Middleware support**      | ✅[^18] | ✅[^6]  | ✅[^7]  |   ❌    |   ❌    |   ❌    |
+| **Pretty console output**   | ✅[^8]  | ✅[^9]  | ✅[^10] | ✅[^11] | ✅[^12] | ✅[^13] |
+| **JSON Lines formatter**    | ✅[^14] | ⚠️[^15] |   ❌    |   ❌    |   ❌    |   ❌    |
+| **Data redaction**          | ✅[^16] |   ❌    | ✅[^17] |   ❌    |   ❌    |   ❌    |
 
 [^3]: Basic filtering through transform streams.
 [^4]: Limited filtering capabilities through custom streams.
 [^5]: Limited to serializers, not full formatting control.
 [^6]: *express-winston* for Express.js integration.
-[^7]: *pino-http* for HTTP request/response logging. And *fastify* has its own built-in integration for Pino.
+[^7]: *pino-http* for HTTP request/response logging. And *fastify* has its own
+      built-in integration for Pino.
 [^8]: `ansiColorFormatter` built-in + *@logtape/pretty* package.
 [^9]: Color formatting with `winston.format.colorize()`.
 [^10]: *pino-pretty* package for development.
@@ -402,23 +403,23 @@ Why LogTape matters
 LogTape represents a new generation of logging libraries designed for modern
 JavaScript development:
 
- 1. *Library-first design*: The only logger built specifically for library
+1.  *Library-first design*: The only logger built specifically for library
     authors, enabling a healthier ecosystem where libraries don't impose
     logging dependencies on applications.
 
- 2. *Universal runtime support*: Write once, run everywhere—from Node.js
+2.  *Universal runtime support*: Write once, run everywhere—from Node.js
     servers to Deno scripts to browser applications to edge functions.
 
- 3. *Zero dependencies*: Eliminate supply chain risks, reduce bundle size,
+3.  *Zero dependencies*: Eliminate supply chain risks, reduce bundle size,
     and simplify maintenance.
 
- 4. *Performance leadership*: Consistently outperforms other libraries,
+4.  *Performance leadership*: Consistently outperforms other libraries,
     especially for console logging across all runtimes.
 
- 5. *Developer experience*: TypeScript-first design with intuitive APIs
+5.  *Developer experience*: TypeScript-first design with intuitive APIs
     like template literals and hierarchical categories.
 
- 6. *Modern architecture*: Built from the ground up for `async`/`await`,
+6.  *Modern architecture*: Built from the ground up for `async`/`await`,
     ESM, and modern JavaScript patterns.
 
 For new projects, especially libraries or applications targeting multiple

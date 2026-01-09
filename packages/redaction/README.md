@@ -12,10 +12,10 @@ data in log records.  For details, read the docs:
  -  [Pattern-based redaction]
  -  [Field-based redaction]
 
-[JSR]: https://jsr.io/@logtape/redaction
 [JSR badge]: https://jsr.io/badges/@logtape/redaction
-[npm]: https://www.npmjs.com/package/@logtape/redaction
+[JSR]: https://jsr.io/@logtape/redaction
 [npm badge]: https://img.shields.io/npm/v/@logtape/redaction?logo=npm
+[npm]: https://www.npmjs.com/package/@logtape/redaction
 [LogTape]: https://logtape.org/
 [Pattern-based redaction]: https://logtape.org/manual/redaction#pattern-based-redaction
 [Field-based redaction]: https://logtape.org/manual/redaction#field-based-redaction
@@ -39,5 +39,6 @@ bun  add     @logtape/redaction  # for Bun
 Docs
 ----
 
-The docs of this package is available at  <https://logtape.org/manual/redaction>.
-For the API references, see <https://jsr.io/@logtape/redaction>.
+The docs of this package is available at
+<https://logtape.org/manual/redaction>. For the API references, see
+<https://jsr.io/@logtape/redaction>.
