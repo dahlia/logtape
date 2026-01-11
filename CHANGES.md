@@ -3,7 +3,7 @@
 LogTape changelog
 =================
 
-Version 1.4.0
+Version 2.0.0
 -------------
 
 To be released.

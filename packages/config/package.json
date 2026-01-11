@@ -1,6 +1,6 @@
 {
   "name": "@logtape/config",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "Configure LogTape from plain objects (JSON, YAML, TOML)",
   "keywords": [
     "logging",
@@ -26,7 +26,9 @@
   "bugs": {
     "url": "https://github.com/dahlia/logtape/issues"
   },
-  "funding": ["https://github.com/sponsors/dahlia"],
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
   "type": "module",
   "module": "./dist/mod.js",
   "main": "./dist/mod.cjs",
@@ -43,7 +45,9 @@
     "./package.json": "./package.json"
   },
   "sideEffects": false,
-  "files": ["dist/"],
+  "files": [
+    "dist/"
+  ],
   "peerDependencies": {
     "@logtape/logtape": "workspace:^"
   },

@@ -319,7 +319,7 @@ Best practices
 Configuration from objects
 --------------------------
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 2.0.0.*
 
 While programmatic configuration with `configure()` is type-safe and powerful,
 you may want to load logging configuration from external files like JSON, YAML,

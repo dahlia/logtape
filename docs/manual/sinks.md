@@ -553,7 +553,7 @@ For more details, see `getRotatingFileSink()` function and
 Time-based rotating file sink
 -----------------------------
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 2.0.0.*
 
 > [!NOTE]
 > Time-based rotating file sink is unavailable in the browser environment.
@@ -719,7 +719,7 @@ await configure({
 
 ### Custom buffer level
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 2.0.0.*
 
 By default, all log records below the trigger level are buffered.  You can
 customize which severity levels are buffered using the

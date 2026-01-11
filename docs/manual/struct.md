@@ -327,7 +327,7 @@ The function will only be called if the debug log level is enabled.
 
 ### Async lazy evaluation
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 2.0.0.*
 
 For async operations, you can use an async callback to compute the structured
 data.  When you pass an async function, the logging method returns a `Promise`

@@ -91,7 +91,7 @@ export function getRotatingFileSink(
  * @returns A sink that writes to the file.  The sink is also a disposable
  *          object that closes the file when disposed.  If `nonBlocking` is
  *          enabled, returns a sink that also implements {@link AsyncDisposable}.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export function getTimeRotatingFileSink(
   options: TimeRotatingFileSinkOptions,

@@ -80,7 +80,7 @@ export interface TimeRotatingFileSinkDriver<TFile>
 
 /**
  * A platform-specific async time-rotating file sink driver.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface AsyncTimeRotatingFileSinkDriver<TFile>
   extends AsyncFileSinkDriver<TFile> {

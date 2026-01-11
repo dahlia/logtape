@@ -2,7 +2,7 @@ import type { LogLevel } from "@logtape/logtape";
 
 /**
  * Configuration object schema for `configureFromObject()`.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface LogTapeConfig {
   /**
@@ -28,7 +28,7 @@ export interface LogTapeConfig {
 
 /**
  * Sink configuration with module reference.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface SinkConfig {
   /** Module reference in `module#export()` format */
@@ -41,7 +41,7 @@ export interface SinkConfig {
 
 /**
  * Filter configuration with module reference.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface FilterConfig {
   /** Module reference in `module#export()` format */
@@ -52,7 +52,7 @@ export interface FilterConfig {
 
 /**
  * Formatter configuration with module reference.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface FormatterConfig {
   /** Module reference in `module#export()` format */
@@ -63,7 +63,7 @@ export interface FormatterConfig {
 
 /**
  * Logger configuration.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface LoggerConfig {
   /**
@@ -94,7 +94,7 @@ export interface LoggerConfig {
 
 /**
  * Registry of shorthand mappings.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface ShorthandRegistry {
   /**
@@ -115,7 +115,7 @@ export interface ShorthandRegistry {
 
 /**
  * Options for `configureFromObject()`.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface ConfigureOptions {
   /**
@@ -134,7 +134,7 @@ export interface ConfigureOptions {
 
 /**
  * Options for environment variable expansion.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface EnvExpansionOptions {
   /**
@@ -146,7 +146,7 @@ export interface EnvExpansionOptions {
 
 /**
  * Parsed module reference.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface ParsedModuleReference {
   /** Whether this is a shorthand (starts with #) */
@@ -163,7 +163,7 @@ export interface ParsedModuleReference {
 
 /**
  * Error thrown when configuration is invalid.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export class ConfigError extends Error {
   constructor(message: string) {

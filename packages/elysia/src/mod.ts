@@ -5,7 +5,7 @@ export type { LogLevel } from "@logtape/logtape";
 
 /**
  * Minimal Elysia Context interface for compatibility.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface ElysiaContext {
   request: Request;
@@ -18,13 +18,13 @@ export interface ElysiaContext {
 
 /**
  * Plugin scope options for controlling hook propagation.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export type PluginScope = "global" | "scoped" | "local";
 
 /**
  * Predefined log format names compatible with Morgan.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export type PredefinedFormat = "combined" | "common" | "dev" | "short" | "tiny";
 
@@ -34,7 +34,7 @@ export type PredefinedFormat = "combined" | "common" | "dev" | "short" | "tiny";
  * @param ctx The Elysia context object.
  * @param responseTime The response time in milliseconds.
  * @returns A string message or an object with structured properties.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export type FormatFunction = (
   ctx: ElysiaContext,
@@ -43,7 +43,7 @@ export type FormatFunction = (
 
 /**
  * Structured log properties for HTTP requests.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface RequestLogProperties {
   /** HTTP request method */
@@ -68,7 +68,7 @@ export interface RequestLogProperties {
 
 /**
  * Options for configuring the Elysia LogTape middleware.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export interface ElysiaLogTapeOptions {
   /**
@@ -373,7 +373,7 @@ interface LoggerStore {
  *
  * @param options Configuration options for the plugin.
  * @returns Elysia plugin instance.
- * @since 1.4.0
+ * @since 2.0.0
  */
 // deno-lint-ignore no-explicit-any
 export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {

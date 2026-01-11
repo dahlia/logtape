@@ -6,7 +6,7 @@ import type { EnvExpansionOptions } from "./types.ts";
  * @param config Configuration object
  * @param options Expansion options
  * @returns Configuration with expanded environment variables
- * @since 1.4.0
+ * @since 2.0.0
  */
 export function expandEnvVars<T extends object>(
   config: T,

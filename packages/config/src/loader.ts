@@ -16,7 +16,7 @@ import type { Filter, Sink } from "@logtape/logtape";
  * @param shorthands Shorthand registry for resolving shorthands
  * @param type Type of shorthand (sinks, filters, formatters)
  * @returns The loaded module export
- * @since 1.4.0
+ * @since 2.0.0
  */
 export async function loadModuleExport(
   parsed: ParsedModuleReference,
@@ -72,7 +72,7 @@ export async function loadModuleExport(
  * @param config Sink configuration
  * @param shorthands Shorthand registry
  * @returns The created sink
- * @since 1.4.0
+ * @since 2.0.0
  */
 export async function createSink(
   config: SinkConfig,
@@ -152,7 +152,7 @@ export async function createSink(
  * @param config Filter configuration
  * @param shorthands Shorthand registry
  * @returns The created filter
- * @since 1.4.0
+ * @since 2.0.0
  */
 export async function createFilter(
   config: FilterConfig,

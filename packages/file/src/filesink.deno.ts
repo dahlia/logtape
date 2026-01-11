@@ -65,7 +65,7 @@ export const denoAsyncDriver: AsyncRotatingFileSinkDriver<Deno.FsFile> = {
 
 /**
  * A Deno-specific time-rotating file sink driver.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export const denoTimeDriver: TimeRotatingFileSinkDriver<Deno.FsFile> = {
   ...denoDriver,
@@ -81,7 +81,7 @@ export const denoTimeDriver: TimeRotatingFileSinkDriver<Deno.FsFile> = {
 
 /**
  * A Deno-specific async time-rotating file sink driver.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export const denoAsyncTimeDriver: AsyncTimeRotatingFileSinkDriver<Deno.FsFile> =
   {
@@ -172,7 +172,7 @@ export function getRotatingFileSink(
  * @returns A sink that writes to the file.  The sink is also a disposable
  *          object that closes the file when disposed. If `nonBlocking` is
  *          enabled, returns a sink that also implements {@link AsyncDisposable}.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export function getTimeRotatingFileSink(
   options: TimeRotatingFileSinkOptions,

@@ -481,7 +481,7 @@ export interface FingersCrossedOptions {
    * ```
    *
    * @default `undefined` (buffer all levels below triggerLevel)
-   * @since 1.4.0
+   * @since 2.0.0
    */
   readonly bufferLevel?: LogLevel | null;
 

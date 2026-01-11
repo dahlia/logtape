@@ -93,7 +93,7 @@ const err = new Error("API rate limit exceeded");
 // ---cut-before---
 logger.warn("API rate limit is close to exceeding, 95% of limit reached.");
 
-// Shorthand overloads (added in LogTape 1.4.0):
+// Shorthand overloads (added in LogTape 2.0.0):
 logger.warn(err);
 logger.warn("API rate limit exceeded", err);
 ~~~~
@@ -109,7 +109,7 @@ import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
 const err = new Error("Database write failed");
 // ---cut-before---
-// Shorthand overloads (added in LogTape 1.4.0):
+// Shorthand overloads (added in LogTape 2.0.0):
 logger.error(err);
 logger.error("Failed to save user data to database", err);
 
@@ -134,7 +134,7 @@ import { getLogger } from "@logtape/logtape";
 const logger = getLogger();
 const err = new Error("Database connection lost");
 // ---cut-before---
-// Shorthand overloads (added in LogTape 1.4.0):
+// Shorthand overloads (added in LogTape 2.0.0):
 logger.fatal(err);
 logger.fatal("Unrecoverable error", err);
 
@@ -149,7 +149,7 @@ logger.fatal(
 Error object overloads
 ----------------------
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 2.0.0.*
 
 For convenience, LogTape provides `Error` overloads for these methods:
 

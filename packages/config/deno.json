@@ -1,6 +1,6 @@
 {
   "name": "@logtape/config",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "exclude": [
@@ -12,15 +12,23 @@
     "build": "pnpm build",
     "test": "deno test --allow-read --allow-env --allow-net",
     "test:node": {
-      "dependencies": ["build"],
+      "dependencies": [
+        "build"
+      ],
       "command": "node --experimental-transform-types --test"
     },
     "test:bun": {
-      "dependencies": ["build"],
+      "dependencies": [
+        "build"
+      ],
       "command": "bun test"
     },
     "test-all": {
-      "dependencies": ["test", "test:node", "test:bun"]
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
     }
   }
 }

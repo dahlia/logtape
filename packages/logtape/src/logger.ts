@@ -144,7 +144,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   trace(
     message: string,
@@ -254,7 +254,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   debug(
     message: string,
@@ -363,7 +363,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   info(
     message: string,
@@ -430,7 +430,7 @@ export interface Logger {
    * in the message template instead.
    *
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   warn(error: Error): void;
 
@@ -443,7 +443,7 @@ export interface Logger {
    *
    * @param message The message.
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   warn(message: string, error: Error): void;
 
@@ -505,7 +505,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   warn(
     message: string,
@@ -572,7 +572,7 @@ export interface Logger {
    * in the message template instead.
    *
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   warning(error: Error): void;
 
@@ -585,7 +585,7 @@ export interface Logger {
    *
    * @param message The message.
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   warning(message: string, error: Error): void;
 
@@ -649,7 +649,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   warning(
     message: string,
@@ -717,7 +717,7 @@ export interface Logger {
    * in the message template instead.
    *
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   error(error: Error): void;
 
@@ -730,7 +730,7 @@ export interface Logger {
    *
    * @param message The message.
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   error(message: string, error: Error): void;
 
@@ -792,7 +792,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   error(
     message: string,
@@ -859,7 +859,7 @@ export interface Logger {
    * in the message template instead.
    *
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   fatal(error: Error): void;
 
@@ -872,7 +872,7 @@ export interface Logger {
    *
    * @param message The message.
    * @param error The error to log.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   fatal(message: string, error: Error): void;
 
@@ -934,7 +934,7 @@ export interface Logger {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   fatal(
     message: string,
@@ -1035,7 +1035,7 @@ export interface Logger {
    * @param level The log level to check.
    * @returns `true` if a message of the given level would be logged,
    *          `false` otherwise.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   isEnabledFor(level: LogLevel): boolean;
 }
@@ -1096,7 +1096,7 @@ export interface LogMethod {
    *                `{value}`).
    * @param properties An async callback that returns the properties.
    * @returns A promise that resolves when the log is written.
-   * @since 1.4.0
+   * @since 2.0.0
    */
   (
     message: string,

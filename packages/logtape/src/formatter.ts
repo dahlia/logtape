@@ -241,7 +241,7 @@ export interface TextFormatterOptions {
    * - `"crlf"`: Windows-style line endings (`\r\n`)
    *
    * @default "lf"
-   * @since 1.4.0
+   * @since 2.0.0
    */
   lineEnding?: "lf" | "crlf";
 }
@@ -795,7 +795,7 @@ export interface JsonLinesFormatterOptions {
    * - `"crlf"`: Windows-style line endings (`\r\n`)
    *
    * @default "lf"
-   * @since 1.4.0
+   * @since 2.0.0
    */
   readonly lineEnding?: "lf" | "crlf";
 }

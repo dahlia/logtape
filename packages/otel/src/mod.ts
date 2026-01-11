@@ -196,7 +196,7 @@ export type OtlpProtocol = "grpc" | "http/protobuf" | "http/json";
 
 /**
  * How to serialize `Error` objects in log attributes.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export type ExceptionAttributeMode = "semconv" | "raw" | false;
 
@@ -234,7 +234,7 @@ interface OpenTelemetrySinkOptionsBase {
    * - `false`: Treat `Error` objects like regular objects without special
    *   handling.
    *
-   * @since 1.4.0
+   * @since 2.0.0
    */
   exceptionAttributes?: ExceptionAttributeMode;
 

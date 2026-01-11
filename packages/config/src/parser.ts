@@ -13,7 +13,7 @@ import type { ParsedModuleReference } from "./types.ts";
  *
  * @param reference The module reference string
  * @returns Parsed module reference
- * @since 1.4.0
+ * @since 2.0.0
  */
 export function parseModuleReference(reference: string): ParsedModuleReference {
   const isShorthand = reference.startsWith("#");

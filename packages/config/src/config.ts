@@ -20,7 +20,7 @@ import type { ConfigureOptions, LogTapeConfig } from "./types.ts";
  * const config = JSON.parse(await readFile("./logtape.json", "utf-8"));
  * await configureFromObject(config);
  * ```
- * @since 1.4.0
+ * @since 2.0.0
  */
 export async function configureFromObject(
   config: LogTapeConfig,

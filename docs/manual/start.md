@@ -137,7 +137,7 @@ logger.debug("Or you can use a function call: {value}.", () => {
 
 ### Checking if a level is enabled
 
-*This API is available since LogTape 1.4.0.*
+*This API is available since LogTape 2.0.0.*
 
 For async operations, lazy evaluation callbacks cannot be used because they
 must return synchronously.  In such cases, you can use the `isEnabledFor()`

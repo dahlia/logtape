@@ -2,7 +2,7 @@ import type { ShorthandRegistry } from "./types.ts";
 
 /**
  * Default shorthand mappings for built-in sinks and formatters.
- * @since 1.4.0
+ * @since 2.0.0
  */
 export const DEFAULT_SHORTHANDS: ShorthandRegistry = {
   sinks: {
@@ -22,7 +22,7 @@ export const DEFAULT_SHORTHANDS: ShorthandRegistry = {
  * @param defaults Default shorthands
  * @param custom Custom shorthands
  * @returns Merged shorthands
- * @since 1.4.0
+ * @since 2.0.0
  */
 export function mergeShorthands(
   defaults: ShorthandRegistry,
