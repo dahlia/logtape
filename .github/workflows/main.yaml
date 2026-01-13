@@ -102,27 +102,12 @@ jobs:
     - if: github.event_name == 'push'
       run: |
         set -ex
-        pnpm install
-        jq -r '.workspace | .[]' deno.json | while read pkg; do
-          pushd "$pkg"
-          if [[ "$(jq -r '.name' deno.json)" = "null" ]]; then
-            popd
-            continue
-          fi
-          pkgname="$(jq -r '.name + "@" + .version | split("+")[0]' deno.json)"
-          if pnpm view "$pkgname"; then
-            echo "Package $pkgname already exists, skipping publish."
-            popd
-            continue
-          fi
-          pnpm build
-          if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-            pnpm publish --no-git-checks --access public --tag latest
-          else
-            pnpm publish --no-git-checks --access public --tag dev
-          fi
-          popd
-        done
+        deno task build
+        if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
+          pnpm publish -r --force --no-git-checks --access public --tag latest
+        else
+          pnpm publish -r --force --no-git-checks --access public --tag dev
+        fi
       env:
         NPM_CONFIG_PROVENANCE: "true"
     - if: github.event_name == 'pull_request'
