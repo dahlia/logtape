@@ -9,6 +9,78 @@ import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
 /**
+ * Symbol to identify lazy values.
+ */
+const lazySymbol: unique symbol = Symbol.for("logtape.lazy");
+
+/**
+ * A lazy value that is evaluated at logging time.
+ *
+ * @typeParam T The type of the value.
+ * @since 2.0.0
+ */
+export interface Lazy<T> {
+  readonly [lazySymbol]: true;
+  readonly getter: () => T;
+}
+
+/**
+ * Checks if a value is a lazy value.
+ *
+ * @param value The value to check.
+ * @returns `true` if the value is a lazy value, `false` otherwise.
+ * @since 2.0.0
+ */
+export function isLazy(value: unknown): value is Lazy<unknown> {
+  return value != null &&
+    typeof value === "object" &&
+    lazySymbol in value &&
+    (value as Lazy<unknown>)[lazySymbol] === true;
+}
+
+/**
+ * Creates a lazy value that is evaluated at logging time.
+ *
+ * This is useful for logging contextual properties that may change over time,
+ * such as the current user or request context.
+ *
+ * @example
+ * ```typescript
+ * let currentUser: string | null = null;
+ * const logger = getLogger("app").with({ user: lazy(() => currentUser) });
+ *
+ * logger.info("User action");  // logs with user: null
+ * currentUser = "alice";
+ * logger.info("User action");  // logs with user: "alice"
+ * ```
+ *
+ * @typeParam T The type of the value.
+ * @param getter A function that returns the value.
+ * @returns A lazy value.
+ * @since 2.0.0
+ */
+export function lazy<T>(getter: () => T): Lazy<T> {
+  return { [lazySymbol]: true, getter };
+}
+
+/**
+ * Resolves lazy values in a properties object.
+ *
+ * @param properties The properties object with potential lazy values.
+ * @returns A new object with all lazy values resolved.
+ */
+function resolveProperties(
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+  for (const key in properties) {
+    const value = properties[key];
+    resolved[key] = isLazy(value) ? value.getter() : value;
+  }
+  return resolved;
+}
+
+/**
  * A logger interface.  It provides methods to log messages at different
  * severity levels.
  *
@@ -1830,21 +1902,23 @@ export class LoggerCtx implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
+    const contextProps = this.properties;
     this.logger.log(
       level,
       message,
       typeof properties === "function"
-        ? () => ({
-          ...this.properties,
-          ...properties(),
-        })
-        : { ...this.properties, ...properties },
+        ? () =>
+          resolveProperties({
+            ...contextProps,
+            ...properties(),
+          })
+        : () => resolveProperties({ ...contextProps, ...properties }),
       bypassSinks,
     );
   }
 
   logLazily(level: LogLevel, callback: LogCallback): void {
-    this.logger.logLazily(level, callback, this.properties);
+    this.logger.logLazily(level, callback, resolveProperties(this.properties));
   }
 
   logTemplate(
@@ -1852,13 +1926,21 @@ export class LoggerCtx implements Logger {
     messageTemplate: TemplateStringsArray,
     values: unknown[],
   ): void {
-    this.logger.logTemplate(level, messageTemplate, values, this.properties);
+    this.logger.logTemplate(
+      level,
+      messageTemplate,
+      values,
+      resolveProperties(this.properties),
+    );
   }
 
   emit(record: Omit<LogRecord, "category">): void {
     const recordWithContext = {
       ...record,
-      properties: { ...this.properties, ...record.properties },
+      properties: resolveProperties({
+        ...this.properties,
+        ...record.properties,
+      }),
     };
     this.logger.emit(recordWithContext);
   }

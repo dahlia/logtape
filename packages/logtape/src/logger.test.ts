@@ -9,6 +9,8 @@ import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import {
   getLogger,
+  isLazy,
+  lazy,
   LoggerCtx,
   LoggerImpl,
   type LogMethod,
@@ -1970,3 +1972,300 @@ for (
     }
   });
 }
+
+test("lazy() creates a lazy value", () => {
+  let counter = 0;
+  const lazyValue = lazy(() => ++counter);
+
+  assert(isLazy(lazyValue));
+  assertEquals(counter, 0); // not evaluated yet
+  assertEquals(lazyValue.getter(), 1);
+  assertEquals(lazyValue.getter(), 2);
+});
+
+test("isLazy() returns false for non-lazy values", () => {
+  assertFalse(isLazy(null));
+  assertFalse(isLazy(undefined));
+  assertFalse(isLazy(123));
+  assertFalse(isLazy("string"));
+  assertFalse(isLazy(() => 1)); // plain function
+  assertFalse(isLazy({ getter: () => 1 })); // object without symbol
+  assertFalse(isLazy({}));
+  assertFalse(isLazy([]));
+});
+
+test("Logger.with() with lazy values", () => {
+  const logger = LoggerImpl.getLogger(["lazy-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let currentUser = "alice";
+    const ctx = logger.with({ user: lazy(() => currentUser) });
+
+    ctx.info("Action 1");
+    assertEquals(records[0].properties.user, "alice");
+
+    currentUser = "bob";
+    ctx.info("Action 2");
+    assertEquals(records[1].properties.user, "bob");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values are not evaluated until log time", () => {
+  const logger = LoggerImpl.getLogger(["lazy-eval-test"]);
+  const records: LogRecord[] = [];
+  // Access properties in sink to trigger lazy evaluation
+  logger.sinks.push((record) => {
+    // Force evaluation by accessing properties
+    void record.properties;
+    records.push(record);
+  });
+
+  try {
+    let evaluated = false;
+    const ctx = logger.with({
+      value: lazy(() => {
+        evaluated = true;
+        return "computed";
+      }),
+    });
+
+    assertFalse(evaluated); // not evaluated yet
+
+    ctx.info("Test message");
+    assert(evaluated); // now evaluated (sink accessed properties)
+    assertEquals(records[0].properties.value, "computed");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values propagate to child loggers", () => {
+  const logger = LoggerImpl.getLogger(["lazy-child-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let requestId = "req-1";
+    const ctx = logger.with({ requestId: lazy(() => requestId) });
+    const childCtx = ctx.getChild("child");
+
+    childCtx.info("Child action 1");
+    assertEquals(records[0].properties.requestId, "req-1");
+
+    requestId = "req-2";
+    childCtx.info("Child action 2");
+    assertEquals(records[1].properties.requestId, "req-2");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values work with template literals", () => {
+  const logger = LoggerImpl.getLogger(["lazy-template-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let count = 0;
+    const ctx = logger.with({ count: lazy(() => count) });
+
+    count = 42;
+    ctx.info`The count is ${count}`;
+    assertEquals(records[0].properties.count, 42);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values work with logLazily", () => {
+  const logger = LoggerImpl.getLogger(["lazy-lazily-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let value = "initial";
+    const ctx = logger.with({ dynamic: lazy(() => value) });
+
+    value = "updated";
+    ctx.info((l) => l`Lazy log`);
+    assertEquals(records[0].properties.dynamic, "updated");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() mixed lazy and regular properties", () => {
+  const logger = LoggerImpl.getLogger(["lazy-mixed-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let dynamicValue = "dynamic1";
+    const ctx = logger.with({
+      static: "static-value",
+      dynamic: lazy(() => dynamicValue),
+    });
+
+    ctx.info("Test 1");
+    assertEquals(records[0].properties.static, "static-value");
+    assertEquals(records[0].properties.dynamic, "dynamic1");
+
+    dynamicValue = "dynamic2";
+    ctx.info("Test 2");
+    assertEquals(records[1].properties.static, "static-value");
+    assertEquals(records[1].properties.dynamic, "dynamic2");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values can be overridden by log properties", () => {
+  const logger = LoggerImpl.getLogger(["lazy-override-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    const ctx = logger.with({ value: lazy(() => "lazy") });
+
+    ctx.info("Without override");
+    assertEquals(records[0].properties.value, "lazy");
+
+    ctx.info("With override", { value: "override" });
+    assertEquals(records[1].properties.value, "override");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy getter returning null/undefined", () => {
+  const logger = LoggerImpl.getLogger(["lazy-null-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    const ctx = logger.with({
+      nullValue: lazy(() => null),
+      undefinedValue: lazy(() => undefined),
+    });
+
+    ctx.info("Test message");
+    assertEquals(records[0].properties.nullValue, null);
+    assertEquals(records[0].properties.undefinedValue, undefined);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() chained with() calls with lazy values", () => {
+  const logger = LoggerImpl.getLogger(["lazy-chained-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let value1 = "a";
+    let value2 = "x";
+
+    const ctx1 = logger.with({ first: lazy(() => value1) });
+    const ctx2 = ctx1.with({ second: lazy(() => value2) });
+
+    ctx2.info("Test");
+    assertEquals(records[0].properties.first, "a");
+    assertEquals(records[0].properties.second, "x");
+
+    value1 = "b";
+    value2 = "y";
+    ctx2.info("Test");
+    assertEquals(records[1].properties.first, "b");
+    assertEquals(records[1].properties.second, "y");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy value overridden by another lazy value", () => {
+  const logger = LoggerImpl.getLogger(["lazy-override-lazy-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let original = "original";
+    let override = "override";
+
+    const ctx1 = logger.with({ value: lazy(() => original) });
+    const ctx2 = ctx1.with({ value: lazy(() => override) });
+
+    ctx2.info("Test");
+    assertEquals(records[0].properties.value, "override");
+
+    override = "updated";
+    ctx2.info("Test");
+    assertEquals(records[1].properties.value, "updated");
+
+    // Original context should still use original lazy
+    original = "original-updated";
+    ctx1.info("Test");
+    assertEquals(records[2].properties.value, "original-updated");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values work with emit()", () => {
+  const logger = LoggerImpl.getLogger(["lazy-emit-test"]);
+  const records: LogRecord[] = [];
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let value = "initial";
+    const ctx = logger.with({ dynamic: lazy(() => value) });
+
+    value = "updated";
+    ctx.emit({
+      level: "info",
+      message: ["Test message"],
+      rawMessage: "Test message",
+      timestamp: Date.now(),
+      properties: { extra: "prop" },
+    });
+
+    assertEquals(records[0].properties.dynamic, "updated");
+    assertEquals(records[0].properties.extra, "prop");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy getter throwing error propagates", () => {
+  const logger = LoggerImpl.getLogger(["lazy-error-test"]);
+  const records: LogRecord[] = [];
+  const errors: unknown[] = [];
+
+  // Use a sink that catches the error when accessing properties
+  logger.sinks.push((record) => {
+    try {
+      void record.properties;
+      records.push(record);
+    } catch (e) {
+      errors.push(e);
+    }
+  });
+
+  try {
+    const ctx = logger.with({
+      badValue: lazy(() => {
+        throw new Error("getter error");
+      }),
+    });
+
+    ctx.info("Test message");
+    assertEquals(errors.length, 1);
+    assert(errors[0] instanceof Error);
+    assertEquals((errors[0] as Error).message, "getter error");
+  } finally {
+    logger.resetDescendants();
+  }
+});

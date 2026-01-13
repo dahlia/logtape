@@ -36,6 +36,69 @@ Contexts are particularly useful when you want to do
 [structured logging](./struct.md).
 
 
+Lazy contexts
+-------------
+
+*Lazy contexts are available since LogTape 2.0.0.*
+
+Sometimes you want to set a context property that changes over time, such as
+the current user or request state.  Normally, context properties are evaluated
+when you call `~Logger.with()`, so subsequent changes to the value won't be
+reflected in log messages.
+
+To solve this, you can use `lazy()` to create a lazy context property that is
+evaluated at logging time rather than at `~Logger.with()` call time:
+
+~~~~ typescript twoslash
+import { getLogger, lazy } from "@logtape/logtape";
+
+let currentUser: string | null = null;
+
+const logger = getLogger(["my-app"]);
+const ctx = logger.with({ user: lazy(() => currentUser) });
+
+ctx.info("User action");  // logs with user: null
+currentUser = "alice";
+ctx.info("User action");  // logs with user: "alice"
+~~~~
+
+Lazy context properties are inherited by child loggers, and they continue to
+evaluate the getter function at each log call:
+
+~~~~ typescript twoslash
+import { getLogger, lazy } from "@logtape/logtape";
+
+let requestId = "req-1";
+
+const logger = getLogger(["my-app"]);
+const ctx = logger.with({ requestId: lazy(() => requestId) });
+const childCtx = ctx.getChild(["my-module"]);
+
+childCtx.info("Processing");  // logs with requestId: "req-1"
+requestId = "req-2";
+childCtx.info("Processing");  // logs with requestId: "req-2"
+~~~~
+
+You can mix lazy and regular properties:
+
+~~~~ typescript twoslash
+import { getLogger, lazy } from "@logtape/logtape";
+
+let dynamicValue = "initial";
+
+const logger = getLogger(["my-app"]);
+const ctx = logger.with({
+  static: "fixed-value",
+  dynamic: lazy(() => dynamicValue),
+});
+~~~~
+
+> [!NOTE]
+> Lazy properties are evaluated each time a log message is emitted.
+> If the getter function is expensive, consider caching the result inside
+> the getter.
+
+
 Implicit contexts
 -----------------
 

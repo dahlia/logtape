@@ -45,7 +45,14 @@ export {
   type LogLevel,
   parseLogLevel,
 } from "./level.ts";
-export { getLogger, type Logger, type LogMethod } from "./logger.ts";
+export {
+  getLogger,
+  isLazy,
+  type Lazy,
+  lazy,
+  type Logger,
+  type LogMethod,
+} from "./logger.ts";
 export type { LogRecord } from "./record.ts";
 export {
   type AsyncSink,

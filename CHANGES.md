@@ -10,6 +10,25 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added `lazy()` function for deferred evaluation of contextual properties.
+    This allows properties passed to `Logger.with()` to be evaluated at logging
+    time rather than at `with()` call time.  [[#131]]
+
+    ~~~~ typescript
+    import { getLogger, lazy } from "@logtape/logtape";
+
+    let currentUser: string | null = null;
+    const logger = getLogger("app").with({ user: lazy(() => currentUser) });
+
+    logger.info("Action");  // logs with user: null
+    currentUser = "alice";
+    logger.info("Action");  // logs with user: "alice"
+    ~~~~
+
+
+     -  Added `Lazy<T>` type to represent a lazy value.
+     -  Added `isLazy()` function to check if a value is a lazy value.
+
  -  Added `Error` overloads for `Logger.error()`,
     `Logger.warn()`/`Logger.warning()`, and `Logger.fatal()` as a shorthand for
     logging errors as structured properties.
@@ -96,6 +115,7 @@ To be released.
 [#125]: https://github.com/dahlia/logtape/pull/125
 [#126]: https://github.com/dahlia/logtape/issues/126
 [#129]: https://github.com/dahlia/logtape/issues/129
+[#131]: https://github.com/dahlia/logtape/issues/131
 
 ### @logtape/config
 
