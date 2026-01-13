@@ -104,9 +104,9 @@ jobs:
         set -ex
         deno task build
         if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-          pnpm publish -r --force --no-git-checks --access public --tag latest
+          pnpm publish -r --filter './packages/*' --force --no-git-checks --access public --tag latest
         else
-          pnpm publish -r --force --no-git-checks --access public --tag dev
+          pnpm publish -r --filter './packages/*' --force --no-git-checks --access public --tag dev
         fi
       env:
         NPM_CONFIG_PROVENANCE: "true"

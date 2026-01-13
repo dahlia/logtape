@@ -84,7 +84,7 @@
     "fmt": "deno fmt && deno task hongdown --write",
     "check:versions": "deno run --allow-read scripts/check_versions.ts",
     "update-versions": "deno run --allow-read --allow-write scripts/update_versions.ts",
-    "build": "pnpm install && pnpm run -r build",
+    "build": "pnpm install && pnpm run -r --filter './packages/*' build",
     "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
     "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-sys --allow-ffi --allow-run=powershell",
     "test:node": "pnpm run -r test",
