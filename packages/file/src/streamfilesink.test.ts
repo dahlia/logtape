@@ -1,12 +1,10 @@
-import { getStreamFileSink } from "./streamfilesink.ts";
-import { suite } from "@alinea/suite";
-import type { LogRecord } from "@logtape/logtape";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { delay } from "@std/async/delay";
-import { join } from "@std/path/join";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import type { LogRecord } from "@logtape/logtape";
+import { join } from "@std/path/join";
 import {
   debug,
   error,
@@ -14,8 +12,7 @@ import {
   info,
   warning,
 } from "../../logtape/src/fixtures.ts";
-
-const test = suite(import.meta);
+import { getStreamFileSink } from "./streamfilesink.ts";
 
 function makeTempFileSync(): string {
   return join(fs.mkdtempSync(join(tmpdir(), "logtape-")), "logtape.txt");
@@ -37,7 +34,7 @@ test("getStreamFileSink() basic functionality", async () => {
   await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assertEquals(
+  assert.deepStrictEqual(
     content,
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n" +
       "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n" +
@@ -58,7 +55,7 @@ test("getStreamFileSink() with custom highWaterMark", async () => {
   await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assertEquals(
+  assert.deepStrictEqual(
     content,
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n" +
       "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
@@ -78,7 +75,7 @@ test("getStreamFileSink() with custom formatter", async () => {
   await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assertEquals(
+  assert.deepStrictEqual(
     content,
     "CUSTOM: Hello, 123 & 456!\n" +
       "CUSTOM: Hello, 123 & 456!\n",
@@ -98,8 +95,8 @@ test("getStreamFileSink() appends to existing file", async () => {
   await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.startsWith("Initial content\n"));
-  assert(content.includes("Hello, 123 & 456!"));
+  assert.ok(content.startsWith("Initial content\n"));
+  assert.ok(content.includes("Hello, 123 & 456!"));
 });
 
 test("getStreamFileSink() high-volume logging", async () => {
@@ -120,11 +117,11 @@ test("getStreamFileSink() high-volume logging", async () => {
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
-  assertEquals(lines.length, 100);
+  assert.strictEqual(lines.length, 100);
 
   // Verify first and last entries
-  assert(lines[0].includes("Log entry 0"));
-  assert(lines[99].includes("Log entry 99"));
+  assert.ok(lines[0].includes("Log entry 0"));
+  assert.ok(lines[99].includes("Log entry 99"));
 });
 
 test("getStreamFileSink() disposal stops writing", async () => {
@@ -140,10 +137,10 @@ test("getStreamFileSink() disposal stops writing", async () => {
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
-  assertEquals(lines.length, 1); // Only debug record
-  assert(content.includes("[DBG]"));
-  assert(!content.includes("[INF]"));
-  assert(!content.includes("[WRN]"));
+  assert.strictEqual(lines.length, 1); // Only debug record
+  assert.ok(content.includes("[DBG]"));
+  assert.ok(!content.includes("[INF]"));
+  assert.ok(!content.includes("[WRN]"));
 });
 
 test("getStreamFileSink() double disposal", async () => {
@@ -158,7 +155,7 @@ test("getStreamFileSink() double disposal", async () => {
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
-  assertEquals(lines.length, 1);
+  assert.strictEqual(lines.length, 1);
 });
 
 test("getStreamFileSink() handles rapid disposal", async () => {
@@ -172,7 +169,7 @@ test("getStreamFileSink() handles rapid disposal", async () => {
   await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes("Hello, 123 & 456!"));
+  assert.ok(content.includes("Hello, 123 & 456!"));
 });
 
 test("getStreamFileSink() concurrent writes", async () => {
@@ -202,11 +199,11 @@ test("getStreamFileSink() concurrent writes", async () => {
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
-  assertEquals(lines.length, 10);
+  assert.strictEqual(lines.length, 10);
 
   // All concurrent logs should be present
   for (let i = 0; i < 10; i++) {
-    assert(content.includes(`Concurrent log ${i}`));
+    assert.ok(content.includes(`Concurrent log ${i}`));
   }
 });
 
@@ -225,9 +222,9 @@ test("getStreamFileSink() with empty records", async () => {
   await delay(50);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes("[DBG]"));
+  assert.ok(content.includes("[DBG]"));
   // Should still write the timestamp and level even with empty message
-  assert(content.includes("2023-11-14 22:13:20.000 +00:00"));
+  assert.ok(content.includes("2023-11-14 22:13:20.000 +00:00"));
 });
 
 test("getStreamFileSink() with large messages", async () => {
@@ -246,8 +243,8 @@ test("getStreamFileSink() with large messages", async () => {
   await delay(100); // Give more time for large write
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes(largeMessage));
-  assert(content.includes("[DBG]"));
+  assert.ok(content.includes(largeMessage));
+  assert.ok(content.includes("[DBG]"));
 });
 
 test("getStreamFileSink() memory efficiency", async () => {
@@ -273,11 +270,11 @@ test("getStreamFileSink() memory efficiency", async () => {
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   const lines = content.split("\n").filter((line) => line.length > 0);
-  assertEquals(lines.length, 1000);
+  assert.strictEqual(lines.length, 1000);
 
   // Verify first and last entries
-  assert(lines[0].includes("Memory test 0"));
-  assert(lines[999].includes("Memory test 999"));
+  assert.ok(lines[0].includes("Memory test 0"));
+  assert.ok(lines[999].includes("Memory test 999"));
 });
 
 test("getStreamFileSink() creates new file when it doesn't exist", async () => {
@@ -292,9 +289,9 @@ test("getStreamFileSink() creates new file when it doesn't exist", async () => {
   await delay(50);
 
   // File should have been created
-  assert(fs.existsSync(path));
+  assert.ok(fs.existsSync(path));
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes("Hello, 123 & 456!"));
+  assert.ok(content.includes("Hello, 123 & 456!"));
 });
 
 test("getStreamFileSink() multiple instances on same file", async () => {
@@ -312,8 +309,8 @@ test("getStreamFileSink() multiple instances on same file", async () => {
   await delay(100);
 
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes("[DBG]"));
-  assert(content.includes("[INF]"));
+  assert.ok(content.includes("[DBG]"));
+  assert.ok(content.includes("[INF]"));
 });
 
 test("getStreamFileSink() stream error handling", async () => {
@@ -336,5 +333,5 @@ test("getStreamFileSink() stream error handling", async () => {
   sink(warning);
 
   // Test should complete without throwing
-  assert(true);
+  assert.ok(true);
 });

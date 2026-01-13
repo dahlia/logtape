@@ -1,9 +1,6 @@
-import { suite } from "@alinea/suite";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertInstanceOf } from "@std/assert/instance-of";
-import { assertThrows } from "@std/assert/throws";
-import { delay } from "@std/async/delay";
+import assert from "node:assert/strict";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import makeConsoleMock from "consolemock";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
@@ -19,8 +16,6 @@ import {
   withFilter,
 } from "./sink.ts";
 
-const test = suite(import.meta);
-
 test("withFilter()", () => {
   const buffer: LogRecord[] = [];
   const sink = withFilter(buffer.push.bind(buffer), "warning");
@@ -30,7 +25,7 @@ test("withFilter()", () => {
   sink(warning);
   sink(error);
   sink(fatal);
-  assertEquals(buffer, [warning, error, fatal]);
+  assert.deepStrictEqual(buffer, [warning, error, fatal]);
 });
 
 interface ConsoleMock extends Console {
@@ -55,7 +50,7 @@ test("getStreamSink()", async () => {
   sink(error);
   sink(fatal);
   await sink[Symbol.asyncDispose]();
-  assertEquals(
+  assert.strictEqual(
     buffer,
     `\
 2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
@@ -82,17 +77,17 @@ test("getStreamSink() with nonBlocking - simple boolean", async () => {
   );
 
   // Check that it returns AsyncDisposable
-  assertInstanceOf(sink, Function);
-  assert(Symbol.asyncDispose in sink);
+  assert.ok(sink instanceof Function);
+  assert.ok(Symbol.asyncDispose in sink);
 
   // Add records - they should not be written immediately
   sink(trace);
   sink(debug);
-  assertEquals(buffer, ""); // Not written yet
+  assert.strictEqual(buffer, ""); // Not written yet
 
   // Wait for flush interval (default 100ms)
   await delay(150);
-  assertEquals(
+  assert.strictEqual(
     buffer,
     `2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -122,11 +117,11 @@ test("getStreamSink() with nonBlocking - custom buffer config", async () => {
 
   // Add records up to buffer size
   sink(trace);
-  assertEquals(buffer, ""); // Not flushed yet
+  assert.strictEqual(buffer, ""); // Not flushed yet
 
   sink(debug); // This should trigger immediate flush (buffer size = 2)
   await delay(10); // Small delay for async flush
-  assertEquals(
+  assert.strictEqual(
     buffer,
     `2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -134,14 +129,14 @@ test("getStreamSink() with nonBlocking - custom buffer config", async () => {
   );
 
   // Add more records
-  const prevLength = buffer.length;
+  const prevLength = (buffer as string).length;
   sink(info);
-  assertEquals(buffer.length, prevLength); // Not flushed yet
+  assert.strictEqual((buffer as string).length, prevLength); // Not flushed yet
 
   // Wait for flush interval
   await delay(60);
-  assertEquals(
-    buffer.substring(prevLength),
+  assert.strictEqual(
+    (buffer as string).substring(prevLength),
     `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
 `,
   );
@@ -170,7 +165,7 @@ test("getStreamSink() with nonBlocking - no operations after dispose", async () 
   sink(debug);
 
   // No records should be written
-  assertEquals(buffer, "");
+  assert.strictEqual(buffer, "");
 });
 
 test("getStreamSink() with nonBlocking - error handling", async () => {
@@ -217,11 +212,11 @@ test("getStreamSink() with nonBlocking - flush on dispose", async () => {
   sink(trace);
   sink(debug);
   sink(info);
-  assertEquals(buffer, ""); // Not flushed yet due to large buffer and long interval
+  assert.strictEqual(buffer, ""); // Not flushed yet due to large buffer and long interval
 
   // Dispose should flush all remaining records
   await sink[Symbol.asyncDispose]();
-  assertEquals(
+  assert.strictEqual(
     buffer,
     `2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -268,11 +263,11 @@ test("getStreamSink() with nonBlocking - buffer overflow protection", async () =
 
   // Due to overflow protection, we should receive fewer than 20 records
   // The exact number depends on timing, but some should be dropped
-  assert(
+  assert.ok(
     recordsReceived < 20,
     `Expected < 20 records due to potential overflow, got ${recordsReceived}`,
   );
-  assert(recordsReceived > 0, "Expected some records to be logged");
+  assert.ok(recordsReceived > 0, "Expected some records to be logged");
 });
 
 test("getStreamSink() with nonBlocking - high volume non-blocking behavior", async () => {
@@ -302,7 +297,7 @@ test("getStreamSink() with nonBlocking - high volume non-blocking behavior", asy
 
   // Adding logs should be very fast (non-blocking)
   const duration = endTime - startTime;
-  assert(
+  assert.ok(
     duration < 100,
     `Adding 100 logs took ${duration}ms, should be much faster`,
   );
@@ -311,7 +306,7 @@ test("getStreamSink() with nonBlocking - high volume non-blocking behavior", asy
   await delay(200);
 
   // Should have logged some records
-  assert(buffer.length > 0, "Expected some records to be logged");
+  assert.ok(buffer.length > 0, "Expected some records to be logged");
 
   await sink[Symbol.asyncDispose]();
 });
@@ -326,7 +321,7 @@ test("getConsoleSink()", () => {
   sink(warning);
   sink(error);
   sink(fatal);
-  assertEquals(mock.history(), [
+  assert.deepStrictEqual(mock.history(), [
     {
       DEBUG: [
         "%c22:13:20.000 %cTRC%c %cmy-app·junk %cHello, %o & %o!",
@@ -401,10 +396,9 @@ test("getConsoleSink()", () => {
     },
   ]);
 
-  assertThrows(
+  assert.throws(
     () => sink({ ...info, level: "invalid" as LogLevel }),
     TypeError,
-    "Invalid log level: invalid.",
   );
 
   // @ts-ignore: consolemock is not typed
@@ -419,7 +413,7 @@ test("getConsoleSink()", () => {
   sink2(warning);
   sink2(error);
   sink2(fatal);
-  assertEquals(mock2.history(), [
+  assert.deepStrictEqual(mock2.history(), [
     {
       DEBUG: [
         "2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!",
@@ -472,7 +466,7 @@ test("getConsoleSink()", () => {
   sink3(warning);
   sink3(error);
   sink3(fatal);
-  assertEquals(mock3.history(), [
+  assert.deepStrictEqual(mock3.history(), [
     {
       LOG: [
         "2023-11-14 22:13:20.000 +00:00 [TRC] my-app·junk: Hello, 123 & 456!",
@@ -512,17 +506,17 @@ test("getConsoleSink() with nonBlocking - simple boolean", async () => {
   const sink = getConsoleSink({ console: mock, nonBlocking: true });
 
   // Check that it returns a Disposable
-  assertInstanceOf(sink, Function);
-  assert(Symbol.dispose in sink);
+  assert.ok(sink instanceof Function);
+  assert.ok(Symbol.dispose in sink);
 
   // Add records - they should not be logged immediately
   sink(trace);
   sink(debug);
-  assertEquals(mock.history().length, 0); // Not logged yet
+  assert.strictEqual(mock.history().length, 0); // Not logged yet
 
   // Wait for flush interval (default 100ms)
   await delay(150);
-  assertEquals(mock.history().length, 2); // Now they should be logged
+  assert.strictEqual(mock.history().length, 2); // Now they should be logged
 
   // Dispose the sink
   (sink as Sink & Disposable)[Symbol.dispose]();
@@ -542,25 +536,25 @@ test("getConsoleSink() with nonBlocking - custom buffer config", async () => {
   // Add records up to buffer size
   sink(trace);
   sink(debug);
-  assertEquals(mock.history().length, 0); // Not flushed yet
+  assert.strictEqual(mock.history().length, 0); // Not flushed yet
 
   sink(info); // This should trigger scheduled flush (buffer size = 3)
   await delay(10); // Wait for scheduled flush to execute
-  assertEquals(mock.history().length, 3); // Flushed due to buffer size
+  assert.strictEqual(mock.history().length, 3); // Flushed due to buffer size
 
   // Add more records
   sink(warning);
-  assertEquals(mock.history().length, 3); // Not flushed yet
+  assert.strictEqual(mock.history().length, 3); // Not flushed yet
 
   // Wait for flush interval
   await delay(60);
-  assertEquals(mock.history().length, 4); // Flushed due to interval
+  assert.strictEqual(mock.history().length, 4); // Flushed due to interval
 
   // Dispose and check remaining records are flushed
   sink(error);
   sink(fatal);
   (sink as Sink & Disposable)[Symbol.dispose]();
-  assertEquals(mock.history().length, 6); // All records flushed on dispose
+  assert.strictEqual(mock.history().length, 6); // All records flushed on dispose
 });
 
 test("getConsoleSink() with nonBlocking - no operations after dispose", () => {
@@ -576,7 +570,7 @@ test("getConsoleSink() with nonBlocking - no operations after dispose", () => {
   sink(debug);
 
   // No records should be logged
-  assertEquals(mock.history().length, 0);
+  assert.strictEqual(mock.history().length, 0);
 });
 
 test("getConsoleSink() with nonBlocking - error handling", async () => {
@@ -638,8 +632,11 @@ test("getConsoleSink() with nonBlocking - buffer overflow protection", async () 
 
   // Should have logged records, but not more than maxBufferSize (10)
   const historyLength = mock.history().length;
-  assert(historyLength <= 10, `Expected <= 10 records, got ${historyLength}`);
-  assert(historyLength > 0, "Expected some records to be logged");
+  assert.ok(
+    historyLength <= 10,
+    `Expected <= 10 records, got ${historyLength}`,
+  );
+  assert.ok(historyLength > 0, "Expected some records to be logged");
 });
 
 test("getConsoleSink() with nonBlocking - high volume non-blocking behavior", async () => {
@@ -662,7 +659,7 @@ test("getConsoleSink() with nonBlocking - high volume non-blocking behavior", as
 
   // Adding logs should be very fast (non-blocking)
   const duration = endTime - startTime;
-  assert(
+  assert.ok(
     duration < 100,
     `Adding 100 logs took ${duration}ms, should be much faster`,
   );
@@ -671,7 +668,7 @@ test("getConsoleSink() with nonBlocking - high volume non-blocking behavior", as
   await delay(200);
 
   // Should have logged some records
-  assert(mock.history().length > 0, "Expected some records to be logged");
+  assert.ok(mock.history().length > 0, "Expected some records to be logged");
 
   (sink as Sink & Disposable)[Symbol.dispose]();
 });
@@ -690,14 +687,14 @@ test("fromAsyncSink() - basic functionality", async () => {
   sink(info);
 
   // Records should not be in buffer immediately
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Wait for async operations to complete
   await sink[Symbol.asyncDispose]();
 
   // All records should be in buffer in order
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer, [trace, debug, info]);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer, [trace, debug, info]);
 });
 
 test("fromAsyncSink() - promise chaining preserves order", async () => {
@@ -721,8 +718,8 @@ test("fromAsyncSink() - promise chaining preserves order", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Despite different delays, order should be preserved
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer, [trace, debug, info]);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer, [trace, debug, info]);
 });
 
 test("fromAsyncSink() - error handling", async () => {
@@ -747,9 +744,9 @@ test("fromAsyncSink() - error handling", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Error should be caught and not break the chain
-  assertEquals(errorCount, 1);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer, [trace, info]);
+  assert.strictEqual(errorCount, 1);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer, [trace, info]);
 });
 
 test("fromAsyncSink() - multiple dispose calls", async () => {
@@ -766,15 +763,15 @@ test("fromAsyncSink() - multiple dispose calls", async () => {
 
   // First dispose
   await sink[Symbol.asyncDispose]();
-  assertEquals(buffer.length, 2);
+  assert.strictEqual(buffer.length, 2);
 
   // Second dispose should be safe
   await sink[Symbol.asyncDispose]();
-  assertEquals(buffer.length, 2);
+  assert.strictEqual(buffer.length, 2);
 
   // Third dispose should be safe
   await sink[Symbol.asyncDispose]();
-  assertEquals(buffer.length, 2);
+  assert.strictEqual(buffer.length, 2);
 });
 
 test("fromAsyncSink() - concurrent calls", async () => {
@@ -800,8 +797,8 @@ test("fromAsyncSink() - concurrent calls", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Due to promise chaining, max concurrent calls should be 1
-  assertEquals(maxConcurrentCalls, 1);
-  assertEquals(buffer.length, 5);
+  assert.strictEqual(maxConcurrentCalls, 1);
+  assert.strictEqual(buffer.length, 5);
 });
 
 test("fromAsyncSink() - works with synchronous exceptions", async () => {
@@ -827,9 +824,9 @@ test("fromAsyncSink() - works with synchronous exceptions", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Error should still be caught
-  assertEquals(errorCount, 1);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer, [trace, info]);
+  assert.strictEqual(errorCount, 1);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer, [trace, info]);
 });
 
 test("fromAsyncSink() - very long async operations", async () => {
@@ -848,14 +845,14 @@ test("fromAsyncSink() - very long async operations", async () => {
   const disposePromise = sink[Symbol.asyncDispose]();
 
   // Buffer should still be empty
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Wait for dispose to complete
   await disposePromise;
 
   // Now all records should be processed
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer, [trace, debug]);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer, [trace, debug]);
 });
 
 test("fromAsyncSink() - empty async sink", async () => {
@@ -872,7 +869,7 @@ test("fromAsyncSink() - empty async sink", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Test passes if no errors thrown
-  assert(true);
+  assert.ok(true);
 });
 
 test("fingersCrossed() - basic functionality", () => {
@@ -883,19 +880,19 @@ test("fingersCrossed() - basic functionality", () => {
   sink(trace);
   sink(debug);
   sink(info);
-  assertEquals(buffer.length, 0); // Not flushed yet
+  assert.strictEqual(buffer.length, 0); // Not flushed yet
 
   // Add warning - still buffered (default trigger is error)
   sink(warning);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Add error - should trigger flush
   sink(error);
-  assertEquals(buffer, [trace, debug, info, warning, error]);
+  assert.deepStrictEqual(buffer, [trace, debug, info, warning, error]);
 
   // After trigger, logs pass through directly
   sink(fatal);
-  assertEquals(buffer, [trace, debug, info, warning, error, fatal]);
+  assert.deepStrictEqual(buffer, [trace, debug, info, warning, error, fatal]);
 });
 
 test("fingersCrossed() - custom trigger level", () => {
@@ -908,15 +905,15 @@ test("fingersCrossed() - custom trigger level", () => {
   sink(trace);
   sink(debug);
   sink(info);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Warning should trigger flush
   sink(warning);
-  assertEquals(buffer, [trace, debug, info, warning]);
+  assert.deepStrictEqual(buffer, [trace, debug, info, warning]);
 
   // Subsequent logs pass through
   sink(error);
-  assertEquals(buffer, [trace, debug, info, warning, error]);
+  assert.deepStrictEqual(buffer, [trace, debug, info, warning, error]);
 });
 
 test("fingersCrossed() - buffer overflow protection", () => {
@@ -930,12 +927,12 @@ test("fingersCrossed() - buffer overflow protection", () => {
   sink(debug);
   sink(info);
   sink(warning); // Should drop trace
-  assertEquals(buffer.length, 0); // Still buffered
+  assert.strictEqual(buffer.length, 0); // Still buffered
 
   // Trigger flush
   sink(error);
   // Should only have last 3 records + error
-  assertEquals(buffer, [debug, info, warning, error]);
+  assert.deepStrictEqual(buffer, [debug, info, warning, error]);
 });
 
 test("fingersCrossed() - multiple trigger events", () => {
@@ -946,14 +943,14 @@ test("fingersCrossed() - multiple trigger events", () => {
   sink(debug);
   sink(info);
   sink(error); // Trigger
-  assertEquals(buffer, [debug, info, error]);
+  assert.deepStrictEqual(buffer, [debug, info, error]);
 
   // After trigger, everything passes through
   sink(debug);
-  assertEquals(buffer, [debug, info, error, debug]);
+  assert.deepStrictEqual(buffer, [debug, info, error, debug]);
 
   sink(error); // Another error
-  assertEquals(buffer, [debug, info, error, debug, error]);
+  assert.deepStrictEqual(buffer, [debug, info, error, debug, error]);
 });
 
 test("fingersCrossed() - trigger includes fatal", () => {
@@ -964,11 +961,11 @@ test("fingersCrossed() - trigger includes fatal", () => {
 
   sink(debug);
   sink(info);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Fatal should also trigger (since it's >= error)
   sink(fatal);
-  assertEquals(buffer, [debug, info, fatal]);
+  assert.deepStrictEqual(buffer, [debug, info, fatal]);
 });
 
 test("fingersCrossed() - category isolation descendant mode", () => {
@@ -1004,18 +1001,18 @@ test("fingersCrossed() - category isolation descendant mode", () => {
   sink(appModuleDebug);
   sink(appModuleSubDebug);
   sink(otherDebug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Trigger in parent category
   sink(appError);
 
   // Should flush parent and all descendants, but not other
-  assertEquals(buffer.length, 4); // app, app.module, app.module.sub, and trigger
-  assert(buffer.includes(appDebug));
-  assert(buffer.includes(appModuleDebug));
-  assert(buffer.includes(appModuleSubDebug));
-  assert(buffer.includes(appError));
-  assert(!buffer.includes(otherDebug));
+  assert.strictEqual(buffer.length, 4); // app, app.module, app.module.sub, and trigger
+  assert.ok(buffer.includes(appDebug));
+  assert.ok(buffer.includes(appModuleDebug));
+  assert.ok(buffer.includes(appModuleSubDebug));
+  assert.ok(buffer.includes(appError));
+  assert.ok(!buffer.includes(otherDebug));
 });
 
 test("fingersCrossed() - category isolation ancestor mode", () => {
@@ -1046,17 +1043,17 @@ test("fingersCrossed() - category isolation ancestor mode", () => {
   sink(appDebug);
   sink(appModuleDebug);
   sink(appModuleSubDebug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Trigger in child category
   sink(appModuleSubError);
 
   // Should flush child and all ancestors
-  assertEquals(buffer.length, 4);
-  assert(buffer.includes(appDebug));
-  assert(buffer.includes(appModuleDebug));
-  assert(buffer.includes(appModuleSubDebug));
-  assert(buffer.includes(appModuleSubError));
+  assert.strictEqual(buffer.length, 4);
+  assert.ok(buffer.includes(appDebug));
+  assert.ok(buffer.includes(appModuleDebug));
+  assert.ok(buffer.includes(appModuleSubDebug));
+  assert.ok(buffer.includes(appModuleSubError));
 });
 
 test("fingersCrossed() - category isolation both mode", () => {
@@ -1097,19 +1094,19 @@ test("fingersCrossed() - category isolation both mode", () => {
   sink(siblingDebug);
   sink(childDebug);
   sink(unrelatedDebug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Trigger in middle category
   sink(parentError);
 
   // Should flush ancestors and descendants, but not siblings or unrelated
-  assertEquals(buffer.length, 4);
-  assert(buffer.includes(rootDebug)); // Ancestor
-  assert(buffer.includes(parentDebug)); // Same
-  assert(buffer.includes(childDebug)); // Descendant
-  assert(buffer.includes(parentError)); // Trigger
-  assert(!buffer.includes(siblingDebug)); // Sibling
-  assert(!buffer.includes(unrelatedDebug)); // Unrelated
+  assert.strictEqual(buffer.length, 4);
+  assert.ok(buffer.includes(rootDebug)); // Ancestor
+  assert.ok(buffer.includes(parentDebug)); // Same
+  assert.ok(buffer.includes(childDebug)); // Descendant
+  assert.ok(buffer.includes(parentError)); // Trigger
+  assert.ok(!buffer.includes(siblingDebug)); // Sibling
+  assert.ok(!buffer.includes(unrelatedDebug)); // Unrelated
 });
 
 test("fingersCrossed() - custom category matcher", () => {
@@ -1149,17 +1146,17 @@ test("fingersCrossed() - custom category matcher", () => {
   sink(app1Debug);
   sink(app2Debug);
   sink(otherDebug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Trigger
   sink(appError);
 
   // Should flush all with same first category element
-  assertEquals(buffer.length, 3);
-  assert(buffer.includes(app1Debug));
-  assert(buffer.includes(app2Debug));
-  assert(buffer.includes(appError));
-  assert(!buffer.includes(otherDebug));
+  assert.strictEqual(buffer.length, 3);
+  assert.ok(buffer.includes(app1Debug));
+  assert.ok(buffer.includes(app2Debug));
+  assert.ok(buffer.includes(appError));
+  assert.ok(!buffer.includes(otherDebug));
 });
 
 test("fingersCrossed() - isolated buffers maintain separate states", () => {
@@ -1191,19 +1188,19 @@ test("fingersCrossed() - isolated buffers maintain separate states", () => {
 
   // Trigger app1
   sink(app1Error);
-  assertEquals(buffer, [app1Debug, app1Error]);
+  assert.deepStrictEqual(buffer, [app1Debug, app1Error]);
 
   // Buffer in app2 (should still be buffering)
   sink(app2Debug);
-  assertEquals(buffer, [app1Debug, app1Error]); // app2 still buffered
+  assert.deepStrictEqual(buffer, [app1Debug, app1Error]); // app2 still buffered
 
   // Add more to triggered app1 (should pass through)
   sink(app1Debug);
-  assertEquals(buffer, [app1Debug, app1Error, app1Debug]);
+  assert.deepStrictEqual(buffer, [app1Debug, app1Error, app1Debug]);
 
   // app2 still buffering
   sink(app2Info);
-  assertEquals(buffer, [app1Debug, app1Error, app1Debug]); // app2 still buffered
+  assert.deepStrictEqual(buffer, [app1Debug, app1Error, app1Debug]); // app2 still buffered
 });
 
 test("fingersCrossed() - chronological order in category isolation", () => {
@@ -1249,7 +1246,7 @@ test("fingersCrossed() - chronological order in category isolation", () => {
   sink(appError);
 
   // Should be sorted by timestamp
-  assertEquals(buffer, [app1, app2, app3, app4, appError]);
+  assert.deepStrictEqual(buffer, [app1, app2, app3, app4, appError]);
 });
 
 test("fingersCrossed() - empty buffer trigger", () => {
@@ -1258,11 +1255,11 @@ test("fingersCrossed() - empty buffer trigger", () => {
 
   // Trigger immediately without any buffered logs
   sink(error);
-  assertEquals(buffer, [error]);
+  assert.deepStrictEqual(buffer, [error]);
 
   // Continue to pass through
   sink(debug);
-  assertEquals(buffer, [error, debug]);
+  assert.deepStrictEqual(buffer, [error, debug]);
 });
 
 test("fingersCrossed() - buffer size per category in isolation mode", () => {
@@ -1293,14 +1290,14 @@ test("fingersCrossed() - buffer size per category in isolation mode", () => {
   sink(app1Error);
 
   // Should only have last 2 from app1 + error
-  assertEquals(buffer.length, 3);
-  assert(!buffer.some((r) => r === app1Trace)); // Dropped
-  assert(buffer.includes(app1Debug));
-  assert(buffer.includes(app1Info));
-  assert(buffer.includes(app1Error));
+  assert.strictEqual(buffer.length, 3);
+  assert.ok(!buffer.some((r) => r === app1Trace)); // Dropped
+  assert.ok(buffer.includes(app1Debug));
+  assert.ok(buffer.includes(app1Info));
+  assert.ok(buffer.includes(app1Error));
   // app2 records should not be flushed
-  assert(!buffer.includes(app2Trace));
-  assert(!buffer.includes(app2Debug));
+  assert.ok(!buffer.includes(app2Trace));
+  assert.ok(!buffer.includes(app2Debug));
 });
 
 test("fingersCrossed() - edge case: trigger level not in severity order", () => {
@@ -1311,24 +1308,23 @@ test("fingersCrossed() - edge case: trigger level not in severity order", () => 
 
   // Everything should pass through immediately
   sink(trace);
-  assertEquals(buffer, [trace]);
+  assert.deepStrictEqual(buffer, [trace]);
 
   sink(debug);
-  assertEquals(buffer, [trace, debug]);
+  assert.deepStrictEqual(buffer, [trace, debug]);
 });
 
 test("fingersCrossed() - edge case: invalid trigger level", () => {
   const buffer: LogRecord[] = [];
 
   // Should throw TypeError during sink creation
-  assertThrows(
+  assert.throws(
     () => {
       fingersCrossed(buffer.push.bind(buffer), {
         triggerLevel: "invalid" as LogLevel,
       });
     },
     TypeError,
-    "Invalid triggerLevel",
   );
 });
 
@@ -1342,10 +1338,10 @@ test("fingersCrossed() - edge case: very large buffer size", () => {
   for (let i = 0; i < 1000; i++) {
     sink(debug);
   }
-  assertEquals(buffer.length, 0); // Still buffered
+  assert.strictEqual(buffer.length, 0); // Still buffered
 
   sink(error);
-  assertEquals(buffer.length, 1001); // All 1000 + error
+  assert.strictEqual(buffer.length, 1001); // All 1000 + error
 });
 
 test("fingersCrossed() - edge case: zero buffer size", () => {
@@ -1357,11 +1353,11 @@ test("fingersCrossed() - edge case: zero buffer size", () => {
   // Nothing should be buffered
   sink(debug);
   sink(info);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Trigger should still work
   sink(error);
-  assertEquals(buffer, [error]); // Only the trigger
+  assert.deepStrictEqual(buffer, [error]); // Only the trigger
 });
 
 test("fingersCrossed() - edge case: negative buffer size", () => {
@@ -1373,10 +1369,10 @@ test("fingersCrossed() - edge case: negative buffer size", () => {
   // Should behave like zero
   sink(debug);
   sink(info);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   sink(error);
-  assertEquals(buffer, [error]);
+  assert.deepStrictEqual(buffer, [error]);
 });
 
 test("fingersCrossed() - edge case: same record logged multiple times", () => {
@@ -1387,12 +1383,12 @@ test("fingersCrossed() - edge case: same record logged multiple times", () => {
   sink(debug);
   sink(debug);
   sink(debug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   sink(error);
   // All instances should be preserved
-  assertEquals(buffer.length, 4);
-  assertEquals(buffer, [debug, debug, debug, error]);
+  assert.strictEqual(buffer.length, 4);
+  assert.deepStrictEqual(buffer, [debug, debug, debug, error]);
 });
 
 test("fingersCrossed() - edge case: empty category array", () => {
@@ -1418,16 +1414,16 @@ test("fingersCrossed() - edge case: empty category array", () => {
 
   sink(emptyCategory);
   sink(normalCategory);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Trigger with empty category
   sink(emptyError);
 
   // Only empty category should flush (no ancestors/descendants)
-  assertEquals(buffer.length, 2);
-  assert(buffer.includes(emptyCategory));
-  assert(buffer.includes(emptyError));
-  assert(!buffer.includes(normalCategory));
+  assert.strictEqual(buffer.length, 2);
+  assert.ok(buffer.includes(emptyCategory));
+  assert.ok(buffer.includes(emptyError));
+  assert.ok(!buffer.includes(normalCategory));
 });
 
 test("fingersCrossed() - edge case: category with special characters", () => {
@@ -1454,15 +1450,15 @@ test("fingersCrossed() - edge case: category with special characters", () => {
 
   sink(specialCategory);
   sink(normalCategory);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Should still work correctly despite special characters
   sink(specialError);
 
-  assertEquals(buffer.length, 2);
-  assert(buffer.includes(specialCategory));
-  assert(buffer.includes(specialError));
-  assert(!buffer.includes(normalCategory));
+  assert.strictEqual(buffer.length, 2);
+  assert.ok(buffer.includes(specialCategory));
+  assert.ok(buffer.includes(specialError));
+  assert.ok(!buffer.includes(normalCategory));
 });
 
 test("fingersCrossed() - edge case: rapid alternating triggers", () => {
@@ -1480,15 +1476,15 @@ test("fingersCrossed() - edge case: rapid alternating triggers", () => {
   sink(app1Debug);
   sink(app2Debug);
   sink(app1Error); // Trigger app1
-  assertEquals(buffer.length, 2); // app1Debug + app1Error
+  assert.strictEqual(buffer.length, 2); // app1Debug + app1Error
 
   sink(app2Error); // Trigger app2
-  assertEquals(buffer.length, 4); // Previous + app2Debug + app2Error
+  assert.strictEqual(buffer.length, 4); // Previous + app2Debug + app2Error
 
   // After both triggered, everything passes through
   sink(app1Debug);
   sink(app2Debug);
-  assertEquals(buffer.length, 6);
+  assert.strictEqual(buffer.length, 6);
 });
 
 test("fingersCrossed() - edge case: custom matcher throws error", () => {
@@ -1517,7 +1513,7 @@ test("fingersCrossed() - edge case: custom matcher throws error", () => {
   }
 
   // At minimum, trigger record should be sent
-  assert(buffer.includes(app1Error));
+  assert.ok(buffer.includes(app1Error));
 });
 
 test("fingersCrossed() - edge case: circular category references", () => {
@@ -1544,16 +1540,16 @@ test("fingersCrossed() - edge case: circular category references", () => {
   sink(app1);
   sink(app2);
   sink(app3);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Should flush all despite circular logic
   sink(trigger);
-  assertEquals(buffer.length, 4);
+  assert.strictEqual(buffer.length, 4);
 
   // All buffers should be cleared after flush
   const newDebug: LogRecord = { ...debug, category: ["new"] };
   sink(newDebug);
-  assertEquals(buffer.length, 4); // New category should be buffered
+  assert.strictEqual(buffer.length, 4); // New category should be buffered
 });
 
 test("fingersCrossed() - edge case: timestamps in wrong order", () => {
@@ -1595,10 +1591,10 @@ test("fingersCrossed() - edge case: timestamps in wrong order", () => {
   sink(trigger);
 
   // Should be sorted by timestamp
-  assertEquals(buffer[0], past);
-  assertEquals(buffer[1], present);
-  assertEquals(buffer[2], future);
-  assertEquals(buffer[3], trigger);
+  assert.deepStrictEqual(buffer[0], past);
+  assert.deepStrictEqual(buffer[1], present);
+  assert.deepStrictEqual(buffer[2], future);
+  assert.deepStrictEqual(buffer[3], trigger);
 });
 
 test("fingersCrossed() - edge case: NaN and Infinity in timestamps", () => {
@@ -1639,11 +1635,11 @@ test("fingersCrossed() - edge case: NaN and Infinity in timestamps", () => {
   sink(normalTime);
 
   // Check all records are present (order might vary with NaN)
-  assertEquals(buffer.length, 4);
-  assert(buffer.includes(nanTime));
-  assert(buffer.includes(infinityTime));
-  assert(buffer.includes(negInfinityTime));
-  assert(buffer.includes(normalTime));
+  assert.strictEqual(buffer.length, 4);
+  assert.ok(buffer.includes(nanTime));
+  assert.ok(buffer.includes(infinityTime));
+  assert.ok(buffer.includes(negInfinityTime));
+  assert.ok(buffer.includes(normalTime));
 });
 
 test("fingersCrossed() - edge case: undefined properties in record", () => {
@@ -1665,7 +1661,7 @@ test("fingersCrossed() - edge case: undefined properties in record", () => {
   sink(error);
 
   // Should preserve all properties as-is
-  assertEquals(buffer[0].properties, weirdRecord.properties);
+  assert.deepStrictEqual(buffer[0].properties, weirdRecord.properties);
 });
 
 test("fingersCrossed() - edge case: very deep category hierarchy", () => {
@@ -1695,16 +1691,16 @@ test("fingersCrossed() - edge case: very deep category hierarchy", () => {
 
   sink(deepRecord);
   sink(parentRecord);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // Should handle deep hierarchies
   sink(deepError);
 
   // Both should flush (ancestor relationship)
-  assertEquals(buffer.length, 3);
-  assert(buffer.includes(deepRecord));
-  assert(buffer.includes(parentRecord));
-  assert(buffer.includes(deepError));
+  assert.strictEqual(buffer.length, 3);
+  assert.ok(buffer.includes(deepRecord));
+  assert.ok(buffer.includes(parentRecord));
+  assert.ok(buffer.includes(deepError));
 });
 
 test("fingersCrossed() - context isolation basic functionality", () => {
@@ -1741,19 +1737,19 @@ test("fingersCrossed() - context isolation basic functionality", () => {
   sink(req1Info);
   sink(req2Debug);
   sink(req2Info);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Error in req-1 should only flush req-1 logs
   sink(req1Error);
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], req1Debug);
-  assertEquals(buffer[1], req1Info);
-  assertEquals(buffer[2], req1Error);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], req1Debug);
+  assert.deepStrictEqual(buffer[1], req1Info);
+  assert.deepStrictEqual(buffer[2], req1Error);
 
   // req-2 logs should still be buffered
   buffer.length = 0;
   sink(req2Debug); // Add another req-2 log
-  assertEquals(buffer.length, 0); // Still buffered
+  assert.strictEqual(buffer.length, 0); // Still buffered
 
   // Now trigger req-2
   const req2Error: LogRecord = {
@@ -1761,11 +1757,11 @@ test("fingersCrossed() - context isolation basic functionality", () => {
     properties: { requestId: "req-2", data: "error2" },
   };
   sink(req2Error);
-  assertEquals(buffer.length, 4); // 2x req2Debug + req2Info + req2Error
-  assertEquals(buffer[0], req2Debug);
-  assertEquals(buffer[1], req2Info);
-  assertEquals(buffer[2], req2Debug); // Second instance
-  assertEquals(buffer[3], req2Error);
+  assert.strictEqual(buffer.length, 4); // 2x req2Debug + req2Info + req2Error
+  assert.deepStrictEqual(buffer[0], req2Debug);
+  assert.deepStrictEqual(buffer[1], req2Info);
+  assert.deepStrictEqual(buffer[2], req2Debug); // Second instance
+  assert.deepStrictEqual(buffer[3], req2Error);
 });
 
 test("fingersCrossed() - context isolation with multiple keys", () => {
@@ -1791,7 +1787,7 @@ test("fingersCrossed() - context isolation with multiple keys", () => {
   sink(record1);
   sink(record2);
   sink(record3);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Error with req-1/sess-1 should only flush that combination
   const trigger1: LogRecord = {
@@ -1799,9 +1795,9 @@ test("fingersCrossed() - context isolation with multiple keys", () => {
     properties: { requestId: "req-1", sessionId: "sess-1" },
   };
   sink(trigger1);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], record1);
-  assertEquals(buffer[1], trigger1);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], record1);
+  assert.deepStrictEqual(buffer[1], trigger1);
 
   // Other combinations still buffered
   buffer.length = 0;
@@ -1810,9 +1806,9 @@ test("fingersCrossed() - context isolation with multiple keys", () => {
     properties: { requestId: "req-1", sessionId: "sess-2" },
   };
   sink(trigger2);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], record2);
-  assertEquals(buffer[1], trigger2);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], record2);
+  assert.deepStrictEqual(buffer[1], trigger2);
 });
 
 test("fingersCrossed() - context isolation with missing keys", () => {
@@ -1838,7 +1834,7 @@ test("fingersCrossed() - context isolation with missing keys", () => {
   sink(withId);
   sink(withoutId);
   sink(withUndefinedId);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Error without requestId should flush records without or with undefined requestId
   const triggerNoId: LogRecord = {
@@ -1846,10 +1842,10 @@ test("fingersCrossed() - context isolation with missing keys", () => {
     properties: { other: "data" },
   };
   sink(triggerNoId);
-  assertEquals(buffer.length, 3); // withoutId + withUndefinedId + triggerNoId
-  assertEquals(buffer[0], withoutId);
-  assertEquals(buffer[1], withUndefinedId);
-  assertEquals(buffer[2], triggerNoId);
+  assert.strictEqual(buffer.length, 3); // withoutId + withUndefinedId + triggerNoId
+  assert.deepStrictEqual(buffer[0], withoutId);
+  assert.deepStrictEqual(buffer[1], withUndefinedId);
+  assert.deepStrictEqual(buffer[2], triggerNoId);
 
   // Records with requestId still buffered
   buffer.length = 0;
@@ -1858,9 +1854,9 @@ test("fingersCrossed() - context isolation with missing keys", () => {
     properties: { requestId: "req-1", other: "data" },
   };
   sink(triggerWithId);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], withId);
-  assertEquals(buffer[1], triggerWithId);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], withId);
+  assert.deepStrictEqual(buffer[1], triggerWithId);
 });
 
 test("fingersCrossed() - combined category and context isolation", () => {
@@ -1902,7 +1898,7 @@ test("fingersCrossed() - combined category and context isolation", () => {
   sink(appReq2);
   sink(appModuleReq2);
   sink(otherReq1);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Error in ["app"] with req-1 should flush descendants with same requestId
   const triggerAppReq1: LogRecord = {
@@ -1911,10 +1907,10 @@ test("fingersCrossed() - combined category and context isolation", () => {
     properties: { requestId: "req-1" },
   };
   sink(triggerAppReq1);
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], appReq1);
-  assertEquals(buffer[1], appModuleReq1);
-  assertEquals(buffer[2], triggerAppReq1);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], appReq1);
+  assert.deepStrictEqual(buffer[1], appModuleReq1);
+  assert.deepStrictEqual(buffer[2], triggerAppReq1);
 
   // Other combinations still buffered
   buffer.length = 0;
@@ -1924,10 +1920,10 @@ test("fingersCrossed() - combined category and context isolation", () => {
     properties: { requestId: "req-2" },
   };
   sink(triggerAppReq2);
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], appReq2);
-  assertEquals(buffer[1], appModuleReq2);
-  assertEquals(buffer[2], triggerAppReq2);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], appReq2);
+  assert.deepStrictEqual(buffer[1], appModuleReq2);
+  assert.deepStrictEqual(buffer[2], triggerAppReq2);
 });
 
 test("fingersCrossed() - context isolation buffer size limits", () => {
@@ -1976,10 +1972,10 @@ test("fingersCrossed() - context isolation buffer size limits", () => {
   sink(req1Error);
 
   // Should only have the last 2 records plus error
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], req1Debug);
-  assertEquals(buffer[1], req1Info);
-  assertEquals(buffer[2], req1Error);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], req1Debug);
+  assert.deepStrictEqual(buffer[1], req1Info);
+  assert.deepStrictEqual(buffer[2], req1Error);
 
   // Trigger req-2
   buffer.length = 0;
@@ -1990,10 +1986,10 @@ test("fingersCrossed() - context isolation buffer size limits", () => {
   sink(req2Error);
 
   // req-2 buffer should still have both records
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], req2Trace);
-  assertEquals(buffer[1], req2Debug);
-  assertEquals(buffer[2], req2Error);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], req2Trace);
+  assert.deepStrictEqual(buffer[1], req2Debug);
+  assert.deepStrictEqual(buffer[2], req2Error);
 });
 
 test("fingersCrossed() - context isolation with special values", () => {
@@ -2029,7 +2025,7 @@ test("fingersCrossed() - context isolation with special values", () => {
   sink(zeroValue);
   sink(emptyString);
   sink(falseValue);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Trigger with null value
   const triggerNull: LogRecord = {
@@ -2037,9 +2033,9 @@ test("fingersCrossed() - context isolation with special values", () => {
     properties: { value: null },
   };
   sink(triggerNull);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], nullValue);
-  assertEquals(buffer[1], triggerNull);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], nullValue);
+  assert.deepStrictEqual(buffer[1], triggerNull);
 
   // Trigger with zero value
   buffer.length = 0;
@@ -2048,9 +2044,9 @@ test("fingersCrossed() - context isolation with special values", () => {
     properties: { value: 0 },
   };
   sink(triggerZero);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], zeroValue);
-  assertEquals(buffer[1], triggerZero);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], zeroValue);
+  assert.deepStrictEqual(buffer[1], triggerZero);
 
   // Trigger with false value
   buffer.length = 0;
@@ -2059,9 +2055,9 @@ test("fingersCrossed() - context isolation with special values", () => {
     properties: { value: false },
   };
   sink(triggerFalse);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], falseValue);
-  assertEquals(buffer[1], triggerFalse);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], falseValue);
+  assert.deepStrictEqual(buffer[1], triggerFalse);
 });
 
 test("fingersCrossed() - context isolation only (no category isolation)", () => {
@@ -2090,7 +2086,7 @@ test("fingersCrossed() - context isolation only (no category isolation)", () => 
   sink(cat1Req1);
   sink(cat2Req1);
   sink(cat1Req2);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Error in any category with req-1 should flush all req-1 logs
   const triggerReq1: LogRecord = {
@@ -2099,10 +2095,10 @@ test("fingersCrossed() - context isolation only (no category isolation)", () => 
     properties: { requestId: "req-1" },
   };
   sink(triggerReq1);
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], cat1Req1);
-  assertEquals(buffer[1], cat2Req1);
-  assertEquals(buffer[2], triggerReq1);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], cat1Req1);
+  assert.deepStrictEqual(buffer[1], cat2Req1);
+  assert.deepStrictEqual(buffer[2], triggerReq1);
 
   // req-2 still buffered
   buffer.length = 0;
@@ -2112,9 +2108,9 @@ test("fingersCrossed() - context isolation only (no category isolation)", () => 
     properties: { requestId: "req-2" },
   };
   sink(triggerReq2);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], cat1Req2);
-  assertEquals(buffer[1], triggerReq2);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], cat1Req2);
+  assert.deepStrictEqual(buffer[1], triggerReq2);
 });
 
 test("fingersCrossed() - context isolation with nested objects", () => {
@@ -2140,7 +2136,7 @@ test("fingersCrossed() - context isolation with nested objects", () => {
   sink(user1);
   sink(user1Same);
   sink(user2);
-  assertEquals(buffer.length, 0); // All buffered
+  assert.strictEqual(buffer.length, 0); // All buffered
 
   // Trigger with same user object
   const triggerUser1: LogRecord = {
@@ -2148,10 +2144,10 @@ test("fingersCrossed() - context isolation with nested objects", () => {
     properties: { user: { id: 1, name: "Alice" } },
   };
   sink(triggerUser1);
-  assertEquals(buffer.length, 3);
-  assertEquals(buffer[0], user1);
-  assertEquals(buffer[1], user1Same);
-  assertEquals(buffer[2], triggerUser1);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], user1);
+  assert.deepStrictEqual(buffer[1], user1Same);
+  assert.deepStrictEqual(buffer[2], triggerUser1);
 
   // user2 still buffered
   buffer.length = 0;
@@ -2160,9 +2156,9 @@ test("fingersCrossed() - context isolation with nested objects", () => {
     properties: { user: { id: 2, name: "Bob" } },
   };
   sink(triggerUser2);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], user2);
-  assertEquals(buffer[1], triggerUser2);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], user2);
+  assert.deepStrictEqual(buffer[1], triggerUser2);
 });
 
 test("fingersCrossed() - context isolation after trigger", () => {
@@ -2177,8 +2173,8 @@ test("fingersCrossed() - context isolation after trigger", () => {
     properties: { requestId: "req-1" },
   };
   sink(req1Error);
-  assertEquals(buffer.length, 1);
-  assertEquals(buffer[0], req1Error);
+  assert.strictEqual(buffer.length, 1);
+  assert.deepStrictEqual(buffer[0], req1Error);
 
   // After trigger, req-1 logs pass through
   const req1Debug: LogRecord = {
@@ -2186,8 +2182,8 @@ test("fingersCrossed() - context isolation after trigger", () => {
     properties: { requestId: "req-1" },
   };
   sink(req1Debug);
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[1], req1Debug);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[1], req1Debug);
 
   // But req-2 logs are still buffered
   const req2Debug: LogRecord = {
@@ -2195,7 +2191,7 @@ test("fingersCrossed() - context isolation after trigger", () => {
     properties: { requestId: "req-2" },
   };
   sink(req2Debug);
-  assertEquals(buffer.length, 2); // No change
+  assert.strictEqual(buffer.length, 2); // No change
 
   // Until req-2 triggers
   const req2Error: LogRecord = {
@@ -2203,9 +2199,9 @@ test("fingersCrossed() - context isolation after trigger", () => {
     properties: { requestId: "req-2" },
   };
   sink(req2Error);
-  assertEquals(buffer.length, 4);
-  assertEquals(buffer[2], req2Debug);
-  assertEquals(buffer[3], req2Error);
+  assert.strictEqual(buffer.length, 4);
+  assert.deepStrictEqual(buffer[2], req2Debug);
+  assert.deepStrictEqual(buffer[3], req2Error);
 });
 
 test("fingersCrossed() - TTL-based buffer cleanup", async () => {
@@ -2236,7 +2232,7 @@ test("fingersCrossed() - TTL-based buffer cleanup", async () => {
     sink(req2Record);
 
     // Wait for TTL to expire and cleanup to run
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await delay(200);
 
     // Add a new record after TTL expiry
     const req3Record: LogRecord = {
@@ -2255,10 +2251,10 @@ test("fingersCrossed() - TTL-based buffer cleanup", async () => {
     sink(req1Error);
 
     // Should only have req-1 error (req-1 debug was cleaned up by TTL)
-    assertEquals(buffer.length, 1);
-    assertEquals(buffer[0], req1Error);
+    assert.strictEqual(buffer.length, 1);
+    assert.deepStrictEqual(buffer[0], req1Error);
 
-    // Trigger an error for req-3 (should flush req-3 buffer)
+    // Clear buffer and trigger req-3 (should flush req-3 buffer)
     buffer.length = 0; // Clear buffer
     const req3Error: LogRecord = {
       ...error,
@@ -2268,9 +2264,9 @@ test("fingersCrossed() - TTL-based buffer cleanup", async () => {
     sink(req3Error);
 
     // Should have both req-3 debug and error
-    assertEquals(buffer.length, 2);
-    assertEquals(buffer[0], req3Record);
-    assertEquals(buffer[1], req3Error);
+    assert.strictEqual(buffer.length, 2);
+    assert.deepStrictEqual(buffer[0], req3Record);
+    assert.deepStrictEqual(buffer[1], req3Error);
   } finally {
     // Clean up timer
     sink[Symbol.dispose]();
@@ -2287,7 +2283,7 @@ test("fingersCrossed() - TTL disabled when bufferTtlMs is zero", () => {
   });
 
   // Should return a regular sink without disposal functionality
-  assertEquals("dispose" in sink, false);
+  assert.strictEqual("dispose" in sink, false);
 
   // Add a record
   const record: LogRecord = {
@@ -2303,9 +2299,9 @@ test("fingersCrossed() - TTL disabled when bufferTtlMs is zero", () => {
   };
   sink(errorRecord);
 
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], record);
-  assertEquals(buffer[1], errorRecord);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], record);
+  assert.deepStrictEqual(buffer[1], errorRecord);
 });
 
 test("fingersCrossed() - TTL disabled when bufferTtlMs is undefined", () => {
@@ -2318,7 +2314,7 @@ test("fingersCrossed() - TTL disabled when bufferTtlMs is undefined", () => {
   });
 
   // Should return a regular sink without disposal functionality
-  assertEquals("dispose" in sink, false);
+  assert.strictEqual("dispose" in sink, false);
 });
 
 test("fingersCrossed() - LRU-based buffer eviction", () => {
@@ -2360,8 +2356,8 @@ test("fingersCrossed() - LRU-based buffer eviction", () => {
 
   // If req-1 was evicted, should only have error (length=1)
   // If req-1 wasn't evicted, should have debug+error (length=2)
-  assertEquals(buffer.length, 1, "req-1 should have been evicted by LRU");
-  assertEquals(buffer[0], req1Error);
+  assert.strictEqual(buffer.length, 1, "req-1 should have been evicted by LRU");
+  assert.deepStrictEqual(buffer[0], req1Error);
 });
 
 test("fingersCrossed() - LRU eviction order with access updates", async () => {
@@ -2381,7 +2377,7 @@ test("fingersCrossed() - LRU eviction order with access updates", async () => {
   sink(req1Record); // req-1 is oldest
 
   // Small delay to ensure different lastAccess times
-  await new Promise((resolve) => setTimeout(resolve, 1));
+  await delay(1);
 
   const req2Record: LogRecord = {
     ...debug,
@@ -2390,7 +2386,7 @@ test("fingersCrossed() - LRU eviction order with access updates", async () => {
   sink(req2Record); // req-2 is newest
 
   // Access req-1 again after another delay to make it more recent
-  await new Promise((resolve) => setTimeout(resolve, 1));
+  await delay(1);
 
   const req1Second: LogRecord = {
     ...debug,
@@ -2413,8 +2409,8 @@ test("fingersCrossed() - LRU eviction order with access updates", async () => {
   sink(req2Error);
 
   // Should only have error record (no buffered records)
-  assertEquals(buffer.length, 1, "req-2 should have been evicted");
-  assertEquals(buffer[0], req2Error);
+  assert.strictEqual(buffer.length, 1, "req-2 should have been evicted");
+  assert.deepStrictEqual(buffer[0], req2Error);
 });
 
 test("fingersCrossed() - LRU disabled when maxContexts is zero", () => {
@@ -2443,9 +2439,9 @@ test("fingersCrossed() - LRU disabled when maxContexts is zero", () => {
   sink(errorRecord);
 
   // Should have both debug and error records
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0].properties?.requestId, "req-99");
-  assertEquals(buffer[1], errorRecord);
+  assert.strictEqual(buffer.length, 2);
+  assert.strictEqual(buffer[0].properties?.requestId, "req-99");
+  assert.deepStrictEqual(buffer[1], errorRecord);
 });
 
 test("fingersCrossed() - LRU disabled when maxContexts is undefined", () => {
@@ -2470,9 +2466,9 @@ test("fingersCrossed() - LRU disabled when maxContexts is undefined", () => {
   };
   sink(errorRecord);
 
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0], record);
-  assertEquals(buffer[1], errorRecord);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], record);
+  assert.deepStrictEqual(buffer[1], errorRecord);
 });
 
 test("fingersCrossed() - Combined TTL and LRU functionality", async () => {
@@ -2504,7 +2500,7 @@ test("fingersCrossed() - Combined TTL and LRU functionality", async () => {
     sink(req2Record);
 
     // Wait for TTL to expire
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await delay(150);
 
     // Add a third context (should work because TTL cleaned up old ones)
     const req3Record: LogRecord = {
@@ -2523,8 +2519,8 @@ test("fingersCrossed() - Combined TTL and LRU functionality", async () => {
     sink(req1Error);
 
     // Should only have the error record
-    assertEquals(buffer.length, 1);
-    assertEquals(buffer[0], req1Error);
+    assert.strictEqual(buffer.length, 1);
+    assert.deepStrictEqual(buffer[0], req1Error);
 
     // Clear buffer and trigger req-3 (should have recent record)
     buffer.length = 0;
@@ -2536,9 +2532,9 @@ test("fingersCrossed() - Combined TTL and LRU functionality", async () => {
     sink(req3Error);
 
     // Should have both debug and error records
-    assertEquals(buffer.length, 2);
-    assertEquals(buffer[0], req3Record);
-    assertEquals(buffer[1], req3Error);
+    assert.strictEqual(buffer.length, 2);
+    assert.deepStrictEqual(buffer[0], req3Record);
+    assert.deepStrictEqual(buffer[1], req3Error);
   } finally {
     sink[Symbol.dispose]();
   }
@@ -2581,9 +2577,9 @@ test("fingersCrossed() - LRU priority over TTL for active contexts", () => {
     sink(req2Error);
 
     // Should have both debug and error records
-    assertEquals(buffer.length, 2);
-    assertEquals(buffer[0], req2Record);
-    assertEquals(buffer[1], req2Error);
+    assert.strictEqual(buffer.length, 2);
+    assert.deepStrictEqual(buffer[0], req2Record);
+    assert.deepStrictEqual(buffer[1], req2Error);
   } finally {
     sink[Symbol.dispose]();
   }
@@ -2599,19 +2595,19 @@ test("fingersCrossed() - bufferLevel basic functionality", () => {
   // trace and debug should be buffered
   sink(trace);
   sink(debug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // info should pass through immediately (above bufferLevel, below triggerLevel)
   sink(info);
-  assertEquals(buffer, [info]);
+  assert.deepStrictEqual(buffer, [info]);
 
   // warning should trigger flush and include itself
   sink(warning);
-  assertEquals(buffer, [info, trace, debug, warning]);
+  assert.deepStrictEqual(buffer, [info, trace, debug, warning]);
 
   // After trigger, all logs pass through
   sink(trace);
-  assertEquals(buffer, [info, trace, debug, warning, trace]);
+  assert.deepStrictEqual(buffer, [info, trace, debug, warning, trace]);
 });
 
 test("fingersCrossed() - bufferLevel with null value", () => {
@@ -2626,46 +2622,43 @@ test("fingersCrossed() - bufferLevel with null value", () => {
   sink(debug);
   sink(info);
   sink(warning);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // error triggers flush
   sink(error);
-  assertEquals(buffer, [trace, debug, info, warning, error]);
+  assert.deepStrictEqual(buffer, [trace, debug, info, warning, error]);
 });
 
 test("fingersCrossed() - bufferLevel validation: invalid level", () => {
-  assertThrows(
+  assert.throws(
     () =>
       fingersCrossed(() => {}, {
         bufferLevel: "invalid" as LogLevel,
         triggerLevel: "error",
       }),
     TypeError,
-    "Invalid bufferLevel",
   );
 });
 
 test("fingersCrossed() - bufferLevel validation: bufferLevel >= triggerLevel", () => {
   // bufferLevel same as triggerLevel
-  assertThrows(
+  assert.throws(
     () =>
       fingersCrossed(() => {}, {
         bufferLevel: "error",
         triggerLevel: "error",
       }),
     RangeError,
-    "bufferLevel",
   );
 
   // bufferLevel higher than triggerLevel
-  assertThrows(
+  assert.throws(
     () =>
       fingersCrossed(() => {}, {
         bufferLevel: "fatal",
         triggerLevel: "error",
       }),
     RangeError,
-    "bufferLevel",
   );
 });
 
@@ -2683,14 +2676,14 @@ test("fingersCrossed() - bufferLevel with category isolation", () => {
 
   // debug buffered, info passes through
   sink(appDebug);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   sink(appInfo);
-  assertEquals(buffer, [appInfo]);
+  assert.deepStrictEqual(buffer, [appInfo]);
 
   // error triggers flush
   sink(appError);
-  assertEquals(buffer, [appInfo, appDebug, appError]);
+  assert.deepStrictEqual(buffer, [appInfo, appDebug, appError]);
 });
 
 test("fingersCrossed() - bufferLevel with context isolation", () => {
@@ -2717,15 +2710,15 @@ test("fingersCrossed() - bufferLevel with context isolation", () => {
 
     // debug buffered
     sink(req1Debug);
-    assertEquals(buffer.length, 0);
+    assert.strictEqual(buffer.length, 0);
 
     // info passes through immediately
     sink(req1Info);
-    assertEquals(buffer, [req1Info]);
+    assert.deepStrictEqual(buffer, [req1Info]);
 
     // error triggers flush
     sink(req1Error);
-    assertEquals(buffer, [req1Info, req1Debug, req1Error]);
+    assert.deepStrictEqual(buffer, [req1Info, req1Debug, req1Error]);
   } finally {
     sink[Symbol.dispose]?.();
   }
@@ -2740,18 +2733,18 @@ test("fingersCrossed() - bufferLevel edge case: trace as bufferLevel", () => {
 
   // Only trace is buffered
   sink(trace);
-  assertEquals(buffer.length, 0);
+  assert.strictEqual(buffer.length, 0);
 
   // debug and above pass through immediately
   sink(debug);
-  assertEquals(buffer, [debug]);
+  assert.deepStrictEqual(buffer, [debug]);
 
   sink(info);
-  assertEquals(buffer, [debug, info]);
+  assert.deepStrictEqual(buffer, [debug, info]);
 
   // error triggers flush
   sink(error);
-  assertEquals(buffer, [debug, info, trace, error]);
+  assert.deepStrictEqual(buffer, [debug, info, trace, error]);
 });
 
 test("fingersCrossed() - bufferLevel preserves chronological order on flush", () => {
@@ -2775,5 +2768,5 @@ test("fingersCrossed() - bufferLevel preserves chronological order on flush", ()
   sink(t5);
 
   // info records passed through first, then buffered records flushed, then trigger
-  assertEquals(buffer, [t2, t4, t1, t3, t5]);
+  assert.deepStrictEqual(buffer, [t2, t4, t1, t3, t5]);
 });

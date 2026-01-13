@@ -68,9 +68,9 @@
     "build": "tsdown",
     "prepack": "tsdown",
     "prepublish": "tsdown",
-    "test": "tsdown && node --experimental-transform-types --test",
+    "test": "tsdown && node --experimental-transform-types --test --test-force-exit",
     "test:bun": "tsdown && bun test",
     "test:deno": "deno test --allow-env --allow-sys --allow-net",
-    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+    "test-all": "tsdown && node --experimental-transform-types --test --test-force-exit && bun test && deno test"
   }
 }

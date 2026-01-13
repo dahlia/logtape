@@ -1,18 +1,14 @@
-import { suite } from "@alinea/suite";
-import { assert, assertEquals, assertExists } from "@std/assert";
-import { delay } from "@std/async/delay";
+import assert from "node:assert/strict";
+import _test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { configure, type LogRecord, reset } from "@logtape/logtape";
 import { Elysia } from "elysia";
 import { elysiaLogger } from "./mod.ts";
 
-const _test = suite(import.meta);
-
 // Elysia creates internal timers that cause leak detection failures in Deno.
-// Wrap all tests with sanitizer options disabled.
-const test = (
-  name: string,
-  fn: () => void | Promise<void>,
-) => _test(name, { sanitizeOps: false, sanitizeResources: false }, fn);
+// node:test doesn't support sanitizeOps/sanitizeResources options, so we just
+// use the test function directly.
+const test = _test;
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
 function createTestSink(): {
@@ -51,7 +47,7 @@ test("elysiaLogger(): creates an Elysia plugin", async () => {
   const { cleanup } = await setupLogtape();
   try {
     const plugin = elysiaLogger();
-    assert(plugin instanceof Elysia);
+    assert.ok(plugin instanceof Elysia);
   } finally {
     await cleanup();
   }
@@ -65,8 +61,8 @@ test("elysiaLogger(): logs request after response", async () => {
       .get("/test", () => "Hello");
 
     const res = await app.handle(new Request("http://localhost/test"));
-    assertEquals(res.status, 200);
-    assertEquals(logs.length, 1);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -85,8 +81,8 @@ test("elysiaLogger(): uses default category ['elysia']", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["elysia"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["elysia"]);
   } finally {
     await cleanup();
   }
@@ -101,8 +97,8 @@ test("elysiaLogger(): uses custom category array", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp", "http"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp", "http"]);
   } finally {
     await cleanup();
   }
@@ -117,8 +113,8 @@ test("elysiaLogger(): accepts string category", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp"]);
   } finally {
     await cleanup();
   }
@@ -137,8 +133,8 @@ test("elysiaLogger(): uses default log level 'info'", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "info");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "info");
   } finally {
     await cleanup();
   }
@@ -153,8 +149,8 @@ test("elysiaLogger(): uses custom log level 'debug'", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "debug");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
   } finally {
     await cleanup();
   }
@@ -169,8 +165,8 @@ test("elysiaLogger(): uses custom log level 'warning'", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "warning");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
   } finally {
     await cleanup();
   }
@@ -196,15 +192,15 @@ test("elysiaLogger(): combined format logs structured properties", async () => {
       }),
     );
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
-    assertEquals(props.method, "GET");
-    assert((props.url as string).includes("/test"));
-    assertEquals(props.path, "/test");
-    assertEquals(props.status, 200);
-    assertExists(props.responseTime);
-    assertEquals(props.userAgent, "test-agent/1.0");
-    assertEquals(props.referrer, "http://example.com");
+    assert.strictEqual(props.method, "GET");
+    assert.ok((props.url as string).includes("/test"));
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
   } finally {
     await cleanup();
   }
@@ -230,13 +226,13 @@ test("elysiaLogger(): common format excludes referrer and userAgent", async () =
       }),
     );
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
-    assertEquals(props.method, "GET");
-    assertEquals(props.path, "/test");
-    assertEquals(props.status, 200);
-    assertEquals(props.referrer, undefined);
-    assertEquals(props.userAgent, undefined);
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
   } finally {
     await cleanup();
   }
@@ -260,12 +256,12 @@ test("elysiaLogger(): dev format returns string message", async () => {
       new Request("http://localhost/api/users", { method: "POST" }),
     );
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("POST"));
-    assert(msg.includes("/api/users"));
-    assert(msg.includes("201"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("POST"));
+    assert.ok(msg.includes("/api/users"));
+    assert.ok(msg.includes("201"));
+    assert.ok(msg.includes("ms"));
   } finally {
     await cleanup();
   }
@@ -284,12 +280,12 @@ test("elysiaLogger(): short format includes url", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("GET"));
-    assert(msg.includes("/test"));
-    assert(msg.includes("200"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("GET"));
+    assert.ok(msg.includes("/test"));
+    assert.ok(msg.includes("200"));
+    assert.ok(msg.includes("ms"));
   } finally {
     await cleanup();
   }
@@ -307,14 +303,14 @@ test("elysiaLogger(): tiny format is minimal", async () => {
       .get("/test", () => "Hello");
 
     const res = await app.handle(new Request("http://localhost/test"));
-    assertEquals(res.status, 200);
+    assert.strictEqual(res.status, 200);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("GET"));
-    assert(msg.includes("/test"));
-    assert(msg.includes("200"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("GET"));
+    assert.ok(msg.includes("/test"));
+    assert.ok(msg.includes("200"));
+    assert.ok(msg.includes("ms"));
   } finally {
     await cleanup();
   }
@@ -343,8 +339,8 @@ test("elysiaLogger(): custom format returning string", async () => {
       new Request("http://localhost/test", { method: "DELETE" }),
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].rawMessage, "Custom: DELETE 202");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "Custom: DELETE 202");
   } finally {
     await cleanup();
   }
@@ -370,10 +366,10 @@ test("elysiaLogger(): custom format returning object", async () => {
 
     await app.handle(new Request("http://localhost/test", { method: "PATCH" }));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.customMethod, "PATCH");
-    assertEquals(logs[0].properties.customStatus, 202);
-    assertExists(logs[0].properties.customDuration);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.customMethod, "PATCH");
+    assert.strictEqual(logs[0].properties.customStatus, 202);
+    assert.notStrictEqual(logs[0].properties.customDuration, null);
   } finally {
     await cleanup();
   }
@@ -396,7 +392,7 @@ test("elysiaLogger(): skip function prevents logging when returns true", async (
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 0);
+    assert.strictEqual(logs.length, 0);
   } finally {
     await cleanup();
   }
@@ -415,7 +411,7 @@ test("elysiaLogger(): skip function allows logging when returns false", async ()
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -435,11 +431,11 @@ test("elysiaLogger(): skip function receives context", async () => {
 
     // Health endpoint should be skipped
     await app.handle(new Request("http://localhost/health"));
-    assertEquals(logs.length, 0);
+    assert.strictEqual(logs.length, 0);
 
     // Other endpoints should be logged
     await app.handle(new Request("http://localhost/test"));
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -458,8 +454,8 @@ test("elysiaLogger(): logRequest mode logs at request start", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.responseTime, 0); // Zero because it's immediate
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.responseTime, 0); // Zero because it's immediate
   } finally {
     await cleanup();
   }
@@ -478,8 +474,8 @@ test("elysiaLogger(): non-logRequest mode logs after response", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assert((logs[0].properties.responseTime as number) >= 0);
+    assert.strictEqual(logs.length, 1);
+    assert.ok((logs[0].properties.responseTime as number) >= 0);
   } finally {
     await cleanup();
   }
@@ -498,7 +494,7 @@ test("elysiaLogger(): scope 'global' is default", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -513,7 +509,7 @@ test("elysiaLogger(): scope 'scoped' works", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -530,7 +526,7 @@ test("elysiaLogger(): scope 'local' works", async () => {
 
     // Local scope may not log requests defined outside the plugin
     // This test just ensures no errors
-    assert(logs.length >= 0);
+    assert.ok(logs.length >= 0);
   } finally {
     await cleanup();
   }
@@ -553,8 +549,8 @@ test("elysiaLogger(): logs errors at error level", async () => {
 
     // Should have at least one error log
     const errorLogs = logs.filter((log) => log.level === "error");
-    assert(errorLogs.length >= 1);
-    assert(
+    assert.ok(errorLogs.length >= 1);
+    assert.ok(
       (errorLogs[0].rawMessage as string).includes("Error") ||
         (errorLogs[0].properties.errorMessage as string)?.includes(
           "Test error",
@@ -584,9 +580,9 @@ test("elysiaLogger(): logs correct method", async () => {
       await app.handle(new Request("http://localhost/test", { method }));
     }
 
-    assertEquals(logs.length, methods.length);
+    assert.strictEqual(logs.length, methods.length);
     for (let i = 0; i < methods.length; i++) {
-      assertEquals(logs[i].properties.method, methods[i]);
+      assert.strictEqual(logs[i].properties.method, methods[i]);
     }
   } finally {
     await cleanup();
@@ -602,8 +598,8 @@ test("elysiaLogger(): logs path correctly", async () => {
 
     await app.handle(new Request("http://localhost/api/v1/users"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.path, "/api/v1/users");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.path, "/api/v1/users");
   } finally {
     await cleanup();
   }
@@ -635,9 +631,9 @@ test("elysiaLogger(): logs status code", async () => {
       await app.handle(new Request(`http://localhost${path}`));
     }
 
-    assertEquals(logs.length, paths.length);
+    assert.strictEqual(logs.length, paths.length);
     for (let i = 0; i < paths.length; i++) {
-      assertEquals(logs[i].properties.status, expectedStatuses[i]);
+      assert.strictEqual(logs[i].properties.status, expectedStatuses[i]);
     }
   } finally {
     await cleanup();
@@ -653,9 +649,9 @@ test("elysiaLogger(): logs response time as number", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(typeof logs[0].properties.responseTime, "number");
-    assert((logs[0].properties.responseTime as number) >= 0);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(typeof logs[0].properties.responseTime, "number");
+    assert.ok((logs[0].properties.responseTime as number) >= 0);
   } finally {
     await cleanup();
   }
@@ -674,8 +670,8 @@ test("elysiaLogger(): logs user agent", async () => {
       }),
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.userAgent, "TestClient/1.0");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.userAgent, "TestClient/1.0");
   } finally {
     await cleanup();
   }
@@ -694,8 +690,8 @@ test("elysiaLogger(): logs referrer", async () => {
       }),
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.referrer, "https://example.com/page");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.referrer, "https://example.com/page");
   } finally {
     await cleanup();
   }
@@ -714,8 +710,8 @@ test("elysiaLogger(): logs X-Forwarded-For as remoteAddr", async () => {
       }),
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.remoteAddr, "192.168.1.1");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.remoteAddr, "192.168.1.1");
   } finally {
     await cleanup();
   }
@@ -736,9 +732,9 @@ test("elysiaLogger(): handles multiple sequential requests", async () => {
       await app.handle(new Request(`http://localhost/path/${i}`));
     }
 
-    assertEquals(logs.length, 5);
+    assert.strictEqual(logs.length, 5);
     for (let i = 0; i < 5; i++) {
-      assertEquals(logs[i].properties.path, `/path/${i}`);
+      assert.strictEqual(logs[i].properties.path, `/path/${i}`);
     }
   } finally {
     await cleanup();
@@ -758,8 +754,8 @@ test("elysiaLogger(): handles missing user-agent", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.userAgent, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.userAgent, undefined);
   } finally {
     await cleanup();
   }
@@ -774,8 +770,8 @@ test("elysiaLogger(): handles missing referrer", async () => {
 
     await app.handle(new Request("http://localhost/test"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.referrer, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.referrer, undefined);
   } finally {
     await cleanup();
   }
@@ -790,10 +786,10 @@ test("elysiaLogger(): handles query parameters in url", async () => {
 
     await app.handle(new Request("http://localhost/search?q=test&limit=10"));
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.path, "/search");
-    assert((logs[0].properties.url as string).includes("q=test"));
-    assert((logs[0].properties.url as string).includes("limit=10"));
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.path, "/search");
+    assert.ok((logs[0].properties.url as string).includes("q=test"));
+    assert.ok((logs[0].properties.url as string).includes("limit=10"));
   } finally {
     await cleanup();
   }
@@ -812,12 +808,12 @@ test("elysiaLogger(): logs correct 404 status code for NOT_FOUND errors", async 
 
     // Request non-existent route to trigger NOT_FOUND
     const res = await app.handle(new Request("http://localhost/not-found"));
-    assertEquals(res.status, 404);
+    assert.strictEqual(res.status, 404);
 
     // Should have error log with 404 status
     const errorLogs = logs.filter((log) => log.level === "error");
-    assertEquals(errorLogs.length, 1);
-    assertEquals(errorLogs[0].properties.status, 404);
+    assert.strictEqual(errorLogs.length, 1);
+    assert.strictEqual(errorLogs[0].properties.status, 404);
   } finally {
     await cleanup();
   }

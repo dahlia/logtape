@@ -1,14 +1,10 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@alinea/suite@*": "0.6.3",
-    "jsr:@alinea/suite@~0.6.3": "0.6.3",
     "jsr:@david/which-runtime@~0.2.1": "0.2.1",
     "jsr:@hono/hono@4": "4.10.4",
-    "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/async@^1.0.13": "1.0.13",
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
-    "jsr:@std/internal@^1.0.6": "1.0.8",
     "jsr:@std/path@^1.1.0": "1.1.0",
     "npm:@aws-sdk/client-cloudwatch-logs@3": "3.828.0",
     "npm:@dotenvx/dotenvx@^1.44.2": "1.44.2_picomatch@4.0.2",
@@ -56,29 +52,17 @@
     "npm:winston@^3.17.0": "3.17.0"
   },
   "jsr": {
-    "@alinea/suite@0.6.3": {
-      "integrity": "7d24a38729663b84d8a263d64ff7e3f8c72ac7cbb1db8ec5f414d0416b6b72e2"
-    },
     "@david/which-runtime@0.2.1": {
       "integrity": "2a304e36b1122ebfe384d45de8fe0fb2bfe54a0a5a2a596efbfc81f54a47a62d"
     },
     "@hono/hono@4.10.4": {
       "integrity": "e54d00c4cf994e7ae297d7321793cf940656b9c5e934564c03ffc15499041b9e"
     },
-    "@std/assert@1.0.13": {
-      "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
-      "dependencies": [
-        "jsr:@std/internal"
-      ]
-    },
     "@std/async@1.0.13": {
       "integrity": "1d76ca5d324aef249908f7f7fe0d39aaf53198e5420604a59ab5c035adc97c96"
     },
     "@std/dotenv@0.225.5": {
       "integrity": "9ce6f9d0ec3311f74a32535aa1b8c62ed88b1ab91b7f0815797d77a6f60c922f"
-    },
-    "@std/internal@1.0.8": {
-      "integrity": "fc66e846d8d38a47cffd274d80d2ca3f0de71040f855783724bb6b87f60891f5"
     },
     "@std/path@1.1.0": {
       "integrity": "ddc94f8e3c275627281cbc23341df6b8bcc874d70374f75fec2533521e3d6886"
@@ -3760,10 +3744,8 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@alinea/suite@~0.6.3",
       "jsr:@david/which-runtime@~0.2.1",
       "jsr:@hono/hono@4",
-      "jsr:@std/assert@^1.0.13",
       "jsr:@std/async@^1.0.13",
       "jsr:@std/collections@^1.0.10",
       "jsr:@std/dotenv@~0.225.5",

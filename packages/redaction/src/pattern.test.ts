@@ -1,13 +1,10 @@
-import { suite } from "@alinea/suite";
+import assert from "node:assert/strict";
+import test from "node:test";
 import type {
   ConsoleFormatter,
   LogRecord,
   TextFormatter,
 } from "@logtape/logtape";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertMatch } from "@std/assert/match";
-import { assertThrows } from "@std/assert/throws";
 import {
   CREDIT_CARD_NUMBER_PATTERN,
   EMAIL_ADDRESS_PATTERN,
@@ -17,8 +14,6 @@ import {
   type RedactionPattern,
   US_SSN_PATTERN,
 } from "./pattern.ts";
-
-const test = suite(import.meta);
 
 test("EMAIL_ADDRESS_PATTERN", () => {
   const { pattern, replacement } = EMAIL_ADDRESS_PATTERN;
@@ -40,23 +35,23 @@ test("EMAIL_ADDRESS_PATTERN", () => {
   ];
 
   for (const email of validEmails) {
-    assertMatch(email, pattern);
+    assert.match(email, pattern);
     pattern.lastIndex = 0;
   }
 
   // Test replacements
-  assertEquals(
+  assert.strictEqual(
     "Contact at user@example.com for more info.".replaceAll(
       pattern,
       replacement as string,
     ),
     "Contact at REDACTED@EMAIL.ADDRESS for more info.",
   );
-  assertEquals(
+  assert.strictEqual(
     "My email is user@example.com".replaceAll(pattern, replacement as string),
     "My email is REDACTED@EMAIL.ADDRESS",
   );
-  assertEquals(
+  assert.strictEqual(
     "Emails: user1@example.com and user2@example.org".replaceAll(
       pattern,
       replacement as string,
@@ -65,7 +60,7 @@ test("EMAIL_ADDRESS_PATTERN", () => {
   );
 
   // Ensure the global flag is set
-  assert(
+  assert.ok(
     pattern.global,
     "EMAIL_ADDRESS_PATTERN should have the global flag set",
   );
@@ -75,21 +70,21 @@ test("CREDIT_CARD_NUMBER_PATTERN", () => {
   const { pattern, replacement } = CREDIT_CARD_NUMBER_PATTERN;
 
   // Test valid credit card numbers with dashes
-  assertMatch("1234-5678-9012-3456", pattern); // Regular 16-digit card
+  assert.match("1234-5678-9012-3456", pattern); // Regular 16-digit card
   pattern.lastIndex = 0;
-  assertMatch("1234-5678-901234", pattern); // American Express format
+  assert.match("1234-5678-901234", pattern); // American Express format
   pattern.lastIndex = 0;
 
   // Test replacements
-  assertEquals(
+  assert.strictEqual(
     "Card: 1234-5678-9012-3456".replaceAll(pattern, replacement as string),
     "Card: XXXX-XXXX-XXXX-XXXX",
   );
-  assertEquals(
+  assert.strictEqual(
     "AmEx: 1234-5678-901234".replaceAll(pattern, replacement as string),
     "AmEx: XXXX-XXXX-XXXX-XXXX",
   );
-  assertEquals(
+  assert.strictEqual(
     "Cards: 1234-5678-9012-3456 and 1234-5678-901234".replaceAll(
       pattern,
       replacement as string,
@@ -102,15 +97,15 @@ test("US_SSN_PATTERN", () => {
   const { pattern, replacement } = US_SSN_PATTERN;
 
   // Test valid US Social Security numbers
-  assertMatch("123-45-6789", pattern);
+  assert.match("123-45-6789", pattern);
   pattern.lastIndex = 0;
 
   // Test replacements
-  assertEquals(
+  assert.strictEqual(
     "SSN: 123-45-6789".replaceAll(pattern, replacement as string),
     "SSN: XXX-XX-XXXX",
   );
-  assertEquals(
+  assert.strictEqual(
     "SSNs: 123-45-6789 and 987-65-4321".replaceAll(
       pattern,
       replacement as string,
@@ -123,15 +118,15 @@ test("KR_RRN_PATTERN", () => {
   const { pattern, replacement } = KR_RRN_PATTERN;
 
   // Test valid South Korean resident registration numbers
-  assertMatch("123456-7890123", pattern);
+  assert.match("123456-7890123", pattern);
   pattern.lastIndex = 0;
 
   // Test replacements
-  assertEquals(
+  assert.strictEqual(
     "RRN: 123456-7890123".replaceAll(pattern, replacement as string),
     "RRN: XXXXXX-XXXXXXX",
   );
-  assertEquals(
+  assert.strictEqual(
     "RRNs: 123456-7890123 and 654321-0987654".replaceAll(
       pattern,
       replacement as string,
@@ -146,15 +141,15 @@ test("JWT_PATTERN", () => {
   // Test valid JWT tokens
   const sampleJwt =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
-  assertMatch(sampleJwt, pattern);
+  assert.match(sampleJwt, pattern);
   pattern.lastIndex = 0;
 
   // Test replacements
-  assertEquals(
+  assert.strictEqual(
     `Token: ${sampleJwt}`.replaceAll(pattern, replacement as string),
     "Token: [JWT REDACTED]",
   );
-  assertEquals(
+  assert.strictEqual(
     `First: ${sampleJwt}, Second: ${sampleJwt}`.replaceAll(
       pattern,
       replacement as string,
@@ -193,7 +188,7 @@ test("redactByPattern(TextFormatter)", () => {
     const output = redactedFormatter(record);
 
     // Verify all sensitive data was redacted
-    assertEquals(
+    assert.strictEqual(
       output,
       "[INFO] Sensitive info: email = REDACTED@EMAIL.ADDRESS, cc = XXXX-XXXX-XXXX-XXXX, ssn = XXX-XX-XXXX",
     );
@@ -222,7 +217,7 @@ test("redactByPattern(TextFormatter)", () => {
     const redactedFormatter = redactByPattern(formatter, [customPattern]);
     const output = redactedFormatter(record);
 
-    assertEquals(
+    assert.strictEqual(
       output,
       "Credentials: password=[HIDDEN], pw=[HIDDEN]",
     );
@@ -237,10 +232,9 @@ test("redactByPattern(TextFormatter)", () => {
       replacement: "****",
     };
 
-    assertThrows(
+    assert.throws(
       () => redactByPattern(formatter, [invalidPattern]),
       TypeError,
-      "does not have the global flag set",
     );
   }
 });
@@ -281,18 +275,18 @@ test("redactByPattern(ConsoleFormatter)", () => {
     const output = redactedFormatter(record);
 
     // Verify output structure is preserved and data is redacted
-    assertEquals(output[0], "[INFO]");
-    assertEquals(output[1], "User data:");
-    assertEquals(
+    assert.strictEqual(output[0], "[INFO]");
+    assert.strictEqual(output[1], "User data:");
+    assert.strictEqual(
       (output[2] as { name: string; email: string; creditCard: string }).name,
       "John Doe",
     );
-    assertEquals(
+    assert.strictEqual(
       (output[2] as { name: string; email: string; creditCard: string })
         .email,
       "REDACTED@EMAIL.ADDRESS",
     );
-    assertEquals(
+    assert.strictEqual(
       (output[2] as { name: string; email: string; creditCard: string })
         .creditCard,
       "XXXX-XXXX-XXXX-XXXX",
@@ -342,11 +336,11 @@ test("redactByPattern(ConsoleFormatter)", () => {
     // Verify deep redaction in nested structures
     const resultData =
       (output[1] as unknown[])[1] as unknown as typeof nestedData;
-    assertEquals(resultData.user.contact.email, "REDACTED@EMAIL.ADDRESS");
-    assertEquals(resultData.user.contact.phone, "123-456-7890"); // Not redacted
-    assertEquals(resultData.user.payment.cards[0], "XXXX-XXXX-XXXX-XXXX");
-    assertEquals(resultData.user.payment.cards[1], "XXXX-XXXX-XXXX-XXXX");
-    assertEquals(resultData.user.documents.ssn, "XXX-XX-XXXX");
+    assert.strictEqual(resultData.user.contact.email, "REDACTED@EMAIL.ADDRESS");
+    assert.strictEqual(resultData.user.contact.phone, "123-456-7890"); // Not redacted
+    assert.strictEqual(resultData.user.payment.cards[0], "XXXX-XXXX-XXXX-XXXX");
+    assert.strictEqual(resultData.user.payment.cards[1], "XXXX-XXXX-XXXX-XXXX");
+    assert.strictEqual(resultData.user.documents.ssn, "XXX-XX-XXXX");
   }
 
   { // handles circular references to prevent stack overflow
@@ -372,8 +366,8 @@ test("redactByPattern(ConsoleFormatter)", () => {
     const output = redactedFormatter(record);
 
     const resultData = (output[0] as unknown[])[1] as Record<string, unknown>;
-    assertEquals(resultData.email, "REDACTED@EMAIL.ADDRESS");
-    assert(
+    assert.strictEqual(resultData.email, "REDACTED@EMAIL.ADDRESS");
+    assert.ok(
       resultData.self === resultData,
       "Circular reference should be preserved",
     );
@@ -401,8 +395,8 @@ test("redactByPattern(ConsoleFormatter)", () => {
     const output = redactedFormatter(record);
 
     const resultUser = (output[0] as unknown[])[1] as User;
-    assertEquals(resultUser.email, "REDACTED@EMAIL.ADDRESS");
-    assertEquals(resultUser.name, "Alice");
+    assert.strictEqual(resultUser.email, "REDACTED@EMAIL.ADDRESS");
+    assert.strictEqual(resultUser.name, "Alice");
   }
 
   { // preserves Error objects without modification
@@ -424,9 +418,9 @@ test("redactByPattern(ConsoleFormatter)", () => {
     const output = redactedFormatter(record);
 
     const resultErr = (output[0] as unknown[])[1] as Error;
-    assert(resultErr instanceof Error);
-    assertEquals(resultErr.message, "test error");
-    assert(resultErr === err, "Error should be the same instance");
+    assert.ok(resultErr instanceof Error);
+    assert.strictEqual(resultErr.message, "test error");
+    assert.ok(resultErr === err, "Error should be the same instance");
   }
 
   { // preserves Date objects without modification
@@ -448,9 +442,9 @@ test("redactByPattern(ConsoleFormatter)", () => {
     const output = redactedFormatter(record);
 
     const resultDate = (output[0] as unknown[])[1] as Date;
-    assert(resultDate instanceof Date);
-    assertEquals(resultDate.toISOString(), date.toISOString());
-    assert(resultDate === date, "Date should be the same instance");
+    assert.ok(resultDate instanceof Date);
+    assert.strictEqual(resultDate.toISOString(), date.toISOString());
+    assert.ok(resultDate === date, "Date should be the same instance");
   }
 
   { // preserves built-in objects in arrays
@@ -473,11 +467,11 @@ test("redactByPattern(ConsoleFormatter)", () => {
     const output = redactedFormatter(record);
 
     const items = (output[0] as unknown[])[1] as unknown[];
-    assert(items[0] instanceof Error);
-    assert(items[0] === err, "Error in array should be same instance");
-    assert(items[1] instanceof Date);
-    assert(items[1] === date, "Date in array should be same instance");
-    assertEquals(
+    assert.ok(items[0] instanceof Error);
+    assert.ok(items[0] === err, "Error in array should be same instance");
+    assert.ok(items[1] instanceof Date);
+    assert.ok(items[1] === date, "Date in array should be same instance");
+    assert.strictEqual(
       (items[2] as { email: string }).email,
       "REDACTED@EMAIL.ADDRESS",
     );

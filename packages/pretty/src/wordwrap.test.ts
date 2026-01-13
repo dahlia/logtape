@@ -1,13 +1,10 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
-import { assert } from "@std/assert/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { wrapText } from "./wordwrap.ts";
-
-const test = suite(import.meta);
 
 test("wrapText() should not wrap short text", () => {
   const result = wrapText("short text", 80, "short text".length);
-  assertEquals(result, "short text");
+  assert.strictEqual(result, "short text");
 });
 
 test("wrapText() should wrap long text", () => {
@@ -16,11 +13,11 @@ test("wrapText() should wrap long text", () => {
   const result = wrapText(text, 40, "This is a very long line".length);
 
   const lines = result.split("\n");
-  assert(lines.length > 1, "Should have multiple lines");
+  assert.ok(lines.length > 1, "Should have multiple lines");
 
   // Each line should be within the limit (with some tolerance for word boundaries)
   for (const line of lines) {
-    assert(line.length <= 45, `Line too long: ${line.length} chars`);
+    assert.ok(line.length <= 45, `Line too long: ${line.length} chars`);
   }
 });
 
@@ -30,8 +27,8 @@ test("wrapText() should preserve ANSI codes", () => {
   const result = wrapText(text, 40, "This is a very long red line".length);
 
   // Should contain ANSI codes
-  assert(result.includes("\x1b[31m"), "Should preserve opening ANSI code");
-  assert(result.includes("\x1b[0m"), "Should preserve closing ANSI code");
+  assert.ok(result.includes("\x1b[31m"), "Should preserve opening ANSI code");
+  assert.ok(result.includes("\x1b[0m"), "Should preserve closing ANSI code");
 });
 
 test("wrapText() should handle emojis correctly", () => {
@@ -40,15 +37,15 @@ test("wrapText() should handle emojis correctly", () => {
   const result = wrapText(text, 40, "This is a very long message".length);
 
   const lines = result.split("\n");
-  assert(lines.length > 1, "Should have multiple lines");
+  assert.ok(lines.length > 1, "Should have multiple lines");
 
   // Check that continuation lines are indented properly
   // The emoji ✨ should be accounted for in width calculation
   const firstLine = lines[0];
   const continuationLine = lines[1];
 
-  assert(firstLine.includes("✨"), "First line should contain emoji");
-  assert(
+  assert.ok(firstLine.includes("✨"), "First line should contain emoji");
+  assert.ok(
     continuationLine.startsWith(" "),
     "Continuation line should be indented",
   );
@@ -60,7 +57,7 @@ test("wrapText() should handle newlines in interpolated content", () => {
   const result = wrapText(textWithNewlines, 40, "Error occurred".length);
 
   const lines = result.split("\n");
-  assert(
+  assert.ok(
     lines.length >= 3,
     "Should preserve original newlines and add more if needed",
   );
@@ -89,7 +86,7 @@ test("wrapText() should calculate indentation based on display width", () => {
 
     // The indentation should be very close (within 1-2 characters)
     // since both emojis have width 2
-    assert(
+    assert.ok(
       Math.abs(sparklesIndent - crossIndent) <= 2,
       `Indentation should be similar: sparkles=${sparklesIndent}, cross=${crossIndent}`,
     );
@@ -98,7 +95,7 @@ test("wrapText() should calculate indentation based on display width", () => {
 
 test("wrapText() should handle zero width", () => {
   const result = wrapText("any text", 0, "any text".length);
-  assertEquals(result, "any text");
+  assert.strictEqual(result, "any text");
 });
 
 test("wrapText() should break at word boundaries", () => {
@@ -109,6 +106,6 @@ test("wrapText() should break at word boundaries", () => {
   // Should break at spaces, not in the middle of words
   for (const line of lines) {
     const words = line.trim().split(" ");
-    assert(words.every((word) => word.length > 0), "Should not break words");
+    assert.ok(words.every((word) => word.length > 0), "Should not break words");
   }
 });

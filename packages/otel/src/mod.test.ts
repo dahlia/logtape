@@ -7,8 +7,8 @@
 // - Error handling scenarios
 // - Performance testing
 
-import { suite } from "@alinea/suite";
-import { assertEquals, assertExists } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
 import {
   getOpenTelemetrySink,
@@ -16,8 +16,6 @@ import {
   type OpenTelemetrySinkExporterOptions,
   type OpenTelemetrySinkProviderOptions,
 } from "./mod.ts";
-
-const test = suite(import.meta);
 
 // Helper to create a mock log record
 function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
@@ -75,7 +73,7 @@ test("getOpenTelemetrySink() creates sink without node:process dependency", () =
   // without throwing errors about missing node:process
   const sink = getOpenTelemetrySink();
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() works with explicit serviceName", () => {
@@ -83,7 +81,7 @@ test("getOpenTelemetrySink() works with explicit serviceName", () => {
     serviceName: "test-service",
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() handles missing environment variables gracefully", () => {
@@ -92,7 +90,7 @@ test("getOpenTelemetrySink() handles missing environment variables gracefully", 
     // serviceName not provided, should fall back to env var
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() with diagnostics enabled", () => {
@@ -100,7 +98,7 @@ test("getOpenTelemetrySink() with diagnostics enabled", () => {
     diagnostics: true,
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() with custom messageType", () => {
@@ -108,7 +106,7 @@ test("getOpenTelemetrySink() with custom messageType", () => {
     messageType: "array",
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() with custom objectRenderer", () => {
@@ -116,7 +114,7 @@ test("getOpenTelemetrySink() with custom objectRenderer", () => {
     objectRenderer: "json",
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() with custom bodyFormatter", () => {
@@ -124,7 +122,7 @@ test("getOpenTelemetrySink() with custom bodyFormatter", () => {
     messageType: (message) => message.join(" "),
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getOpenTelemetrySink() with custom loggerProvider", () => {
@@ -135,8 +133,8 @@ test("getOpenTelemetrySink() with custom loggerProvider", () => {
   };
   const sink = getOpenTelemetrySink(options);
 
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("getOpenTelemetrySink() exporter options type check", () => {
@@ -149,16 +147,16 @@ test("getOpenTelemetrySink() exporter options type check", () => {
   };
   const sink = getOpenTelemetrySink(options);
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
   // Lazy initialization means async dispose should be available
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("getOpenTelemetrySink() sink has async dispose", () => {
   const sink = getOpenTelemetrySink();
 
   // All sinks should have async dispose for proper cleanup
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 // =============================================================================
@@ -174,7 +172,7 @@ test("sink emits log records to the logger provider", () => {
   const record = createMockLogRecord();
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
 });
 
 test("sink correctly maps log levels to severity numbers", () => {
@@ -198,10 +196,10 @@ test("sink correctly maps log levels to severity numbers", () => {
     sink(record);
   }
 
-  assertEquals(emittedRecords.length, levels.length);
+  assert.strictEqual(emittedRecords.length, levels.length);
   for (let i = 0; i < levels.length; i++) {
-    assertEquals(emittedRecords[i].severityNumber, expectedSeverities[i]);
-    assertEquals(emittedRecords[i].severityText, levels[i]);
+    assert.strictEqual(emittedRecords[i].severityNumber, expectedSeverities[i]);
+    assert.strictEqual(emittedRecords[i].severityText, levels[i]);
   }
 });
 
@@ -218,8 +216,8 @@ test("sink converts message to string by default", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].body, "Hello, world!");
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords[0].body, "Hello, world!");
 });
 
 test("sink converts message to array when messageType is 'array'", () => {
@@ -235,8 +233,8 @@ test("sink converts message to array when messageType is 'array'", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].body, ["Hello, ", "world", "!"]);
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.deepStrictEqual(emittedRecords[0].body, ["Hello, ", "world", "!"]);
 });
 
 test("sink uses custom bodyFormatter when provided", () => {
@@ -252,8 +250,8 @@ test("sink uses custom bodyFormatter when provided", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].body, "CUSTOM: Hello, world!");
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords[0].body, "CUSTOM: Hello, world!");
 });
 
 test("sink includes category in attributes", () => {
@@ -267,8 +265,8 @@ test("sink includes category in attributes", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.deepStrictEqual(
     emittedRecords[0].attributes["category"],
     ["app", "module", "component"],
   );
@@ -290,10 +288,10 @@ test("sink converts properties to attributes", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].attributes["userId"], 123);
-  assertEquals(emittedRecords[0].attributes["action"], "login");
-  assertEquals(
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords[0].attributes["userId"], 123);
+  assert.strictEqual(emittedRecords[0].attributes["action"], "login");
+  assert.strictEqual(
     emittedRecords[0].attributes["details"],
     '{"ip":"127.0.0.1"}',
   );
@@ -309,9 +307,9 @@ test("sink correctly converts timestamp", () => {
   const record = createMockLogRecord({ timestamp });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertExists(emittedRecords[0].timestamp);
-  assertEquals(emittedRecords[0].timestamp.getTime(), timestamp);
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.notStrictEqual(emittedRecords[0].timestamp, null);
+  assert.strictEqual(emittedRecords[0].timestamp.getTime(), timestamp);
 });
 
 // =============================================================================
@@ -338,8 +336,11 @@ test("sink ignores logs from logtape.meta.otel category", () => {
   });
   sink(normalRecord);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].attributes["category"], ["app", "module"]);
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.deepStrictEqual(emittedRecords[0].attributes["category"], [
+    "app",
+    "module",
+  ]);
 });
 
 test("sink does not ignore partial matches of meta category", () => {
@@ -353,7 +354,7 @@ test("sink does not ignore partial matches of meta category", () => {
   sink(createMockLogRecord({ category: ["logtape", "meta"] }));
   sink(createMockLogRecord({ category: ["logtape", "meta", "other"] }));
 
-  assertEquals(emittedRecords.length, 3);
+  assert.strictEqual(emittedRecords.length, 3);
 });
 
 test("sink ignores logs from logtape.meta.otel with children", () => {
@@ -368,7 +369,7 @@ test("sink ignores logs from logtape.meta.otel with children", () => {
     createMockLogRecord({ category: ["logtape", "meta", "otel", "child"] }),
   );
 
-  assertEquals(emittedRecords.length, 0);
+  assert.strictEqual(emittedRecords.length, 0);
 });
 
 // =============================================================================
@@ -381,11 +382,11 @@ test("async dispose calls shutdown on logger provider", async () => {
     loggerProvider: provider as never,
   });
 
-  assertEquals(isShutdownCalled(), false);
+  assert.strictEqual(isShutdownCalled(), false);
 
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(isShutdownCalled(), true);
+  assert.strictEqual(isShutdownCalled(), true);
 });
 
 test("async dispose handles provider without shutdown method", async () => {
@@ -424,17 +425,17 @@ test("sink handles null/undefined values in properties", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   // null and undefined should be skipped
-  assertEquals(
+  assert.strictEqual(
     emittedRecords[0].attributes["nullValue"],
     undefined,
   );
-  assertEquals(
+  assert.strictEqual(
     emittedRecords[0].attributes["undefinedValue"],
     undefined,
   );
-  assertEquals(emittedRecords[0].attributes["validValue"], "test");
+  assert.strictEqual(emittedRecords[0].attributes["validValue"], "test");
 });
 
 test("sink handles array values in properties", () => {
@@ -452,14 +453,14 @@ test("sink handles array values in properties", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.deepStrictEqual(
     emittedRecords[0].attributes["tags"],
     ["a", "b", "c"],
   );
   // Mixed arrays: implementation converts to strings when types differ
   // but the actual behavior is that it keeps original values after detecting mixed types
-  assertEquals(emittedRecords[0].attributes["mixedArray"], [
+  assert.deepStrictEqual(emittedRecords[0].attributes["mixedArray"], [
     1,
     "two",
     3,
@@ -481,8 +482,8 @@ test("sink handles Date objects in properties", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(
     emittedRecords[0].attributes["timestamp"],
     "2024-01-15T10:30:00.000Z",
   );
@@ -500,8 +501,8 @@ test("sink handles empty message array", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].body, "");
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords[0].body, "");
 });
 
 test("sink handles empty properties object", () => {
@@ -515,10 +516,10 @@ test("sink handles empty properties object", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   // Only category should be in attributes
-  assertEquals(Object.keys(emittedRecords[0].attributes).length, 1);
-  assertExists(emittedRecords[0].attributes["category"]);
+  assert.strictEqual(Object.keys(emittedRecords[0].attributes).length, 1);
+  assert.notStrictEqual(emittedRecords[0].attributes["category"], null);
 });
 
 test("sink handles unknown log level", () => {
@@ -533,9 +534,9 @@ test("sink handles unknown log level", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].severityNumber, 0); // UNSPECIFIED
-  assertEquals(emittedRecords[0].severityText, "custom_level");
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords[0].severityNumber, 0); // UNSPECIFIED
+  assert.strictEqual(emittedRecords[0].severityText, "custom_level");
 });
 
 // =============================================================================
@@ -556,9 +557,9 @@ test("lazy init sink creates function with correct signature", () => {
     serviceName: "test-service",
   });
 
-  assertEquals(typeof sink, "function");
-  assertEquals(sink.length, 1); // Expects one argument (LogRecord)
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(sink.length, 1); // Expects one argument (LogRecord)
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 // =============================================================================
@@ -578,8 +579,8 @@ test("objectRenderer 'json' uses JSON.stringify for objects", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
-  assertEquals(emittedRecords[0].body, 'Data: {"foo":"bar"}');
+  assert.strictEqual(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords[0].body, 'Data: {"foo":"bar"}');
 });
 
 test("objectRenderer 'inspect' uses platform inspect function", () => {
@@ -595,12 +596,12 @@ test("objectRenderer 'inspect' uses platform inspect function", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   // The exact output depends on the runtime's inspect function
   // but it should contain the object representation
   const body = emittedRecords[0].body as string;
-  assertEquals(body.includes("foo"), true);
-  assertEquals(body.includes("bar"), true);
+  assert.strictEqual(body.includes("foo"), true);
+  assert.strictEqual(body.includes("bar"), true);
 });
 
 // =============================================================================
@@ -620,9 +621,9 @@ test("sink processes multiple log records in order", () => {
     }));
   }
 
-  assertEquals(emittedRecords.length, 5);
+  assert.strictEqual(emittedRecords.length, 5);
   for (let i = 0; i < 5; i++) {
-    assertEquals(emittedRecords[i].body, `Message ${i}`);
+    assert.strictEqual(emittedRecords[i].body, `Message ${i}`);
   }
 });
 
@@ -637,7 +638,7 @@ test("sink handles rapid succession of logs", () => {
     sink(createMockLogRecord({ timestamp: Date.now() + i }));
   }
 
-  assertEquals(emittedRecords.length, count);
+  assert.strictEqual(emittedRecords.length, count);
 });
 
 // =============================================================================
@@ -652,8 +653,8 @@ test("sink with no endpoint config creates valid sink function", () => {
     // No otlpExporterConfig.url and no OTEL_EXPORTER_OTLP_ENDPOINT env var
   });
 
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("sink with no endpoint accepts logs without errors", () => {
@@ -679,7 +680,7 @@ test("sink with explicit url in config should not use noop", () => {
     },
   });
 
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("sink with no endpoint can be disposed cleanly", async () => {
@@ -703,8 +704,8 @@ test("sink has ready property that is a Promise", () => {
     serviceName: "test-service",
   });
 
-  assertExists(sink.ready);
-  assertEquals(sink.ready instanceof Promise, true);
+  assert.notStrictEqual(sink.ready, null);
+  assert.strictEqual(sink.ready instanceof Promise, true);
 });
 
 test("sink with loggerProvider has ready that resolves immediately", async () => {
@@ -723,7 +724,7 @@ test("sink with loggerProvider has ready that resolves immediately", async () =>
   ]);
   if (timeoutId !== undefined) clearTimeout(timeoutId);
 
-  assertEquals(resolved, "resolved");
+  assert.strictEqual(resolved, "resolved");
 });
 
 test("lazy init sink ready resolves after initialization", async () => {
@@ -761,7 +762,7 @@ test("issue #110: multiple logs during sync initialization are all emitted", () 
 
   // All logs should be emitted (this worked before, but verifies the fix
   // doesn't break synchronous path)
-  assertEquals(emittedRecords.length, 5);
+  assert.strictEqual(emittedRecords.length, 5);
 });
 
 test("issue #110: sink buffers logs during lazy initialization", async () => {
@@ -797,7 +798,7 @@ test("OpenTelemetrySink type has ready property", () => {
 
   // TypeScript should allow accessing ready property
   const _ready: Promise<void> = sink.ready;
-  assertExists(_ready);
+  assert.notStrictEqual(_ready, null);
 });
 
 // =============================================================================
@@ -822,13 +823,13 @@ test("sink serializes Error objects in properties with JSON renderer (raw mode)"
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const errorAttr = emittedRecords[0].attributes["error"] as string;
   // Should not be an empty object
-  assertEquals(errorAttr.includes("Something went wrong"), true);
-  assertEquals(errorAttr.includes("name"), true);
-  assertEquals(errorAttr.includes("message"), true);
-  assertEquals(errorAttr.includes("stack"), true);
+  assert.strictEqual(errorAttr.includes("Something went wrong"), true);
+  assert.strictEqual(errorAttr.includes("name"), true);
+  assert.strictEqual(errorAttr.includes("message"), true);
+  assert.strictEqual(errorAttr.includes("stack"), true);
 });
 
 test("sink serializes Error with cause (raw mode)", () => {
@@ -849,10 +850,10 @@ test("sink serializes Error with cause (raw mode)", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const errorAttr = emittedRecords[0].attributes["error"] as string;
-  assertEquals(errorAttr.includes("cause"), true);
-  assertEquals(errorAttr.includes("Root cause"), true);
+  assert.strictEqual(errorAttr.includes("cause"), true);
+  assert.strictEqual(errorAttr.includes("Root cause"), true);
 });
 
 test("sink serializes AggregateError with errors array (raw mode)", () => {
@@ -879,11 +880,11 @@ test("sink serializes AggregateError with errors array (raw mode)", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const errorAttr = emittedRecords[0].attributes["error"] as string;
-  assertEquals(errorAttr.includes("errors"), true);
-  assertEquals(errorAttr.includes("Error 1"), true);
-  assertEquals(errorAttr.includes("Error 2"), true);
+  assert.strictEqual(errorAttr.includes("errors"), true);
+  assert.strictEqual(errorAttr.includes("Error 1"), true);
+  assert.strictEqual(errorAttr.includes("Error 2"), true);
 });
 
 test("sink serializes Error with custom properties (raw mode)", () => {
@@ -908,10 +909,10 @@ test("sink serializes Error with custom properties (raw mode)", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const errorAttr = emittedRecords[0].attributes["error"] as string;
-  assertEquals(errorAttr.includes("ERR_CUSTOM"), true);
-  assertEquals(errorAttr.includes("500"), true);
+  assert.strictEqual(errorAttr.includes("ERR_CUSTOM"), true);
+  assert.strictEqual(errorAttr.includes("500"), true);
 });
 
 test("sink handles Error in message values with JSON renderer (raw mode)", () => {
@@ -930,10 +931,10 @@ test("sink handles Error in message values with JSON renderer (raw mode)", () =>
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const body = emittedRecords[0].body as string;
-  assertEquals(body.includes("Message error"), true);
-  assertEquals(body.includes("name"), true);
+  assert.strictEqual(body.includes("Message error"), true);
+  assert.strictEqual(body.includes("name"), true);
 });
 
 test("sink uses semantic conventions for Error in properties (default)", () => {
@@ -953,16 +954,16 @@ test("sink uses semantic conventions for Error in properties (default)", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const attrs = emittedRecords[0].attributes;
-  assertEquals(attrs["exception.type"], "Error");
-  assertEquals(attrs["exception.message"], "Something went wrong");
-  assertEquals(
+  assert.strictEqual(attrs["exception.type"], "Error");
+  assert.strictEqual(attrs["exception.message"], "Something went wrong");
+  assert.strictEqual(
     attrs["exception.stacktrace"],
     "Error: Something went wrong\n  at test.ts:1:1",
   );
   // Original error property should not exist
-  assertEquals(attrs["error"], undefined);
+  assert.strictEqual(attrs["error"], undefined);
 });
 
 test("sink uses semantic conventions for Error with explicit semconv mode", () => {
@@ -983,11 +984,11 @@ test("sink uses semantic conventions for Error with explicit semconv mode", () =
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const attrs = emittedRecords[0].attributes;
-  assertEquals(attrs["exception.type"], "TypeError");
-  assertEquals(attrs["exception.message"], "Type mismatch");
-  assertEquals(
+  assert.strictEqual(attrs["exception.type"], "TypeError");
+  assert.strictEqual(attrs["exception.message"], "Type mismatch");
+  assert.strictEqual(
     attrs["exception.stacktrace"],
     "TypeError: Type mismatch\n  at check.ts:42:10",
   );
@@ -1010,11 +1011,11 @@ test("sink handles Error without stack in semconv mode", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const attrs = emittedRecords[0].attributes;
-  assertEquals(attrs["exception.type"], "Error");
-  assertEquals(attrs["exception.message"], "No stack");
-  assertEquals(attrs["exception.stacktrace"], undefined);
+  assert.strictEqual(attrs["exception.type"], "Error");
+  assert.strictEqual(attrs["exception.message"], "No stack");
+  assert.strictEqual(attrs["exception.stacktrace"], undefined);
 });
 
 test("sink preserves non-Error properties with semconv mode", () => {
@@ -1036,12 +1037,12 @@ test("sink preserves non-Error properties with semconv mode", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const attrs = emittedRecords[0].attributes;
-  assertEquals(attrs["exception.type"], "Error");
-  assertEquals(attrs["exception.message"], "Test error");
-  assertEquals(attrs["requestId"], "abc123");
-  assertEquals(attrs["userId"], 42);
+  assert.strictEqual(attrs["exception.type"], "Error");
+  assert.strictEqual(attrs["exception.message"], "Test error");
+  assert.strictEqual(attrs["requestId"], "abc123");
+  assert.strictEqual(attrs["userId"], 42);
 });
 
 test("sink with exceptionAttributes: false treats Error as object", () => {
@@ -1061,13 +1062,13 @@ test("sink with exceptionAttributes: false treats Error as object", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const attrs = emittedRecords[0].attributes;
   // Should be serialized as JSON, but as a plain object (likely empty {})
-  assertEquals(attrs["error"], "{}");
-  assertEquals(attrs["exception.type"], undefined);
-  assertEquals(attrs["exception.message"], undefined);
-  assertEquals(attrs["exception.stacktrace"], undefined);
+  assert.strictEqual(attrs["error"], "{}");
+  assert.strictEqual(attrs["exception.type"], undefined);
+  assert.strictEqual(attrs["exception.message"], undefined);
+  assert.strictEqual(attrs["exception.stacktrace"], undefined);
 });
 
 test("sink handles Error in message body with semconv mode", () => {
@@ -1087,12 +1088,12 @@ test("sink handles Error in message body with semconv mode", () => {
   });
   sink(record);
 
-  assertEquals(emittedRecords.length, 1);
+  assert.strictEqual(emittedRecords.length, 1);
   const body = emittedRecords[0].body as string;
   // In message body, errors are still serialized as JSON (not converted to semconv)
-  assertEquals(body.includes("Message error"), true);
-  assertEquals(body.includes("name"), true);
+  assert.strictEqual(body.includes("Message error"), true);
+  assert.strictEqual(body.includes("name"), true);
   // Semantic conventions should NOT be in attributes for message-level errors
   const attrs = emittedRecords[0].attributes;
-  assertEquals(attrs["exception.type"], undefined);
+  assert.strictEqual(attrs["exception.type"], undefined);
 });

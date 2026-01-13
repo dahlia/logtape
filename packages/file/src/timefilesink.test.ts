@@ -1,11 +1,12 @@
-import { suite } from "@alinea/suite";
-import { isDeno } from "@david/which-runtime";
-import type { Sink } from "@logtape/logtape";
-import { assertEquals } from "@std/assert/equals";
-import { delay } from "@std/async/delay";
-import { join } from "@std/path/join";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
+import { isDeno } from "@david/which-runtime";
+import type { Sink } from "@logtape/logtape";
+import { join } from "@std/path/join";
 import {
   debug,
   error,
@@ -13,7 +14,6 @@ import {
   info,
   warning,
 } from "../../logtape/src/fixtures.ts";
-import { promisify } from "node:util";
 import {
   type AsyncTimeRotatingFileSinkDriver,
   getBaseTimeRotatingFileSink,
@@ -22,8 +22,6 @@ import {
   getISOWeekYear,
   type TimeRotatingFileSinkDriver,
 } from "./timefilesink.ts";
-
-const test = suite(import.meta);
 
 function makeTempDirSync(): string {
   return fs.mkdtempSync(join(tmpdir(), "logtape-time-"));
@@ -111,43 +109,43 @@ function getAsyncDriver(): AsyncTimeRotatingFileSinkDriver<
 
 test("getISOWeek()", () => {
   // 2025-01-01 is in week 1
-  assertEquals(getISOWeek(new Date(2025, 0, 1)), 1);
+  assert.strictEqual(getISOWeek(new Date(2025, 0, 1)), 1);
   // 2024-12-31 is in week 1 of 2025
-  assertEquals(getISOWeek(new Date(2024, 11, 31)), 1);
+  assert.strictEqual(getISOWeek(new Date(2024, 11, 31)), 1);
   // 2024-12-30 is in week 1 of 2025
-  assertEquals(getISOWeek(new Date(2024, 11, 30)), 1);
+  assert.strictEqual(getISOWeek(new Date(2024, 11, 30)), 1);
   // 2024-12-29 is in week 52 of 2024
-  assertEquals(getISOWeek(new Date(2024, 11, 29)), 52);
+  assert.strictEqual(getISOWeek(new Date(2024, 11, 29)), 52);
 });
 
 test("getISOWeekYear()", () => {
   // 2025-01-01 is in ISO week year 2025
-  assertEquals(getISOWeekYear(new Date(2025, 0, 1)), 2025);
+  assert.strictEqual(getISOWeekYear(new Date(2025, 0, 1)), 2025);
   // 2024-12-31 is in ISO week year 2025
-  assertEquals(getISOWeekYear(new Date(2024, 11, 31)), 2025);
+  assert.strictEqual(getISOWeekYear(new Date(2024, 11, 31)), 2025);
   // 2024-12-30 is in ISO week year 2025
-  assertEquals(getISOWeekYear(new Date(2024, 11, 30)), 2025);
+  assert.strictEqual(getISOWeekYear(new Date(2024, 11, 30)), 2025);
   // 2024-12-29 is in ISO week year 2024
-  assertEquals(getISOWeekYear(new Date(2024, 11, 29)), 2024);
+  assert.strictEqual(getISOWeekYear(new Date(2024, 11, 29)), 2024);
 });
 
 test("getDefaultFilename() with daily interval", () => {
   const fn = getDefaultFilename("daily");
-  assertEquals(fn(new Date(2025, 0, 15)), "2025-01-15.log");
-  assertEquals(fn(new Date(2025, 11, 31)), "2025-12-31.log");
+  assert.strictEqual(fn(new Date(2025, 0, 15)), "2025-01-15.log");
+  assert.strictEqual(fn(new Date(2025, 11, 31)), "2025-12-31.log");
 });
 
 test("getDefaultFilename() with hourly interval", () => {
   const fn = getDefaultFilename("hourly");
-  assertEquals(fn(new Date(2025, 0, 15, 9, 30)), "2025-01-15-09.log");
-  assertEquals(fn(new Date(2025, 11, 31, 23, 59)), "2025-12-31-23.log");
+  assert.strictEqual(fn(new Date(2025, 0, 15, 9, 30)), "2025-01-15-09.log");
+  assert.strictEqual(fn(new Date(2025, 11, 31, 23, 59)), "2025-12-31-23.log");
 });
 
 test("getDefaultFilename() with weekly interval", () => {
   const fn = getDefaultFilename("weekly");
-  assertEquals(fn(new Date(2025, 0, 1)), "2025-W01.log");
-  assertEquals(fn(new Date(2024, 11, 31)), "2025-W01.log"); // ISO week 1 of 2025
-  assertEquals(fn(new Date(2024, 11, 29)), "2024-W52.log"); // ISO week 52 of 2024
+  assert.strictEqual(fn(new Date(2025, 0, 1)), "2025-W01.log");
+  assert.strictEqual(fn(new Date(2024, 11, 31)), "2025-W01.log"); // ISO week 1 of 2025
+  assert.strictEqual(fn(new Date(2024, 11, 29)), "2024-W52.log"); // ISO week 52 of 2024
 });
 
 test("getBaseTimeRotatingFileSink() with daily interval", () => {
@@ -167,14 +165,14 @@ test("getBaseTimeRotatingFileSink() with daily interval", () => {
   sink[Symbol.dispose]();
 
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const today = new Date();
   const expectedFilename = getDefaultFilename("daily")(today);
-  assertEquals(files[0], expectedFilename);
+  assert.strictEqual(files[0], expectedFilename);
 
   const content = fs.readFileSync(join(directory, expectedFilename), "utf-8");
-  assertEquals(
+  assert.deepStrictEqual(
     content,
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -200,11 +198,11 @@ test("getBaseTimeRotatingFileSink() with hourly interval", () => {
   sink[Symbol.dispose]();
 
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const now = new Date();
   const expectedFilename = getDefaultFilename("hourly")(now);
-  assertEquals(files[0], expectedFilename);
+  assert.strictEqual(files[0], expectedFilename);
 });
 
 test("getBaseTimeRotatingFileSink() with weekly interval", () => {
@@ -221,11 +219,11 @@ test("getBaseTimeRotatingFileSink() with weekly interval", () => {
   sink[Symbol.dispose]();
 
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const now = new Date();
   const expectedFilename = getDefaultFilename("weekly")(now);
-  assertEquals(files[0], expectedFilename);
+  assert.strictEqual(files[0], expectedFilename);
 });
 
 test("getBaseTimeRotatingFileSink() with custom filename", () => {
@@ -241,11 +239,11 @@ test("getBaseTimeRotatingFileSink() with custom filename", () => {
   sink[Symbol.dispose]();
 
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const today = new Date();
   const expectedFilename = `app-${today.toISOString().slice(0, 10)}.txt`;
-  assertEquals(files[0], expectedFilename);
+  assert.strictEqual(files[0], expectedFilename);
 });
 
 test("getBaseTimeRotatingFileSink() creates directory if not exists", () => {
@@ -253,7 +251,7 @@ test("getBaseTimeRotatingFileSink() creates directory if not exists", () => {
   const directory = join(baseDir, "nested", "logs");
   const driver = getDriver();
 
-  assertEquals(fs.existsSync(directory), false);
+  assert.strictEqual(fs.existsSync(directory), false);
 
   const sink = getBaseTimeRotatingFileSink({
     ...driver,
@@ -263,9 +261,9 @@ test("getBaseTimeRotatingFileSink() creates directory if not exists", () => {
   sink(debug);
   sink[Symbol.dispose]();
 
-  assertEquals(fs.existsSync(directory), true);
+  assert.strictEqual(fs.existsSync(directory), true);
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 });
 
 test("getBaseTimeRotatingFileSink() with maxAgeMs cleans up old files", () => {
@@ -296,8 +294,8 @@ test("getBaseTimeRotatingFileSink() with maxAgeMs cleans up old files", () => {
 
   const files = fs.readdirSync(directory);
   // Should have 2 files: recent and today's
-  assertEquals(files.includes(oldFilename), false);
-  assertEquals(files.includes(recentFilename), true);
+  assert.strictEqual(files.includes(oldFilename), false);
+  assert.strictEqual(files.includes(recentFilename), true);
 });
 
 test("getBaseTimeRotatingFileSink() with bufferSize: 0", () => {
@@ -313,10 +311,10 @@ test("getBaseTimeRotatingFileSink() with bufferSize: 0", () => {
 
   // Should be written immediately
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const content = fs.readFileSync(join(directory, files[0]!), "utf-8");
-  assertEquals(
+  assert.deepStrictEqual(
     content,
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
@@ -337,16 +335,16 @@ test("getBaseTimeRotatingFileSink() with large bufferSize", () => {
 
   // Should not be written yet (buffered)
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const content = fs.readFileSync(join(directory, files[0]!), "utf-8");
-  assertEquals(content, ""); // Still buffered
+  assert.deepStrictEqual(content, ""); // Still buffered
 
   sink[Symbol.dispose]();
 
   // Now should be written
   const contentAfter = fs.readFileSync(join(directory, files[0]!), "utf-8");
-  assertEquals(
+  assert.deepStrictEqual(
     contentAfter,
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
@@ -373,10 +371,10 @@ test("getBaseTimeRotatingFileSink() non-blocking mode", async () => {
   await sink[Symbol.asyncDispose]();
 
   const files = fs.readdirSync(directory);
-  assertEquals(files.length, 1);
+  assert.strictEqual(files.length, 1);
 
   const content = fs.readFileSync(join(directory, files[0]!), "utf-8");
-  assertEquals(
+  assert.deepStrictEqual(
     content,
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -399,5 +397,5 @@ test("getBaseTimeRotatingFileSink() defaults to daily interval", () => {
   const files = fs.readdirSync(directory);
   const today = new Date();
   const expectedFilename = getDefaultFilename("daily")(today);
-  assertEquals(files[0], expectedFilename);
+  assert.strictEqual(files[0], expectedFilename);
 });

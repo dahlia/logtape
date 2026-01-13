@@ -1,13 +1,11 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { delay } from "@std/async/delay";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { configure, reset } from "./config.ts";
 import { withCategoryPrefix, withContext } from "./context.ts";
 import { getLogger } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
-
-const test = suite(import.meta);
 
 test("withContext()", async () => {
   const buffer: LogRecord[] = [];
@@ -29,7 +27,7 @@ test("withContext()", async () => {
   try {
     // test
     getLogger("my-app").debug("hello", { foo: 1, bar: 2 });
-    assertEquals(buffer, [
+    assert.deepStrictEqual(buffer, [
       {
         category: ["my-app"],
         level: "debug",
@@ -44,8 +42,8 @@ test("withContext()", async () => {
       getLogger("my-app").debug("world", { foo: 1, bar: 2 });
       return 123;
     });
-    assertEquals(rv, 123);
-    assertEquals(buffer, [
+    assert.deepStrictEqual(rv, 123);
+    assert.deepStrictEqual(buffer, [
       {
         category: ["my-app"],
         level: "debug",
@@ -57,7 +55,7 @@ test("withContext()", async () => {
     ]);
     buffer.pop();
     getLogger("my-app").debug("hello", { foo: 1, bar: 2 });
-    assertEquals(buffer, [
+    assert.deepStrictEqual(buffer, [
       {
         category: ["my-app"],
         level: "debug",
@@ -75,7 +73,7 @@ test("withContext()", async () => {
         getLogger("my-app").debug("hello");
       });
     });
-    assertEquals(buffer, [
+    assert.deepStrictEqual(buffer, [
       {
         category: ["my-app"],
         level: "debug",
@@ -114,16 +112,16 @@ test("withContext()", async () => {
         });
       })(),
     ]);
-    assertEquals(buffer.length, 4);
+    assert.deepStrictEqual(buffer.length, 4);
     for (const log of buffer) {
       if (log.message[0] === "foo") {
-        assertEquals(log.properties, { foo: 1 });
+        assert.deepStrictEqual(log.properties, { foo: 1 });
       } else if (log.message[0] === "bar") {
-        assertEquals(log.properties, { bar: 2 });
+        assert.deepStrictEqual(log.properties, { bar: 2 });
       } else if (log.message[0] === "baz") {
-        assertEquals(log.properties, { baz: 3 });
+        assert.deepStrictEqual(log.properties, { baz: 3 });
       } else {
-        assertEquals(log.properties, { qux: 4 });
+        assert.deepStrictEqual(log.properties, { qux: 4 });
       }
     }
   } finally {
@@ -156,8 +154,8 @@ test("withContext()", async () => {
       getLogger("my-app").debug("hello", { bar: 2 });
       return 123;
     });
-    assertEquals(rv, 123);
-    assertEquals(buffer, [
+    assert.deepStrictEqual(rv, 123);
+    assert.deepStrictEqual(buffer, [
       {
         category: ["my-app"],
         level: "debug",
@@ -167,7 +165,7 @@ test("withContext()", async () => {
         timestamp: buffer[0].timestamp,
       },
     ]);
-    assertEquals(metaBuffer, [
+    assert.deepStrictEqual(metaBuffer, [
       {
         category: ["logtape", "meta"],
         level: "warning",
@@ -206,27 +204,27 @@ test("withCategoryPrefix()", async () => {
   try {
     // basic prefix with array
     getLogger(["core-lib"]).debug("without prefix");
-    assertEquals(buffer[0].category, ["core-lib"]);
+    assert.deepStrictEqual(buffer[0].category, ["core-lib"]);
     buffer.pop();
 
     const rv = withCategoryPrefix(["sdk-1"], () => {
       getLogger(["core-lib"]).debug("with prefix");
       return 123;
     });
-    assertEquals(rv, 123);
-    assertEquals(buffer[0].category, ["sdk-1", "core-lib"]);
+    assert.deepStrictEqual(rv, 123);
+    assert.deepStrictEqual(buffer[0].category, ["sdk-1", "core-lib"]);
     buffer.pop();
 
     // prefix should not persist after callback
     getLogger(["core-lib"]).debug("after prefix");
-    assertEquals(buffer[0].category, ["core-lib"]);
+    assert.deepStrictEqual(buffer[0].category, ["core-lib"]);
     buffer.pop();
 
     // basic prefix with string
     withCategoryPrefix("sdk-2", () => {
       getLogger(["core-lib"]).debug("string prefix");
     });
-    assertEquals(buffer[0].category, ["sdk-2", "core-lib"]);
+    assert.deepStrictEqual(buffer[0].category, ["sdk-2", "core-lib"]);
     buffer.pop();
 
     // nesting prefixes
@@ -235,7 +233,7 @@ test("withCategoryPrefix()", async () => {
         getLogger(["core-lib"]).debug("nested");
       });
     });
-    assertEquals(buffer[0].category, ["app", "sdk-1", "core-lib"]);
+    assert.deepStrictEqual(buffer[0].category, ["app", "sdk-1", "core-lib"]);
     buffer.pop();
 
     // combining with withContext
@@ -244,8 +242,8 @@ test("withCategoryPrefix()", async () => {
         getLogger(["internal"]).debug("combined");
       });
     });
-    assertEquals(buffer[0].category, ["my-sdk", "internal"]);
-    assertEquals(buffer[0].properties, { requestId: "abc-123" });
+    assert.deepStrictEqual(buffer[0].category, ["my-sdk", "internal"]);
+    assert.deepStrictEqual(buffer[0].properties, { requestId: "abc-123" });
     buffer.pop();
 
     // withContext inside withCategoryPrefix
@@ -254,8 +252,8 @@ test("withCategoryPrefix()", async () => {
         getLogger(["lib"]).debug("context then prefix");
       });
     });
-    assertEquals(buffer[0].category, ["sdk", "lib"]);
-    assertEquals(buffer[0].properties, { userId: 42 });
+    assert.deepStrictEqual(buffer[0].category, ["sdk", "lib"]);
+    assert.deepStrictEqual(buffer[0].properties, { userId: 42 });
     buffer.pop();
 
     // concurrent runs - each should have isolated prefix
@@ -285,16 +283,16 @@ test("withCategoryPrefix()", async () => {
         });
       })(),
     ]);
-    assertEquals(buffer.length, 4);
+    assert.deepStrictEqual(buffer.length, 4);
     for (const log of buffer) {
       if (log.message[0] === "a") {
-        assertEquals(log.category, ["sdk-a", "lib"]);
+        assert.deepStrictEqual(log.category, ["sdk-a", "lib"]);
       } else if (log.message[0] === "b") {
-        assertEquals(log.category, ["sdk-b", "lib"]);
+        assert.deepStrictEqual(log.category, ["sdk-b", "lib"]);
       } else if (log.message[0] === "c") {
-        assertEquals(log.category, ["sdk-c", "lib"]);
+        assert.deepStrictEqual(log.category, ["sdk-c", "lib"]);
       } else {
-        assertEquals(log.category, ["sdk-d", "lib"]);
+        assert.deepStrictEqual(log.category, ["sdk-d", "lib"]);
       }
     }
   } finally {
@@ -328,13 +326,13 @@ test("withCategoryPrefix()", async () => {
       getLogger(["my-app"]).debug("no storage");
       return 456;
     });
-    assertEquals(rv, 456);
+    assert.deepStrictEqual(rv, 456);
     // Without storage, category should not have prefix
-    assertEquals(buffer[0].category, ["my-app"]);
+    assert.deepStrictEqual(buffer[0].category, ["my-app"]);
     // Warning should be logged to meta logger
-    assertEquals(metaBuffer.length, 1);
-    assertEquals(metaBuffer[0].category, ["logtape", "meta"]);
-    assertEquals(metaBuffer[0].level, "warning");
+    assert.deepStrictEqual(metaBuffer.length, 1);
+    assert.deepStrictEqual(metaBuffer[0].category, ["logtape", "meta"]);
+    assert.deepStrictEqual(metaBuffer[0].level, "warning");
   } finally {
     await reset();
   }

@@ -161,37 +161,81 @@ Testing
 
 ### Test framework
 
-The project uses *@alinea/suite* for cross-runtime testing compatibility,
-along with `@std/assert` for assertions.
+The project uses Node.js built-in test modules for cross-runtime testing
+compatibility:
+
+ -  `node:test` for test runner
+ -  `node:assert/strict` for assertions
+ -  `node:timers/promises` for delays (use `setTimeout` as `delay`)
+
+These modules work across Deno, Node.js, and Bun runtimes.
 
 ### Test organization
 
 1.  Each implementation file has a corresponding _\*.test.ts_ file
-2.  Tests are organized using *@alinea/suite*'s `suite()` function
+2.  Tests are organized using `node:test`'s `test()` function
 3.  Each test should focus on a single piece of functionality
 4.  Tests run across multiple runtimes: Deno, Node.js, and Bun
 
 ### Test structure
 
 ~~~~ typescript
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
-
-const test = suite(import.meta);
+import assert from "node:assert/strict";
+import test from "node:test";
 
 test("ComponentName.methodName()", () => {
   // Test code
-  assertEquals(actual, expected);
+  assert.strictEqual(actual, expected);
 });
 
 test("ComponentName.methodName() with multiple assertions", () => {
   // Setup code
 
   // Test multiple aspects
-  assertEquals(actual1, expected1);
-  assertEquals(actual2, expected2);
+  assert.strictEqual(actual1, expected1);
+  assert.deepStrictEqual(actual2, expected2);  // For objects/arrays
 
   // Cleanup code if needed
+});
+~~~~
+
+### Assertion mappings
+
+Use these assertion methods from `node:assert/strict`:
+
+ -  `assert.strictEqual(actual, expected)` for primitive values
+ -  `assert.deepStrictEqual(actual, expected)` for objects and arrays
+ -  `assert.ok(value)` for truthy checks
+ -  `assert.notStrictEqual(value, null)` to check value exists
+ -  `assert.throws(fn)` for synchronous error checking
+ -  `assert.rejects(fn)` for async error checking
+
+### Skipping tests
+
+For platform-specific or conditional tests, use the `skip` option with an
+early return for Bun compatibility:
+
+~~~~ typescript
+const skipCondition = !isWindows();
+
+test("Windows-specific test", { skip: skipCondition }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipCondition) return;
+
+  // Test code
+});
+~~~~
+
+### Async delays
+
+For tests that need delays, use `node:timers/promises`:
+
+~~~~ typescript
+import { setTimeout as delay } from "node:timers/promises";
+
+test("async test", async () => {
+  await delay(100);  // Wait 100ms
 });
 ~~~~
 

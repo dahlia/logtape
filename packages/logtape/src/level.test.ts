@@ -1,8 +1,5 @@
-import { suite } from "@alinea/suite";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertFalse } from "@std/assert/false";
-import { assertThrows } from "@std/assert/throws";
+import assert from "node:assert/strict";
+import test from "node:test";
 import {
   compareLogLevel,
   getLogLevels,
@@ -11,11 +8,9 @@ import {
   parseLogLevel,
 } from "./level.ts";
 
-const test = suite(import.meta);
-
 test("getLogLevels()", () => {
   const levels: readonly LogLevel[] = getLogLevels();
-  assertEquals(levels, [
+  assert.deepStrictEqual(levels, [
     "trace",
     "debug",
     "info",
@@ -26,7 +21,7 @@ test("getLogLevels()", () => {
   const levels2 = levels as LogLevel[];
   levels2.push("trace");
   const levels3 = getLogLevels();
-  assertEquals(levels3, [
+  assert.deepStrictEqual(levels3, [
     "trace",
     "debug",
     "info",
@@ -37,17 +32,17 @@ test("getLogLevels()", () => {
 });
 
 test("parseLogLevel()", () => {
-  assertEquals(parseLogLevel("debug"), "debug");
-  assertEquals(parseLogLevel("info"), "info");
-  assertEquals(parseLogLevel("warning"), "warning");
-  assertEquals(parseLogLevel("error"), "error");
-  assertEquals(parseLogLevel("fatal"), "fatal");
-  assertEquals(parseLogLevel("DEBUG"), "debug");
-  assertEquals(parseLogLevel("INFO"), "info");
-  assertEquals(parseLogLevel("WARNING"), "warning");
-  assertEquals(parseLogLevel("ERROR"), "error");
-  assertEquals(parseLogLevel("FATAL"), "fatal");
-  assertThrows(
+  assert.deepStrictEqual(parseLogLevel("debug"), "debug");
+  assert.deepStrictEqual(parseLogLevel("info"), "info");
+  assert.deepStrictEqual(parseLogLevel("warning"), "warning");
+  assert.deepStrictEqual(parseLogLevel("error"), "error");
+  assert.deepStrictEqual(parseLogLevel("fatal"), "fatal");
+  assert.deepStrictEqual(parseLogLevel("DEBUG"), "debug");
+  assert.deepStrictEqual(parseLogLevel("INFO"), "info");
+  assert.deepStrictEqual(parseLogLevel("WARNING"), "warning");
+  assert.deepStrictEqual(parseLogLevel("ERROR"), "error");
+  assert.deepStrictEqual(parseLogLevel("FATAL"), "fatal");
+  assert.throws(
     () => parseLogLevel("invalid"),
     TypeError,
     "Invalid log level: invalid.",
@@ -55,17 +50,23 @@ test("parseLogLevel()", () => {
 });
 
 test("isLogLevel()", () => {
-  assert(isLogLevel("debug"));
-  assert(isLogLevel("info"));
-  assert(isLogLevel("warning"));
-  assert(isLogLevel("error"));
-  assert(isLogLevel("fatal"));
-  assertFalse(isLogLevel("DEBUG"));
-  assertFalse(isLogLevel("invalid"));
+  assert.ok(isLogLevel("debug"));
+  assert.ok(isLogLevel("info"));
+  assert.ok(isLogLevel("warning"));
+  assert.ok(isLogLevel("error"));
+  assert.ok(isLogLevel("fatal"));
+  assert.ok(!isLogLevel("DEBUG"));
+  assert.ok(!isLogLevel("invalid"));
 });
 
 test("compareLogLevel()", () => {
   const levels: LogLevel[] = ["info", "debug", "error", "warning", "fatal"];
   levels.sort(compareLogLevel);
-  assertEquals(levels, ["debug", "info", "warning", "error", "fatal"]);
+  assert.deepStrictEqual(levels, [
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "fatal",
+  ]);
 });

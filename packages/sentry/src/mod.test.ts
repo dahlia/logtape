@@ -1,9 +1,7 @@
-import { suite } from "@alinea/suite";
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
 import { getSentrySink } from "./mod.ts";
-
-const test = suite(import.meta);
 
 // Helper to create a mock log record
 function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
@@ -24,7 +22,7 @@ function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
 
 test("getSentrySink() creates sink without parameters", () => {
   const sink = getSentrySink();
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getSentrySink() accepts deprecated client parameter", () => {
@@ -34,7 +32,7 @@ test("getSentrySink() accepts deprecated client parameter", () => {
     captureException: () => "id",
   };
   const sink = getSentrySink(mockClient);
-  assertEquals(typeof sink, "function");
+  assert.strictEqual(typeof sink, "function");
 });
 
 test("getSentrySink() throws on invalid parameter type", () => {
@@ -44,9 +42,9 @@ test("getSentrySink() throws on invalid parameter type", () => {
     getSentrySink("invalid");
   } catch (e) {
     threw = true;
-    assertStringIncludes((e as Error).message, "Invalid parameter");
+    assert.ok((e as Error).message.includes("Invalid parameter"));
   }
-  assertEquals(threw, true);
+  assert.ok(threw);
 });
 
 // =============================================================================
@@ -69,8 +67,8 @@ test("beforeSend can transform records", () => {
 
   sink(createMockLogRecord());
 
-  assertEquals(transformedRecords.length, 1);
-  assertEquals(transformedRecords[0].properties.transformed, true);
+  assert.strictEqual(transformedRecords.length, 1);
+  assert.strictEqual(transformedRecords[0].properties.transformed, true);
 });
 
 test("beforeSend can filter records by returning null", () => {
@@ -91,7 +89,7 @@ test("beforeSend can filter records by returning null", () => {
   sink(createMockLogRecord({ level: "debug" }));
   sink(createMockLogRecord({ level: "error" }));
 
-  assertEquals(processedCount, 2);
+  assert.strictEqual(processedCount, 2);
 });
 
 // =============================================================================
@@ -141,7 +139,7 @@ test("sink with Error at error level triggers exception path", () => {
     properties: { error: new Error("Test") },
   }));
 
-  assertEquals(sawError, true);
+  assert.strictEqual(sawError, true);
 });
 
 test("sink without Error at error level does not trigger exception path", () => {
@@ -158,7 +156,7 @@ test("sink without Error at error level does not trigger exception path", () => 
     message: ["Error without Error instance"],
   }));
 
-  assertEquals(sawError, false);
+  assert.strictEqual(sawError, false);
 });
 
 test("sink processes all log levels without error", () => {
@@ -190,9 +188,9 @@ test("sink handles template messages correctly", () => {
     message: ["User ", { id: 123 }, " logged in"],
   }));
 
-  assertEquals(capturedMessage!.length, 3);
-  assertEquals(capturedMessage![0], "User ");
-  assertEquals((capturedMessage![1] as { id: number }).id, 123);
+  assert.strictEqual(capturedMessage!.length, 3);
+  assert.strictEqual(capturedMessage![0], "User ");
+  assert.strictEqual((capturedMessage![1] as { id: number }).id, 123);
 });
 
 // =============================================================================
@@ -232,7 +230,7 @@ test("sink ignores logs from logtape.meta.sentry category", () => {
     message: ["Normal log message"],
   }));
 
-  assertEquals(processedCount, 1);
+  assert.strictEqual(processedCount, 1);
 });
 
 test("sink does not ignore partial matches of meta category", () => {
@@ -249,7 +247,7 @@ test("sink does not ignore partial matches of meta category", () => {
   sink(createMockLogRecord({ category: ["logtape", "meta"] }));
   sink(createMockLogRecord({ category: ["logtape", "meta", "other"] }));
 
-  assertEquals(processedCount, 3);
+  assert.strictEqual(processedCount, 3);
 });
 
 test("sink ignores logtape.meta.sentry with child categories", () => {
@@ -266,5 +264,5 @@ test("sink ignores logtape.meta.sentry with child categories", () => {
     category: ["logtape", "meta", "sentry", "child"],
   }));
 
-  assertEquals(processedCount, 0);
+  assert.strictEqual(processedCount, 0);
 });

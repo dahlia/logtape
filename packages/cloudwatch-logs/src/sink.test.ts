@@ -1,15 +1,13 @@
-import { suite } from "@alinea/suite";
+import assert from "node:assert/strict";
+import test from "node:test";
 import {
   CloudWatchLogsClient,
   PutLogEventsCommand,
 } from "@aws-sdk/client-cloudwatch-logs";
 import type { LogRecord } from "@logtape/logtape";
 import { jsonLinesFormatter } from "@logtape/logtape";
-import { assertEquals, assertInstanceOf } from "@std/assert";
 import { mockClient } from "aws-sdk-client-mock";
 import { getCloudWatchLogsSink } from "./sink.ts";
-
-const test = suite(import.meta);
 
 const mockLogRecord: LogRecord = {
   category: ["test"],
@@ -36,12 +34,15 @@ test("getCloudWatchLogsSink() creates a working sink", async () => {
   sink(mockLogRecord);
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
   const call = cwlMock.commandCalls(PutLogEventsCommand)[0];
-  assertEquals(call.args[0].input.logGroupName, "/test/log-group");
-  assertEquals(call.args[0].input.logStreamName, "test-stream");
-  assertEquals(call.args[0].input.logEvents?.length, 1);
-  assertEquals(call.args[0].input.logEvents?.[0].message, 'Hello, "world"!');
+  assert.strictEqual(call.args[0].input.logGroupName, "/test/log-group");
+  assert.strictEqual(call.args[0].input.logStreamName, "test-stream");
+  assert.strictEqual(call.args[0].input.logEvents?.length, 1);
+  assert.strictEqual(
+    call.args[0].input.logEvents?.[0].message,
+    'Hello, "world"!',
+  );
 });
 
 test("getCloudWatchLogsSink() batches multiple log events", async () => {
@@ -62,9 +63,9 @@ test("getCloudWatchLogsSink() batches multiple log events", async () => {
 
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
   const call = cwlMock.commandCalls(PutLogEventsCommand)[0];
-  assertEquals(call.args[0].input.logEvents?.length, 3);
+  assert.strictEqual(call.args[0].input.logEvents?.length, 3);
 });
 
 test("getCloudWatchLogsSink() flushes when batch size is reached", async () => {
@@ -85,13 +86,13 @@ test("getCloudWatchLogsSink() flushes when batch size is reached", async () => {
 
   await sink[Symbol.asyncDispose](); // Should flush remaining
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 2);
-  assertEquals(
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 2);
+  assert.strictEqual(
     cwlMock.commandCalls(PutLogEventsCommand)[0].args[0].input.logEvents
       ?.length,
     2,
   );
-  assertEquals(
+  assert.strictEqual(
     cwlMock.commandCalls(PutLogEventsCommand)[1].args[0].input.logEvents
       ?.length,
     1,
@@ -114,7 +115,7 @@ test("getCloudWatchLogsSink() with custom client", async () => {
   sink(mockLogRecord);
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
 });
 
 test("getCloudWatchLogsSink() handles credentials", () => {
@@ -128,8 +129,8 @@ test("getCloudWatchLogsSink() handles credentials", () => {
     },
   });
 
-  assertInstanceOf(sink, Function);
-  assertInstanceOf(sink[Symbol.asyncDispose], Function);
+  assert.ok(sink instanceof Function);
+  assert.ok(sink[Symbol.asyncDispose] instanceof Function);
 });
 
 test("getCloudWatchLogsSink() handles errors gracefully", async () => {
@@ -150,7 +151,7 @@ test("getCloudWatchLogsSink() handles errors gracefully", async () => {
   await sink[Symbol.asyncDispose]();
 
   // Should attempt once and fail gracefully
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
 });
 
 test("getCloudWatchLogsSink() handles large message batches", async () => {
@@ -184,7 +185,7 @@ test("getCloudWatchLogsSink() handles large message batches", async () => {
 
   const calls = cwlMock.commandCalls(PutLogEventsCommand);
   // Should either flush immediately due to size or flush remaining on dispose
-  assertEquals(calls.length >= 1, true);
+  assert.strictEqual(calls.length >= 1, true);
 });
 
 test("getCloudWatchLogsSink() formats complex log messages", async () => {
@@ -212,7 +213,7 @@ test("getCloudWatchLogsSink() formats complex log messages", async () => {
   await sink[Symbol.asyncDispose]();
 
   const call = cwlMock.commandCalls(PutLogEventsCommand)[0];
-  assertEquals(
+  assert.strictEqual(
     call.args[0].input.logEvents?.[0].message,
     'User {"id":123,"name":"John"} failed to login',
   );
@@ -234,7 +235,7 @@ test("getCloudWatchLogsSink() respects batch size limits", async () => {
   sink(mockLogRecord);
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
 });
 
 test("getCloudWatchLogsSink() flushes remaining events on disposal", async () => {
@@ -254,8 +255,8 @@ test("getCloudWatchLogsSink() flushes remaining events on disposal", async () =>
 
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
-  assertEquals(
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(
     cwlMock.commandCalls(PutLogEventsCommand)[0].args[0].input.logEvents
       ?.length,
     2,
@@ -287,7 +288,7 @@ test("getCloudWatchLogsSink() supports JSON Lines formatter", async () => {
   sink(structuredLogRecord);
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
   const call = cwlMock.commandCalls(PutLogEventsCommand)[0];
   const logMessage = call.args[0].input.logEvents?.[0].message;
 
@@ -295,15 +296,15 @@ test("getCloudWatchLogsSink() supports JSON Lines formatter", async () => {
   const parsedMessage = JSON.parse(logMessage!);
 
   // Check what fields are actually present in jsonLinesFormatter output
-  assertEquals(parsedMessage["@timestamp"], "2023-01-01T00:00:00.000Z");
-  assertEquals(parsedMessage.level, "ERROR"); // jsonLinesFormatter uses uppercase
-  assertEquals(parsedMessage.logger, "app.database"); // category becomes logger
-  assertEquals(
+  assert.strictEqual(parsedMessage["@timestamp"], "2023-01-01T00:00:00.000Z");
+  assert.strictEqual(parsedMessage.level, "ERROR"); // jsonLinesFormatter uses uppercase
+  assert.strictEqual(parsedMessage.logger, "app.database"); // category becomes logger
+  assert.strictEqual(
     parsedMessage.message,
     'User {"id":123,"name":"John"} failed to connect',
   ); // pre-formatted message
-  assertEquals(parsedMessage.properties.error, "Connection timeout");
-  assertEquals(parsedMessage.properties.retries, 3);
+  assert.strictEqual(parsedMessage.properties.error, "Connection timeout");
+  assert.strictEqual(parsedMessage.properties.retries, 3);
 });
 
 test("getCloudWatchLogsSink() uses default text formatter when no formatter provided", async () => {
@@ -322,10 +323,10 @@ test("getCloudWatchLogsSink() uses default text formatter when no formatter prov
   sink(mockLogRecord);
   await sink[Symbol.asyncDispose]();
 
-  assertEquals(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
+  assert.strictEqual(cwlMock.commandCalls(PutLogEventsCommand).length, 1);
   const call = cwlMock.commandCalls(PutLogEventsCommand)[0];
   const logMessage = call.args[0].input.logEvents?.[0].message;
 
   // Should be plain text, not JSON
-  assertEquals(logMessage, 'Hello, "world"!');
+  assert.strictEqual(logMessage, 'Hello, "world"!');
 });

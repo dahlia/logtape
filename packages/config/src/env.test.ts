@@ -1,9 +1,7 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert";
-import { expandEnvVars } from "./env.ts";
+import assert from "node:assert/strict";
 import process from "node:process";
-
-const test = suite(import.meta);
+import test from "node:test";
+import { expandEnvVars } from "./env.ts";
 
 test("expandEnvVars()", () => {
   process.env["TEST_VAR"] = "value";
@@ -23,12 +21,12 @@ test("expandEnvVars()", () => {
 
   const expanded = expandEnvVars(config);
 
-  assertEquals(expanded.simple, "value");
-  assertEquals(expanded.withDefault, "default");
-  assertEquals(expanded.missing, "");
-  assertEquals(expanded.nested.array[0], "value");
-  assertEquals(expanded.nested.obj.val, "value");
-  assertEquals(expanded.mixed, "prefix-value-suffix");
+  assert.strictEqual(expanded.simple, "value");
+  assert.strictEqual(expanded.withDefault, "default");
+  assert.strictEqual(expanded.missing, "");
+  assert.strictEqual(expanded.nested.array[0], "value");
+  assert.strictEqual(expanded.nested.obj.val, "value");
+  assert.strictEqual(expanded.mixed, "prefix-value-suffix");
 
   delete process.env["TEST_VAR"];
 });
@@ -44,7 +42,7 @@ test("expandEnvVars() with custom pattern", () => {
     pattern: /%([^%]+)%/g,
   });
 
-  assertEquals(expanded.val, "value");
+  assert.strictEqual(expanded.val, "value");
 
   delete process.env["TEST_VAR"];
 });

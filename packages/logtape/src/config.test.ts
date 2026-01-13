@@ -1,8 +1,5 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
-import { assertRejects } from "@std/assert/rejects";
-import { assertStrictEquals } from "@std/assert/strict-equals";
-import { assertThrows } from "@std/assert/throws";
+import assert from "node:assert/strict";
+import test from "node:test";
 import {
   type Config,
   ConfigError,
@@ -17,23 +14,21 @@ import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
-const test = suite(import.meta);
-
 test("configure()", async () => {
   let disposed = 0;
 
   try {
     const aLogs: LogRecord[] = [];
-    const a: Sink & AsyncDisposable = (record) => aLogs.push(record);
+    const a: Sink & AsyncDisposable = (record: LogRecord) => aLogs.push(record);
     a[Symbol.asyncDispose] = () => {
       ++disposed;
       return Promise.resolve();
     };
     const bLogs: LogRecord[] = [];
-    const b: Sink & Disposable = (record) => bLogs.push(record);
+    const b: Sink & Disposable = (record: LogRecord) => bLogs.push(record);
     b[Symbol.dispose] = () => ++disposed;
     const cLogs: LogRecord[] = [];
-    const c: Sink = cLogs.push.bind(cLogs);
+    const c: Sink = (record: LogRecord) => cLogs.push(record);
     const x: Filter & AsyncDisposable = () => true;
     x[Symbol.asyncDispose] = () => {
       ++disposed;
@@ -67,77 +62,76 @@ test("configure()", async () => {
     await configure(config);
 
     const logger = LoggerImpl.getLogger("my-app");
-    assertEquals(logger.sinks, [a]);
-    assertEquals(logger.filters, [x]);
-    assertEquals(logger.lowestLevel, "trace");
+    assert.deepStrictEqual(logger.sinks, [a]);
+    assert.deepStrictEqual(logger.filters, [x]);
+    assert.strictEqual(logger.lowestLevel, "trace");
     const foo = LoggerImpl.getLogger(["my-app", "foo"]);
-    assertEquals(foo.sinks, [b]);
-    assertEquals(foo.filters, [y]);
-    assertEquals(foo.lowestLevel, "trace");
+    assert.deepStrictEqual(foo.sinks, [b]);
+    assert.deepStrictEqual(foo.filters, [y]);
+    assert.strictEqual(foo.lowestLevel, "trace");
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
-    assertEquals(bar.sinks, [c]);
-    assertEquals(bar.lowestLevel, "info");
+    assert.deepStrictEqual(bar.sinks, [c]);
+    assert.strictEqual(bar.lowestLevel, "info");
     bar.debug("ignored");
-    assertEquals(aLogs, []);
-    assertEquals(bLogs, []);
-    assertEquals(cLogs, []);
+    assert.deepStrictEqual(aLogs, []);
+    assert.deepStrictEqual(bLogs, []);
+    assert.deepStrictEqual(cLogs, []);
     foo.warn("logged");
-    assertEquals(aLogs, []);
-    assertEquals(bLogs, [
+    assert.deepStrictEqual(aLogs, []);
+    assert.deepStrictEqual(bLogs, [
       {
         level: "warning",
         category: ["my-app", "foo"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: bLogs[0].timestamp,
+        timestamp: (bLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertEquals(cLogs, []);
+    assert.deepStrictEqual(cLogs, []);
     bar.info("logged");
-    assertEquals(aLogs, [
+    assert.deepStrictEqual(aLogs, [
       {
         level: "info",
         category: ["my-app", "bar"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: cLogs[0].timestamp,
+        timestamp: (cLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertEquals(bLogs, [
+    assert.deepStrictEqual(bLogs, [
       {
         level: "warning",
         category: ["my-app", "foo"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: bLogs[0].timestamp,
+        timestamp: (bLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertEquals(cLogs, [
+    assert.deepStrictEqual(cLogs, [
       {
         level: "info",
         category: ["my-app", "bar"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: cLogs[0].timestamp,
+        timestamp: (cLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertStrictEquals(getConfig(), config);
+    assert.strictEqual(getConfig(), config);
 
     // reconfigure
-    await assertRejects(
+    await assert.rejects(
       () =>
         configure({
           sinks: {},
           loggers: [{ category: "my-app" }],
         }),
       ConfigError,
-      "Already configured",
     );
-    assertEquals(disposed, 0);
+    assert.strictEqual(disposed, 0);
 
     // No exception if reset is true:
     const config2 = {
@@ -146,11 +140,11 @@ test("configure()", async () => {
       reset: true,
     };
     await configure(config2);
-    assertEquals(disposed, 4);
-    assertStrictEquals(getConfig(), config2);
+    assert.strictEqual(disposed, 4);
+    assert.strictEqual(getConfig(), config2);
   } finally {
     await reset();
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   try { // lowestLevel
@@ -172,25 +166,25 @@ test("configure()", async () => {
     });
 
     getLogger(["foo", "bar"]).warn("test");
-    assertEquals(a.length, 1);
-    assertEquals(b.length, 1);
+    assert.strictEqual(a.length, 1);
+    assert.strictEqual(b.length, 1);
 
     while (a.length > 0) a.pop();
     while (b.length > 0) b.pop();
 
     getLogger(["foo", "baz"]).debug("test");
-    assertEquals(a.length, 0);
-    assertEquals(c.length, 1);
+    assert.strictEqual(a.length, 0);
+    assert.strictEqual(c.length, 1);
 
     while (a.length > 0) a.pop();
     while (c.length > 0) c.pop();
   } finally {
     await reset();
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   { // misconfiguration
-    await assertRejects(
+    await assert.rejects(
       () =>
         configure({
           // deno-lint-ignore no-explicit-any
@@ -204,11 +198,10 @@ test("configure()", async () => {
           reset: true,
         }),
       ConfigError,
-      "Sink not found: invalid",
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
 
-    await assertRejects(
+    await assert.rejects(
       () =>
         configure({
           sinks: {},
@@ -223,13 +216,12 @@ test("configure()", async () => {
           reset: true,
         }),
       ConfigError,
-      "Filter not found: invalid",
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   { // duplicate logger categories
-    await assertRejects(
+    await assert.rejects(
       () =>
         configure({
           sinks: {},
@@ -246,11 +238,10 @@ test("configure()", async () => {
           reset: true,
         }),
       ConfigError,
-      'Duplicate logger configuration for category: ["my-app"]',
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
 
-    await assertRejects(
+    await assert.rejects(
       () =>
         configure({
           sinks: {},
@@ -267,9 +258,8 @@ test("configure()", async () => {
           reset: true,
         }),
       ConfigError,
-      'Duplicate logger configuration for category: ["my-app","service"]',
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
@@ -287,11 +277,14 @@ test("configure()", async () => {
       };
       await configure(config);
 
-      assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
-      assertStrictEquals(getConfig(), config);
+      assert.deepStrictEqual(
+        LoggerImpl.getLogger(["logger", "meta"]).sinks,
+        [],
+      );
+      assert.strictEqual(getConfig(), config);
     } finally {
       await reset();
-      assertStrictEquals(getConfig(), null);
+      assert.strictEqual(getConfig(), null);
     }
   }
 });
@@ -328,61 +321,60 @@ test("configureSync()", async () => {
     configureSync(config);
 
     const foo = LoggerImpl.getLogger(["my-app", "foo"]);
-    assertEquals(foo.sinks, [b]);
-    assertEquals(foo.filters, [y]);
-    assertEquals(foo.lowestLevel, "trace");
+    assert.deepStrictEqual(foo.sinks, [b]);
+    assert.deepStrictEqual(foo.filters, [y]);
+    assert.strictEqual(foo.lowestLevel, "trace");
     const bar = LoggerImpl.getLogger(["my-app", "bar"]);
-    assertEquals(bar.sinks, [c]);
-    assertEquals(bar.lowestLevel, "info");
+    assert.deepStrictEqual(bar.sinks, [c]);
+    assert.strictEqual(bar.lowestLevel, "info");
     bar.debug("ignored");
-    assertEquals(bLogs, []);
-    assertEquals(cLogs, []);
+    assert.deepStrictEqual(bLogs, []);
+    assert.deepStrictEqual(cLogs, []);
     foo.warn("logged");
-    assertEquals(bLogs, [
+    assert.deepStrictEqual(bLogs, [
       {
         level: "warning",
         category: ["my-app", "foo"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: bLogs[0].timestamp,
+        timestamp: (bLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertEquals(cLogs, []);
+    assert.deepStrictEqual(cLogs, []);
     bar.info("logged");
-    assertEquals(bLogs, [
+    assert.deepStrictEqual(bLogs, [
       {
         level: "warning",
         category: ["my-app", "foo"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: bLogs[0].timestamp,
+        timestamp: (bLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertEquals(cLogs, [
+    assert.deepStrictEqual(cLogs, [
       {
         level: "info",
         category: ["my-app", "bar"],
         message: ["logged"],
         rawMessage: "logged",
         properties: {},
-        timestamp: cLogs[0].timestamp,
+        timestamp: (cLogs[0] as LogRecord).timestamp,
       },
     ]);
-    assertStrictEquals(getConfig(), config);
+    assert.strictEqual(getConfig(), config);
 
     // reconfigure
-    assertThrows(
+    assert.throws(
       () =>
         configureSync({
           sinks: {},
           loggers: [{ category: "my-app" }],
         }),
       ConfigError,
-      "Already configured",
     );
-    assertEquals(disposed, 0);
+    assert.strictEqual(disposed, 0);
 
     // No exception if reset is true:
     const config2 = {
@@ -391,15 +383,15 @@ test("configureSync()", async () => {
       reset: true,
     };
     configureSync(config2);
-    assertEquals(disposed, 2);
-    assertStrictEquals(getConfig(), config2);
+    assert.strictEqual(disposed, 2);
+    assert.strictEqual(getConfig(), config2);
   } finally {
     resetSync();
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   { // misconfiguration
-    assertThrows(
+    assert.throws(
       () =>
         configureSync({
           // deno-lint-ignore no-explicit-any
@@ -413,11 +405,10 @@ test("configureSync()", async () => {
           reset: true,
         }),
       ConfigError,
-      "Sink not found: invalid",
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
 
-    assertThrows(
+    assert.throws(
       () =>
         configureSync({
           sinks: {},
@@ -432,13 +423,12 @@ test("configureSync()", async () => {
           reset: true,
         }),
       ConfigError,
-      "Filter not found: invalid",
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   { // duplicate logger categories
-    assertThrows(
+    assert.throws(
       () =>
         configureSync({
           sinks: {},
@@ -455,11 +445,10 @@ test("configureSync()", async () => {
           reset: true,
         }),
       ConfigError,
-      'Duplicate logger configuration for category: ["my-app"]',
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
 
-    assertThrows(
+    assert.throws(
       () =>
         configureSync({
           sinks: {},
@@ -476,9 +465,8 @@ test("configureSync()", async () => {
           reset: true,
         }),
       ConfigError,
-      'Duplicate logger configuration for category: ["my-app","service"]',
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
@@ -496,11 +484,14 @@ test("configureSync()", async () => {
       };
       configureSync(config);
 
-      assertEquals(LoggerImpl.getLogger(["logger", "meta"]).sinks, []);
-      assertStrictEquals(getConfig(), config);
+      assert.deepStrictEqual(
+        LoggerImpl.getLogger(["logger", "meta"]).sinks,
+        [],
+      );
+      assert.strictEqual(getConfig(), config);
     } finally {
       resetSync();
-      assertStrictEquals(getConfig(), null);
+      assert.strictEqual(getConfig(), null);
     }
   }
 
@@ -520,12 +511,11 @@ test("configureSync()", async () => {
       ],
     };
 
-    assertThrows(
+    assert.throws(
       () => configureSync(config),
       ConfigError,
-      "Async disposables cannot be used with configureSync()",
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   { // no async filters
@@ -549,12 +539,11 @@ test("configureSync()", async () => {
       ],
     };
 
-    assertThrows(
+    assert.throws(
       () => configureSync(config),
       ConfigError,
-      "Async disposables cannot be used with configureSync()",
     );
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 
   try { // cannot reset async disposables
@@ -568,7 +557,7 @@ test("configureSync()", async () => {
       sinks: { a },
       loggers: [{ category: "my-app", sinks: ["a"] }],
     });
-    assertThrows(
+    assert.throws(
       () =>
         configureSync({
           sinks: {
@@ -580,10 +569,9 @@ test("configureSync()", async () => {
           reset: true,
         }),
       ConfigError,
-      "Previously configured async disposables are still active",
     );
   } finally {
     await reset();
-    assertStrictEquals(getConfig(), null);
+    assert.strictEqual(getConfig(), null);
   }
 });

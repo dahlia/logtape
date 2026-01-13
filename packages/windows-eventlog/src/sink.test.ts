@@ -1,7 +1,7 @@
-import { suite } from "@alinea/suite";
+import assert from "node:assert/strict";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import type { LogLevel, LogRecord } from "@logtape/logtape";
-import { assertEquals, assertThrows } from "@std/assert";
-import { delay } from "@std/async/delay";
 import { getWindowsEventLogSink } from "./mod.ts";
 import {
   getPlatform,
@@ -15,10 +15,6 @@ import {
   type WindowsEventLogSinkOptions,
   WindowsPlatformError,
 } from "./types.ts";
-
-type Describe = (name: string, run: () => void | Promise<void>) => void;
-
-const test: Describe & { skip?: Describe } = suite(import.meta);
 
 // Skip Windows-specific integration tests on non-Windows platforms
 const skipWindowsTests = !isWindows();
@@ -56,7 +52,7 @@ test("validateWindowsPlatform() on Windows", () => {
     validateWindowsPlatform();
   } else {
     // Should throw on non-Windows
-    assertThrows(
+    assert.throws(
       () => validateWindowsPlatform(),
       WindowsPlatformError,
       "Windows Event Log sink can only be used on Windows platforms",
@@ -66,43 +62,53 @@ test("validateWindowsPlatform() on Windows", () => {
 
 test("getPlatform() returns correct platform", () => {
   const platform = getPlatform();
-  assertEquals(typeof platform, "string");
+  assert.strictEqual(typeof platform, "string");
   // Should return a non-empty string
-  assertEquals(platform.length > 0, true);
+  assert.ok(platform.length > 0);
 });
 
 test("isWindows() returns boolean", () => {
   const result = isWindows();
-  assertEquals(typeof result, "boolean");
+  assert.strictEqual(typeof result, "boolean");
 
   // Should match platform check
   const platform = getPlatform();
   const expectedWindows = platform === "windows" || platform === "win32";
-  assertEquals(result, expectedWindows);
+  assert.strictEqual(result, expectedWindows);
 });
 
 test("getRuntime() returns valid runtime", () => {
   const runtime = getRuntime();
   const validRuntimes = ["deno", "node", "bun", "unknown"];
-  assertEquals(validRuntimes.includes(runtime), true);
+  assert.ok(validRuntimes.includes(runtime));
 });
 
-(skipWindowsTests ? test.skip! : test)(
+test(
   "getWindowsEventLogSink() with basic options",
+  { skip: skipWindowsTests },
   () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (skipWindowsTests) return;
+
     const options: WindowsEventLogSinkOptions = {
       sourceName: "LogTape-Test-Basic",
     };
 
     const sink = getWindowsEventLogSink(options);
-    assertEquals(typeof sink, "function");
-    assertEquals(typeof sink[Symbol.dispose], "function");
+    assert.strictEqual(typeof sink, "function");
+    assert.strictEqual(typeof sink[Symbol.dispose], "function");
   },
 );
 
-(skipWindowsTests ? test.skip! : test)(
+test(
   "getWindowsEventLogSink() with advanced options",
+  { skip: skipWindowsTests },
   () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (skipWindowsTests) return;
+
     const options: WindowsEventLogSinkOptions = {
       sourceName: "LogTape-Test-Advanced",
       eventIdMapping: {
@@ -113,12 +119,16 @@ test("getRuntime() returns valid runtime", () => {
     };
 
     const sink = getWindowsEventLogSink(options);
-    assertEquals(typeof sink, "function");
-    assertEquals(typeof sink[Symbol.dispose], "function");
+    assert.strictEqual(typeof sink, "function");
+    assert.strictEqual(typeof sink[Symbol.dispose], "function");
   },
 );
 
-(skipWindowsTests ? test.skip! : test)("Basic logging test", () => {
+test("Basic logging test", { skip: skipWindowsTests }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipWindowsTests) return;
+
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-Integration-Test",
   });
@@ -132,7 +142,11 @@ test("getRuntime() returns valid runtime", () => {
   sink[Symbol.dispose]();
 });
 
-(skipWindowsTests ? test.skip! : test)("Multiple log levels", () => {
+test("Multiple log levels", { skip: skipWindowsTests }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipWindowsTests) return;
+
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-Levels-Test",
   });
@@ -150,7 +164,11 @@ test("getRuntime() returns valid runtime", () => {
   sink[Symbol.dispose]();
 });
 
-(skipWindowsTests ? test.skip! : test)("Structured data logging", () => {
+test("Structured data logging", { skip: skipWindowsTests }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipWindowsTests) return;
+
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-Structured-Test",
   });
@@ -171,7 +189,11 @@ test("getRuntime() returns valid runtime", () => {
   sink[Symbol.dispose]();
 });
 
-(skipWindowsTests ? test.skip! : test)("Unicode and special characters", () => {
+test("Unicode and special characters", { skip: skipWindowsTests }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipWindowsTests) return;
+
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-Unicode-Test",
   });
@@ -188,7 +210,11 @@ test("getRuntime() returns valid runtime", () => {
   sink[Symbol.dispose]();
 });
 
-(skipWindowsTests ? test.skip! : test)("Custom event ID mapping", () => {
+test("Custom event ID mapping", { skip: skipWindowsTests }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipWindowsTests) return;
+
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-CustomIds-Test",
     eventIdMapping: {
@@ -205,7 +231,11 @@ test("getRuntime() returns valid runtime", () => {
   sink[Symbol.dispose]();
 });
 
-(skipWindowsTests ? test.skip! : test)("Sink disposal", () => {
+test("Sink disposal", { skip: skipWindowsTests }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if (skipWindowsTests) return;
+
   const sink = getWindowsEventLogSink({
     sourceName: "LogTape-Disposal-Test",
   });
@@ -224,9 +254,14 @@ test("getRuntime() returns valid runtime", () => {
   sink[Symbol.dispose]();
 });
 
-(skipWindowsTests ? test.skip! : test)(
+test(
   "PowerShell verification - actual event logging",
+  { skip: skipWindowsTests },
   async () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (skipWindowsTests) return;
+
     const uniqueSource = `LogTape-Verification-${Date.now()}`;
     const testMessage = `Verification test message ${Date.now()}`;
 
@@ -251,7 +286,7 @@ test("getRuntime() returns valid runtime", () => {
     const events = await verifyEventsLogged(uniqueSource, 5);
 
     // We should find exactly one event
-    assertEquals(
+    assert.strictEqual(
       events.length,
       1,
       `Expected exactly 1 event, but found ${events.length}`,
@@ -260,12 +295,12 @@ test("getRuntime() returns valid runtime", () => {
     const event = events[0];
 
     // Verify event properties - message may be null due to Windows Event Log behavior
-    assertEquals(
+    assert.strictEqual(
       event.level,
       "Warning",
       `Expected level 'Warning', but got '${event.level}'`,
     );
-    assertEquals(
+    assert.strictEqual(
       event.providerName,
       uniqueSource,
       `Expected provider '${uniqueSource}', but got '${event.providerName}'`,
@@ -277,17 +312,20 @@ test("getRuntime() returns valid runtime", () => {
     // Verify timestamp is recent (within last 5 minutes)
     const eventTime = new Date(event.timeCreated);
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    assertEquals(
+    assert.ok(
       eventTime > fiveMinutesAgo,
-      true,
       `Event timestamp should be recent, but was ${event.timeCreated}`,
     );
   },
 );
 
-(skipWindowsTests ? test.skip! : test)(
+test(
   "PowerShell verification - multiple log levels",
+  { skip: skipWindowsTests },
   async () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (skipWindowsTests) return;
     const uniqueSource = `LogTape-Levels-${Date.now()}`;
 
     const sink = getWindowsEventLogSink({
@@ -321,7 +359,7 @@ test("getRuntime() returns valid runtime", () => {
     const events = await verifyEventsLogged(uniqueSource, 10);
 
     // We should find exactly 3 events
-    assertEquals(
+    assert.strictEqual(
       events.length,
       3,
       `Expected exactly 3 events, but found ${events.length}`,
@@ -331,7 +369,7 @@ test("getRuntime() returns valid runtime", () => {
     const eventLevels = events.map((e) => e.level).sort();
     const expectedLevels = testCases.map((tc) => tc.expectedLevel).sort();
 
-    assertEquals(
+    assert.deepStrictEqual(
       eventLevels,
       expectedLevels,
       `Expected levels ${expectedLevels.join(", ")}, but got ${
@@ -341,7 +379,7 @@ test("getRuntime() returns valid runtime", () => {
 
     // Verify all events have correct provider and recent timestamps
     for (const event of events) {
-      assertEquals(
+      assert.strictEqual(
         event.providerName,
         uniqueSource,
         `Expected provider '${uniqueSource}', but got '${event.providerName}'`,
@@ -349,9 +387,8 @@ test("getRuntime() returns valid runtime", () => {
 
       const eventTime = new Date(event.timeCreated);
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      assertEquals(
+      assert.ok(
         eventTime > fiveMinutesAgo,
-        true,
         `Event timestamp should be recent, but was ${event.timeCreated}`,
       );
     }
@@ -360,19 +397,19 @@ test("getRuntime() returns valid runtime", () => {
 
 test("WindowsPlatformError properties", () => {
   const error = new WindowsPlatformError("linux");
-  assertEquals(error.name, "WindowsPlatformError");
-  assertEquals(error.message.includes("linux"), true);
-  assertEquals(error.message.includes("Windows platforms"), true);
+  assert.strictEqual(error.name, "WindowsPlatformError");
+  assert.ok(error.message.includes("linux"));
+  assert.ok(error.message.includes("Windows platforms"));
 });
 
 test("WindowsEventLogError properties", () => {
   const error = new WindowsEventLogError("Test error");
-  assertEquals(error.name, "WindowsEventLogError");
-  assertEquals(error.message.includes("Test error"), true);
+  assert.strictEqual(error.name, "WindowsEventLogError");
+  assert.ok(error.message.includes("Test error"));
 });
 
 test("WindowsEventLogError with cause", () => {
   const cause = new Error("Original error");
   const error = new WindowsEventLogError("Wrapper error", cause);
-  assertEquals(error.cause, cause);
+  assert.strictEqual(error.cause, cause);
 });

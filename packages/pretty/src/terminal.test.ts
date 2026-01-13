@@ -1,22 +1,19 @@
-import { suite } from "@alinea/suite";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
+import assert from "node:assert/strict";
+import test from "node:test";
 import {
   getOptimalWordWrapWidth,
   getTerminalWidth,
   isTerminal,
 } from "./terminal.ts";
 
-const test = suite(import.meta);
-
 test("isTerminal() returns boolean", () => {
   const result = isTerminal();
-  assert(typeof result === "boolean", "isTerminal should return a boolean");
+  assert.ok(typeof result === "boolean", "isTerminal should return a boolean");
 });
 
 test("getTerminalWidth() returns number or null", () => {
   const result = getTerminalWidth();
-  assert(
+  assert.ok(
     result === null || (typeof result === "number" && result > 0),
     "getTerminalWidth should return null or a positive number",
   );
@@ -27,7 +24,7 @@ test("getOptimalWordWrapWidth() returns default when not in terminal", () => {
   // to distinguish from common terminal widths
   const result = getOptimalWordWrapWidth(123);
 
-  assert(
+  assert.ok(
     typeof result === "number" && result > 0,
     "getOptimalWordWrapWidth should return a positive number",
   );
@@ -35,19 +32,23 @@ test("getOptimalWordWrapWidth() returns default when not in terminal", () => {
   // If we're not in a terminal (which is likely in test environment),
   // we should get the default value
   if (!isTerminal()) {
-    assertEquals(result, 123, "Should return default when not in terminal");
+    assert.strictEqual(
+      result,
+      123,
+      "Should return default when not in terminal",
+    );
   }
 });
 
 test("getOptimalWordWrapWidth() uses reasonable default", () => {
   const result = getOptimalWordWrapWidth();
 
-  assert(
+  assert.ok(
     typeof result === "number" && result > 0,
     "Should return a positive number",
   );
 
-  assert(
+  assert.ok(
     result >= 20 && result <= 1000,
     "Should return a reasonable terminal width (20-1000 columns)",
   );
@@ -59,9 +60,9 @@ test("getOptimalWordWrapWidth() respects custom default", () => {
 
   // If not in terminal, should return custom default
   if (!isTerminal()) {
-    assertEquals(result, customDefault);
+    assert.strictEqual(result, customDefault);
   } else {
     // If in terminal, should return detected width (which may differ)
-    assert(typeof result === "number" && result > 0);
+    assert.ok(typeof result === "number" && result > 0);
   }
 });

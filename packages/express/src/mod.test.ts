@@ -1,5 +1,5 @@
-import { suite } from "@alinea/suite";
-import { assert, assertEquals, assertExists } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { configure, type LogRecord, reset } from "@logtape/logtape";
 import {
   expressLogger,
@@ -8,8 +8,6 @@ import {
   type ExpressResponse,
 } from "./mod.ts";
 import { EventEmitter } from "node:events";
-
-const test = suite(import.meta);
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
 function createTestSink(): {
@@ -109,8 +107,8 @@ test("expressLogger(): creates a middleware function", async () => {
   try {
     const middleware = expressLogger();
 
-    assertEquals(typeof middleware, "function");
-    assertEquals(middleware.length, 3); // req, res, next
+    assert.strictEqual(typeof middleware, "function");
+    assert.strictEqual(middleware.length, 3); // req, res, next
   } finally {
     await cleanup();
   }
@@ -129,7 +127,7 @@ test("expressLogger(): calls next() to continue middleware chain", async () => {
 
     middleware(req, res, next);
 
-    assert(nextCalled);
+    assert.ok(nextCalled);
   } finally {
     await cleanup();
   }
@@ -150,8 +148,8 @@ test("expressLogger(): uses default category ['express']", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["express"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["express"]);
   } finally {
     await cleanup();
   }
@@ -168,8 +166,8 @@ test("expressLogger(): uses custom category array", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp", "http"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp", "http"]);
   } finally {
     await cleanup();
   }
@@ -186,8 +184,8 @@ test("expressLogger(): accepts string category", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp"]);
   } finally {
     await cleanup();
   }
@@ -208,8 +206,8 @@ test("expressLogger(): uses default log level 'info'", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "info");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "info");
   } finally {
     await cleanup();
   }
@@ -226,8 +224,8 @@ test("expressLogger(): uses custom log level 'debug'", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "debug");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
   } finally {
     await cleanup();
   }
@@ -244,8 +242,8 @@ test("expressLogger(): uses custom log level 'warning'", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "warning");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
   } finally {
     await cleanup();
   }
@@ -262,8 +260,8 @@ test("expressLogger(): uses custom log level 'error'", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "error");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
   } finally {
     await cleanup();
   }
@@ -288,17 +286,17 @@ test("expressLogger(): combined format logs structured properties", async () => 
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
-    assertEquals(props.method, "GET");
-    assertEquals(props.url, "/test");
-    assertEquals(props.status, 200);
-    assertExists(props.responseTime);
-    assertEquals(props.contentLength, "123");
-    assertEquals(props.remoteAddr, "127.0.0.1");
-    assertEquals(props.userAgent, "test-agent/1.0");
-    assertEquals(props.referrer, "http://example.com");
-    assertEquals(props.httpVersion, "1.1");
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.url, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.contentLength, "123");
+    assert.strictEqual(props.remoteAddr, "127.0.0.1");
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
+    assert.strictEqual(props.httpVersion, "1.1");
   } finally {
     await cleanup();
   }
@@ -319,13 +317,13 @@ test("expressLogger(): common format excludes referrer and userAgent", async () 
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
-    assertEquals(props.method, "GET");
-    assertEquals(props.url, "/test");
-    assertEquals(props.status, 200);
-    assertEquals(props.referrer, undefined);
-    assertEquals(props.userAgent, undefined);
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.url, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
   } finally {
     await cleanup();
   }
@@ -353,13 +351,13 @@ test("expressLogger(): dev format returns string message", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("POST"));
-    assert(msg.includes("/api/users"));
-    assert(msg.includes("201"));
-    assert(msg.includes("ms"));
-    assert(msg.includes("456"));
+    assert.ok(msg.includes("POST"));
+    assert.ok(msg.includes("/api/users"));
+    assert.ok(msg.includes("201"));
+    assert.ok(msg.includes("ms"));
+    assert.ok(msg.includes("456"));
   } finally {
     await cleanup();
   }
@@ -380,12 +378,12 @@ test("expressLogger(): short format includes remote addr", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("192.168.1.1"));
-    assert(msg.includes("GET"));
-    assert(msg.includes("/test"));
-    assert(msg.includes("HTTP/1.1"));
+    assert.ok(msg.includes("192.168.1.1"));
+    assert.ok(msg.includes("GET"));
+    assert.ok(msg.includes("/test"));
+    assert.ok(msg.includes("HTTP/1.1"));
   } finally {
     await cleanup();
   }
@@ -406,14 +404,14 @@ test("expressLogger(): tiny format is minimal", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("GET"));
-    assert(msg.includes("/test"));
-    assert(msg.includes("404"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("GET"));
+    assert.ok(msg.includes("/test"));
+    assert.ok(msg.includes("404"));
+    assert.ok(msg.includes("ms"));
     // Should NOT include remote addr in tiny format
-    assert(!msg.includes("127.0.0.1"));
+    assert.ok(!msg.includes("127.0.0.1"));
   } finally {
     await cleanup();
   }
@@ -437,8 +435,8 @@ test("expressLogger(): custom format returning string", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].rawMessage, "Custom: DELETE 204");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "Custom: DELETE 204");
   } finally {
     await cleanup();
   }
@@ -461,10 +459,10 @@ test("expressLogger(): custom format returning object", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.customMethod, "PATCH");
-    assertEquals(logs[0].properties.customStatus, 202);
-    assertExists(logs[0].properties.customDuration);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.customMethod, "PATCH");
+    assert.strictEqual(logs[0].properties.customStatus, 202);
+    assert.notStrictEqual(logs[0].properties.customDuration, null);
   } finally {
     await cleanup();
   }
@@ -487,7 +485,7 @@ test("expressLogger(): skip function prevents logging when returns true", async 
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 0);
+    assert.strictEqual(logs.length, 0);
   } finally {
     await cleanup();
   }
@@ -506,7 +504,7 @@ test("expressLogger(): skip function allows logging when returns false", async (
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -527,7 +525,7 @@ test("expressLogger(): skip function receives req and res", async () => {
     middleware(req1, res1, next);
     finishResponse(res1);
 
-    assertEquals(logs.length, 0); // Skipped
+    assert.strictEqual(logs.length, 0); // Skipped
 
     // Request with 500 status - should log
     const req2 = createMockRequest();
@@ -536,8 +534,8 @@ test("expressLogger(): skip function receives req and res", async () => {
     middleware(req2, res2, next);
     finishResponse(res2);
 
-    assertEquals(logs.length, 1); // Logged
-    assertEquals(logs[0].properties.status, 500);
+    assert.strictEqual(logs.length, 1); // Logged
+    assert.strictEqual(logs[0].properties.status, 500);
   } finally {
     await cleanup();
   }
@@ -558,8 +556,8 @@ test("expressLogger(): immediate mode logs before response", async () => {
     middleware(req, res, next);
     // Note: Don't call finishResponse - it should already be logged
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.responseTime, 0); // Zero because it's immediate
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.responseTime, 0); // Zero because it's immediate
   } finally {
     await cleanup();
   }
@@ -575,11 +573,11 @@ test("expressLogger(): non-immediate mode logs after response", async () => {
 
     middleware(req, res, next);
 
-    assertEquals(logs.length, 0); // Not logged yet
+    assert.strictEqual(logs.length, 0); // Not logged yet
 
     finishResponse(res);
 
-    assertEquals(logs.length, 1); // Now logged
+    assert.strictEqual(logs.length, 1); // Now logged
   } finally {
     await cleanup();
   }
@@ -604,9 +602,9 @@ test("expressLogger(): logs correct method", async () => {
       finishResponse(res);
     }
 
-    assertEquals(logs.length, methods.length);
+    assert.strictEqual(logs.length, methods.length);
     for (let i = 0; i < methods.length; i++) {
-      assertEquals(logs[i].properties.method, methods[i]);
+      assert.strictEqual(logs[i].properties.method, methods[i]);
     }
   } finally {
     await cleanup();
@@ -627,8 +625,8 @@ test("expressLogger(): logs originalUrl over url", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.url, "/api/v1/users");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.url, "/api/v1/users");
   } finally {
     await cleanup();
   }
@@ -648,8 +646,8 @@ test("expressLogger(): falls back to url when originalUrl is undefined", async (
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.url, "/fallback");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.url, "/fallback");
   } finally {
     await cleanup();
   }
@@ -670,9 +668,9 @@ test("expressLogger(): logs status code", async () => {
       finishResponse(res);
     }
 
-    assertEquals(logs.length, statusCodes.length);
+    assert.strictEqual(logs.length, statusCodes.length);
     for (let i = 0; i < statusCodes.length; i++) {
-      assertEquals(logs[i].properties.status, statusCodes[i]);
+      assert.strictEqual(logs[i].properties.status, statusCodes[i]);
     }
   } finally {
     await cleanup();
@@ -694,9 +692,9 @@ test("expressLogger(): logs response time as number", async () => {
 
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(typeof logs[0].properties.responseTime, "number");
-    assert((logs[0].properties.responseTime as number) >= 0);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(typeof logs[0].properties.responseTime, "number");
+    assert.ok((logs[0].properties.responseTime as number) >= 0);
   } finally {
     await cleanup();
   }
@@ -717,8 +715,8 @@ test("expressLogger(): logs content-length when present", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.contentLength, "1024");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.contentLength, "1024");
   } finally {
     await cleanup();
   }
@@ -735,8 +733,8 @@ test("expressLogger(): logs undefined contentLength when not set", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.contentLength, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.contentLength, undefined);
   } finally {
     await cleanup();
   }
@@ -753,8 +751,8 @@ test("expressLogger(): logs remote address from req.ip", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.remoteAddr, "10.0.0.1");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.remoteAddr, "10.0.0.1");
   } finally {
     await cleanup();
   }
@@ -774,8 +772,8 @@ test("expressLogger(): falls back to socket.remoteAddress", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.remoteAddr, "192.168.0.1");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.remoteAddr, "192.168.0.1");
   } finally {
     await cleanup();
   }
@@ -792,8 +790,8 @@ test("expressLogger(): logs HTTP version", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.httpVersion, "2.0");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.httpVersion, "2.0");
   } finally {
     await cleanup();
   }
@@ -817,10 +815,10 @@ test("expressLogger(): handles multiple sequential requests", async () => {
       finishResponse(res);
     }
 
-    assertEquals(logs.length, 5);
+    assert.strictEqual(logs.length, 5);
     for (let i = 0; i < 5; i++) {
-      assertEquals(logs[i].properties.url, `/path/${i}`);
-      assertEquals(logs[i].properties.status, 200 + i);
+      assert.strictEqual(logs[i].properties.url, `/path/${i}`);
+      assert.strictEqual(logs[i].properties.status, 200 + i);
     }
   } finally {
     await cleanup();
@@ -844,8 +842,8 @@ test("expressLogger(): handles missing user-agent", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.userAgent, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.userAgent, undefined);
   } finally {
     await cleanup();
   }
@@ -867,8 +865,8 @@ test("expressLogger(): handles missing referrer", async () => {
     middleware(req, res, next);
     finishResponse(res);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.referrer, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.referrer, undefined);
   } finally {
     await cleanup();
   }

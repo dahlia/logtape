@@ -1,10 +1,8 @@
-import { suite } from "@alinea/suite";
-import { assert, assertEquals, assertExists } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { configure, type LogRecord, reset } from "@logtape/logtape";
 import { Hono } from "hono";
 import { honoLogger } from "./mod.ts";
-
-const test = suite(import.meta);
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
 function createTestSink(): {
@@ -43,7 +41,7 @@ test("honoLogger(): creates a middleware function", async () => {
   const { cleanup } = await setupLogtape();
   try {
     const middleware = honoLogger();
-    assertEquals(typeof middleware, "function");
+    assert.strictEqual(typeof middleware, "function");
   } finally {
     await cleanup();
   }
@@ -57,8 +55,8 @@ test("honoLogger(): logs request after response", async () => {
     app.get("/test", (c) => c.text("Hello"));
 
     const res = await app.request("/test");
-    assertEquals(res.status, 200);
-    assertEquals(logs.length, 1);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -77,8 +75,8 @@ test("honoLogger(): uses default category ['hono']", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["hono"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["hono"]);
   } finally {
     await cleanup();
   }
@@ -93,8 +91,8 @@ test("honoLogger(): uses custom category array", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp", "http"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp", "http"]);
   } finally {
     await cleanup();
   }
@@ -109,8 +107,8 @@ test("honoLogger(): accepts string category", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp"]);
   } finally {
     await cleanup();
   }
@@ -129,8 +127,8 @@ test("honoLogger(): uses default log level 'info'", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "info");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "info");
   } finally {
     await cleanup();
   }
@@ -145,8 +143,8 @@ test("honoLogger(): uses custom log level 'debug'", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "debug");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
   } finally {
     await cleanup();
   }
@@ -161,8 +159,8 @@ test("honoLogger(): uses custom log level 'warning'", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "warning");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
   } finally {
     await cleanup();
   }
@@ -186,15 +184,15 @@ test("honoLogger(): combined format logs structured properties", async () => {
       },
     });
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
-    assertEquals(props.method, "GET");
-    assert((props.url as string).includes("/test"));
-    assertEquals(props.path, "/test");
-    assertEquals(props.status, 200);
-    assertExists(props.responseTime);
-    assertEquals(props.userAgent, "test-agent/1.0");
-    assertEquals(props.referrer, "http://example.com");
+    assert.strictEqual(props.method, "GET");
+    assert.ok((props.url as string).includes("/test"));
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
   } finally {
     await cleanup();
   }
@@ -218,13 +216,13 @@ test("honoLogger(): common format excludes referrer and userAgent", async () => 
       },
     });
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
-    assertEquals(props.method, "GET");
-    assertEquals(props.path, "/test");
-    assertEquals(props.status, 200);
-    assertEquals(props.referrer, undefined);
-    assertEquals(props.userAgent, undefined);
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
   } finally {
     await cleanup();
   }
@@ -246,12 +244,12 @@ test("honoLogger(): dev format returns string message", async () => {
 
     await app.request("/api/users", { method: "POST" });
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("POST"));
-    assert(msg.includes("/api/users"));
-    assert(msg.includes("201"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("POST"));
+    assert.ok(msg.includes("/api/users"));
+    assert.ok(msg.includes("201"));
+    assert.ok(msg.includes("ms"));
   } finally {
     await cleanup();
   }
@@ -270,12 +268,12 @@ test("honoLogger(): short format includes url", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("GET"));
-    assert(msg.includes("/test"));
-    assert(msg.includes("200"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("GET"));
+    assert.ok(msg.includes("/test"));
+    assert.ok(msg.includes("200"));
+    assert.ok(msg.includes("ms"));
   } finally {
     await cleanup();
   }
@@ -293,14 +291,14 @@ test("honoLogger(): tiny format is minimal", async () => {
     app.get("/test", (c) => c.text("Hello"));
 
     const res = await app.request("/test");
-    assertEquals(res.status, 200);
+    assert.strictEqual(res.status, 200);
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
     const msg = logs[0].rawMessage;
-    assert(msg.includes("GET"));
-    assert(msg.includes("/test"));
-    assert(msg.includes("200"));
-    assert(msg.includes("ms"));
+    assert.ok(msg.includes("GET"));
+    assert.ok(msg.includes("/test"));
+    assert.ok(msg.includes("200"));
+    assert.ok(msg.includes("ms"));
   } finally {
     await cleanup();
   }
@@ -324,8 +322,8 @@ test("honoLogger(): custom format returning string", async () => {
 
     await app.request("/test", { method: "DELETE" });
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].rawMessage, "Custom: DELETE 204");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "Custom: DELETE 204");
   } finally {
     await cleanup();
   }
@@ -349,10 +347,10 @@ test("honoLogger(): custom format returning object", async () => {
 
     await app.request("/test", { method: "PATCH" });
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.customMethod, "PATCH");
-    assertEquals(logs[0].properties.customStatus, 202);
-    assertExists(logs[0].properties.customDuration);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.customMethod, "PATCH");
+    assert.strictEqual(logs[0].properties.customStatus, 202);
+    assert.notStrictEqual(logs[0].properties.customDuration, null);
   } finally {
     await cleanup();
   }
@@ -373,7 +371,7 @@ test("honoLogger(): skip function prevents logging when returns true", async () 
 
     await app.request("/test");
 
-    assertEquals(logs.length, 0);
+    assert.strictEqual(logs.length, 0);
   } finally {
     await cleanup();
   }
@@ -390,7 +388,7 @@ test("honoLogger(): skip function allows logging when returns false", async () =
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -408,11 +406,11 @@ test("honoLogger(): skip function receives context", async () => {
 
     // Health endpoint should be skipped
     await app.request("/health");
-    assertEquals(logs.length, 0);
+    assert.strictEqual(logs.length, 0);
 
     // Other endpoints should be logged
     await app.request("/test");
-    assertEquals(logs.length, 1);
+    assert.strictEqual(logs.length, 1);
   } finally {
     await cleanup();
   }
@@ -431,8 +429,8 @@ test("honoLogger(): logRequest mode logs at request start", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.responseTime, 0); // Zero because it's immediate
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.responseTime, 0); // Zero because it's immediate
   } finally {
     await cleanup();
   }
@@ -451,8 +449,8 @@ test("honoLogger(): non-logRequest mode logs after response", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assert((logs[0].properties.responseTime as number) >= 0);
+    assert.strictEqual(logs.length, 1);
+    assert.ok((logs[0].properties.responseTime as number) >= 0);
   } finally {
     await cleanup();
   }
@@ -477,9 +475,9 @@ test("honoLogger(): logs correct method", async () => {
       await app.request("/test", { method });
     }
 
-    assertEquals(logs.length, methods.length);
+    assert.strictEqual(logs.length, methods.length);
     for (let i = 0; i < methods.length; i++) {
-      assertEquals(logs[i].properties.method, methods[i]);
+      assert.strictEqual(logs[i].properties.method, methods[i]);
     }
   } finally {
     await cleanup();
@@ -495,8 +493,8 @@ test("honoLogger(): logs path correctly", async () => {
 
     await app.request("/api/v1/users");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.path, "/api/v1/users");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.path, "/api/v1/users");
   } finally {
     await cleanup();
   }
@@ -529,9 +527,9 @@ test("honoLogger(): logs status code", async () => {
       await app.request(path);
     }
 
-    assertEquals(logs.length, paths.length);
+    assert.strictEqual(logs.length, paths.length);
     for (let i = 0; i < paths.length; i++) {
-      assertEquals(logs[i].properties.status, expectedStatuses[i]);
+      assert.strictEqual(logs[i].properties.status, expectedStatuses[i]);
     }
   } finally {
     await cleanup();
@@ -547,9 +545,9 @@ test("honoLogger(): logs response time as number", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(typeof logs[0].properties.responseTime, "number");
-    assert((logs[0].properties.responseTime as number) >= 0);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(typeof logs[0].properties.responseTime, "number");
+    assert.ok((logs[0].properties.responseTime as number) >= 0);
   } finally {
     await cleanup();
   }
@@ -566,8 +564,8 @@ test("honoLogger(): logs user agent", async () => {
       headers: { "User-Agent": "TestClient/1.0" },
     });
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.userAgent, "TestClient/1.0");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.userAgent, "TestClient/1.0");
   } finally {
     await cleanup();
   }
@@ -584,8 +582,8 @@ test("honoLogger(): logs referrer", async () => {
       headers: { "Referer": "https://example.com/page" },
     });
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.referrer, "https://example.com/page");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.referrer, "https://example.com/page");
   } finally {
     await cleanup();
   }
@@ -606,9 +604,9 @@ test("honoLogger(): handles multiple sequential requests", async () => {
       await app.request(`/path/${i}`);
     }
 
-    assertEquals(logs.length, 5);
+    assert.strictEqual(logs.length, 5);
     for (let i = 0; i < 5; i++) {
-      assertEquals(logs[i].properties.path, `/path/${i}`);
+      assert.strictEqual(logs[i].properties.path, `/path/${i}`);
     }
   } finally {
     await cleanup();
@@ -628,8 +626,8 @@ test("honoLogger(): handles missing user-agent", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.userAgent, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.userAgent, undefined);
   } finally {
     await cleanup();
   }
@@ -644,8 +642,8 @@ test("honoLogger(): handles missing referrer", async () => {
 
     await app.request("/test");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.referrer, undefined);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.referrer, undefined);
   } finally {
     await cleanup();
   }
@@ -660,10 +658,10 @@ test("honoLogger(): handles query parameters in url", async () => {
 
     await app.request("/search?q=test&limit=10");
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.path, "/search");
-    assert((logs[0].properties.url as string).includes("q=test"));
-    assert((logs[0].properties.url as string).includes("limit=10"));
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.path, "/search");
+    assert.ok((logs[0].properties.url as string).includes("q=test"));
+    assert.ok((logs[0].properties.url as string).includes("limit=10"));
   } finally {
     await cleanup();
   }

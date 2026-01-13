@@ -1,10 +1,8 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
+import assert from "node:assert/strict";
+import test from "node:test";
 import winston from "winston";
 import WinstonTransport from "winston-transport";
 import { getWinstonSink, type Logger } from "./mod.ts";
-
-const test = suite(import.meta);
 
 interface LogEvent extends Record<string, unknown> {
   level: keyof Logger;
@@ -41,11 +39,11 @@ test("getWinstonSink(): basic scenario", () => {
     rawMessage: "Test log: {value}",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs.length, 1);
   const log = buffer.logs[0];
-  assertEquals(log.level, "info");
-  assertEquals(log.message, "Test log: { foo: 123 }");
-  assertEquals(log.value, { foo: 123 });
+  assert.strictEqual(log.level, "info");
+  assert.strictEqual(log.message, "Test log: { foo: 123 }");
+  assert.deepStrictEqual(log.value, { foo: 123 });
 });
 
 test("getWinstonSink(): default level mapping", () => {
@@ -75,8 +73,8 @@ test("getWinstonSink(): default level mapping", () => {
       rawMessage: `${logTapeLevel} message`,
       timestamp: Date.now(),
     });
-    assertEquals(buffer.logs.length, 1);
-    assertEquals(buffer.logs[0].level, expectedWinstonLevel);
+    assert.strictEqual(buffer.logs.length, 1);
+    assert.strictEqual(buffer.logs[0].level, expectedWinstonLevel);
   }
 });
 
@@ -105,8 +103,8 @@ test("getWinstonSink(): custom level mapping", () => {
     rawMessage: "trace message",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].level, "debug");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].level, "debug");
 });
 
 test("getWinstonSink(): category disabled", () => {
@@ -126,8 +124,8 @@ test("getWinstonSink(): category disabled", () => {
     rawMessage: "Database connected",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, "Database connected");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].message, "Database connected");
 });
 
 test("getWinstonSink(): category with default formatting", () => {
@@ -147,8 +145,11 @@ test("getWinstonSink(): category with default formatting", () => {
     rawMessage: "Database connected",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, "app·database: Database connected");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(
+    buffer.logs[0].message,
+    "app·database: Database connected",
+  );
 });
 
 test("getWinstonSink(): category with custom separator", () => {
@@ -170,8 +171,8 @@ test("getWinstonSink(): category with custom separator", () => {
     rawMessage: "Database connected",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(
     buffer.logs[0].message,
     "app.database.connection: Database connected",
   );
@@ -209,8 +210,8 @@ test("getWinstonSink(): category with different decorators", () => {
       rawMessage: "Message",
       timestamp: Date.now(),
     });
-    assertEquals(buffer.logs.length, 1);
-    assertEquals(buffer.logs[0].message, expected);
+    assert.strictEqual(buffer.logs.length, 1);
+    assert.strictEqual(buffer.logs[0].message, expected);
   }
 });
 
@@ -233,8 +234,8 @@ test("getWinstonSink(): category at end position", () => {
     rawMessage: "Database connected",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, "Database connected: app·db");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].message, "Database connected: app·db");
 });
 
 test("getWinstonSink(): category at end with different decorators", () => {
@@ -272,8 +273,8 @@ test("getWinstonSink(): category at end with different decorators", () => {
       rawMessage: "Message",
       timestamp: Date.now(),
     });
-    assertEquals(buffer.logs.length, 1);
-    assertEquals(buffer.logs[0].message, expected);
+    assert.strictEqual(buffer.logs.length, 1);
+    assert.strictEqual(buffer.logs[0].message, expected);
   }
 });
 
@@ -294,8 +295,8 @@ test("getWinstonSink(): empty category", () => {
     rawMessage: "Message without category",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, "Message without category");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].message, "Message without category");
 });
 
 test("getWinstonSink(): custom value formatter", () => {
@@ -315,8 +316,11 @@ test("getWinstonSink(): custom value formatter", () => {
     rawMessage: "User: {user}",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, 'User: CUSTOM:{"name":"John","age":30}');
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(
+    buffer.logs[0].message,
+    'User: CUSTOM:{"name":"John","age":30}',
+  );
 });
 
 test("getWinstonSink(): message interpolation", () => {
@@ -334,8 +338,8 @@ test("getWinstonSink(): message interpolation", () => {
     rawMessage: "Hello {name}, count: {count}!",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, "Hello 'world', count: 42!");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].message, "Hello 'world', count: 42!");
 });
 
 test("getWinstonSink(): properties are passed to winston", () => {
@@ -359,10 +363,10 @@ test("getWinstonSink(): properties are passed to winston", () => {
     rawMessage: "User action performed",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].userId, 123);
-  assertEquals(buffer.logs[0].requestId, "abc-def-ghi");
-  assertEquals(buffer.logs[0].metadata, { version: "1.0.0" });
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].userId, 123);
+  assert.strictEqual(buffer.logs[0].requestId, "abc-def-ghi");
+  assert.deepStrictEqual(buffer.logs[0].metadata, { version: "1.0.0" });
 });
 
 test("getWinstonSink(): single category", () => {
@@ -382,8 +386,8 @@ test("getWinstonSink(): single category", () => {
     rawMessage: "Single category message",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(buffer.logs[0].message, "app: Single category message");
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(buffer.logs[0].message, "app: Single category message");
 });
 
 test("getWinstonSink(): complex category with custom options", () => {
@@ -407,8 +411,8 @@ test("getWinstonSink(): complex category with custom options", () => {
     rawMessage: "User logged in successfully",
     timestamp: Date.now(),
   });
-  assertEquals(buffer.logs.length, 1);
-  assertEquals(
+  assert.strictEqual(buffer.logs.length, 1);
+  assert.strictEqual(
     buffer.logs[0].message,
     "User logged in successfully [myapp/api/auth/login]",
   );

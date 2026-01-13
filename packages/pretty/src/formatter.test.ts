@@ -1,16 +1,11 @@
-import { suite } from "@alinea/suite";
+import assert from "node:assert/strict";
+import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertMatch } from "@std/assert/match";
-import { assertStringIncludes } from "@std/assert/string-includes";
 import {
   type CategoryColorMap,
   getPrettyFormatter,
   prettyFormatter,
 } from "./formatter.ts";
-
-const test = suite(import.meta);
 
 function createLogRecord(
   level: LogRecord["level"],
@@ -44,11 +39,11 @@ test("prettyFormatter basic output", () => {
   const output = prettyFormatter(record);
 
   // Should contain emoji, level, category, and message
-  assertMatch(output, /✨/);
-  assertMatch(output, /info/); // Default level format is "full"
-  assertMatch(output, /app·server/);
-  assertMatch(output, /Server started on port/);
-  assertMatch(output, /3000/);
+  assert.match(output, /✨/);
+  assert.match(output, /info/); // Default level format is "full"
+  assert.match(output, /app·server/);
+  assert.match(output, /Server started on port/);
+  assert.match(output, /3000/);
 });
 
 test("getPrettyFormatter() with no colors", () => {
@@ -62,9 +57,9 @@ test("getPrettyFormatter() with no colors", () => {
   const output = formatter(record);
 
   // Should not contain ANSI escape codes
-  assertEquals(output.includes("\x1b["), false);
-  assertMatch(output, /❌ error/); // Default level format is "full"
-  assertMatch(output, /app·auth/);
+  assert.strictEqual(output.includes("\x1b["), false);
+  assert.match(output, /❌ error/); // Default level format is "full"
+  assert.match(output, /app·auth/);
 });
 
 test("getPrettyFormatter() with custom icons", () => {
@@ -78,8 +73,8 @@ test("getPrettyFormatter() with custom icons", () => {
   const infoRecord = createLogRecord("info", ["test"], ["Info message"]);
   const errorRecord = createLogRecord("error", ["test"], ["Error message"]);
 
-  assertMatch(formatter(infoRecord), /ℹ️/);
-  assertMatch(formatter(errorRecord), /🔥/);
+  assert.match(formatter(infoRecord), /ℹ️/);
+  assert.match(formatter(errorRecord), /🔥/);
 });
 
 test("getPrettyFormatter() with no icons", () => {
@@ -89,8 +84,8 @@ test("getPrettyFormatter() with no icons", () => {
   const output = formatter(record);
 
   // Should not contain any emoji
-  assertEquals(output.includes("✨"), false);
-  assertEquals(output.includes("🐛"), false);
+  assert.strictEqual(output.includes("✨"), false);
+  assert.strictEqual(output.includes("🐛"), false);
 });
 
 test("getPrettyFormatter() with timestamp", () => {
@@ -100,32 +95,32 @@ test("getPrettyFormatter() with timestamp", () => {
   const timeFormatter = getPrettyFormatter({ timestamp: "time" });
   const record = createLogRecord("info", ["test"], ["Message"], timestamp);
   const timeOutput = timeFormatter(record);
-  assertMatch(timeOutput, /\d{2}:\d{2}:\d{2}/);
+  assert.match(timeOutput, /\d{2}:\d{2}:\d{2}/);
 
   // Date and time
   const datetimeFormatter = getPrettyFormatter({ timestamp: "date-time" });
   const datetimeOutput = datetimeFormatter(record);
-  assertMatch(datetimeOutput, /2024-01-15/);
-  assertMatch(datetimeOutput, /\d{2}:\d{2}:\d{2}/);
+  assert.match(datetimeOutput, /2024-01-15/);
+  assert.match(datetimeOutput, /\d{2}:\d{2}:\d{2}/);
 
   // Custom formatter
   const customFormatter = getPrettyFormatter({
     timestamp: (ts) => new Date(ts).toISOString(),
   });
   const customOutput = customFormatter(record);
-  assertMatch(customOutput, /2024-01-15T12:34:56/);
+  assert.match(customOutput, /2024-01-15T12:34:56/);
 
   // Test function returning null
   const nullFormatter = getPrettyFormatter({
     timestamp: () => null,
   });
   const nullOutput = nullFormatter(record);
-  assertEquals(nullOutput.includes("2024"), false);
+  assert.strictEqual(nullOutput.includes("2024"), false);
 
   // Test none timestamp
   const noneFormatter = getPrettyFormatter({ timestamp: "none" });
   const noneOutput = noneFormatter(record);
-  assertEquals(noneOutput.includes("2024"), false);
+  assert.strictEqual(noneOutput.includes("2024"), false);
 });
 
 test("getPrettyFormatter() category truncation", () => {
@@ -142,8 +137,8 @@ test("getPrettyFormatter() category truncation", () => {
 
   const output = formatter(record);
   // Category should be truncated and contain app
-  assertMatch(output, /app/);
-  assertMatch(output, /…/);
+  assert.match(output, /app/);
+  assert.match(output, /…/);
 });
 
 test("getPrettyFormatter() with null colors", () => {
@@ -157,9 +152,9 @@ test("getPrettyFormatter() with null colors", () => {
   const record = createLogRecord("info", ["test"], ["Message"]);
   const result = formatter(record);
   // Should work without errors and have basic formatting
-  assertStringIncludes(result, "info"); // Default level format is "full"
-  assertStringIncludes(result, "test");
-  assertStringIncludes(result, "Message");
+  assert.ok(result.includes("info")); // Default level format is "full"
+  assert.ok(result.includes("test"));
+  assert.ok(result.includes("Message"));
 });
 
 test("getPrettyFormatter() with values", () => {
@@ -171,10 +166,10 @@ test("getPrettyFormatter() with values", () => {
   );
 
   const output = formatter(record);
-  assertMatch(output, /User data:/);
-  assertMatch(output, /123/);
-  assertMatch(output, /John/);
-  assertMatch(output, /1.*2.*3/);
+  assert.match(output, /User data:/);
+  assert.match(output, /123/);
+  assert.match(output, /John/);
+  assert.match(output, /1.*2.*3/);
 });
 
 test("getPrettyFormatter() all log levels", () => {
@@ -194,9 +189,9 @@ test("getPrettyFormatter() all log levels", () => {
     const record = createLogRecord(level, ["test"], [`${level} message`]);
     const output = formatter(record);
 
-    assertMatch(output, new RegExp(expectedIcons[i]));
+    assert.match(output, new RegExp(expectedIcons[i]));
     // Check for full level format (default)
-    assertMatch(output, new RegExp(level));
+    assert.match(output, new RegExp(level));
   });
 });
 
@@ -212,8 +207,8 @@ test("getPrettyFormatter() alignment", () => {
 
   // With alignment, warning (longer) should have more padding before the category
   // Just check that both outputs contain the expected content
-  assertMatch(outputs[0], /✨ info.*app.*Short/); // Default level format is "full"
-  assertMatch(outputs[1], /⚡.*warning.*app.*Longer level/); // Default level format is "full"
+  assert.match(outputs[0], /✨ info.*app.*Short/); // Default level format is "full"
+  assert.match(outputs[1], /⚡.*warning.*app.*Longer level/); // Default level format is "full"
 });
 
 test("getPrettyFormatter() no alignment", () => {
@@ -223,7 +218,7 @@ test("getPrettyFormatter() no alignment", () => {
   const output = formatter(record);
 
   // Should still be formatted but without padding
-  assertMatch(output, /✨ info app Message/); // Default level format is "full"
+  assert.match(output, /✨ info app Message/); // Default level format is "full"
 });
 
 test("getPrettyFormatter() with hex colors", () => {
@@ -239,7 +234,7 @@ test("getPrettyFormatter() with hex colors", () => {
   const record = createLogRecord("info", ["test"], ["Message"]);
   const result = formatter(record);
   // Should contain true color ANSI codes for hex colors
-  assertStringIncludes(result, "\x1b[38;2;0;255;0m"); // #00ff00 converted to RGB
+  assert.ok(result.includes("\x1b[38;2;0;255;0m")); // #00ff00 converted to RGB
 });
 
 test("getPrettyFormatter() with rgb colors", () => {
@@ -254,8 +249,8 @@ test("getPrettyFormatter() with rgb colors", () => {
   const record = createLogRecord("info", ["test"], ["Message"]);
   const result = formatter(record);
   // Should contain true color ANSI codes for RGB colors
-  assertStringIncludes(result, "\x1b[38;2;255;128;0m"); // rgb(255,128,0)
-  assertStringIncludes(result, "\x1b[38;2;100;100;100m"); // timestamp color
+  assert.ok(result.includes("\x1b[38;2;255;128;0m")); // rgb(255,128,0)
+  assert.ok(result.includes("\x1b[38;2;100;100;100m")); // timestamp color
 });
 
 test("getPrettyFormatter() with level formats", () => {
@@ -270,10 +265,10 @@ test("getPrettyFormatter() with level formats", () => {
   const letterResult = letter(record);
   const customResult = custom(record);
 
-  assertStringIncludes(abbrResult, "INF");
-  assertStringIncludes(fullResult, "INFO");
-  assertStringIncludes(letterResult, "I");
-  assertStringIncludes(customResult, "[info]");
+  assert.ok(abbrResult.includes("INF"));
+  assert.ok(fullResult.includes("INFO"));
+  assert.ok(letterResult.includes("I"));
+  assert.ok(customResult.includes("[info]"));
 });
 
 test("getPrettyFormatter() with extended timestamp formats", () => {
@@ -306,20 +301,20 @@ test("getPrettyFormatter() with extended timestamp formats", () => {
   const disabledResult = disabled(record);
 
   // Check that appropriate timestamps are included
-  assertStringIncludes(dateTimeTimezoneResult, "2023-05-15");
-  assertStringIncludes(dateTimeTimezoneResult, "+00:00");
-  assertStringIncludes(dateTimeTzResult, "2023-05-15");
-  assertStringIncludes(dateTimeTzResult, "+00");
-  assertStringIncludes(dateTimeResult, "2023-05-15");
-  assertStringIncludes(timeTimezoneResult, "10:30:00");
-  assertStringIncludes(timeTzResult, "10:30:00");
-  assertStringIncludes(rfc3339Result, "2023-05-15T10:30:00.000Z");
-  assertStringIncludes(dateOnlyResult, "2023-05-15");
-  assertStringIncludes(datetimeResult, "2023-05-15 10:30:00");
+  assert.ok(dateTimeTimezoneResult.includes("2023-05-15"));
+  assert.ok(dateTimeTimezoneResult.includes("+00:00"));
+  assert.ok(dateTimeTzResult.includes("2023-05-15"));
+  assert.ok(dateTimeTzResult.includes("+00"));
+  assert.ok(dateTimeResult.includes("2023-05-15"));
+  assert.ok(timeTimezoneResult.includes("10:30:00"));
+  assert.ok(timeTzResult.includes("10:30:00"));
+  assert.ok(rfc3339Result.includes("2023-05-15T10:30:00.000Z"));
+  assert.ok(dateOnlyResult.includes("2023-05-15"));
+  assert.ok(datetimeResult.includes("2023-05-15 10:30:00"));
 
   // Check that none/disabled don't include timestamps
-  assertEquals(noneResult.includes("2023"), false);
-  assertEquals(disabledResult.includes("2023"), false);
+  assert.strictEqual(noneResult.includes("2023"), false);
+  assert.strictEqual(disabledResult.includes("2023"), false);
 });
 
 test("getPrettyFormatter() with styles", () => {
@@ -334,10 +329,10 @@ test("getPrettyFormatter() with styles", () => {
   const record = createLogRecord("info", ["test"], ["Message"]);
   const result = formatter(record);
   // Should contain ANSI style codes
-  assertStringIncludes(result, "\x1b[1m"); // bold
-  assertStringIncludes(result, "\x1b[3m"); // italic
-  assertStringIncludes(result, "\x1b[4m"); // underline
-  assertStringIncludes(result, "\x1b[9m"); // strikethrough
+  assert.ok(result.includes("\x1b[1m")); // bold
+  assert.ok(result.includes("\x1b[3m")); // italic
+  assert.ok(result.includes("\x1b[4m")); // underline
+  assert.ok(result.includes("\x1b[9m")); // strikethrough
 });
 
 test("getPrettyFormatter() with custom category separator", () => {
@@ -348,7 +343,7 @@ test("getPrettyFormatter() with custom category separator", () => {
 
   const record = createLogRecord("info", ["app", "web", "server"], ["Message"]);
   const result = formatter(record);
-  assertStringIncludes(result, "app>web>server");
+  assert.ok(result.includes("app>web>server"));
 });
 
 test("getPrettyFormatter() with ANSI colors", () => {
@@ -363,8 +358,8 @@ test("getPrettyFormatter() with ANSI colors", () => {
   const record = createLogRecord("info", ["test"], ["Message"]);
   const result = formatter(record);
   // Should contain ANSI color codes
-  assertStringIncludes(result, "\x1b[32m"); // green
-  assertStringIncludes(result, "\x1b[34m"); // blue
+  assert.ok(result.includes("\x1b[32m")); // green
+  assert.ok(result.includes("\x1b[34m")); // blue
 });
 
 test("Color helper functions with 3-digit hex", () => {
@@ -377,7 +372,7 @@ test("Color helper functions with 3-digit hex", () => {
   const record = createLogRecord("info", ["test"], ["Message"]);
   const result = formatter(record);
   // Should contain converted RGB codes
-  assertStringIncludes(result, "\x1b[38;2;255;255;255m"); // #fff -> rgb(255,255,255)
+  assert.ok(result.includes("\x1b[38;2;255;255;255m")); // #fff -> rgb(255,255,255)
 });
 
 test("getPrettyFormatter() with category color mapping", () => {
@@ -398,19 +393,19 @@ test("getPrettyFormatter() with category color mapping", () => {
     "User logged in",
   ]);
   const authResult = formatter(authRecord);
-  assertStringIncludes(authResult, "\x1b[38;2;255;107;107m"); // #ff6b6b
+  assert.ok(authResult.includes("\x1b[38;2;255;107;107m")); // #ff6b6b
 
   // Test prefix fallback
   const miscRecord = createLogRecord("info", ["app", "utils"], [
     "Utility called",
   ]);
   const miscResult = formatter(miscRecord);
-  assertStringIncludes(miscResult, "\x1b[38;2;69;183;209m"); // #45b7d1
+  assert.ok(miscResult.includes("\x1b[38;2;69;183;209m")); // #45b7d1
 
   // Test different prefix
   const libRecord = createLogRecord("info", ["lib", "http"], ["HTTP request"]);
   const libResult = formatter(libRecord);
-  assertStringIncludes(libResult, "\x1b[38;2;150;206;180m"); // #96ceb4
+  assert.ok(libResult.includes("\x1b[38;2;150;206;180m")); // #96ceb4
 });
 
 test("Category color mapping precedence", () => {
@@ -430,21 +425,21 @@ test("Category color mapping precedence", () => {
     "Token verified",
   ]);
   const jwtResult = formatter(jwtRecord);
-  assertStringIncludes(jwtResult, "\x1b[38;2;255;0;0m"); // #ff0000
+  assert.ok(jwtResult.includes("\x1b[38;2;255;0;0m")); // #ff0000
 
   // Should match less specific pattern
   const authRecord = createLogRecord("info", ["app", "auth", "session"], [
     "Session created",
   ]);
   const authResult = formatter(authRecord);
-  assertStringIncludes(authResult, "\x1b[38;2;0;255;0m"); // #00ff00
+  assert.ok(authResult.includes("\x1b[38;2;0;255;0m")); // #00ff00
 
   // Should match least specific pattern
   const appRecord = createLogRecord("info", ["app", "server"], [
     "Server started",
   ]);
   const appResult = formatter(appRecord);
-  assertStringIncludes(appResult, "\x1b[38;2;0;0;255m"); // #0000ff
+  assert.ok(appResult.includes("\x1b[38;2;0;0;255m")); // #0000ff
 });
 
 test("Category color mapping with no match", () => {
@@ -463,7 +458,7 @@ test("Category color mapping with no match", () => {
     "Kernel message",
   ]);
   const result = formatter(record);
-  assertStringIncludes(result, "\x1b[38;2;0;255;0m"); // fallback #00ff00
+  assert.ok(result.includes("\x1b[38;2;0;255;0m")); // fallback #00ff00
 });
 
 test("Interpolated values with proper color reset/reapply", () => {
@@ -484,9 +479,9 @@ test("Interpolated values with proper color reset/reapply", () => {
 
   // Should contain proper color reset/reapply around interpolated values
   // The exact ANSI codes depend on inspect() output, but we should see resets
-  assertStringIncludes(result, "\x1b[0m"); // Reset code should be present
-  assertStringIncludes(result, "\x1b[2m"); // Dim style should be reapplied
-  assertStringIncludes(result, "\x1b[38;2;255;255;255m"); // White color should be reapplied
+  assert.ok(result.includes("\x1b[0m")); // Reset code should be present
+  assert.ok(result.includes("\x1b[2m")); // Dim style should be reapplied
+  assert.ok(result.includes("\x1b[38;2;255;255;255m")); // White color should be reapplied
 });
 
 test("Multiple styles combination", () => {
@@ -503,33 +498,34 @@ test("Multiple styles combination", () => {
   const result = formatter(record);
 
   // Should contain multiple ANSI style codes combined
-  assertStringIncludes(result, "\x1b[1m"); // bold
-  assertStringIncludes(result, "\x1b[4m"); // underline
-  assertStringIncludes(result, "\x1b[2m"); // dim
-  assertStringIncludes(result, "\x1b[3m"); // italic
-  assertStringIncludes(result, "\x1b[9m"); // strikethrough
+  assert.ok(result.includes("\x1b[1m")); // bold
+  assert.ok(result.includes("\x1b[4m")); // underline
+  assert.ok(result.includes("\x1b[2m")); // dim
+  assert.ok(result.includes("\x1b[3m")); // italic
+  assert.ok(result.includes("\x1b[9m")); // strikethrough
 });
 
-("Bun" in globalThis ? test.skip : test)(
-  "Word wrapping enabled by default",
-  () => {
-    const formatter = getPrettyFormatter({
-      colors: false,
-    });
+test("Word wrapping enabled by default", { skip: "Bun" in globalThis }, () => {
+  // Workaround for Bun not supporting skip option yet:
+  // https://github.com/oven-sh/bun/issues/19412
+  if ("Bun" in globalThis) return;
 
-    const longMessage =
-      "This is a very long message that would normally exceed the typical console width and should be wrapped when word wrapping is enabled by default.";
-    const record = createLogRecord("info", ["test"], [longMessage]);
-    const result = formatter(record);
+  const formatter = getPrettyFormatter({
+    colors: false,
+  });
 
-    // Should contain multiple line breaks due to wrapping
-    const lines = result.split("\n");
-    assert(lines.length > 2); // More than just content + trailing newline due to wrapping
+  const longMessage =
+    "This is a very long message that would normally exceed the typical console width and should be wrapped when word wrapping is enabled by default.";
+  const record = createLogRecord("info", ["test"], [longMessage]);
+  const result = formatter(record);
 
-    // First line should contain the beginning of the message
-    assert(lines[0].includes("This is a very long message"));
-  },
-);
+  // Should contain multiple line breaks due to wrapping
+  const lines = result.split("\n");
+  assert.ok(lines.length > 2); // More than just content + trailing newline due to wrapping
+
+  // First line should contain the beginning of the message
+  assert.ok(lines[0].includes("This is a very long message"));
+});
 
 test("Word wrapping can be disabled", () => {
   const formatter = getPrettyFormatter({
@@ -544,8 +540,8 @@ test("Word wrapping can be disabled", () => {
 
   // Should not contain any line breaks in the message (only the trailing newline)
   const lines = result.split("\n");
-  assertEquals(lines.length, 2); // One content line + one empty line from trailing newline
-  assertStringIncludes(lines[0], longMessage);
+  assert.strictEqual(lines.length, 2); // One content line + one empty line from trailing newline
+  assert.ok(lines[0].includes(longMessage));
 });
 
 test("Word wrapping with 80", () => {
@@ -562,12 +558,12 @@ test("Word wrapping with 80", () => {
 
   // Should contain multiple lines due to wrapping
   const lines = result.split("\n");
-  assert(lines.length > 2); // More than just content + trailing newline
+  assert.ok(lines.length > 2); // More than just content + trailing newline
 
   // Each content line should be roughly within the wrap width
   const contentLines = lines.filter((line) => line.length > 0);
   for (const line of contentLines) {
-    assert(line.length <= 85); // Allow some tolerance for word boundaries
+    assert.ok(line.length <= 85); // Allow some tolerance for word boundaries
   }
 });
 
@@ -585,12 +581,12 @@ test("Word wrapping with custom width", () => {
 
   // Should contain multiple lines due to aggressive wrapping
   const lines = result.split("\n");
-  assert(lines.length > 2);
+  assert.ok(lines.length > 2);
 
   // Each content line should be within 40 characters
   const contentLines = lines.filter((line) => line.length > 0);
   for (const line of contentLines) {
-    assert(line.length <= 45); // Allow some tolerance
+    assert.ok(line.length <= 45); // Allow some tolerance
   }
 });
 
@@ -610,15 +606,15 @@ test("Word wrapping with proper indentation", () => {
   const contentLines = lines.filter((line) => line.length > 0);
 
   // Should have multiple lines due to wrapping
-  assert(contentLines.length > 1);
+  assert.ok(contentLines.length > 1);
 
   // First line starts with icon
-  assert(contentLines[0].startsWith("✨ info"));
+  assert.ok(contentLines[0].startsWith("✨ info"));
 
   // Check that lines are properly wrapped at word boundaries
   // With align: false, the format should be "✨ info app message..."
   // and continuation lines should be properly indented
-  assert(
+  assert.ok(
     contentLines.length >= 2,
     "Should have at least 2 lines from wrapping",
   );
@@ -655,9 +651,9 @@ test("getPrettyFormatter() with consistent icon spacing", () => {
   const errorLines = errorResult.split("\n").filter((line) => line.length > 0);
 
   // All should have multiple lines due to wrapping
-  assert(infoLines.length > 1, "Info should wrap to multiple lines");
-  assert(warningLines.length > 1, "Warning should wrap to multiple lines");
-  assert(errorLines.length > 1, "Error should wrap to multiple lines");
+  assert.ok(infoLines.length > 1, "Info should wrap to multiple lines");
+  assert.ok(warningLines.length > 1, "Warning should wrap to multiple lines");
+  assert.ok(errorLines.length > 1, "Error should wrap to multiple lines");
 
   // Check that continuation lines are indented to the same position
   // despite different icon widths
@@ -669,12 +665,12 @@ test("getPrettyFormatter() with consistent icon spacing", () => {
     const errorIndent = errorLines[1].search(/\S/);
 
     // All continuation lines should start at the same position
-    assertEquals(
+    assert.strictEqual(
       infoIndent,
       warningIndent,
       "Info and warning should have same indentation",
     );
-    assertEquals(
+    assert.strictEqual(
       warningIndent,
       errorIndent,
       "Warning and error should have same indentation",
@@ -695,15 +691,15 @@ test("getPrettyFormatter() with automatic width detection", () => {
 
   // Should have wrapped at some reasonable width
   const lines = result.split("\n").filter((line) => line.length > 0);
-  assert(lines.length >= 1, "Should have at least one line");
+  assert.ok(lines.length >= 1, "Should have at least one line");
 
   // If wrapping occurred, continuation lines should be properly indented
   if (lines.length > 1) {
     const firstLine = lines[0];
     const continuationLine = lines[1];
 
-    assert(firstLine.includes("✨"), "First line should contain icon");
-    assert(
+    assert.ok(firstLine.includes("✨"), "First line should contain icon");
+    assert.ok(
       continuationLine.startsWith(" "),
       "Continuation line should be indented",
     );
@@ -728,21 +724,24 @@ test("getPrettyFormatter() with multiline interpolated values", () => {
   const lines = result.split("\n").filter((line) => line.length > 0);
 
   // Should have multiple lines due to error stack trace
-  assert(
+  assert.ok(
     lines.length >= 2,
     "Should have multiple lines for error with stack trace",
   );
 
   // First line should contain our message and start of error
-  assert(
+  assert.ok(
     lines[0].includes("Exception occurred:"),
     "First line should contain our message",
   );
-  assert(lines[0].includes("Error:"), "First line should contain error start");
+  assert.ok(
+    lines[0].includes("Error:"),
+    "First line should contain error start",
+  );
 
   // Error message might be on first or second line depending on wrapping
   const fullOutput = result;
-  assert(
+  assert.ok(
     fullOutput.includes("Test error message"),
     "Output should contain error message",
   );
@@ -752,7 +751,7 @@ test("getPrettyFormatter() with multiline interpolated values", () => {
     const line = lines[i];
     const trimmedLine = line.trimStart();
     const indentLength = line.length - trimmedLine.length;
-    assert(
+    assert.ok(
       indentLength >= 10,
       `Line ${i} should be indented (has ${indentLength} spaces)`,
     );
@@ -760,10 +759,10 @@ test("getPrettyFormatter() with multiline interpolated values", () => {
 
   // Should contain stack trace somewhere
   const stackTraceLine = lines.find((line) => line.trim().startsWith("at "));
-  assert(stackTraceLine, "Should contain a stack trace line");
+  assert.ok(stackTraceLine, "Should contain a stack trace line");
   const trimmedStackTrace = stackTraceLine.trimStart();
   const stackIndentLength = stackTraceLine.length - trimmedStackTrace.length;
-  assert(stackIndentLength >= 10, "Stack trace should be properly indented");
+  assert.ok(stackIndentLength >= 10, "Stack trace should be properly indented");
 });
 
 test("getPrettyFormatter() with multiline interpolated values (no align)", () => {
@@ -783,11 +782,11 @@ test("getPrettyFormatter() with multiline interpolated values (no align)", () =>
   const lines = result.split("\n").filter((line) => line.length > 0);
 
   // Should have multiple lines
-  assert(lines.length >= 2, "Should have multiple lines for error");
+  assert.ok(lines.length >= 2, "Should have multiple lines for error");
 
   // Check that stack trace lines are properly indented relative to the message start
   const firstLine = lines[0];
-  assert(
+  assert.ok(
     firstLine.includes("❌ error app Error:"),
     "First line should contain prefix and message start",
   );
@@ -796,7 +795,7 @@ test("getPrettyFormatter() with multiline interpolated values (no align)", () =>
     const stackTraceLine = lines.find((line) => line.trim().startsWith("at "));
     if (stackTraceLine) {
       // Stack trace should be indented to align with message content
-      assert(
+      assert.ok(
         stackTraceLine.length > stackTraceLine.trimStart().length,
         "Stack trace line should be indented",
       );
@@ -819,12 +818,12 @@ test("properties set to true", () => {
 
   // Should contain multiple lines due to wrapping
   const lines = result.split("\n");
-  assertEquals(lines.length, 4); // Normal log line + formatted properties + newline
-  assertEquals(
+  assert.strictEqual(lines.length, 4); // Normal log line + formatted properties + newline
+  assert.strictEqual(
     lines[1].trim(),
     "Deno" in globalThis ? 'foo: "bar"' : "foo: 'bar'",
   );
-  assertEquals(
+  assert.strictEqual(
     lines[2].trim(),
     "Deno" in globalThis ? 'bar: "baz"' : "bar: 'baz'",
   );
@@ -871,7 +870,7 @@ ANOTHER_EXTREMELY_LONG_KEY_NAME_FOR_TESTING: ${
       SHORT: ${"Deno" in globalThis ? '"value3"' : "'value3'"}
 `;
 
-  assertEquals(result, expectedOutput);
+  assert.strictEqual(result, expectedOutput);
 });
 
 test("getPrettyFormatter() with getters option", () => {
@@ -892,7 +891,7 @@ test("getPrettyFormatter() with getters option", () => {
   const result = formatter(recordWithGetters);
 
   // Should complete without errors and output should be present
-  assertStringIncludes(result, "Object with getter:");
+  assert.ok(result.includes("Object with getter:"));
 });
 
 test("getPrettyFormatter() with showProxy option", () => {
@@ -918,8 +917,8 @@ test("getPrettyFormatter() with showProxy option", () => {
   const result = formatter(record);
 
   // Should complete without errors and output should be present
-  assertStringIncludes(result, "Proxy object:");
-  assertStringIncludes(result, "original");
+  assert.ok(result.includes("Proxy object:"));
+  assert.ok(result.includes("original"));
 });
 
 test("getPrettyFormatter() with both getters and showProxy options", () => {
@@ -950,5 +949,5 @@ test("getPrettyFormatter() with both getters and showProxy options", () => {
   const result = formatter(record);
 
   // Should complete without errors and output should be present
-  assertStringIncludes(result, "Complex object:");
+  assert.ok(result.includes("Complex object:"));
 });

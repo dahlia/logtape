@@ -1,13 +1,17 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { DEFAULT_SHORTHANDS, mergeShorthands } from "./shorthands.ts";
-
-const test = suite(import.meta);
 
 test("mergeShorthands()", () => {
   // Merge with empty custom
-  assertEquals(mergeShorthands(DEFAULT_SHORTHANDS), DEFAULT_SHORTHANDS);
-  assertEquals(mergeShorthands(DEFAULT_SHORTHANDS, {}), DEFAULT_SHORTHANDS);
+  assert.deepStrictEqual(
+    mergeShorthands(DEFAULT_SHORTHANDS),
+    DEFAULT_SHORTHANDS,
+  );
+  assert.deepStrictEqual(
+    mergeShorthands(DEFAULT_SHORTHANDS, {}),
+    DEFAULT_SHORTHANDS,
+  );
 
   // Merge with custom shorthands
   const custom = {
@@ -22,9 +26,12 @@ test("mergeShorthands()", () => {
 
   const merged = mergeShorthands(DEFAULT_SHORTHANDS, custom);
 
-  assertEquals(merged.sinks?.custom, "./custom#getSink");
-  assertEquals(merged.sinks?.console, "./custom#getConsole");
-  assertEquals(merged.sinks?.stream, DEFAULT_SHORTHANDS.sinks?.stream);
-  assertEquals(merged.formatters?.xml, "./xml#getFormatter");
-  assertEquals(merged.formatters?.text, DEFAULT_SHORTHANDS.formatters?.text);
+  assert.strictEqual(merged.sinks?.custom, "./custom#getSink");
+  assert.strictEqual(merged.sinks?.console, "./custom#getConsole");
+  assert.strictEqual(merged.sinks?.stream, DEFAULT_SHORTHANDS.sinks?.stream);
+  assert.strictEqual(merged.formatters?.xml, "./xml#getFormatter");
+  assert.strictEqual(
+    merged.formatters?.text,
+    DEFAULT_SHORTHANDS.formatters?.text,
+  );
 });

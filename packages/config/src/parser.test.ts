@@ -1,30 +1,28 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { parseModuleReference } from "./parser.ts";
-
-const test = suite(import.meta);
 
 test("parseModuleReference()", () => {
   // Shorthands
-  assertEquals(parseModuleReference("#console()"), {
+  assert.deepStrictEqual(parseModuleReference("#console()"), {
     isShorthand: true,
     shorthandName: "console",
     isFactory: true,
   });
-  assertEquals(parseModuleReference("#console"), {
+  assert.deepStrictEqual(parseModuleReference("#console"), {
     isShorthand: true,
     shorthandName: "console",
     isFactory: false,
   });
 
   // Named exports
-  assertEquals(parseModuleReference("@logtape/file#getFileSink()"), {
+  assert.deepStrictEqual(parseModuleReference("@logtape/file#getFileSink()"), {
     isShorthand: false,
     modulePath: "@logtape/file",
     exportName: "getFileSink",
     isFactory: true,
   });
-  assertEquals(parseModuleReference("@logtape/file#getFileSink"), {
+  assert.deepStrictEqual(parseModuleReference("@logtape/file#getFileSink"), {
     isShorthand: false,
     modulePath: "@logtape/file",
     exportName: "getFileSink",
@@ -32,13 +30,13 @@ test("parseModuleReference()", () => {
   });
 
   // Default exports
-  assertEquals(parseModuleReference("./custom()"), {
+  assert.deepStrictEqual(parseModuleReference("./custom()"), {
     isShorthand: false,
     modulePath: "./custom",
     exportName: "default",
     isFactory: true,
   });
-  assertEquals(parseModuleReference("./custom"), {
+  assert.deepStrictEqual(parseModuleReference("./custom"), {
     isShorthand: false,
     modulePath: "./custom",
     exportName: "default",
@@ -46,7 +44,7 @@ test("parseModuleReference()", () => {
   });
 
   // Relative paths with named export
-  assertEquals(parseModuleReference("./sinks#custom()"), {
+  assert.deepStrictEqual(parseModuleReference("./sinks#custom()"), {
     isShorthand: false,
     modulePath: "./sinks",
     exportName: "custom",

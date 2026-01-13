@@ -1,9 +1,7 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { configure, type LogRecord, reset } from "@logtape/logtape";
 import { DrizzleLogger, getLogger, serialize, stringLiteral } from "./mod.ts";
-
-const test = suite(import.meta);
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
 function createTestSink(): {
@@ -44,8 +42,8 @@ test("getLogger(): creates a Drizzle ORM-compatible logger", async () => {
   try {
     const logger = getLogger();
 
-    assertEquals(typeof logger.logQuery, "function");
-    assertEquals(logger instanceof DrizzleLogger, true);
+    assert.strictEqual(typeof logger.logQuery, "function");
+    assert.strictEqual(logger instanceof DrizzleLogger, true);
   } finally {
     await cleanup();
   }
@@ -57,8 +55,8 @@ test("getLogger(): uses default category ['drizzle-orm']", async () => {
     const logger = getLogger();
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["drizzle-orm"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["drizzle-orm"]);
   } finally {
     await cleanup();
   }
@@ -70,8 +68,8 @@ test("getLogger(): uses custom category array", async () => {
     const logger = getLogger({ category: ["myapp", "database"] });
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["myapp", "database"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["myapp", "database"]);
   } finally {
     await cleanup();
   }
@@ -83,8 +81,8 @@ test("getLogger(): accepts string category", async () => {
     const logger = getLogger({ category: "database" });
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["database"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["database"]);
   } finally {
     await cleanup();
   }
@@ -100,8 +98,8 @@ test("getLogger(): uses default level 'debug'", async () => {
     const logger = getLogger();
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "debug");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
   } finally {
     await cleanup();
   }
@@ -113,8 +111,8 @@ test("getLogger(): uses custom level", async () => {
     const logger = getLogger({ level: "info" });
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].level, "info");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "info");
   } finally {
     await cleanup();
   }
@@ -137,8 +135,8 @@ test("getLogger(): supports all log levels", async () => {
       const logger = getLogger({ level });
       logger.logQuery("SELECT 1", []);
 
-      assertEquals(logs.length, 1);
-      assertEquals(logs[0].level, level);
+      assert.strictEqual(logs.length, 1);
+      assert.strictEqual(logs[0].level, level);
     }
   } finally {
     await cleanup();
@@ -155,10 +153,13 @@ test("logQuery(): logs query with structured data", async () => {
     const logger = getLogger();
     logger.logQuery("SELECT * FROM users WHERE id = $1", ["123"]);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.query, "SELECT * FROM users WHERE id = $1");
-    assertEquals(logs[0].properties.params, ["123"]);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.query,
+      "SELECT * FROM users WHERE id = $1",
+    );
+    assert.deepStrictEqual(logs[0].properties.params, ["123"]);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "SELECT * FROM users WHERE id = '123'",
     );
@@ -176,8 +177,8 @@ test("logQuery(): formats query with multiple parameters", async () => {
       ["Alice", 25],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "SELECT * FROM users WHERE name = 'Alice' AND age > 25",
     );
@@ -192,9 +193,12 @@ test("logQuery(): handles empty parameters", async () => {
     const logger = getLogger();
     logger.logQuery("SELECT * FROM users", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.formattedQuery, "SELECT * FROM users");
-    assertEquals(logs[0].properties.params, []);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users",
+    );
+    assert.deepStrictEqual(logs[0].properties.params, []);
   } finally {
     await cleanup();
   }
@@ -206,8 +210,8 @@ test("logQuery(): handles unmatched placeholders", async () => {
     const logger = getLogger();
     logger.logQuery("SELECT * FROM users WHERE id = $1 AND name = $2", ["123"]);
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "SELECT * FROM users WHERE id = '123' AND name = $2",
     );
@@ -222,8 +226,8 @@ test("logQuery(): log message contains formatted query", async () => {
     const logger = getLogger();
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].rawMessage, "Query: {formattedQuery}");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "Query: {formattedQuery}");
   } finally {
     await cleanup();
   }
@@ -234,63 +238,66 @@ test("logQuery(): log message contains formatted query", async () => {
 // ============================================
 
 test("serialize(): handles null", () => {
-  assertEquals(serialize(null), "NULL");
+  assert.strictEqual(serialize(null), "NULL");
 });
 
 test("serialize(): handles undefined", () => {
-  assertEquals(serialize(undefined), "NULL");
+  assert.strictEqual(serialize(undefined), "NULL");
 });
 
 test("serialize(): handles strings", () => {
-  assertEquals(serialize("hello"), "'hello'");
+  assert.strictEqual(serialize("hello"), "'hello'");
 });
 
 test("serialize(): handles strings with special characters", () => {
-  assertEquals(serialize("hello\nworld"), "E'hello\\nworld'");
-  assertEquals(serialize("it's"), "E'it\\'s'");
-  assertEquals(serialize("back\\slash"), "E'back\\\\slash'");
-  assertEquals(serialize("tab\there"), "E'tab\\there'");
-  assertEquals(serialize("carriage\rreturn"), "E'carriage\\rreturn'");
+  assert.strictEqual(serialize("hello\nworld"), "E'hello\\nworld'");
+  assert.strictEqual(serialize("it's"), "E'it\\'s'");
+  assert.strictEqual(serialize("back\\slash"), "E'back\\\\slash'");
+  assert.strictEqual(serialize("tab\there"), "E'tab\\there'");
+  assert.strictEqual(serialize("carriage\rreturn"), "E'carriage\\rreturn'");
 });
 
 test("serialize(): handles numbers", () => {
-  assertEquals(serialize(42), "42");
-  assertEquals(serialize(3.14), "3.14");
-  assertEquals(serialize(-10), "-10");
-  assertEquals(serialize(0), "0");
+  assert.strictEqual(serialize(42), "42");
+  assert.strictEqual(serialize(3.14), "3.14");
+  assert.strictEqual(serialize(-10), "-10");
+  assert.strictEqual(serialize(0), "0");
 });
 
 test("serialize(): handles bigints", () => {
-  assertEquals(serialize(BigInt(9007199254740991)), "9007199254740991");
+  assert.strictEqual(serialize(BigInt(9007199254740991)), "9007199254740991");
 });
 
 test("serialize(): handles booleans", () => {
-  assertEquals(serialize(true), "'t'");
-  assertEquals(serialize(false), "'f'");
+  assert.strictEqual(serialize(true), "'t'");
+  assert.strictEqual(serialize(false), "'f'");
 });
 
 test("serialize(): handles Date objects", () => {
   const date = new Date("2024-01-15T10:30:00.000Z");
-  assertEquals(serialize(date), "'2024-01-15T10:30:00.000Z'");
+  assert.strictEqual(serialize(date), "'2024-01-15T10:30:00.000Z'");
 });
 
 test("serialize(): handles arrays", () => {
-  assertEquals(serialize([1, 2, 3]), "ARRAY[1, 2, 3]");
-  assertEquals(serialize(["a", "b"]), "ARRAY['a', 'b']");
-  assertEquals(serialize([]), "ARRAY[]");
+  assert.strictEqual(serialize([1, 2, 3]), "ARRAY[1, 2, 3]");
+  assert.strictEqual(serialize(["a", "b"]), "ARRAY['a', 'b']");
+  assert.strictEqual(serialize([]), "ARRAY[]");
 });
 
 test("serialize(): handles nested arrays", () => {
-  assertEquals(serialize([[1, 2], [3, 4]]), "ARRAY[ARRAY[1, 2], ARRAY[3, 4]]");
+  assert.strictEqual(
+    serialize([[1, 2], [3, 4]]),
+    "ARRAY[ARRAY[1, 2], ARRAY[3, 4]]",
+  );
 });
 
 test("serialize(): handles objects as JSON", () => {
-  assertEquals(serialize({ key: "value" }), '\'{"key":"value"}\'');
-  assertEquals(serialize({ nested: { a: 1 } }), '\'{"nested":{"a":1}}\'');
+  assert.strictEqual(serialize({ key: "value" }), '\'{"key":"value"}\'');
+  assert.strictEqual(serialize({ nested: { a: 1 } }), '\'{"nested":{"a":1}}\'');
 });
 
 test("serialize(): handles mixed arrays", () => {
-  assertEquals(serialize([1, "two", true]), "ARRAY[1, 'two', 't']");
+  assert.strictEqual(serialize([1, "two", true]), "ARRAY[1, 'two', 't']");
 });
 
 // ============================================
@@ -298,40 +305,40 @@ test("serialize(): handles mixed arrays", () => {
 // ============================================
 
 test("stringLiteral(): wraps simple strings", () => {
-  assertEquals(stringLiteral("hello"), "'hello'");
-  assertEquals(stringLiteral("world"), "'world'");
+  assert.strictEqual(stringLiteral("hello"), "'hello'");
+  assert.strictEqual(stringLiteral("world"), "'world'");
 });
 
 test("stringLiteral(): escapes single quotes", () => {
-  assertEquals(stringLiteral("it's"), "E'it\\'s'");
-  assertEquals(stringLiteral("don't"), "E'don\\'t'");
+  assert.strictEqual(stringLiteral("it's"), "E'it\\'s'");
+  assert.strictEqual(stringLiteral("don't"), "E'don\\'t'");
 });
 
 test("stringLiteral(): escapes backslashes", () => {
-  assertEquals(stringLiteral("back\\slash"), "E'back\\\\slash'");
+  assert.strictEqual(stringLiteral("back\\slash"), "E'back\\\\slash'");
 });
 
 test("stringLiteral(): escapes newlines", () => {
-  assertEquals(stringLiteral("line1\nline2"), "E'line1\\nline2'");
+  assert.strictEqual(stringLiteral("line1\nline2"), "E'line1\\nline2'");
 });
 
 test("stringLiteral(): escapes carriage returns", () => {
-  assertEquals(stringLiteral("line1\rline2"), "E'line1\\rline2'");
+  assert.strictEqual(stringLiteral("line1\rline2"), "E'line1\\rline2'");
 });
 
 test("stringLiteral(): escapes tabs", () => {
-  assertEquals(stringLiteral("col1\tcol2"), "E'col1\\tcol2'");
+  assert.strictEqual(stringLiteral("col1\tcol2"), "E'col1\\tcol2'");
 });
 
 test("stringLiteral(): escapes multiple special characters", () => {
-  assertEquals(
+  assert.strictEqual(
     stringLiteral("it's\na\ttest\\"),
     "E'it\\'s\\na\\ttest\\\\'",
   );
 });
 
 test("stringLiteral(): handles empty string", () => {
-  assertEquals(stringLiteral(""), "''");
+  assert.strictEqual(stringLiteral(""), "''");
 });
 
 // ============================================
@@ -347,9 +354,9 @@ test("DrizzleLogger: can be instantiated directly", async () => {
 
     drizzleLogger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["custom"]);
-    assertEquals(logs[0].level, "info");
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["custom"]);
+    assert.strictEqual(logs[0].level, "info");
   } finally {
     await cleanup();
   }
@@ -368,8 +375,8 @@ test("logQuery(): handles INSERT with multiple values", async () => {
       ["John Doe", "john@example.com", 30],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "INSERT INTO users (name, email, age) VALUES ('John Doe', 'john@example.com', 30)",
     );
@@ -387,8 +394,8 @@ test("logQuery(): handles UPDATE with JSON data", async () => {
       [{ role: "admin", permissions: ["read", "write"] }, 1],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       'UPDATE users SET metadata = \'{"role":"admin","permissions":["read","write"]}\' WHERE id = 1',
     );
@@ -406,8 +413,8 @@ test("logQuery(): handles DELETE query", async () => {
       [new Date("2024-01-01T00:00:00.000Z")],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "DELETE FROM sessions WHERE expires_at < '2024-01-01T00:00:00.000Z'",
     );
@@ -425,8 +432,8 @@ test("logQuery(): handles array parameter for IN clause", async () => {
       [[1, 2, 3]],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "SELECT * FROM users WHERE id = ANY(ARRAY[1, 2, 3])",
     );
@@ -444,8 +451,8 @@ test("logQuery(): handles null parameter", async () => {
       [null, 1],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "UPDATE users SET deleted_at = NULL WHERE id = 1",
     );
@@ -463,8 +470,8 @@ test("logQuery(): handles boolean parameters", async () => {
       [true, false],
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "SELECT * FROM users WHERE active = 't' AND verified = 'f'",
     );
@@ -483,8 +490,8 @@ test("logQuery(): handles empty string parameter", async () => {
     const logger = getLogger();
     logger.logQuery("INSERT INTO users (name) VALUES ($1)", [""]);
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "INSERT INTO users (name) VALUES ('')",
     );
@@ -500,9 +507,9 @@ test("logQuery(): handles very long query", async () => {
     const longValue = "x".repeat(10000);
     logger.logQuery("SELECT * FROM users WHERE data = $1", [longValue]);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].properties.params, [longValue]);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].properties.params, [longValue]);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       `SELECT * FROM users WHERE data = '${longValue}'`,
     );
@@ -519,10 +526,10 @@ test("logQuery(): handles multiple consecutive calls", async () => {
     logger.logQuery("SELECT 2", []);
     logger.logQuery("SELECT 3", []);
 
-    assertEquals(logs.length, 3);
-    assertEquals(logs[0].properties.formattedQuery, "SELECT 1");
-    assertEquals(logs[1].properties.formattedQuery, "SELECT 2");
-    assertEquals(logs[2].properties.formattedQuery, "SELECT 3");
+    assert.strictEqual(logs.length, 3);
+    assert.strictEqual(logs[0].properties.formattedQuery, "SELECT 1");
+    assert.strictEqual(logs[1].properties.formattedQuery, "SELECT 2");
+    assert.strictEqual(logs[2].properties.formattedQuery, "SELECT 3");
   } finally {
     await cleanup();
   }
@@ -542,8 +549,8 @@ test("logQuery(): handles high placeholder numbers", async () => {
       params,
     );
 
-    assertEquals(logs.length, 1);
-    assertEquals(
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
       logs[0].properties.formattedQuery,
       "SELECT * FROM t WHERE a='a' AND b='j' AND c='hundred'",
     );
@@ -553,27 +560,30 @@ test("logQuery(): handles high placeholder numbers", async () => {
 });
 
 test("serialize(): handles special number values", () => {
-  assertEquals(serialize(Infinity), "Infinity");
-  assertEquals(serialize(-Infinity), "-Infinity");
-  assertEquals(serialize(NaN), "NaN");
+  assert.strictEqual(serialize(Infinity), "Infinity");
+  assert.strictEqual(serialize(-Infinity), "-Infinity");
+  assert.strictEqual(serialize(NaN), "NaN");
 });
 
 test("serialize(): handles negative bigint", () => {
-  assertEquals(serialize(BigInt(-9007199254740991)), "-9007199254740991");
+  assert.strictEqual(serialize(BigInt(-9007199254740991)), "-9007199254740991");
 });
 
 test("serialize(): handles deeply nested objects", () => {
   const nested = { a: { b: { c: { d: 1 } } } };
-  assertEquals(serialize(nested), '\'{"a":{"b":{"c":{"d":1}}}}\'');
+  assert.strictEqual(serialize(nested), '\'{"a":{"b":{"c":{"d":1}}}}\'');
 });
 
 test("serialize(): handles array with null and undefined", () => {
-  assertEquals(serialize([1, null, undefined, 2]), "ARRAY[1, NULL, NULL, 2]");
+  assert.strictEqual(
+    serialize([1, null, undefined, 2]),
+    "ARRAY[1, NULL, NULL, 2]",
+  );
 });
 
 test("stringLiteral(): handles backspace and form feed", () => {
-  assertEquals(stringLiteral("a\bb"), "E'a\\bb'");
-  assertEquals(stringLiteral("a\fb"), "E'a\\fb'");
+  assert.strictEqual(stringLiteral("a\bb"), "E'a\\bb'");
+  assert.strictEqual(stringLiteral("a\fb"), "E'a\\fb'");
 });
 
 // ============================================
@@ -590,7 +600,7 @@ test("getLogger(): returns Drizzle Logger interface compatible object", async ()
     const drizzleLogger: { logQuery(query: string, params: unknown[]): void } =
       logger;
 
-    assertEquals(typeof drizzleLogger.logQuery, "function");
+    assert.strictEqual(typeof drizzleLogger.logQuery, "function");
 
     // Verify it can be called with the expected arguments
     drizzleLogger.logQuery("SELECT 1", []);
@@ -607,7 +617,7 @@ test("Logger interface: logQuery returns void", async () => {
     const logger = getLogger();
     const result = logger.logQuery("SELECT 1", []);
 
-    assertEquals(result, undefined);
+    assert.strictEqual(result, undefined);
   } finally {
     await cleanup();
   }
@@ -624,8 +634,8 @@ test("getLogger(): handles readonly string array category", async () => {
     const logger = getLogger({ category });
     logger.logQuery("SELECT 1", []);
 
-    assertEquals(logs.length, 1);
-    assertEquals(logs[0].category, ["app", "db"]);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app", "db"]);
   } finally {
     await cleanup();
   }

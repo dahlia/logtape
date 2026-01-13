@@ -1,15 +1,11 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
-import { assertGreaterOrEqual } from "@std/assert/greater-or-equal";
-import { assertLessOrEqual } from "@std/assert/less-or-equal";
-import { delay } from "@std/async/delay";
+import assert from "node:assert/strict";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import os from "node:os";
 import process from "node:process";
 import { pino } from "pino";
 import build from "pino-abstract-transport";
 import { getPinoSink } from "./mod.ts";
-
-const test = suite(import.meta);
 
 interface PinoLog {
   level: number;
@@ -44,7 +40,7 @@ test("getPinoSink(): basic scenario", async () => {
   const after = Date.now();
   logger.flush();
   await delay(500);
-  assertEquals(buffer, [
+  assert.deepStrictEqual(buffer, [
     {
       level: 30,
       time: buffer[0]?.time,
@@ -54,8 +50,8 @@ test("getPinoSink(): basic scenario", async () => {
       msg: 'Test log: [{"foo":123}]',
     },
   ]);
-  assertGreaterOrEqual(buffer[0].time, before);
-  assertLessOrEqual(buffer[0].time, after);
+  assert.ok(buffer[0].time >= before);
+  assert.ok(buffer[0].time <= after);
 });
 
 test("getPinoSink(): log level mappings", async () => {
@@ -91,9 +87,9 @@ test("getPinoSink(): log level mappings", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, 4);
+  assert.strictEqual(buffer.length, 4);
   for (let i = 0; i < logLevels.length; i++) {
-    assertEquals(
+    assert.strictEqual(
       buffer[i].level,
       logLevels[i].expectedPinoLevel,
       `Level mapping failed for ${logLevels[i].logTapeLevel}`,
@@ -137,9 +133,9 @@ test("getPinoSink(): category option - false/undefined", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0].msg, "Test message");
-  assertEquals(buffer[1].msg, "Test message 2");
+  assert.strictEqual(buffer.length, 2);
+  assert.strictEqual(buffer[0].msg, "Test message");
+  assert.strictEqual(buffer[1].msg, "Test message 2");
   // Both should NOT include category in the message
 });
 
@@ -167,8 +163,8 @@ test("getPinoSink(): category option - true (default formatting)", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, 1);
-  assertEquals(buffer[0].msg, "test·category: Test message");
+  assert.strictEqual(buffer.length, 1);
+  assert.strictEqual(buffer[0].msg, "test·category: Test message");
 });
 
 test("getPinoSink(): category decorators", async () => {
@@ -211,9 +207,9 @@ test("getPinoSink(): category decorators", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, decorators.length);
+  assert.strictEqual(buffer.length, decorators.length);
   for (let i = 0; i < decorators.length; i++) {
-    assertEquals(
+    assert.strictEqual(
       buffer[i].msg,
       decorators[i].expected,
       `Decorator '${decorators[i].decorator}' failed`,
@@ -261,9 +257,9 @@ test("getPinoSink(): category position (start vs end)", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, 2);
-  assertEquals(buffer[0].msg, "[test] Message");
-  assertEquals(buffer[1].msg, "Message [test]");
+  assert.strictEqual(buffer.length, 2);
+  assert.strictEqual(buffer[0].msg, "[test] Message");
+  assert.strictEqual(buffer[1].msg, "Message [test]");
 });
 
 test("getPinoSink(): category separator", async () => {
@@ -301,9 +297,9 @@ test("getPinoSink(): category separator", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, separators.length);
+  assert.strictEqual(buffer.length, separators.length);
   for (let i = 0; i < separators.length; i++) {
-    assertEquals(
+    assert.strictEqual(
       buffer[i].msg,
       separators[i].expected,
       `Separator '${separators[i].separator}' failed`,
@@ -349,11 +345,11 @@ test("getPinoSink(): empty category handling", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, 2);
+  assert.strictEqual(buffer.length, 2);
   // Empty category array should not include category in message
-  assertEquals(buffer[0].msg, "Message with empty category");
+  assert.strictEqual(buffer[0].msg, "Message with empty category");
   // Single empty string should still show the decorator
-  assertEquals(buffer[1].msg, "[] Message with empty string category");
+  assert.strictEqual(buffer[1].msg, "[] Message with empty string category");
 });
 
 test("getPinoSink(): message interpolation", async () => {
@@ -388,18 +384,22 @@ test("getPinoSink(): message interpolation", async () => {
   logger.flush();
   await delay(100);
 
-  assertEquals(buffer.length, 1);
+  assert.strictEqual(buffer.length, 1);
 
   // Check that the message contains expected parts
   const actualMsg = buffer[0].msg;
-  assertEquals(actualMsg.includes("app·auth"), true, "Should contain category");
-  assertEquals(actualMsg.includes("User"), true, "Should contain 'User'");
-  assertEquals(
+  assert.strictEqual(
+    actualMsg.includes("app·auth"),
+    true,
+    "Should contain category",
+  );
+  assert.strictEqual(actualMsg.includes("User"), true, "Should contain 'User'");
+  assert.strictEqual(
     actualMsg.includes("logged in"),
     true,
     "Should contain 'logged in'",
   );
 
-  assertEquals(buffer[0].sessionId, "sess_abc123");
-  assertEquals(buffer[0].source, "web");
+  assert.strictEqual(buffer[0].sessionId, "sess_abc123");
+  assert.strictEqual(buffer[0].source, "web");
 });

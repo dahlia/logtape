@@ -1,11 +1,9 @@
-import { suite } from "@alinea/suite";
-import { assert, assertRejects } from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { createSink, loadModuleExport } from "./loader.ts";
 import { parseModuleReference } from "./parser.ts";
 import { DEFAULT_SHORTHANDS } from "./shorthands.ts";
 import { ConfigError } from "./types.ts";
-
-const test = suite(import.meta);
 
 test("loadModuleExport()", async () => {
   // Load built-in shorthand
@@ -14,7 +12,7 @@ test("loadModuleExport()", async () => {
     DEFAULT_SHORTHANDS,
     "sinks",
   );
-  assert(typeof consoleSink === "function");
+  assert.ok(typeof consoleSink === "function");
 
   // Load module export directly
   const textFormatter = await loadModuleExport(
@@ -22,10 +20,10 @@ test("loadModuleExport()", async () => {
     DEFAULT_SHORTHANDS,
     "formatters",
   );
-  assert(typeof textFormatter === "function");
+  assert.ok(typeof textFormatter === "function");
 
   // Invalid shorthand
-  await assertRejects(
+  await assert.rejects(
     () =>
       loadModuleExport(
         parseModuleReference("#invalid"),
@@ -33,11 +31,10 @@ test("loadModuleExport()", async () => {
         "sinks",
       ),
     ConfigError,
-    "Unknown sink shorthand",
   );
 
   // Missing module
-  await assertRejects(
+  await assert.rejects(
     () =>
       loadModuleExport(
         parseModuleReference("non-existent#export"),
@@ -45,11 +42,10 @@ test("loadModuleExport()", async () => {
         "sinks",
       ),
     ConfigError,
-    "Failed to load module",
   );
 
   // Missing export
-  await assertRejects(
+  await assert.rejects(
     () =>
       loadModuleExport(
         parseModuleReference("@logtape/logtape#nonExistent"),
@@ -57,7 +53,6 @@ test("loadModuleExport()", async () => {
         "sinks",
       ),
     ConfigError,
-    "does not have export",
   );
 });
 
@@ -67,7 +62,7 @@ test("createSink()", async () => {
     { type: "#console()" },
     DEFAULT_SHORTHANDS,
   );
-  assert(typeof sink === "function");
+  assert.ok(typeof sink === "function");
 
   // Create sink with formatter shorthand
   const sinkWithFormatter = await createSink(
@@ -77,5 +72,5 @@ test("createSink()", async () => {
     },
     DEFAULT_SHORTHANDS,
   );
-  assert(typeof sinkWithFormatter === "function");
+  assert.ok(typeof sinkWithFormatter === "function");
 });

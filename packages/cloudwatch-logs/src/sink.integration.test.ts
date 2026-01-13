@@ -1,4 +1,5 @@
-import { suite } from "@alinea/suite";
+import assert from "node:assert/strict";
+import _test from "node:test";
 import {
   CloudWatchLogsClient,
   CreateLogGroupCommand,
@@ -9,21 +10,15 @@ import {
 import "@dotenvx/dotenvx/config";
 import type { LogRecord } from "@logtape/logtape";
 import { jsonLinesFormatter } from "@logtape/logtape";
-import { assertEquals, assertInstanceOf } from "@std/assert";
 import process from "node:process";
 import { getCloudWatchLogsSink } from "./sink.ts";
 
 type Describe = {
   (name: string, run: () => void | Promise<void>): void;
-  (
-    name: string,
-    options: { sanitizeResources?: boolean; sanitizeOps?: boolean },
-    run: () => void | Promise<void>,
-  ): void;
   skip?: Describe;
 };
 
-let test: Describe = suite(import.meta) as Describe;
+let test: Describe = _test as Describe;
 
 // Skip integration tests unless AWS credentials are provided
 // Also skip on Bun due to AWS SDK response parsing issues
@@ -50,10 +45,7 @@ if (skipIntegrationTests) {
 const testLogGroupName = `/logtape/integration-test-${Date.now()}`;
 const testLogStreamName = `test-stream-${Date.now()}`;
 
-test("Integration: CloudWatch Logs sink with real AWS service", {
-  sanitizeResources: false,
-  sanitizeOps: false,
-}, async () => {
+test("Integration: CloudWatch Logs sink with real AWS service", async () => {
   const client = new CloudWatchLogsClient({
     region: process.env.AWS_REGION,
     credentials: {
@@ -134,8 +126,8 @@ test("Integration: CloudWatch Logs sink with real AWS service", {
       return;
     }
 
-    assertEquals(response.events?.length, 1);
-    assertEquals(
+    assert.strictEqual(response.events?.length, 1);
+    assert.strictEqual(
       response.events?.[0].message,
       'Integration test message at "2023-01-01T00:00:00.000Z"',
     );
@@ -152,10 +144,7 @@ test("Integration: CloudWatch Logs sink with real AWS service", {
   }
 });
 
-test("Integration: CloudWatch Logs sink with batch processing", {
-  sanitizeResources: false,
-  sanitizeOps: false,
-}, async () => {
+test("Integration: CloudWatch Logs sink with batch processing", async () => {
   const client = new CloudWatchLogsClient({
     region: process.env.AWS_REGION,
     credentials: {
@@ -227,14 +216,14 @@ test("Integration: CloudWatch Logs sink with batch processing", {
       return;
     }
 
-    assertEquals(response.events?.length, 5);
+    assert.strictEqual(response.events?.length, 5);
 
     // Verify messages are in order and contain expected patterns
     response.events?.forEach((event, i) => {
       const expectedPattern = `Batch test message ${
         i + 1
       } at "2023-01-01T00:0${i}:0${i}.000Z"`;
-      assertEquals(event.message, expectedPattern);
+      assert.strictEqual(event.message, expectedPattern);
     });
   } finally {
     // Always cleanup - delete log group (this also deletes log streams)
@@ -249,10 +238,7 @@ test("Integration: CloudWatch Logs sink with batch processing", {
   }
 });
 
-test("Integration: CloudWatch Logs sink with credentials from options", {
-  sanitizeResources: false,
-  sanitizeOps: false,
-}, async () => {
+test("Integration: CloudWatch Logs sink with credentials from options", async () => {
   const credentialsTestLogGroupName = `/logtape/credentials-test-${Date.now()}`;
   const credentialsTestLogStreamName = `credentials-test-stream-${Date.now()}`;
 
@@ -270,8 +256,8 @@ test("Integration: CloudWatch Logs sink with credentials from options", {
   });
 
   // Verify sink is created successfully
-  assertInstanceOf(sink, Function);
-  assertInstanceOf(sink[Symbol.asyncDispose], Function);
+  assert.ok(sink instanceof Function);
+  assert.ok(sink[Symbol.asyncDispose] instanceof Function);
 
   // Create a separate client for setup/cleanup
   const client = new CloudWatchLogsClient({
@@ -336,8 +322,8 @@ test("Integration: CloudWatch Logs sink with credentials from options", {
       return;
     }
 
-    assertEquals(response.events?.length, 1);
-    assertEquals(
+    assert.strictEqual(response.events?.length, 1);
+    assert.strictEqual(
       response.events?.[0].message,
       'Credentials test message at "2023-01-01T00:00:00.000Z"',
     );
@@ -356,10 +342,7 @@ test("Integration: CloudWatch Logs sink with credentials from options", {
   }
 });
 
-test("Integration: CloudWatch Logs sink with JSON Lines formatter", {
-  sanitizeResources: false,
-  sanitizeOps: false,
-}, async () => {
+test("Integration: CloudWatch Logs sink with JSON Lines formatter", async () => {
   const structuredTestLogGroupName = `/logtape/structured-test-${Date.now()}`;
   const structuredTestLogStreamName = `structured-test-stream-${Date.now()}`;
 
@@ -444,23 +427,23 @@ test("Integration: CloudWatch Logs sink with JSON Lines formatter", {
       return;
     }
 
-    assertEquals(response.events?.length, 1);
+    assert.strictEqual(response.events?.length, 1);
 
     // Parse the JSON log message
     const logMessage = response.events?.[0].message;
     const parsedLog = JSON.parse(logMessage!);
 
     // Verify structured fields are present (jsonLinesFormatter format)
-    assertEquals(parsedLog.level, "WARN"); // jsonLinesFormatter uses uppercase
-    assertEquals(parsedLog.logger, "api.auth"); // category becomes logger
-    assertEquals(
+    assert.strictEqual(parsedLog.level, "WARN"); // jsonLinesFormatter uses uppercase
+    assert.strictEqual(parsedLog.logger, "api.auth"); // category becomes logger
+    assert.strictEqual(
       parsedLog.message,
       'Failed login attempt for user {"email":"test@example.com","id":456}',
     ); // pre-formatted message
-    assertEquals(parsedLog.properties.ip, "192.168.1.1");
-    assertEquals(parsedLog.properties.userAgent, "TestAgent/1.0");
-    assertEquals(parsedLog.properties.attempts, 3);
-    assertEquals(parsedLog["@timestamp"], "2023-01-01T00:00:00.000Z"); // Fixed timestamp
+    assert.strictEqual(parsedLog.properties.ip, "192.168.1.1");
+    assert.strictEqual(parsedLog.properties.userAgent, "TestAgent/1.0");
+    assert.strictEqual(parsedLog.properties.attempts, 3);
+    assert.strictEqual(parsedLog["@timestamp"], "2023-01-01T00:00:00.000Z"); // Fixed timestamp
   } finally {
     // Always cleanup - delete log group (this also deletes log streams)
     try {

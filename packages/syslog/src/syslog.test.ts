@@ -1,11 +1,5 @@
-import { suite } from "@alinea/suite";
-import {
-  assert,
-  assertEquals,
-  assertInstanceOf,
-  assertRejects,
-  assertThrows,
-} from "@std/assert";
+import assert from "node:assert/strict";
+import test from "node:test";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { createSocket } from "node:dgram";
 import { createServer } from "node:net";
@@ -17,8 +11,6 @@ import {
   NodeUdpSyslogConnection,
   type SyslogFacility,
 } from "./syslog.ts";
-
-const test = suite(import.meta);
 
 type TestSink = Sink & AsyncDisposable & {
   readonly _internal_lastPromise: Promise<void>;
@@ -171,13 +163,13 @@ function createMockLogRecord(
 
 test("getSyslogSink() creates a sink function", () => {
   const sink = getSyslogSink();
-  assertEquals(typeof sink, "function");
-  assertInstanceOf(sink, Function);
+  assert.strictEqual(typeof sink, "function");
+  assert.ok(sink instanceof Function);
 });
 
 test("getSyslogSink() creates an AsyncDisposable sink", () => {
   const sink = getSyslogSink();
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 // Deno-specific UDP test
@@ -204,7 +196,7 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Test passes if no crash occurs
-      assertEquals(true, true);
+      assert.strictEqual(true, true);
     } finally {
       await sink[Symbol.asyncDispose]();
     }
@@ -252,10 +244,10 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify the message format
-      assertEquals(receivedMessage.includes("Test message"), true);
-      assertEquals(receivedMessage.includes("test-app"), true);
+      assert.strictEqual(receivedMessage.includes("Test message"), true);
+      assert.strictEqual(receivedMessage.includes("test-app"), true);
       // Priority should be local1 (17) * 8 + info (6) = 142
-      assertEquals(receivedMessage.includes("<142>1"), true);
+      assert.strictEqual(receivedMessage.includes("<142>1"), true);
     } finally {
       server.close();
     }
@@ -318,14 +310,17 @@ if (typeof Deno !== "undefined") {
       await serverTask;
 
       // Verify the message format
-      assertEquals(receivedMessage.includes("Critical error occurred"), true);
-      assertEquals(receivedMessage.includes("test-daemon"), true);
+      assert.strictEqual(
+        receivedMessage.includes("Critical error occurred"),
+        true,
+      );
+      assert.strictEqual(receivedMessage.includes("test-daemon"), true);
       // Priority should be daemon (3) * 8 + error (3) = 27
-      assertEquals(receivedMessage.includes("<27>1"), true);
+      assert.strictEqual(receivedMessage.includes("<27>1"), true);
       // Should include structured data
-      assertEquals(receivedMessage.includes("[test@12345"), true);
-      assertEquals(receivedMessage.includes('errorCode="500"'), true);
-      assertEquals(receivedMessage.includes('component="auth"'), true);
+      assert.strictEqual(receivedMessage.includes("[test@12345"), true);
+      assert.strictEqual(receivedMessage.includes('errorCode="500"'), true);
+      assert.strictEqual(receivedMessage.includes('component="auth"'), true);
     } finally {
       server.close();
       await serverTask.catch(() => {});
@@ -380,14 +375,17 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify the message format
-      assertEquals(receivedMessage.includes("Critical error occurred"), true);
-      assertEquals(receivedMessage.includes("test-daemon"), true);
+      assert.strictEqual(
+        receivedMessage.includes("Critical error occurred"),
+        true,
+      );
+      assert.strictEqual(receivedMessage.includes("test-daemon"), true);
       // Priority should be daemon (3) * 8 + error (3) = 27
-      assertEquals(receivedMessage.includes("<27>1"), true);
+      assert.strictEqual(receivedMessage.includes("<27>1"), true);
       // Should include structured data
-      assertEquals(receivedMessage.includes("[test@12345"), true);
-      assertEquals(receivedMessage.includes('errorCode="500"'), true);
-      assertEquals(receivedMessage.includes('component="auth"'), true);
+      assert.strictEqual(receivedMessage.includes("[test@12345"), true);
+      assert.strictEqual(receivedMessage.includes('errorCode="500"'), true);
+      assert.strictEqual(receivedMessage.includes('component="auth"'), true);
     } finally {
       server.close();
     }
@@ -425,7 +423,7 @@ if (typeof Deno !== "undefined") {
     }
 
     // Test passes if no hanging or crashes occur
-    assertEquals(true, true);
+    assert.strictEqual(true, true);
   });
 } else {
   test("getSyslogSink() with multiple messages and proper sequencing (Node.js)", async () => {
@@ -452,7 +450,7 @@ if (typeof Deno !== "undefined") {
       await sink[Symbol.asyncDispose]();
     }
 
-    assertEquals(true, true);
+    assert.strictEqual(true, true);
   });
 }
 
@@ -515,7 +513,7 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Validate we received 3 messages
-      assertEquals(receivedMessages.length, 3);
+      assert.strictEqual(receivedMessages.length, 3);
 
       // Parse and validate each message structure
       const parsedMessages = receivedMessages.map((msg) =>
@@ -524,21 +522,21 @@ if (typeof Deno !== "undefined") {
 
       for (const parsed of parsedMessages) {
         // Validate RFC 5424 format structure
-        assertEquals(parsed.version, 1);
-        assertEquals(parsed.hostname, "test-host");
-        assertEquals(parsed.appName, "test-app");
-        assertEquals(parsed.procId, "12345");
-        assertEquals(parsed.msgId, "-");
+        assert.strictEqual(parsed.version, 1);
+        assert.strictEqual(parsed.hostname, "test-host");
+        assert.strictEqual(parsed.appName, "test-app");
+        assert.strictEqual(parsed.procId, "12345");
+        assert.strictEqual(parsed.msgId, "-");
 
         // Validate timestamp format (ISO 8601)
-        assert(
+        assert.ok(
           parsed.timestamp.match(
             /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
           ) !== null,
         );
 
         // Validate structured data is present
-        assert(parsed.structuredData.startsWith("[test@54321"));
+        assert.ok(parsed.structuredData.startsWith("[test@54321"));
       }
 
       // Find specific messages and validate their content
@@ -553,28 +551,28 @@ if (typeof Deno !== "undefined") {
       );
 
       // Validate priorities: daemon (3) * 8 + severity
-      assertEquals(infoMessage?.priority, 30); // daemon (3) * 8 + info (6) = 30
-      assertEquals(errorMessage?.priority, 27); // daemon (3) * 8 + error (3) = 27
-      assertEquals(warningMessage?.priority, 28); // daemon (3) * 8 + warning (4) = 28
+      assert.strictEqual(infoMessage?.priority, 30); // daemon (3) * 8 + info (6) = 30
+      assert.strictEqual(errorMessage?.priority, 27); // daemon (3) * 8 + error (3) = 27
+      assert.strictEqual(warningMessage?.priority, 28); // daemon (3) * 8 + warning (4) = 28
 
       // Parse and validate structured data content
       const infoStructuredData = parseStructuredData(
         infoMessage!.structuredData,
       );
-      assertEquals(infoStructuredData.requestId, "req-123");
-      assertEquals(infoStructuredData.userId, "456");
+      assert.strictEqual(infoStructuredData.requestId, "req-123");
+      assert.strictEqual(infoStructuredData.userId, "456");
 
       const errorStructuredData = parseStructuredData(
         errorMessage!.structuredData,
       );
-      assertEquals(errorStructuredData.errorCode, "500");
-      assertEquals(errorStructuredData.component, "auth");
+      assert.strictEqual(errorStructuredData.errorCode, "500");
+      assert.strictEqual(errorStructuredData.component, "auth");
 
       const warningStructuredData = parseStructuredData(
         warningMessage!.structuredData,
       );
-      assertEquals(warningStructuredData.diskUsage, "85%");
-      assertEquals(warningStructuredData.partition, "/var");
+      assert.strictEqual(warningStructuredData.diskUsage, "85%");
+      assert.strictEqual(warningStructuredData.partition, "/var");
     } finally {
       server.close();
     }
@@ -637,33 +635,33 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Validate we received 3 messages
-      assertEquals(receivedMessages.length, 3);
+      assert.strictEqual(receivedMessages.length, 3);
 
       // Validate RFC 5424 format for each message
       for (const message of receivedMessages) {
         // Should start with priority in angle brackets
-        assertEquals(message.match(/^<\d+>/) !== null, true);
+        assert.strictEqual(message.match(/^<\d+>/) !== null, true);
 
         // Should have version number 1
-        assertEquals(message.includes(">1 "), true);
+        assert.strictEqual(message.includes(">1 "), true);
 
         // Should contain timestamp in ISO format
-        assertEquals(
+        assert.strictEqual(
           message.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/) !== null,
           true,
         );
 
         // Should contain our hostname
-        assertEquals(message.includes("test-host"), true);
+        assert.strictEqual(message.includes("test-host"), true);
 
         // Should contain our app name
-        assertEquals(message.includes("test-app"), true);
+        assert.strictEqual(message.includes("test-app"), true);
 
         // Should contain our process ID
-        assertEquals(message.includes("12345"), true);
+        assert.strictEqual(message.includes("12345"), true);
 
         // Should contain structured data
-        assertEquals(message.includes("[test@54321"), true);
+        assert.strictEqual(message.includes("[test@54321"), true);
       }
 
       // Check specific priorities: daemon (3) * 8 + level
@@ -678,21 +676,21 @@ if (typeof Deno !== "undefined") {
       );
 
       // Info: daemon (3) * 8 + info (6) = 30
-      assertEquals(infoMessage?.includes("<30>1"), true);
+      assert.strictEqual(infoMessage?.includes("<30>1"), true);
 
       // Error: daemon (3) * 8 + error (3) = 27
-      assertEquals(errorMessage?.includes("<27>1"), true);
+      assert.strictEqual(errorMessage?.includes("<27>1"), true);
 
       // Warning: daemon (3) * 8 + warning (4) = 28
-      assertEquals(warningMessage?.includes("<28>1"), true);
+      assert.strictEqual(warningMessage?.includes("<28>1"), true);
 
       // Check structured data content
-      assertEquals(infoMessage?.includes('requestId="req-123"'), true);
-      assertEquals(infoMessage?.includes('userId="456"'), true);
-      assertEquals(errorMessage?.includes('errorCode="500"'), true);
-      assertEquals(errorMessage?.includes('component="auth"'), true);
-      assertEquals(warningMessage?.includes('diskUsage="85%"'), true);
-      assertEquals(warningMessage?.includes('partition="/var"'), true);
+      assert.strictEqual(infoMessage?.includes('requestId="req-123"'), true);
+      assert.strictEqual(infoMessage?.includes('userId="456"'), true);
+      assert.strictEqual(errorMessage?.includes('errorCode="500"'), true);
+      assert.strictEqual(errorMessage?.includes('component="auth"'), true);
+      assert.strictEqual(warningMessage?.includes('diskUsage="85%"'), true);
+      assert.strictEqual(warningMessage?.includes('partition="/var"'), true);
     } finally {
       server.close();
     }
@@ -745,17 +743,20 @@ if (typeof Deno !== "undefined") {
       // Parse and validate the complete message
       const parsed = parseSyslogMessage(receivedMessage);
 
-      assertEquals(parsed.version, 1);
-      assertEquals(parsed.hostname, Deno.hostname());
-      assertEquals(parsed.appName, "escape-test");
-      assertEquals(parsed.message, "Test escaping");
+      assert.strictEqual(parsed.version, 1);
+      assert.strictEqual(parsed.hostname, Deno.hostname());
+      assert.strictEqual(parsed.appName, "escape-test");
+      assert.strictEqual(parsed.message, "Test escaping");
 
       // Parse structured data and verify proper unescaping
       const structuredData = parseStructuredData(parsed.structuredData);
-      assertEquals(structuredData.quote, 'Has "quotes" in value');
-      assertEquals(structuredData.backslash, "Has \\ backslash");
-      assertEquals(structuredData.bracket, "Has ] bracket");
-      assertEquals(structuredData.combined, 'Mix of "quotes", \\ and ] chars');
+      assert.strictEqual(structuredData.quote, 'Has "quotes" in value');
+      assert.strictEqual(structuredData.backslash, "Has \\ backslash");
+      assert.strictEqual(structuredData.bracket, "Has ] bracket");
+      assert.strictEqual(
+        structuredData.combined,
+        'Mix of "quotes", \\ and ] chars',
+      );
     } finally {
       server.close();
     }
@@ -805,16 +806,19 @@ if (typeof Deno !== "undefined") {
       // Parse and verify the message like the Deno test
       const parsed = parseSyslogMessage(receivedMessage);
 
-      assertEquals(parsed.version, 1);
-      assertEquals(parsed.message, "Test escaping");
-      assertEquals(parsed.appName, "escape-test");
+      assert.strictEqual(parsed.version, 1);
+      assert.strictEqual(parsed.message, "Test escaping");
+      assert.strictEqual(parsed.appName, "escape-test");
 
       // Parse structured data and verify escaping
       const structuredData = parseStructuredData(parsed.structuredData);
-      assertEquals(structuredData.quote, 'Has "quotes" in value');
-      assertEquals(structuredData.backslash, "Has \\ backslash");
-      assertEquals(structuredData.bracket, "Has ] bracket");
-      assertEquals(structuredData.combined, 'Mix of "quotes", \\ and ] chars');
+      assert.strictEqual(structuredData.quote, 'Has "quotes" in value');
+      assert.strictEqual(structuredData.backslash, "Has \\ backslash");
+      assert.strictEqual(structuredData.bracket, "Has ] bracket");
+      assert.strictEqual(
+        structuredData.combined,
+        'Mix of "quotes", \\ and ] chars',
+      );
     } finally {
       server.close();
     }
@@ -867,13 +871,13 @@ if (typeof Deno !== "undefined") {
 
       // Parse and validate the complete message
       const parsed = parseSyslogMessage(receivedMessage);
-      assertEquals(parsed.appName, "template-test");
-      assertEquals(parsed.structuredData, "-"); // No structured data for this test
+      assert.strictEqual(parsed.appName, "template-test");
+      assert.strictEqual(parsed.structuredData, "-"); // No structured data for this test
 
       // Verify template literal message is correctly formatted
       const expectedMessage =
         'User {"userId":123,"name":"Alice"} performed action "login" with result {"success":true,"duration":150}';
-      assertEquals(parsed.message, expectedMessage);
+      assert.strictEqual(parsed.message, expectedMessage);
     } finally {
       server.close();
     }
@@ -922,15 +926,15 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify template literal parts are properly formatted
-      assertEquals(receivedMessage.includes("User "), true);
-      assertEquals(
+      assert.strictEqual(receivedMessage.includes("User "), true);
+      assert.strictEqual(
         receivedMessage.includes('{"userId":123,"name":"Alice"}'),
         true,
       );
-      assertEquals(receivedMessage.includes(" performed action "), true);
-      assertEquals(receivedMessage.includes('"login"'), true);
-      assertEquals(receivedMessage.includes(" with result "), true);
-      assertEquals(
+      assert.strictEqual(receivedMessage.includes(" performed action "), true);
+      assert.strictEqual(receivedMessage.includes('"login"'), true);
+      assert.strictEqual(receivedMessage.includes(" with result "), true);
+      assert.strictEqual(
         receivedMessage.includes('{"success":true,"duration":150}'),
         true,
       );
@@ -1007,7 +1011,7 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Verify priority calculations: Priority = Facility * 8 + Severity
-      assertEquals(receivedMessages.length, 6);
+      assert.strictEqual(receivedMessages.length, 6);
 
       // Parse all messages and verify priorities
       const parsedMessages = receivedMessages.map((msg) =>
@@ -1035,20 +1039,20 @@ if (typeof Deno !== "undefined") {
       );
 
       // Verify exact priority calculations
-      assertEquals(kernelMsg?.priority, 3); // kernel (0) * 8 + error (3) = 3
-      assertEquals(userMsg?.priority, 11); // user (1) * 8 + error (3) = 11
-      assertEquals(daemonMsg?.priority, 27); // daemon (3) * 8 + error (3) = 27
-      assertEquals(local0Msg?.priority, 131); // local0 (16) * 8 + error (3) = 131
-      assertEquals(local7Msg?.priority, 187); // local7 (23) * 8 + error (3) = 187
-      assertEquals(mailMsg?.priority, 20); // mail (2) * 8 + warning (4) = 20
+      assert.strictEqual(kernelMsg?.priority, 3); // kernel (0) * 8 + error (3) = 3
+      assert.strictEqual(userMsg?.priority, 11); // user (1) * 8 + error (3) = 11
+      assert.strictEqual(daemonMsg?.priority, 27); // daemon (3) * 8 + error (3) = 27
+      assert.strictEqual(local0Msg?.priority, 131); // local0 (16) * 8 + error (3) = 131
+      assert.strictEqual(local7Msg?.priority, 187); // local7 (23) * 8 + error (3) = 187
+      assert.strictEqual(mailMsg?.priority, 20); // mail (2) * 8 + warning (4) = 20
 
       // Verify app names match facilities
-      assertEquals(kernelMsg?.appName, "kernel-test");
-      assertEquals(userMsg?.appName, "user-test");
-      assertEquals(daemonMsg?.appName, "daemon-test");
-      assertEquals(local0Msg?.appName, "local0-test");
-      assertEquals(local7Msg?.appName, "local7-test");
-      assertEquals(mailMsg?.appName, "mail-test");
+      assert.strictEqual(kernelMsg?.appName, "kernel-test");
+      assert.strictEqual(userMsg?.appName, "user-test");
+      assert.strictEqual(daemonMsg?.appName, "daemon-test");
+      assert.strictEqual(local0Msg?.appName, "local0-test");
+      assert.strictEqual(local7Msg?.appName, "local7-test");
+      assert.strictEqual(mailMsg?.appName, "mail-test");
     } finally {
       server.close();
     }
@@ -1067,8 +1071,8 @@ test("Syslog message format follows RFC 5424", () => {
 
   // This should not throw during sink creation and call
   // We don't send the message to avoid network operations
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("Syslog priority calculation", () => {
@@ -1081,8 +1085,8 @@ test("Syslog priority calculation", () => {
   });
 
   // Test that sink is created correctly
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("Syslog facility codes mapping", () => {
@@ -1102,8 +1106,8 @@ test("Syslog facility codes mapping", () => {
     });
 
     // Should not throw for any valid facility
-    assertEquals(typeof sink, "function");
-    assertEquals(typeof sink[Symbol.asyncDispose], "function");
+    assert.strictEqual(typeof sink, "function");
+    assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
   }
 });
 
@@ -1126,8 +1130,8 @@ test("Syslog severity levels mapping", () => {
   });
 
   // Should work with all valid levels
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("Structured data formatting", () => {
@@ -1138,8 +1142,8 @@ test("Structured data formatting", () => {
   });
 
   // Should not throw when including structured data
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("Message with template literals", () => {
@@ -1149,16 +1153,16 @@ test("Message with template literals", () => {
   });
 
   // Should not throw with template literal style messages
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("Default options", () => {
   const sink = getSyslogSink();
 
   // Should work with default options
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("Custom options", () => {
@@ -1173,8 +1177,8 @@ test("Custom options", () => {
   });
 
   // Should work with custom options
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("AsyncDisposable cleanup", async () => {
@@ -1195,11 +1199,11 @@ test("Syslog message format validation", () => {
 
   // Test priority calculation: local0 (16) * 8 + info (6) = 134
   const expectedPriority = 16 * 8 + 6; // 134
-  assertEquals(expectedPriority, 134);
+  assert.strictEqual(expectedPriority, 134);
 
   // Test timestamp formatting
   const timestampStr = new Date(timestamp).toISOString();
-  assertEquals(timestampStr, "2024-01-01T12:00:00.000Z");
+  assert.strictEqual(timestampStr, "2024-01-01T12:00:00.000Z");
 });
 
 // Runtime-specific connection tests
@@ -1207,7 +1211,7 @@ if (typeof Deno !== "undefined") {
   // Deno-specific tests
   test("DenoUdpSyslogConnection instantiation", () => {
     const connection = new DenoUdpSyslogConnection("localhost", 514, 5000);
-    assertInstanceOf(connection, DenoUdpSyslogConnection);
+    assert.ok(connection instanceof DenoUdpSyslogConnection);
   });
 
   test("DenoUdpSyslogConnection connect and close", () => {
@@ -1229,7 +1233,7 @@ if (typeof Deno !== "undefined") {
       // This might happen if the system is very fast or network conditions are unusual
     } catch (error) {
       // This is expected - either timeout or network unreachable
-      assertEquals(typeof (error as Error).message, "string");
+      assert.strictEqual(typeof (error as Error).message, "string");
     } finally {
       connection.close();
     }
@@ -1242,7 +1246,7 @@ if (typeof Deno !== "undefined") {
       5000,
       false,
     );
-    assertInstanceOf(connection, DenoTcpSyslogConnection);
+    assert.ok(connection instanceof DenoTcpSyslogConnection);
   });
 
   test("DenoTcpSyslogConnection close without connection", () => {
@@ -1266,7 +1270,7 @@ if (typeof Deno !== "undefined") {
     ); // Very short timeout
 
     try {
-      await assertRejects(
+      await assert.rejects(
         () => connection.connect(),
         Error,
       );
@@ -1284,7 +1288,7 @@ if (typeof Deno !== "undefined") {
       false,
     );
 
-    await assertRejects(
+    await assert.rejects(
       () => connection.send("test message"),
       Error,
       "Connection not established",
@@ -1304,7 +1308,7 @@ if (typeof Deno !== "undefined") {
       // Expected - likely no server listening, but the send mechanism should work
       const errorMessage = (error as Error).message;
       // Should contain either timeout or connection/network error
-      assertEquals(typeof errorMessage, "string");
+      assert.strictEqual(typeof errorMessage, "string");
     } finally {
       connection.close();
     }
@@ -1354,7 +1358,7 @@ if (typeof Deno !== "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Verify message was received
-      assertEquals(
+      assert.strictEqual(
         receivedData.includes("test syslog message from Deno TCP"),
         true,
       );
@@ -1364,12 +1368,9 @@ if (typeof Deno !== "undefined") {
     }
   });
 
-  test("DenoTcpSyslogConnection secure connection attempt (TLS)", {
-    // Disable sanitizers because TLS connection cleanup on Windows can take
-    // longer than the test, causing false positive leak detection
-    sanitizeOps: false,
-    sanitizeResources: false,
-  }, async () => {
+  test("DenoTcpSyslogConnection secure connection attempt (TLS)", async () => {
+    // Note: In Deno, sanitizers would be disabled because TLS connection cleanup
+    // on Windows can take longer than the test, causing false positive leak detection
     // Attempt to connect to a port where no TLS server is listening
     const connection = new DenoTcpSyslogConnection(
       "127.0.0.1",
@@ -1378,7 +1379,7 @@ if (typeof Deno !== "undefined") {
       true,
     ); // secure: true
     try {
-      await assertRejects(
+      await assert.rejects(
         () => connection.connect(),
         Error,
         // Expected error message for TLS connection failure (e.g., handshake error)
@@ -1390,12 +1391,9 @@ if (typeof Deno !== "undefined") {
     }
   });
 
-  test("DenoTcpSyslogSink secure connection (TLS) with getSyslogSink", {
-    // Disable sanitizers because TLS connection cleanup on Windows can take
-    // longer than the test, causing false positive leak detection
-    sanitizeOps: false,
-    sanitizeResources: false,
-  }, async () => {
+  test("DenoTcpSyslogSink secure connection (TLS) with getSyslogSink", async () => {
+    // Note: In Deno, sanitizers would be disabled because TLS connection cleanup
+    // on Windows can take longer than the test, causing false positive leak detection
     // This test would require a mock TLS server to properly verify data transmission.
     // For now, we'll verify that the sink attempts a secure connection.
     // Given no mock TLS server, this should reject.
@@ -1409,7 +1407,7 @@ if (typeof Deno !== "undefined") {
     const sinkWithPromise = sink as TestSink;
 
     try {
-      await assertRejects(
+      await assert.rejects(
         async () => {
           sink(createMockLogRecord("info", ["Test secure sink connection"]));
           await sinkWithPromise._internal_lastPromise;
@@ -1428,7 +1426,7 @@ if (typeof Deno !== "undefined") {
 if (typeof Deno === "undefined") {
   test("NodeUdpSyslogConnection instantiation", () => {
     const connection = new NodeUdpSyslogConnection("localhost", 514, 5000);
-    assertInstanceOf(connection, NodeUdpSyslogConnection);
+    assert.ok(connection instanceof NodeUdpSyslogConnection);
   });
 
   test("NodeUdpSyslogConnection connect and close", () => {
@@ -1450,7 +1448,7 @@ if (typeof Deno === "undefined") {
       // This might happen if the system is very fast or network conditions are unusual
     } catch (error) {
       // This is expected - either timeout or network unreachable
-      assertEquals(typeof (error as Error).message, "string");
+      assert.strictEqual(typeof (error as Error).message, "string");
     } finally {
       connection.close();
     }
@@ -1463,7 +1461,7 @@ if (typeof Deno === "undefined") {
       5000,
       false,
     );
-    assertInstanceOf(connection, NodeTcpSyslogConnection);
+    assert.ok(connection instanceof NodeTcpSyslogConnection);
   });
 
   test("NodeTcpSyslogConnection close without connection", () => {
@@ -1477,10 +1475,7 @@ if (typeof Deno === "undefined") {
     connection.close();
   });
 
-  test("NodeTcpSyslogConnection connection timeout", {
-    sanitizeResources: false,
-    sanitizeOps: false,
-  }, async () => {
+  test("NodeTcpSyslogConnection connection timeout", async () => {
     // Use a non-routable IP address to ensure connection failure
     const connection = new NodeTcpSyslogConnection(
       "10.255.255.1",
@@ -1490,7 +1485,7 @@ if (typeof Deno === "undefined") {
     ); // Very short timeout
 
     try {
-      await assertRejects(
+      await assert.rejects(
         () => connection.connect(),
         Error,
       );
@@ -1508,7 +1503,7 @@ if (typeof Deno === "undefined") {
       false,
     );
 
-    assertThrows(
+    assert.throws(
       () => connection.send("test message"),
       Error,
       "Connection not established",
@@ -1528,7 +1523,7 @@ if (typeof Deno === "undefined") {
       // Expected - likely no server listening, but the send mechanism should work
       const errorMessage = (error as Error).message;
       // Should contain either timeout or connection/network error
-      assertEquals(typeof errorMessage, "string");
+      assert.strictEqual(typeof errorMessage, "string");
     } finally {
       connection.close();
     }
@@ -1571,7 +1566,7 @@ if (typeof Deno === "undefined") {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify message was received
-      assertEquals(
+      assert.strictEqual(
         receivedData.includes("test syslog message from Node TCP"),
         true,
       );
@@ -1589,7 +1584,7 @@ if (typeof Deno === "undefined") {
       true,
     ); // secure: true
     try {
-      await assertRejects(
+      await assert.rejects(
         () => connection.connect(),
         Error,
         // Expected error message for TLS connection failure (e.g., handshake error)
@@ -1614,7 +1609,7 @@ if (typeof Deno === "undefined") {
     const sinkWithPromise = sink as TestSink;
 
     try {
-      await assertRejects(
+      await assert.rejects(
         async () => {
           sink(createMockLogRecord("info", ["Test secure sink connection"]));
           await sinkWithPromise._internal_lastPromise;
@@ -1639,8 +1634,8 @@ test("getSyslogSink() with TLS options", () => {
     },
   });
 
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("getSyslogSink() with TLS options and multiple CA certs", () => {
@@ -1656,8 +1651,8 @@ test("getSyslogSink() with TLS options and multiple CA certs", () => {
     },
   });
 
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
 test("getSyslogSink() TLS options ignored for UDP", () => {
@@ -1670,6 +1665,6 @@ test("getSyslogSink() TLS options ignored for UDP", () => {
     },
   });
 
-  assertEquals(typeof sink, "function");
-  assertEquals(typeof sink[Symbol.asyncDispose], "function");
+  assert.strictEqual(typeof sink, "function");
+  assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });

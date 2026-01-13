@@ -1,6 +1,5 @@
-import { suite } from "@alinea/suite";
-import { assertEquals } from "@std/assert/equals";
-import { assertThrows } from "@std/assert/throws";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { fatal, info } from "./fixtures.ts";
 import {
   ansiColorFormatter,
@@ -13,54 +12,52 @@ import {
 } from "./formatter.ts";
 import type { LogRecord } from "./record.ts";
 
-const test = suite(import.meta);
-
 test("getTextFormatter()", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter()(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "date" })(info),
     "2023-11-14 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "date-time" })(info),
     "2023-11-14 22:13:20.000 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "date-time-timezone" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "date-time-tz" })(info),
     "2023-11-14 22:13:20.000 +00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "none" })(info),
     "[INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "disabled" })(info),
     "[INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "rfc3339" })(info),
     "2023-11-14T22:13:20.000Z [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "time" })(info),
     "22:13:20.000 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "time-timezone" })(info),
     "22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ timestamp: "time-tz" })(info),
     "22:13:20.000 +00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({
       timestamp(ts) {
         const t = new Date(ts);
@@ -70,31 +67,31 @@ test("getTextFormatter()", () => {
     "Tue, 14 Nov 2023 22:13:20 GMT [INF] my-app·junk: Hello, 123 & 456!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ level: "ABBR" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ level: "FULL" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INFO] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ level: "L" })(info),
     "2023-11-14 22:13:20.000 +00:00 [I] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ level: "abbr" })(info),
     "2023-11-14 22:13:20.000 +00:00 [inf] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ level: "full" })(info),
     "2023-11-14 22:13:20.000 +00:00 [info] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ level: "l" })(info),
     "2023-11-14 22:13:20.000 +00:00 [i] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({
       level(level) {
         return level.at(-1) ?? "";
@@ -103,11 +100,11 @@ test("getTextFormatter()", () => {
     "2023-11-14 22:13:20.000 +00:00 [o] my-app·junk: Hello, 123 & 456!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ category: "." })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app.junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({
       category(category) {
         return `<${category.join("/")}>`;
@@ -116,7 +113,7 @@ test("getTextFormatter()", () => {
     "2023-11-14 22:13:20.000 +00:00 [INF] <my-app/junk>: Hello, 123 & 456!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({
       value(value) {
         return typeof value;
@@ -126,7 +123,7 @@ test("getTextFormatter()", () => {
   );
 
   // Test the inspect parameter fallback
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({
       value(value, inspect) {
         // Custom formatting for numbers, fallback to inspect for others
@@ -158,12 +155,12 @@ test("getTextFormatter()", () => {
     },
   })(recordWithObject);
   // Should contain the object keys
-  assertEquals(resultWithObject.includes("foo"), true);
-  assertEquals(resultWithObject.includes("bar"), true);
-  assertEquals(resultWithObject.includes("baz"), true);
+  assert.deepStrictEqual(resultWithObject.includes("foo"), true);
+  assert.deepStrictEqual(resultWithObject.includes("bar"), true);
+  assert.deepStrictEqual(resultWithObject.includes("baz"), true);
 
   let recordedValues: FormattedValues | null = null;
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({
       format(values) {
         recordedValues = values;
@@ -173,7 +170,7 @@ test("getTextFormatter()", () => {
     })(info),
     "INF <my-app·junk> Hello, 123 & 456! 2023-11-14 22:13:20.000 +00:00\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     recordedValues,
     {
       timestamp: "2023-11-14 22:13:20.000 +00:00",
@@ -205,14 +202,14 @@ test("getTextFormatter()", () => {
   longArrayStr += "]";
   // dnt-shim-ignore
   if ("Deno" in globalThis) {
-    assertEquals(
+    assert.deepStrictEqual(
       getTextFormatter()(longStringAndArray),
       `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, "${
         "a".repeat(15000)
       }" & ${longArrayStr}!\n`,
     );
   } else {
-    assertEquals(
+    assert.deepStrictEqual(
       getTextFormatter()(longStringAndArray),
       `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, '${
         "a".repeat(15000)
@@ -222,32 +219,32 @@ test("getTextFormatter()", () => {
 });
 
 test("defaultTextFormatter()", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     defaultTextFormatter(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     defaultTextFormatter(fatal),
     "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!\n",
   );
 });
 
 test("getAnsiColorFormatter()", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter()(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestampStyle: "bold" })(info),
     "\x1b[1m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestampStyle: null })(info),
     "2023-11-14 22:13:20.000 +00 " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
@@ -255,21 +252,21 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestampColor: "cyan" })(info),
     "\x1b[2m\x1b[36m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestampColor: null })(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestampStyle: null, timestampColor: "cyan" })(
       info,
     ),
@@ -278,7 +275,7 @@ test("getAnsiColorFormatter()", () => {
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestampStyle: null, timestampColor: null })(info),
     "2023-11-14 22:13:20.000 +00 " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
@@ -286,14 +283,14 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ levelStyle: null })(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ levelStyle: "dim" })(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[2m\x1b[32mINF\x1b[0m " +
@@ -301,7 +298,7 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({
       levelColors: {
         trace: null,
@@ -317,7 +314,7 @@ test("getAnsiColorFormatter()", () => {
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({
       levelColors: {
         trace: null,
@@ -334,14 +331,14 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ categoryStyle: "bold" })(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[1mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ categoryStyle: null })(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
@@ -349,7 +346,7 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ categoryColor: "cyan" })(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
@@ -357,13 +354,13 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
 
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestamp: "none" })(info),
     "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ timestamp: "disabled" })(info),
     "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
@@ -371,7 +368,7 @@ test("getAnsiColorFormatter()", () => {
   );
 
   let recordedValues: FormattedValues | null = null;
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({
       format(values) {
         recordedValues = values;
@@ -384,7 +381,7 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m! " +
       "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     recordedValues,
     {
       timestamp: "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m",
@@ -397,14 +394,14 @@ test("getAnsiColorFormatter()", () => {
 });
 
 test("ansiColorFormatter()", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     ansiColorFormatter(info),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[32mINF\x1b[0m " +
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     ansiColorFormatter(fatal),
     "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
       "\x1b[1m\x1b[35mFTL\x1b[0m " +
@@ -414,7 +411,7 @@ test("ansiColorFormatter()", () => {
 });
 
 test("defaultConsoleFormatter()", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     defaultConsoleFormatter(info),
     [
       "%c22:13:20.000 %cINF%c %cmy-app·junk %cHello, %o & %o!",
@@ -453,23 +450,26 @@ test("getJsonLinesFormatter()", () => {
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(logRecord));
 
-    assertEquals(result["@timestamp"], "2023-11-14T22:13:20.000Z");
-    assertEquals(result.level, "INFO");
-    assertEquals(result.message, "Hello, 123 & 456!");
-    assertEquals(result.logger, "my-app.junk");
-    assertEquals(result.properties, { userId: "12345", requestId: "abc-def" });
+    assert.deepStrictEqual(result["@timestamp"], "2023-11-14T22:13:20.000Z");
+    assert.deepStrictEqual(result.level, "INFO");
+    assert.deepStrictEqual(result.message, "Hello, 123 & 456!");
+    assert.deepStrictEqual(result.logger, "my-app.junk");
+    assert.deepStrictEqual(result.properties, {
+      userId: "12345",
+      requestId: "abc-def",
+    });
   }
 
   { // warning level converts to WARN
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(warningRecord));
-    assertEquals(result.level, "WARN");
+    assert.deepStrictEqual(result.level, "WARN");
   }
 
   { // categorySeparator string option
     const formatter = getJsonLinesFormatter({ categorySeparator: "/" });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.logger, "my-app/junk");
+    assert.deepStrictEqual(result.logger, "my-app/junk");
   }
 
   { // categorySeparator function option
@@ -477,7 +477,7 @@ test("getJsonLinesFormatter()", () => {
       categorySeparator: (category) => category.join("::").toUpperCase(),
     });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.logger, "MY-APP::JUNK");
+    assert.deepStrictEqual(result.logger, "MY-APP::JUNK");
   }
 
   { // categorySeparator function returning array
@@ -485,16 +485,16 @@ test("getJsonLinesFormatter()", () => {
       categorySeparator: (category) => category,
     });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.logger, ["my-app", "junk"]);
+    assert.deepStrictEqual(result.logger, ["my-app", "junk"]);
   }
 
   { // message template option
     const formatter = getJsonLinesFormatter({ message: "template" });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.message, "Hello, {a} & {b}!");
+    assert.deepStrictEqual(result.message, "Hello, {a} & {b}!");
 
     const result2 = JSON.parse(formatter(warningRecord));
-    assertEquals(result2.message, "Login failed for {}");
+    assert.deepStrictEqual(result2.message, "Login failed for {}");
   }
 
   { // message template with string rawMessage
@@ -504,42 +504,48 @@ test("getJsonLinesFormatter()", () => {
     };
     const formatter = getJsonLinesFormatter({ message: "template" });
     const result = JSON.parse(formatter(stringRawRecord));
-    assertEquals(result.message, "Simple string message");
+    assert.deepStrictEqual(result.message, "Simple string message");
   }
 
   { // message rendered option (default)
     const formatter = getJsonLinesFormatter({ message: "rendered" });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.message, "Hello, 123 & 456!");
+    assert.deepStrictEqual(result.message, "Hello, 123 & 456!");
   }
 
   { // properties flatten option
     const formatter = getJsonLinesFormatter({ properties: "flatten" });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.userId, "12345");
-    assertEquals(result.requestId, "abc-def");
-    assertEquals(result.properties, undefined);
+    assert.deepStrictEqual(result.userId, "12345");
+    assert.deepStrictEqual(result.requestId, "abc-def");
+    assert.deepStrictEqual(result.properties, undefined);
   }
 
   { // properties prepend option
     const formatter = getJsonLinesFormatter({ properties: "prepend:ctx_" });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.ctx_userId, "12345");
-    assertEquals(result.ctx_requestId, "abc-def");
-    assertEquals(result.properties, undefined);
+    assert.deepStrictEqual(result.ctx_userId, "12345");
+    assert.deepStrictEqual(result.ctx_requestId, "abc-def");
+    assert.deepStrictEqual(result.properties, undefined);
   }
 
   { // properties nest option
     const formatter = getJsonLinesFormatter({ properties: "nest:context" });
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.context, { userId: "12345", requestId: "abc-def" });
-    assertEquals(result.properties, undefined);
+    assert.deepStrictEqual(result.context, {
+      userId: "12345",
+      requestId: "abc-def",
+    });
+    assert.deepStrictEqual(result.properties, undefined);
   }
 
   { // properties nest option (default)
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(logRecord));
-    assertEquals(result.properties, { userId: "12345", requestId: "abc-def" });
+    assert.deepStrictEqual(result.properties, {
+      userId: "12345",
+      requestId: "abc-def",
+    });
   }
 
   { // Error properties are serialized
@@ -553,12 +559,12 @@ test("getJsonLinesFormatter()", () => {
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(recordWithError));
 
-    assertEquals(result.properties.error.name, "Error");
-    assertEquals(result.properties.error.message, "boom");
+    assert.deepStrictEqual(result.properties.error.name, "Error");
+    assert.deepStrictEqual(result.properties.error.message, "boom");
 
     // stack is runtime-dependent; if present, it should be a string
     if ("stack" in result.properties.error) {
-      assertEquals(typeof result.properties.error.stack, "string");
+      assert.deepStrictEqual(typeof result.properties.error.stack, "string");
     }
   }
 
@@ -575,10 +581,10 @@ test("getJsonLinesFormatter()", () => {
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(recordWithCause));
 
-    assertEquals(result.properties.error.name, "Error");
-    assertEquals(result.properties.error.message, "outer");
-    assertEquals(result.properties.error.cause.name, "Error");
-    assertEquals(result.properties.error.cause.message, "inner");
+    assert.deepStrictEqual(result.properties.error.name, "Error");
+    assert.deepStrictEqual(result.properties.error.message, "outer");
+    assert.deepStrictEqual(result.properties.error.cause.name, "Error");
+    assert.deepStrictEqual(result.properties.error.cause.message, "inner");
   }
 
   { // AggregateError.errors is serialized
@@ -595,15 +601,15 @@ test("getJsonLinesFormatter()", () => {
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(recordWithAggregate));
 
-    assertEquals(result.properties.error.name, "AggregateError");
-    assertEquals(result.properties.error.message, "boom");
-    assertEquals(result.properties.error.errors.length, 2);
-    assertEquals(result.properties.error.errors[0].message, "first");
-    assertEquals(result.properties.error.errors[1].message, "second");
+    assert.deepStrictEqual(result.properties.error.name, "AggregateError");
+    assert.deepStrictEqual(result.properties.error.message, "boom");
+    assert.deepStrictEqual(result.properties.error.errors.length, 2);
+    assert.deepStrictEqual(result.properties.error.errors[0].message, "first");
+    assert.deepStrictEqual(result.properties.error.errors[1].message, "second");
   }
 
   { // invalid properties option - empty prepend prefix
-    assertThrows(
+    assert.throws(
       () => getJsonLinesFormatter({ properties: "prepend:" }),
       TypeError,
       'Invalid properties option: "prepend:". It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.',
@@ -611,7 +617,7 @@ test("getJsonLinesFormatter()", () => {
   }
 
   { // invalid properties option - invalid format
-    assertThrows(
+    assert.throws(
       () =>
         getJsonLinesFormatter({
           // @ts-ignore: Intentionally invalid type for testing
@@ -630,7 +636,7 @@ test("getJsonLinesFormatter()", () => {
     });
     const result = JSON.parse(formatter(logRecord));
 
-    assertEquals(result, {
+    assert.deepStrictEqual(result, {
       "@timestamp": "2023-11-14T22:13:20.000Z",
       level: "INFO",
       message: "Hello, {a} & {b}!",
@@ -642,15 +648,15 @@ test("getJsonLinesFormatter()", () => {
 });
 
 test("getTextFormatter() with lineEnding option", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ lineEnding: "crlf" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\r\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter({ lineEnding: "lf" })(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getTextFormatter()(info),
     "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
@@ -658,27 +664,27 @@ test("getTextFormatter() with lineEnding option", () => {
 
 test("getJsonLinesFormatter() with lineEnding option", () => {
   const crlfOutput = getJsonLinesFormatter({ lineEnding: "crlf" })(info);
-  assertEquals(crlfOutput.endsWith("\r\n"), true);
-  assertEquals(
+  assert.deepStrictEqual(crlfOutput.endsWith("\r\n"), true);
+  assert.deepStrictEqual(
     JSON.parse(crlfOutput.trimEnd())["@timestamp"],
     "2023-11-14T22:13:20.000Z",
   );
 
   const lfOutput = getJsonLinesFormatter({ lineEnding: "lf" })(info);
-  assertEquals(lfOutput.endsWith("\n"), true);
-  assertEquals(lfOutput.endsWith("\r\n"), false);
+  assert.deepStrictEqual(lfOutput.endsWith("\n"), true);
+  assert.deepStrictEqual(lfOutput.endsWith("\r\n"), false);
 
   const defaultOutput = getJsonLinesFormatter()(info);
-  assertEquals(defaultOutput.endsWith("\n"), true);
-  assertEquals(defaultOutput.endsWith("\r\n"), false);
+  assert.deepStrictEqual(defaultOutput.endsWith("\n"), true);
+  assert.deepStrictEqual(defaultOutput.endsWith("\r\n"), false);
 });
 
 test("getAnsiColorFormatter() with lineEnding option", () => {
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ lineEnding: "crlf" })(info).endsWith("\r\n"),
     true,
   );
-  assertEquals(
+  assert.deepStrictEqual(
     getAnsiColorFormatter({ lineEnding: "lf" })(info).endsWith("\r\n"),
     false,
   );

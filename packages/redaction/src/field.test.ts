@@ -1,9 +1,6 @@
-import { suite } from "@alinea/suite";
+import assert from "node:assert/strict";
+import test from "node:test";
 import type { LogRecord, Sink } from "@logtape/logtape";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertExists } from "@std/assert/exists";
-import { assertFalse } from "@std/assert/false";
 import {
   type FieldPatterns,
   redactByField,
@@ -11,30 +8,31 @@ import {
   shouldFieldRedacted,
 } from "./field.ts";
 
-const test = suite(import.meta);
-
 test("shouldFieldRedacted()", () => {
   { // matches string pattern
     const fieldPatterns: FieldPatterns = ["password", "secret"];
-    assertEquals(shouldFieldRedacted("password", fieldPatterns), true);
-    assertEquals(shouldFieldRedacted("secret", fieldPatterns), true);
-    assertEquals(shouldFieldRedacted("username", fieldPatterns), false);
+    assert.strictEqual(shouldFieldRedacted("password", fieldPatterns), true);
+    assert.strictEqual(shouldFieldRedacted("secret", fieldPatterns), true);
+    assert.strictEqual(shouldFieldRedacted("username", fieldPatterns), false);
   }
 
   { // matches regex pattern
     const fieldPatterns: FieldPatterns = [/pass/i, /secret/i];
-    assertEquals(shouldFieldRedacted("password", fieldPatterns), true);
-    assertEquals(shouldFieldRedacted("secretKey", fieldPatterns), true);
-    assertEquals(shouldFieldRedacted("myPassword", fieldPatterns), true);
-    assertEquals(shouldFieldRedacted("username", fieldPatterns), false);
+    assert.strictEqual(shouldFieldRedacted("password", fieldPatterns), true);
+    assert.strictEqual(shouldFieldRedacted("secretKey", fieldPatterns), true);
+    assert.strictEqual(shouldFieldRedacted("myPassword", fieldPatterns), true);
+    assert.strictEqual(shouldFieldRedacted("username", fieldPatterns), false);
   }
 
   { // case sensitivity in regex
     const caseSensitivePatterns: FieldPatterns = [/pass/, /secret/];
     const caseInsensitivePatterns: FieldPatterns = [/pass/i, /secret/i];
 
-    assertEquals(shouldFieldRedacted("Password", caseSensitivePatterns), false);
-    assertEquals(
+    assert.strictEqual(
+      shouldFieldRedacted("Password", caseSensitivePatterns),
+      false,
+    );
+    assert.strictEqual(
       shouldFieldRedacted("Password", caseInsensitivePatterns),
       true,
     );
@@ -54,10 +52,10 @@ test("redactProperties()", () => {
       fieldPatterns: ["password", "email"],
     });
 
-    assert("username" in result);
-    assertFalse("password" in result);
-    assertFalse("email" in result);
-    assert("message" in result);
+    assert.ok("username" in result);
+    assert.ok(!("password" in result));
+    assert.ok(!("email" in result));
+    assert.ok("message" in result);
 
     const nestedObject = {
       ...properties,
@@ -71,16 +69,16 @@ test("redactProperties()", () => {
       fieldPatterns: ["password", "email", "passphrase"],
     });
 
-    assert("username" in result2);
-    assertFalse("password" in result2);
-    assertFalse("email" in result2);
-    assert("message" in result2);
-    assert("nested" in result2);
-    assert(typeof result2.nested === "object");
-    assertExists(result2.nested);
-    assert("foo" in result2.nested);
-    assert("baz" in result2.nested);
-    assertFalse("passphrase" in result2.nested);
+    assert.ok("username" in result2);
+    assert.ok(!("password" in result2));
+    assert.ok(!("email" in result2));
+    assert.ok("message" in result2);
+    assert.ok("nested" in result2);
+    assert.ok(typeof result2.nested === "object");
+    assert.notStrictEqual(result2.nested, null);
+    assert.ok("foo" in (result2.nested as Record<string, unknown>));
+    assert.ok("baz" in (result2.nested as Record<string, unknown>));
+    assert.ok(!("passphrase" in (result2.nested as Record<string, unknown>)));
   }
 
   { // custom action function
@@ -96,10 +94,10 @@ test("redactProperties()", () => {
       action: () => "REDACTED",
     });
 
-    assertEquals(result.username, "user123");
-    assertEquals(result.password, "REDACTED");
-    assertEquals(result.token, "REDACTED");
-    assertEquals(result.message, "Hello world");
+    assert.strictEqual(result.username, "user123");
+    assert.strictEqual(result.password, "REDACTED");
+    assert.strictEqual(result.token, "REDACTED");
+    assert.strictEqual(result.message, "Hello world");
   }
 
   { // preserves other properties
@@ -113,9 +111,9 @@ test("redactProperties()", () => {
       fieldPatterns: ["sensitive"],
     });
 
-    assertEquals(result.username, "user123");
-    assertEquals(result.data, { nested: "value" });
-    assertFalse("sensitive" in result);
+    assert.strictEqual(result.username, "user123");
+    assert.deepStrictEqual(result.data, { nested: "value" });
+    assert.ok(!("sensitive" in result));
   }
 
   { // redacts fields in objects within arrays
@@ -132,9 +130,9 @@ test("redactProperties()", () => {
 
     // deno-lint-ignore no-explicit-any
     const configs = result.configs as any;
-    assertEquals(configs.length, 2);
-    assertEquals(configs[0], { username: "user1" });
-    assertEquals(configs[1], { email: "user2@example.com" });
+    assert.strictEqual(configs.length, 2);
+    assert.deepStrictEqual(configs[0], { username: "user1" });
+    assert.deepStrictEqual(configs[1], { email: "user2@example.com" });
   }
 
   { // preserves non-object items in arrays
@@ -153,11 +151,11 @@ test("redactProperties()", () => {
 
     // deno-lint-ignore no-explicit-any
     const data = result.data as any;
-    assertEquals(data.length, 4);
-    assertEquals(data[0], {});
-    assertEquals(data[1], "plain string");
-    assertEquals(data[2], 42);
-    assertEquals(data[3], {});
+    assert.strictEqual(data.length, 4);
+    assert.deepStrictEqual(data[0], {});
+    assert.strictEqual(data[1], "plain string");
+    assert.strictEqual(data[2], 42);
+    assert.deepStrictEqual(data[3], {});
   }
 
   { // redacts nested arrays within objects in arrays
@@ -185,11 +183,11 @@ test("redactProperties()", () => {
     const first = items[0] as any;
     // deno-lint-ignore no-explicit-any
     const nestedArray = first.config.nestedArray as any;
-    assertEquals(items.length, 1);
-    assertEquals(first.config.password, undefined);
-    assertEquals(nestedArray.length, 2);
-    assertEquals(nestedArray[0], { value: 1 });
-    assertEquals(nestedArray[1], { value: 2 });
+    assert.strictEqual(items.length, 1);
+    assert.strictEqual(first.config.password, undefined);
+    assert.strictEqual(nestedArray.length, 2);
+    assert.deepStrictEqual(nestedArray[0], { value: 1 });
+    assert.deepStrictEqual(nestedArray[1], { value: 2 });
   }
 
   { // uses custom action in arrays
@@ -207,12 +205,12 @@ test("redactProperties()", () => {
 
     // deno-lint-ignore no-explicit-any
     const users = result.users as any;
-    assertEquals(users.length, 2);
-    assertEquals(users[0], {
+    assert.strictEqual(users.length, 2);
+    assert.deepStrictEqual(users[0], {
       password: "[REDACTED]",
       name: "user1",
     });
-    assertEquals(users[1], {
+    assert.deepStrictEqual(users[1], {
       password: "[REDACTED]",
       name: "user2",
     });
@@ -230,9 +228,9 @@ test("redactProperties()", () => {
       action: () => "REDACTED",
     });
 
-    assertEquals(result.a, 1);
-    assertEquals(result.password, "REDACTED");
-    assert(result.self === result, "Circular reference should be preserved");
+    assert.strictEqual(result.a, 1);
+    assert.strictEqual(result.password, "REDACTED");
+    assert.ok(result.self === result, "Circular reference should be preserved");
   }
 
   { // redacts fields in class instances
@@ -250,8 +248,8 @@ test("redactProperties()", () => {
     });
 
     const redactedUser = result.user as User;
-    assertEquals(redactedUser.name, "Alice");
-    assertEquals(redactedUser.password, "REDACTED");
+    assert.strictEqual(redactedUser.name, "Alice");
+    assert.strictEqual(redactedUser.password, "REDACTED");
   }
 
   { // preserves Error objects without modification
@@ -266,10 +264,13 @@ test("redactProperties()", () => {
       action: () => "[REDACTED]",
     });
 
-    assert(result.err instanceof Error);
-    assertEquals((result.err as Error).message, "test error");
-    assert(result.err === err, "Error should be the same instance");
-    assertEquals((result.data as { password: string }).password, "[REDACTED]");
+    assert.ok(result.err instanceof Error);
+    assert.strictEqual((result.err as Error).message, "test error");
+    assert.ok(result.err === err, "Error should be the same instance");
+    assert.strictEqual(
+      (result.data as { password: string }).password,
+      "[REDACTED]",
+    );
   }
 
   { // preserves Date objects without modification
@@ -284,9 +285,12 @@ test("redactProperties()", () => {
       action: () => "[REDACTED]",
     });
 
-    assert(result.createdAt instanceof Date);
-    assertEquals((result.createdAt as Date).toISOString(), date.toISOString());
-    assert(result.createdAt === date, "Date should be the same instance");
+    assert.ok(result.createdAt instanceof Date);
+    assert.strictEqual(
+      (result.createdAt as Date).toISOString(),
+      date.toISOString(),
+    );
+    assert.ok(result.createdAt === date, "Date should be the same instance");
   }
 
   { // preserves RegExp objects without modification
@@ -301,9 +305,9 @@ test("redactProperties()", () => {
       action: () => "[REDACTED]",
     });
 
-    assert(result.pattern instanceof RegExp);
-    assertEquals((result.pattern as RegExp).source, "test");
-    assert(result.pattern === regex, "RegExp should be the same instance");
+    assert.ok(result.pattern instanceof RegExp);
+    assert.strictEqual((result.pattern as RegExp).source, "test");
+    assert.ok(result.pattern === regex, "RegExp should be the same instance");
   }
 
   { // preserves built-in objects in arrays
@@ -319,11 +323,14 @@ test("redactProperties()", () => {
     });
 
     const items = result.items as unknown[];
-    assert(items[0] instanceof Error);
-    assert(items[0] === err, "Error in array should be same instance");
-    assert(items[1] instanceof Date);
-    assert(items[1] === date, "Date in array should be same instance");
-    assertEquals((items[2] as { password: string }).password, "[REDACTED]");
+    assert.ok(items[0] instanceof Error);
+    assert.ok(items[0] === err, "Error in array should be same instance");
+    assert.ok(items[1] instanceof Date);
+    assert.ok(items[1] === date, "Date in array should be same instance");
+    assert.strictEqual(
+      (items[2] as { password: string }).password,
+      "[REDACTED]",
+    );
   }
 });
 
@@ -351,10 +358,10 @@ test("redactByField()", async () => {
 
     wrappedSink(record);
 
-    assertEquals(records.length, 1);
-    assert("username" in records[0].properties);
-    assertFalse("password" in records[0].properties);
-    assertFalse("token" in records[0].properties);
+    assert.strictEqual(records.length, 1);
+    assert.ok("username" in records[0].properties);
+    assert.ok(!("password" in records[0].properties));
+    assert.ok(!("token" in records[0].properties));
   }
 
   { // uses default field patterns when not specified
@@ -379,11 +386,11 @@ test("redactByField()", async () => {
 
     wrappedSink(record);
 
-    assertEquals(records.length, 1);
-    assert("username" in records[0].properties);
-    assertFalse("password" in records[0].properties);
-    assertFalse("email" in records[0].properties);
-    assertFalse("apiKey" in records[0].properties);
+    assert.strictEqual(records.length, 1);
+    assert.ok("username" in records[0].properties);
+    assert.ok(!("password" in records[0].properties));
+    assert.ok(!("email" in records[0].properties));
+    assert.ok(!("apiKey" in records[0].properties));
   }
 
   { // preserves Disposable behavior
@@ -399,9 +406,9 @@ test("redactByField()", async () => {
 
     const wrappedSink = redactByField(originalSink) as Sink & Disposable;
 
-    assert(Symbol.dispose in wrappedSink);
+    assert.ok(Symbol.dispose in wrappedSink);
     wrappedSink[Symbol.dispose]();
-    assert(disposed);
+    assert.ok(disposed);
   }
 
   { // preserves AsyncDisposable behavior
@@ -418,9 +425,9 @@ test("redactByField()", async () => {
 
     const wrappedSink = redactByField(originalSink) as Sink & AsyncDisposable;
 
-    assert(Symbol.asyncDispose in wrappedSink);
+    assert.ok(Symbol.asyncDispose in wrappedSink);
     await wrappedSink[Symbol.asyncDispose]();
-    assert(disposed);
+    assert.ok(disposed);
   }
 
   { // redacts fields in arrays from issue #94
@@ -444,10 +451,10 @@ test("redactByField()", async () => {
 
     wrappedSink(record);
 
-    assertEquals(records.length, 1);
+    assert.strictEqual(records.length, 1);
     // deno-lint-ignore no-explicit-any
     const configs = records[0].properties.configs as any;
-    assertEquals(configs[0], { username: "user" });
+    assert.deepStrictEqual(configs[0], { username: "user" });
   }
 
   { // redacts values in message array (string template)
@@ -466,8 +473,12 @@ test("redactByField()", async () => {
       properties: { password: "supersecret" },
     });
 
-    assertEquals(records[0].message, ["Password is ", "[REDACTED]", ""]);
-    assertEquals(records[0].properties.password, "[REDACTED]");
+    assert.deepStrictEqual(records[0].message, [
+      "Password is ",
+      "[REDACTED]",
+      "",
+    ]);
+    assert.strictEqual(records[0].properties.password, "[REDACTED]");
   }
 
   { // redacts multiple sensitive fields in message
@@ -486,8 +497,8 @@ test("redactByField()", async () => {
       properties: { email: "user@example.com", password: "secret123" },
     });
 
-    assertEquals(records[0].message[1], "[REDACTED]");
-    assertEquals(records[0].message[3], "[REDACTED]");
+    assert.strictEqual(records[0].message[1], "[REDACTED]");
+    assert.strictEqual(records[0].message[3], "[REDACTED]");
   }
 
   { // redacts nested property path in message
@@ -506,7 +517,7 @@ test("redactByField()", async () => {
       properties: { user: { password: "secret" } },
     });
 
-    assertEquals(records[0].message[1], "[REDACTED]");
+    assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
   { // delete action uses empty string in message
@@ -524,8 +535,8 @@ test("redactByField()", async () => {
       properties: { password: "secret" },
     });
 
-    assertEquals(records[0].message[1], "");
-    assertFalse("password" in records[0].properties);
+    assert.strictEqual(records[0].message[1], "");
+    assert.ok(!("password" in records[0].properties));
   }
 
   { // non-sensitive field in message is not redacted
@@ -544,7 +555,7 @@ test("redactByField()", async () => {
       properties: { username: "johndoe" },
     });
 
-    assertEquals(records[0].message[1], "johndoe");
+    assert.strictEqual(records[0].message[1], "johndoe");
   }
 
   { // wildcard {*} in message uses redacted properties
@@ -565,11 +576,11 @@ test("redactByField()", async () => {
     });
 
     // The {*} should be replaced with redacted properties
-    assertEquals(records[0].message[1], {
+    assert.deepStrictEqual(records[0].message[1], {
       username: "john",
       password: "[REDACTED]",
     });
-    assertEquals(records[0].properties.password, "[REDACTED]");
+    assert.strictEqual(records[0].properties.password, "[REDACTED]");
   }
 
   { // escaped braces are not treated as placeholders
@@ -589,7 +600,7 @@ test("redactByField()", async () => {
     });
 
     // Only the second {password} is a placeholder
-    assertEquals(records[0].message[1], "[REDACTED]");
+    assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
   { // tagged template literal - redacts by comparing values
@@ -612,8 +623,8 @@ test("redactByField()", async () => {
     });
 
     // Message should be redacted by value comparison
-    assertEquals(records[0].message[1], "[REDACTED]");
-    assertEquals(records[0].properties.password, "[REDACTED]");
+    assert.strictEqual(records[0].message[1], "[REDACTED]");
+    assert.strictEqual(records[0].properties.password, "[REDACTED]");
   }
 
   { // array access path in message
@@ -632,7 +643,7 @@ test("redactByField()", async () => {
       properties: { users: [{ password: "secret1" }] },
     });
 
-    assertEquals(records[0].message[1], "[REDACTED]");
+    assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
   { // regex pattern matches in message placeholder
@@ -651,7 +662,7 @@ test("redactByField()", async () => {
       properties: { passphrase: "mysecret" },
     });
 
-    assertEquals(records[0].message[1], "[REDACTED]");
+    assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
   { // array containing objects with sensitive fields - wildcard {*}
@@ -672,9 +683,9 @@ test("redactByField()", async () => {
     });
 
     const messageObj = records[0].message[1] as { args: { email: string }[] };
-    assertEquals(messageObj.args[0].email, "[REDACTED]");
+    assert.strictEqual(messageObj.args[0].email, "[REDACTED]");
     const propsObj = records[0].properties as { args: { email: string }[] };
-    assertEquals(propsObj.args[0].email, "[REDACTED]");
+    assert.strictEqual(propsObj.args[0].email, "[REDACTED]");
   }
 
   { // array containing objects with sensitive fields - named placeholder
@@ -695,7 +706,7 @@ test("redactByField()", async () => {
     });
 
     const propsObj = records[0].properties as { args: { email: string }[] };
-    assertEquals(propsObj.args[0].email, "[REDACTED]");
+    assert.strictEqual(propsObj.args[0].email, "[REDACTED]");
   }
 
   { // nested arrays with objects
@@ -724,11 +735,11 @@ test("redactByField()", async () => {
       users: { name: string; password: string }[];
       nested: { password: string }[][];
     };
-    assertEquals(props.users[0].password, "[REDACTED]");
-    assertEquals(props.users[1].password, "[REDACTED]");
-    assertEquals(props.nested[0][0].password, "[REDACTED]");
-    assertEquals(props.users[0].name, "Alice");
-    assertEquals(props.users[1].name, "Bob");
+    assert.strictEqual(props.users[0].password, "[REDACTED]");
+    assert.strictEqual(props.users[1].password, "[REDACTED]");
+    assert.strictEqual(props.nested[0][0].password, "[REDACTED]");
+    assert.strictEqual(props.users[0].name, "Alice");
+    assert.strictEqual(props.users[1].name, "Bob");
   }
 
   { // named placeholder with array containing sensitive fields in message
@@ -751,15 +762,15 @@ test("redactByField()", async () => {
 
     // Both properties and message should have redacted values
     const propsArr = records[0].properties.args as { email: string }[];
-    assertEquals(propsArr[0].email, "[REDACTED]");
+    assert.strictEqual(propsArr[0].email, "[REDACTED]");
 
     // The message array should also use redacted values
     const messageArr = records[0].message[1] as {
       email: string;
       name: string;
     }[];
-    assertEquals(messageArr[0].email, "[REDACTED]");
-    assertEquals(messageArr[0].name, "John");
+    assert.strictEqual(messageArr[0].email, "[REDACTED]");
+    assert.strictEqual(messageArr[0].name, "John");
   }
 
   { // non-sensitive placeholder still uses redacted properties
@@ -783,7 +794,7 @@ test("redactByField()", async () => {
       public: string;
       secret: string;
     };
-    assertEquals(messageObj.public, "visible");
-    assertEquals(messageObj.secret, "[REDACTED]");
+    assert.strictEqual(messageObj.public, "visible");
+    assert.strictEqual(messageObj.secret, "[REDACTED]");
   }
 });

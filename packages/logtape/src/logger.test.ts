@@ -1,10 +1,5 @@
-import { suite } from "@alinea/suite";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertFalse } from "@std/assert/false";
-import { assertGreaterOrEqual } from "@std/assert/greater-or-equal";
-import { assertLessOrEqual } from "@std/assert/less-or-equal";
-import { assertStrictEquals } from "@std/assert/strict-equals";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import {
@@ -20,26 +15,24 @@ import {
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
-const test = suite(import.meta);
-
 function templateLiteral(tpl: TemplateStringsArray, ..._: unknown[]) {
   return tpl;
 }
 
 test("getLogger()", () => {
-  assertEquals(getLogger().category, []);
-  assertStrictEquals(getLogger(), getLogger());
-  assertStrictEquals(getLogger([]), getLogger());
-  assertEquals(getLogger("foo").category, ["foo"]);
-  assertStrictEquals(getLogger("foo"), getLogger("foo"));
-  assertStrictEquals(getLogger("foo"), getLogger(["foo"]));
-  assertStrictEquals(getLogger("foo"), getLogger().getChild("foo"));
-  assertEquals(getLogger(["foo", "bar"]).category, ["foo", "bar"]);
-  assertStrictEquals(
+  assert.deepStrictEqual(getLogger().category, []);
+  assert.strictEqual(getLogger(), getLogger());
+  assert.strictEqual(getLogger([]), getLogger());
+  assert.deepStrictEqual(getLogger("foo").category, ["foo"]);
+  assert.strictEqual(getLogger("foo"), getLogger("foo"));
+  assert.strictEqual(getLogger("foo"), getLogger(["foo"]));
+  assert.strictEqual(getLogger("foo"), getLogger().getChild("foo"));
+  assert.deepStrictEqual(getLogger(["foo", "bar"]).category, ["foo", "bar"]);
+  assert.strictEqual(
     getLogger(["foo", "bar"]),
     getLogger().getChild(["foo", "bar"]),
   );
-  assertStrictEquals(
+  assert.strictEqual(
     getLogger(["foo", "bar"]),
     getLogger().getChild("foo").getChild("bar"),
   );
@@ -48,28 +41,28 @@ test("getLogger()", () => {
 test("Logger.getChild()", () => {
   const foo = getLogger("foo");
   const fooBar = foo.getChild("bar");
-  assertEquals(fooBar.category, ["foo", "bar"]);
-  assertStrictEquals(fooBar.parent, foo);
+  assert.deepStrictEqual(fooBar.category, ["foo", "bar"]);
+  assert.strictEqual(fooBar.parent, foo);
   const fooBarBaz = foo.getChild(["bar", "baz"]);
-  assertEquals(fooBarBaz.category, ["foo", "bar", "baz"]);
-  assertEquals(fooBarBaz.parent, fooBar);
+  assert.deepStrictEqual(fooBarBaz.category, ["foo", "bar", "baz"]);
+  assert.deepStrictEqual(fooBarBaz.parent, fooBar);
 
   const fooCtx = foo.with({ a: 1, b: 2 });
   const fooBarCtx = fooCtx.getChild("bar");
-  assertEquals(fooBarCtx.category, ["foo", "bar"]);
+  assert.deepStrictEqual(fooBarCtx.category, ["foo", "bar"]);
   // @ts-ignore: internal attribute:
-  assertEquals(fooBarCtx.properties, { a: 1, b: 2 });
+  assert.deepStrictEqual(fooBarCtx.properties, { a: 1, b: 2 });
 });
 
 test("Logger.with()", () => {
   const foo = getLogger("foo");
   const ctx = foo.with({ a: 1, b: 2 });
-  assertEquals(ctx.parent, getLogger());
-  assertEquals(ctx.category, ["foo"]);
+  assert.deepStrictEqual(ctx.parent, getLogger());
+  assert.deepStrictEqual(ctx.category, ["foo"]);
   // @ts-ignore: internal attribute:
-  assertEquals(ctx.properties, { a: 1, b: 2 });
+  assert.deepStrictEqual(ctx.properties, { a: 1, b: 2 });
   // @ts-ignore: internal attribute:
-  assertEquals(ctx.with({ c: 3 }).properties, { a: 1, b: 2, c: 3 });
+  assert.deepStrictEqual(ctx.with({ c: 3 }).properties, { a: 1, b: 2, c: 3 });
 });
 
 test("LoggerImpl.filter()", () => {
@@ -85,18 +78,18 @@ test("LoggerImpl.filter()", () => {
     fooBar.filters.push((log) => log.message.includes("!"));
     fooBaz.filters.push((log) => log.message.includes("."));
     fooBarQux.filters.push(() => true);
-    assert(root.filter(info));
-    assert(foo.filter(info));
-    assert(fooBar.filter(info));
-    assertFalse(fooBaz.filter(info));
-    assert(fooBarQux.filter(info));
-    assert(fooQuux.filter(info));
-    assert(root.filter(debug));
-    assertFalse(foo.filter(debug));
-    assert(fooBar.filter(debug));
-    assertFalse(fooBaz.filter(debug));
-    assert(fooBarQux.filter(debug));
-    assertFalse(fooQuux.filter(debug));
+    assert.ok(root.filter(info));
+    assert.ok(foo.filter(info));
+    assert.ok(fooBar.filter(info));
+    assert.ok(!fooBaz.filter(info));
+    assert.ok(fooBarQux.filter(info));
+    assert.ok(fooQuux.filter(info));
+    assert.ok(root.filter(debug));
+    assert.ok(!foo.filter(debug));
+    assert.ok(fooBar.filter(debug));
+    assert.ok(!fooBaz.filter(debug));
+    assert.ok(fooBarQux.filter(debug));
+    assert.ok(!fooQuux.filter(debug));
   } finally {
     root.resetDescendants();
   }
@@ -118,13 +111,17 @@ test("LoggerImpl.getSinks()", () => {
     fooBaz.sinks.push(sinkC);
     const sinkD: Sink = () => {};
     fooBarQux.sinks.push(sinkD);
-    assertEquals([...root.getSinks("debug")], []);
-    assertEquals([...foo.getSinks("debug")], [sinkA]);
-    assertEquals([...fooBar.getSinks("debug")], [sinkA, sinkB]);
-    assertEquals([...fooBaz.getSinks("debug")], [sinkA, sinkC]);
-    assertEquals([...fooBarQux.getSinks("debug")], [sinkA, sinkB, sinkD]);
+    assert.deepStrictEqual([...root.getSinks("debug")], []);
+    assert.deepStrictEqual([...foo.getSinks("debug")], [sinkA]);
+    assert.deepStrictEqual([...fooBar.getSinks("debug")], [sinkA, sinkB]);
+    assert.deepStrictEqual([...fooBaz.getSinks("debug")], [sinkA, sinkC]);
+    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [
+      sinkA,
+      sinkB,
+      sinkD,
+    ]);
     fooBarQux.parentSinks = "override";
-    assertEquals([...fooBarQux.getSinks("debug")], [sinkD]);
+    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [sinkD]);
   } finally {
     root.resetDescendants();
   }
@@ -151,31 +148,31 @@ test("LoggerImpl.emit()", () => {
 
   try {
     root.emit(info);
-    assertEquals(rootRecords, []);
-    assertEquals(fooRecords, []);
-    assertEquals(fooBarRecords, []);
+    assert.deepStrictEqual(rootRecords, []);
+    assert.deepStrictEqual(fooRecords, []);
+    assert.deepStrictEqual(fooBarRecords, []);
     root.emit(warning);
-    assertEquals(rootRecords, [warning]);
-    assertEquals(fooRecords, []);
-    assertEquals(fooBarRecords, []);
+    assert.deepStrictEqual(rootRecords, [warning]);
+    assert.deepStrictEqual(fooRecords, []);
+    assert.deepStrictEqual(fooBarRecords, []);
 
     foo.emit(debug);
-    assertEquals(rootRecords, [warning]);
-    assertEquals(fooRecords, []);
-    assertEquals(fooBarRecords, []);
+    assert.deepStrictEqual(rootRecords, [warning]);
+    assert.deepStrictEqual(fooRecords, []);
+    assert.deepStrictEqual(fooBarRecords, []);
     foo.emit(info);
-    assertEquals(rootRecords, [warning, info]);
-    assertEquals(fooRecords, [info]);
-    assertEquals(fooBarRecords, []);
+    assert.deepStrictEqual(rootRecords, [warning, info]);
+    assert.deepStrictEqual(fooRecords, [info]);
+    assert.deepStrictEqual(fooBarRecords, []);
 
     fooBar.emit(warning);
-    assertEquals(rootRecords, [warning, info]);
-    assertEquals(fooRecords, [info]);
-    assertEquals(fooBarRecords, []);
+    assert.deepStrictEqual(rootRecords, [warning, info]);
+    assert.deepStrictEqual(fooRecords, [info]);
+    assert.deepStrictEqual(fooBarRecords, []);
     fooBar.emit(error);
-    assertEquals(rootRecords, [warning, info, error]);
-    assertEquals(fooRecords, [info, error]);
-    assertEquals(fooBarRecords, [error]);
+    assert.deepStrictEqual(rootRecords, [warning, info, error]);
+    assert.deepStrictEqual(fooRecords, [info, error]);
+    assert.deepStrictEqual(fooBarRecords, [error]);
   } finally {
     while (rootRecords.length > 0) rootRecords.pop();
     while (fooRecords.length > 0) fooRecords.pop();
@@ -189,23 +186,24 @@ test("LoggerImpl.emit()", () => {
 
   try {
     fooBarBaz.emit(error);
-    assertEquals(rootRecords.length, 2);
-    assertEquals(rootRecords[0], error);
-    assertEquals(fooRecords, [error]);
-    assertEquals(fooBarRecords, [error]);
-    assertEquals(rootRecords[1].category, ["logtape", "meta"]);
-    assertEquals(rootRecords[1].level, "fatal");
-    assertEquals(rootRecords[1].message, [
+    assert.strictEqual(rootRecords.length, 2);
+    assert.deepStrictEqual(rootRecords[0], error);
+    assert.deepStrictEqual(fooRecords, [error]);
+    assert.deepStrictEqual(fooBarRecords, [error]);
+    const metaRecord = rootRecords[1] as LogRecord;
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "fatal");
+    assert.deepStrictEqual(metaRecord.message, [
       "Failed to emit a log record to sink ",
       errorSink,
       ": ",
-      rootRecords[1].properties.error,
+      metaRecord.properties.error,
       "",
     ]);
-    assertEquals(rootRecords[1].properties, {
+    assert.deepStrictEqual(metaRecord.properties, {
       record: error,
       sink: errorSink,
-      error: rootRecords[1].properties.error,
+      error: metaRecord.properties.error,
     });
 
     root.sinks.push(errorSink);
@@ -226,29 +224,29 @@ test("LoggerImpl.emit()", () => {
 
   try {
     fooBar.emit({ ...debug, category: ["foo", "bar"] });
-    assertEquals(rootRecords, []);
-    assertEquals(fooRecords, []);
-    assertEquals(fooBarRecords, []);
+    assert.deepStrictEqual(rootRecords, []);
+    assert.deepStrictEqual(fooRecords, []);
+    assert.deepStrictEqual(fooBarRecords, []);
 
     const debugRecord = { ...debug, category: ["foo", "qux"] };
     fooQux.emit(debugRecord);
-    assertEquals(rootRecords, []);
-    assertEquals(fooRecords, []);
-    assertEquals(fooQuxRecords, [debugRecord]);
+    assert.deepStrictEqual(rootRecords, []);
+    assert.deepStrictEqual(fooRecords, []);
+    assert.deepStrictEqual(fooQuxRecords, [debugRecord]);
 
     foo.emit({ ...debug, category: ["foo"] });
-    assertEquals(rootRecords, []);
-    assertEquals(fooRecords, []);
+    assert.deepStrictEqual(rootRecords, []);
+    assert.deepStrictEqual(fooRecords, []);
 
     const debugRecord2 = { ...debug, category: [] };
     root.emit(debugRecord2);
-    assertEquals(rootRecords, [debugRecord2]);
+    assert.deepStrictEqual(rootRecords, [debugRecord2]);
 
     const infoRecord = { ...info, category: ["foo", "bar"] };
     fooBar.emit(infoRecord);
-    assertEquals(rootRecords, [debugRecord2]);
-    assertEquals(fooRecords, []);
-    assertEquals(fooBarRecords, [infoRecord]);
+    assert.deepStrictEqual(rootRecords, [debugRecord2]);
+    assert.deepStrictEqual(fooRecords, []);
+    assert.deepStrictEqual(fooBarRecords, [infoRecord]);
   } finally {
     root.resetDescendants();
   }
@@ -263,18 +261,18 @@ test("LoggerImpl.log()", () => {
     const before = Date.now();
     logger.log("info", "Hello, {foo}!", { foo: 123 });
     const after = Date.now();
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "info",
         message: ["Hello, ", 123, "!"],
         rawMessage: "Hello, {foo}!",
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: { foo: 123 },
       },
     ]);
-    assertGreaterOrEqual(logs[0].timestamp, before);
-    assertLessOrEqual(logs[0].timestamp, after);
+    assert.ok(logs[0].timestamp >= before);
+    assert.ok(logs[0].timestamp <= after);
 
     logs.shift();
     logger.filters.push(toFilter("error"));
@@ -283,24 +281,24 @@ test("LoggerImpl.log()", () => {
       called++;
       return { foo: 123 };
     });
-    assertEquals(logs, []);
-    assertEquals(called, 0);
+    assert.deepStrictEqual(logs, []);
+    assert.strictEqual(called, 0);
 
     logger.log("error", "Hello, {foo}!", () => {
       called++;
       return { foo: 123 };
     });
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "error",
         message: ["Hello, ", 123, "!"],
         rawMessage: "Hello, {foo}!",
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: { foo: 123 },
       },
     ]);
-    assertEquals(called, 1);
+    assert.strictEqual(called, 1);
   } finally {
     logger.resetDescendants();
   }
@@ -320,25 +318,25 @@ test("LoggerImpl.logLazily()", () => {
     logger.sinks.push(logs.push.bind(logs));
     logger.filters.push(toFilter("error"));
     logger.logLazily("warning", (l) => l`Hello, ${calc()}!`);
-    assertEquals(logs, []);
-    assertEquals(called, 0);
+    assert.deepStrictEqual(logs, []);
+    assert.strictEqual(called, 0);
 
     const before = Date.now();
     logger.logLazily("error", (l) => l`Hello, ${calc()}!`);
     const after = Date.now();
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "error",
         message: ["Hello, ", 123, "!"],
         rawMessage: templateLiteral`Hello, ${null}!`,
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: {},
       },
     ]);
-    assertGreaterOrEqual(logs[0].timestamp, before);
-    assertLessOrEqual(logs[0].timestamp, after);
-    assertEquals(called, 1);
+    assert.ok((logs[0] as LogRecord).timestamp >= before);
+    assert.ok((logs[0] as LogRecord).timestamp <= after);
+    assert.strictEqual(called, 1);
   } finally {
     logger.resetDescendants();
   }
@@ -358,18 +356,18 @@ test("LoggerImpl.logTemplate()", () => {
     const before = Date.now();
     info`Hello, ${123}!`;
     const after = Date.now();
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "info",
         message: ["Hello, ", 123, "!"],
         rawMessage: templateLiteral`Hello, ${null}!`,
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: {},
       },
     ]);
-    assertGreaterOrEqual(logs[0].timestamp, before);
-    assertLessOrEqual(logs[0].timestamp, after);
+    assert.ok(logs[0].timestamp >= before);
+    assert.ok(logs[0].timestamp <= after);
   } finally {
     logger.resetDescendants();
   }
@@ -385,18 +383,18 @@ test("LoggerCtx.log()", () => {
     const before = Date.now();
     ctx.log("info", "Hello, {a} {b} {c}!", { c: 3 });
     const after = Date.now();
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "info",
         message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
         rawMessage: "Hello, {a} {b} {c}!",
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: { a: 1, b: 2, c: 3 },
       },
     ]);
-    assertGreaterOrEqual(logs[0].timestamp, before);
-    assertLessOrEqual(logs[0].timestamp, after);
+    assert.ok(logs[0].timestamp >= before);
+    assert.ok(logs[0].timestamp <= after);
 
     logs.shift();
     logger.filters.push(toFilter("error"));
@@ -405,24 +403,24 @@ test("LoggerCtx.log()", () => {
       called++;
       return { c: 3 };
     });
-    assertEquals(logs, []);
-    assertEquals(called, 0);
+    assert.deepStrictEqual(logs, []);
+    assert.strictEqual(called, 0);
 
     ctx.log("error", "Hello, {a} {b} {c}!", () => {
       called++;
       return { c: 3 };
     });
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "error",
         message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
         rawMessage: "Hello, {a} {b} {c}!",
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: { a: 1, b: 2, c: 3 },
       },
     ]);
-    assertEquals(called, 1);
+    assert.strictEqual(called, 1);
   } finally {
     logger.resetDescendants();
   }
@@ -443,25 +441,25 @@ test("LoggerCtx.logLazily()", () => {
     logger.sinks.push(logs.push.bind(logs));
     logger.filters.push(toFilter("error"));
     logger.logLazily("warning", (l) => l`Hello, ${calc()}!`);
-    assertEquals(logs, []);
-    assertEquals(called, 0);
+    assert.deepStrictEqual(logs, []);
+    assert.strictEqual(called, 0);
 
     const before = Date.now();
     ctx.logLazily("error", (l) => l`Hello, ${calc()}!`);
     const after = Date.now();
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "error",
         message: ["Hello, ", 123, "!"],
         rawMessage: templateLiteral`Hello, ${null}!`,
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: { a: 1, b: 2 },
       },
     ]);
-    assertGreaterOrEqual(logs[0].timestamp, before);
-    assertLessOrEqual(logs[0].timestamp, after);
-    assertEquals(called, 1);
+    assert.ok((logs[0] as LogRecord).timestamp >= before);
+    assert.ok((logs[0] as LogRecord).timestamp <= after);
+    assert.strictEqual(called, 1);
   } finally {
     logger.resetDescendants();
   }
@@ -482,18 +480,18 @@ test("LoggerCtx.logTemplate()", () => {
     const before = Date.now();
     info`Hello, ${123}!`;
     const after = Date.now();
-    assertEquals(logs, [
+    assert.deepStrictEqual(logs, [
       {
         category: ["foo"],
         level: "info",
         message: ["Hello, ", 123, "!"],
         rawMessage: templateLiteral`Hello, ${null}!`,
-        timestamp: logs[0].timestamp,
+        timestamp: (logs[0] as LogRecord).timestamp,
         properties: { a: 1, b: 2 },
       },
     ]);
-    assertGreaterOrEqual(logs[0].timestamp, before);
-    assertLessOrEqual(logs[0].timestamp, after);
+    assert.ok(logs[0].timestamp >= before);
+    assert.ok(logs[0].timestamp <= after);
   } finally {
     logger.resetDescendants();
   }
@@ -524,18 +522,18 @@ for (const method of methods) {
       const before = Date.now();
       tpl`Hello, ${123}!`;
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 123, "!"],
           rawMessage: templateLiteral`Hello, ${null}!`,
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: {},
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     } finally {
       logs.shift();
     }
@@ -548,18 +546,18 @@ for (const method of methods) {
       const before = Date.now();
       ctxTpl`Hello, ${123}!`;
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 123, "!"],
           rawMessage: templateLiteral`Hello, ${null}!`,
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2 },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     } finally {
       logger.resetDescendants();
     }
@@ -575,35 +573,35 @@ for (const method of methods) {
       let before = Date.now();
       logger[method]((l) => l`Hello, ${123}!`);
       let after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 123, "!"],
           rawMessage: templateLiteral`Hello, ${null}!`,
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: {},
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
 
       logs.shift();
       before = Date.now();
       ctx[method]((l) => l`Hello, ${123}!`);
       after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 123, "!"],
           rawMessage: templateLiteral`Hello, ${null}!`,
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2 },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     } finally {
       logger.resetDescendants();
     }
@@ -619,28 +617,28 @@ for (const method of methods) {
       let before = Date.now();
       logger[method]("Hello, {foo}!", { foo: 123 });
       let after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 123, "!"],
           rawMessage: "Hello, {foo}!",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { foo: 123 },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
 
       logs.shift();
       logger[method]("Hello, world!");
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, world!"],
           rawMessage: "Hello, world!",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: {},
         },
       ]);
@@ -649,26 +647,26 @@ for (const method of methods) {
       before = Date.now();
       ctx[method]("Hello, {a} {b} {c}!", { c: 3 });
       after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
           rawMessage: "Hello, {a} {b} {c}!",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, c: 3 },
         },
       ]);
 
       logs.shift();
       ctx[method]("Hello, world!");
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, world!"],
           rawMessage: "Hello, world!",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2 },
         },
       ]);
@@ -689,18 +687,18 @@ for (const method of methods) {
         return { foo: 123 };
       });
       let after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 123, "!"],
           rawMessage: "Hello, {foo}!",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { foo: 123 },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
 
       logs.shift();
       before = Date.now();
@@ -708,18 +706,18 @@ for (const method of methods) {
         return { c: 3 };
       });
       after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["Hello, ", 1, " ", 2, " ", 3, "!"],
           rawMessage: "Hello, {a} {b} {c}!",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, c: 3 },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     } finally {
       logger.resetDescendants();
     }
@@ -734,18 +732,18 @@ for (const method of methods) {
       const before = Date.now();
       logger[method]({ foo: 123, bar: 456 });
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: method === "warn" ? "warning" : method,
           message: ["", { foo: 123, bar: 456 }, ""],
           rawMessage: "{*}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { foo: 123, bar: 456 },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     } finally {
       logger.resetDescendants();
     }
@@ -765,18 +763,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       logger.error(err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "error",
           message: ["", "boom", ""],
           rawMessage: "{error.message}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -786,18 +784,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       logger.error("Something happened", err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "error",
           message: ["Something happened"],
           rawMessage: "Something happened",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -807,18 +805,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       ctx.error(err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "error",
           message: ["", "boom", ""],
           rawMessage: "{error.message}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -828,18 +826,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       ctx.error("Something happened", err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "error",
           message: ["Something happened"],
           rawMessage: "Something happened",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -849,18 +847,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       logger.warn(err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "warning",
           message: ["", "boom", ""],
           rawMessage: "{error.message}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -870,18 +868,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       logger.warn("Something happened", err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "warning",
           message: ["Something happened"],
           rawMessage: "Something happened",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -891,18 +889,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       ctx.warn(err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "warning",
           message: ["", "boom", ""],
           rawMessage: "{error.message}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -912,18 +910,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       ctx.warn("Something happened", err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "warning",
           message: ["Something happened"],
           rawMessage: "Something happened",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -933,18 +931,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       logger.fatal(err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "fatal",
           message: ["", "boom", ""],
           rawMessage: "{error.message}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -954,18 +952,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       logger.fatal("Something happened", err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "fatal",
           message: ["Something happened"],
           rawMessage: "Something happened",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -975,18 +973,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       ctx.fatal(err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "fatal",
           message: ["", "boom", ""],
           rawMessage: "{error.message}",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
 
     logs.shift();
@@ -996,18 +994,18 @@ test("Logger.error() [error overload]", () => {
       const before = Date.now();
       ctx.fatal("Something happened", err);
       const after = Date.now();
-      assertEquals(logs, [
+      assert.deepStrictEqual(logs, [
         {
           category: ["foo"],
           level: "fatal",
           message: ["Something happened"],
           rawMessage: "Something happened",
-          timestamp: logs[0].timestamp,
+          timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
         },
       ]);
-      assertGreaterOrEqual(logs[0].timestamp, before);
-      assertLessOrEqual(logs[0].timestamp, after);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
     }
   } finally {
     logger.resetDescendants();
@@ -1015,88 +1013,90 @@ test("Logger.error() [error overload]", () => {
 });
 
 test("parseMessageTemplate()", () => {
-  assertEquals(parseMessageTemplate("Hello, world!", {}), ["Hello, world!"]);
-  assertEquals(
+  assert.deepStrictEqual(parseMessageTemplate("Hello, world!", {}), [
+    "Hello, world!",
+  ]);
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, world!", { foo: 123 }),
     ["Hello, world!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {{world}}!", { foo: 123 }),
     ["Hello, {world}!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {foo}!", { foo: 123 }),
     ["Hello, ", 123, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, { foo\t}!", { " foo\t": 123, foo: 456 }),
     ["Hello, ", 123, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, { foo\t}!", { foo: 456 }),
     ["Hello, ", 456, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, { foo\t}!", { " foo": 456 }),
     ["Hello, ", undefined, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {{foo}}!", { foo: 123 }),
     ["Hello, {foo}!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {bar}!", { foo: 123 }),
     ["Hello, ", undefined, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {bar}!", { foo: 123, bar: 456 }),
     ["Hello, ", 456, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {foo}, {bar}!", { foo: 123, bar: 456 }),
     ["Hello, ", 123, ", ", 456, "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {foo}, {bar}", { foo: 123, bar: 456 }),
     ["Hello, ", 123, ", ", 456, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {*}", { foo: 123, bar: 456 }),
     ["Hello, ", { foo: 123, bar: 456 }, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, { *\t}", { foo: 123, bar: 456 }),
     ["Hello, ", { foo: 123, bar: 456 }, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {*}", { foo: 123, bar: 456, "*": 789 }),
     ["Hello, ", 789, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, { *\t}", { foo: 123, bar: 456, " *\t": 789 }),
     ["Hello, ", 789, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, { *\t}", { foo: 123, bar: 456, "*": 789 }),
     ["Hello, ", 789, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {{world!", { foo: 123 }),
     ["Hello, {world!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {user.name}!", {
       user: { name: "foo", email: "foo@example.com" },
     }),
     ["Hello, ", "foo", "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Email: {user.email}", {
       user: { name: "foo", email: "foo@example.com" },
     }),
     ["Email: ", "foo@example.com", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Tier: {order.customer.profile.tier}", {
       order: {
         customer: {
@@ -1108,31 +1108,31 @@ test("parseMessageTemplate()", () => {
     }),
     ["Tier: ", "premium", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Missing: {user.email}", {
       user: { name: "foo" },
     }),
     ["Missing: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Deep missing: {user.profile.email}", {
       user: { name: "foo" },
     }),
     ["Deep missing: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("First user: {users[0]}", {
       users: ["foo", "bar", "baz"],
     }),
     ["First user: ", "foo", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Third user: {users[2]}", {
       users: ["foo", "bar", "baz"],
     }),
     ["Third user: ", "baz", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Admin: {users[0].name}", {
       users: [
         { name: "foo", role: "admin" },
@@ -1141,7 +1141,7 @@ test("parseMessageTemplate()", () => {
     }),
     ["Admin: ", "foo", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("User role: {users[1].role}", {
       users: [
         { name: "foo", role: "admin" },
@@ -1150,79 +1150,79 @@ test("parseMessageTemplate()", () => {
     }),
     ["User role: ", "user", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Beyond: {users[5]}", {
       users: ["foo", "bar"],
     }),
     ["Beyond: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Invalid: {user[0]}", {
       user: "foo",
     }),
     ["Invalid: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Full name: {user["full-name"]}', {
       user: { "full-name": "foo bar", "user-id": 123 },
     }),
     ["Full name: ", "foo bar", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('User ID: {user["user-id"]}', {
       user: { "full-name": "foo bar", "user-id": 123 },
     }),
     ["User ID: ", 123, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Name: {user['full-name']}", {
       user: { "full-name": "foo bar", "nick-name": "fb" },
     }),
     ["Name: ", "foo bar", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Nick: {user["nick-name"]}', {
       user: { "full-name": "foo bar", "nick-name": "fb" },
     }),
     ["Nick: ", "fb", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Custom: {data["custom field"]}', {
       data: { "custom field": "value" },
     }),
     ["Custom: ", "value", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('First user: {users[0]["full-name"]}', {
       users: [{ "full-name": "foo bar" }, { "full-name": "bar baz" }],
     }),
     ["First user: ", "foo bar", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Name: {user?.name}", {
       user: { name: "foo" },
     }),
     ["Name: ", "foo", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Email: {user?.profile?.email}", {
       user: { name: "foo" },
     }),
     ["Email: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Item: {data?.items?.[0]?.name}", {
       data: null,
     }),
     ["Item: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Name: {user?.name}", {
       user: null,
     }),
     ["Name: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(
       'Email: {users[0]?.profile?.["contact-info"]?.email}',
       {
@@ -1239,58 +1239,58 @@ test("parseMessageTemplate()", () => {
     ),
     ["Email: ", "foo@example.com", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hello, {user}!", {
       user: "foo",
       count: 42,
     }),
     ["Hello, ", "foo", "!"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Dot property: {user.name}", {
       "user.name": "foo",
       "user.email": "foo@example.com",
     }),
     ["Dot property: ", "foo", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("All: {*}", {
       user: { name: "foo" },
       count: 42,
     }),
     ["All: ", { user: { name: "foo" }, count: 42 }, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Malformed: {user["name}', {
       user: { name: "foo" },
     }),
     ["Malformed: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Empty: {user[]}", {
       user: { name: "foo" },
     }),
     ["Empty: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Invalid: {users[abc]}", {
       users: ["foo", "bar"],
     }),
     ["Invalid: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Protected: {foo.constructor}", {
       foo: { bar: 123 },
     }),
     ["Protected: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Protected: {foo.prototype}", {
       foo: { bar: 123 },
     }),
     ["Protected: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Protected: {foo.__proto__}", {
       foo: { bar: 123 },
     }),
@@ -1298,185 +1298,201 @@ test("parseMessageTemplate()", () => {
   );
 
   // Boundary conditions
-  assertEquals(parseMessageTemplate("", {}), [""]);
-  assertEquals(
+  assert.deepStrictEqual(parseMessageTemplate("", {}), [""]);
+  assert.deepStrictEqual(
     parseMessageTemplate("no placeholders", {}),
     ["no placeholders"],
   );
-  assertEquals(parseMessageTemplate("{value}", { value: 1 }), ["", 1, ""]);
-  assertEquals(
+  assert.deepStrictEqual(parseMessageTemplate("{value}", { value: 1 }), [
+    "",
+    1,
+    "",
+  ]);
+  assert.deepStrictEqual(
     parseMessageTemplate("A {x}{y} B", { x: 1, y: 2 }),
     ["A ", 1, "", 2, " B"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Deep: {a.b.c.d.e}", {
       a: { b: { c: { d: { e: 5 } } } },
     }),
     ["Deep: ", 5, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("2D: {m[1][0]}", { m: [[0, 1], [2, 3]] }),
     ["2D: ", 2, ""],
   );
 
   // Parsing error cases
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Missing: {user", { user: 1 }),
     ["Missing: {user"],
   );
-  assertEquals(parseMessageTemplate("Extra: user}", {}), ["Extra: user}"]);
-  assertEquals(
+  assert.deepStrictEqual(parseMessageTemplate("Extra: user}", {}), [
+    "Extra: user}",
+  ]);
+  assert.deepStrictEqual(
     parseMessageTemplate("Bad: {user.}", { user: { name: "x" } }),
     ["Bad: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Bad: {.user}", { user: { name: "x" } }),
     ["Bad: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Bad: {user..name}", { user: { name: "x" } }),
     ["Bad: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Bad idx: {arr[-1]}", { arr: [1] }),
     ["Bad idx: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Float idx: {arr[1.5]}", { arr: [1, 2] }),
     ["Float idx: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Bad quote: {user["na\\"}', {
       user: { 'na"': "v" },
     }),
     ["Bad quote: ", undefined, ""],
   );
-  assertEquals(parseMessageTemplate("Empty: {}", { a: 1 }), [
+  assert.deepStrictEqual(parseMessageTemplate("Empty: {}", { a: 1 }), [
     "Empty: ",
     undefined,
     "",
   ]);
 
   // Type conversion - ensure values are not stringified
-  assertEquals(parseMessageTemplate("Num: {n}", { n: 0 }), ["Num: ", 0, ""]);
-  assertEquals(parseMessageTemplate("Bool: {b}", { b: true }), [
+  assert.deepStrictEqual(parseMessageTemplate("Num: {n}", { n: 0 }), [
+    "Num: ",
+    0,
+    "",
+  ]);
+  assert.deepStrictEqual(parseMessageTemplate("Bool: {b}", { b: true }), [
     "Bool: ",
     true,
     "",
   ]);
-  assertEquals(parseMessageTemplate("Null: {x}", { x: null }), [
+  assert.deepStrictEqual(parseMessageTemplate("Null: {x}", { x: null }), [
     "Null: ",
     null,
     "",
   ]);
-  assertEquals(parseMessageTemplate("Undef: {x}", {}), [
+  assert.deepStrictEqual(parseMessageTemplate("Undef: {x}", {}), [
     "Undef: ",
     undefined,
     "",
   ]);
   const testSymbol = Symbol("test");
-  assertEquals(parseMessageTemplate("Sym: {s}", { s: testSymbol }), [
+  assert.deepStrictEqual(parseMessageTemplate("Sym: {s}", { s: testSymbol }), [
     "Sym: ",
     testSymbol,
     "",
   ]);
-  assertEquals(parseMessageTemplate("BigInt: {b}", { b: 10n }), [
+  assert.deepStrictEqual(parseMessageTemplate("BigInt: {b}", { b: 10n }), [
     "BigInt: ",
     10n,
     "",
   ]);
   const testFn = () => {};
-  assertEquals(parseMessageTemplate("Fn: {fn}", { fn: testFn }), [
+  assert.deepStrictEqual(parseMessageTemplate("Fn: {fn}", { fn: testFn }), [
     "Fn: ",
     testFn,
     "",
   ]);
   const testDate = new Date(0);
-  assertEquals(parseMessageTemplate("Date: {d}", { d: testDate }), [
+  assert.deepStrictEqual(parseMessageTemplate("Date: {d}", { d: testDate }), [
     "Date: ",
     testDate,
     "",
   ]);
   const testRegex = /x/;
-  assertEquals(parseMessageTemplate("RegExp: {r}", { r: testRegex }), [
-    "RegExp: ",
-    testRegex,
-    "",
-  ]);
-  assertEquals(
+  assert.deepStrictEqual(
+    parseMessageTemplate("RegExp: {r}", { r: testRegex }),
+    [
+      "RegExp: ",
+      testRegex,
+      "",
+    ],
+  );
+  assert.deepStrictEqual(
     parseMessageTemplate("Nested arr: {a[1][0]}", { a: [[0], [1, 2]] }),
     ["Nested arr: ", 1, ""],
   );
 
   // Complex patterns
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Hi {first} {last}", { first: "A", last: "B" }),
     ["Hi ", "A", " ", "B", ""],
   );
-  assertEquals(parseMessageTemplate("{a}{b}{c}", { a: 1, b: 2, c: 3 }), [
-    "",
-    1,
-    "",
-    2,
-    "",
-    3,
-    "",
-  ]);
-  assertEquals(
+  assert.deepStrictEqual(
+    parseMessageTemplate("{a}{b}{c}", { a: 1, b: 2, c: 3 }),
+    [
+      "",
+      1,
+      "",
+      2,
+      "",
+      3,
+      "",
+    ],
+  );
+  assert.deepStrictEqual(
     parseMessageTemplate("Mix: {users?.[0].profile['full-name']}", {
       users: [{ profile: { "full-name": "X" } }],
     }),
     ["Mix: ", "X", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Len: {arr.length}", { arr: [1, 2, 3] }),
     ["Len: ", 3, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("All: {*}, id={id}", { id: 1, a: 2 }),
     ["All: ", { id: 1, a: 2 }, ", id=", 1, ""],
   );
 
   // Security - block dangerous props at any depth
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Blocked: {user.profile.constructor}", {
       user: { profile: {} },
     }),
     ["Blocked: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Blocked: {user["__proto__"]}', { user: {} }),
     ["Blocked: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Blocked: {user.profile["constructor"]}', {
       user: { profile: {} },
     }),
     ["Blocked: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Blocked: {obj["prototype"]}', { obj: {} }),
     ["Blocked: ", undefined, ""],
   );
 
   // Optional chaining variants
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Root opt: {arr?.[0]}", { arr: ["x"] }),
     ["Root opt: ", "x", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Opt mid: {a?.b.c}", { a: null }),
     ["Opt mid: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Opt end: {a.b?.c}", { a: { b: null } }),
     ["Opt end: ", undefined, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Opt quoted: {obj?.["k-v"]}', { obj: { "k-v": 1 } }),
     ["Opt quoted: ", 1, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate("Opt after idx: {list[0]?.name}", {
       list: [{ name: "x" }],
     }),
@@ -1484,57 +1500,57 @@ test("parseMessageTemplate()", () => {
   );
 
   // Unicode and special characters
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Emoji: {data["😀"]}', { data: { "😀": 1 } }),
     ["Emoji: ", 1, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Astral: {data["𝟘𝟙"]}', { data: { "𝟘𝟙": "ok" } }),
     ["Astral: ", "ok", ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`Quotes: {data["quo\"te"]}`, {
       data: { 'quo"te': 1 },
     }),
     ["Quotes: ", 1, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`SQuotes: {data['sin\'gle']}`, {
       data: { "sin'gle": 2 },
     }),
     ["SQuotes: ", 2, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`Backslash: {data["back\\slash"]}`, {
       data: { "back\\slash": 3 },
     }),
     ["Backslash: ", 3, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`Newline: {data["line\nbreak"]}`, {
       data: { "line\nbreak": 4 },
     }),
     ["Newline: ", 4, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`Tab: {data["tab\tseparated"]}`, {
       data: { "tab\tseparated": 5 },
     }),
     ["Tab: ", 5, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`Multiple: {data["a\nb\tc"]}`, {
       data: { "a\nb\tc": 6 },
     }),
     ["Multiple: ", 6, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate(String.raw`Unicode: {data["smile\u263A"]}`, {
       data: { "smile☺": 7 },
     }),
     ["Unicode: ", 7, ""],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseMessageTemplate('Dot in key: {data["a.b c"]}', {
       data: { "a.b c": 1 },
     }),
@@ -1546,10 +1562,22 @@ test("renderMessage()", () => {
   function rm(tpl: TemplateStringsArray, ...values: unknown[]) {
     return renderMessage(tpl, values);
   }
-  assertEquals(rm`Hello, world!`, ["Hello, world!"]);
-  assertEquals(rm`Hello, ${123}!`, ["Hello, ", 123, "!"]);
-  assertEquals(rm`Hello, ${123}, ${456}!`, ["Hello, ", 123, ", ", 456, "!"]);
-  assertEquals(rm`Hello, ${123}, ${456}`, ["Hello, ", 123, ", ", 456, ""]);
+  assert.deepStrictEqual(rm`Hello, world!`, ["Hello, world!"]);
+  assert.deepStrictEqual(rm`Hello, ${123}!`, ["Hello, ", 123, "!"]);
+  assert.deepStrictEqual(rm`Hello, ${123}, ${456}!`, [
+    "Hello, ",
+    123,
+    ", ",
+    456,
+    "!",
+  ]);
+  assert.deepStrictEqual(rm`Hello, ${123}, ${456}`, [
+    "Hello, ",
+    123,
+    ", ",
+    456,
+    "",
+  ]);
 });
 
 test("LogMethod", () => {
@@ -1590,13 +1618,19 @@ test("Logger.emit() with custom timestamp", () => {
       properties: { value: "test", source: "external" },
     });
 
-    assertEquals(records.length, 1);
-    assertEquals(records[0].category, ["test", "emit"]);
-    assertEquals(records[0].level, "info");
-    assertEquals(records[0].timestamp, customTimestamp);
-    assertEquals(records[0].message, ["Custom message with", "value"]);
-    assertEquals(records[0].rawMessage, "Custom message with {value}");
-    assertEquals(records[0].properties, { value: "test", source: "external" });
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].category, ["test", "emit"]);
+    assert.strictEqual(records[0].level, "info");
+    assert.strictEqual(records[0].timestamp, customTimestamp);
+    assert.deepStrictEqual(records[0].message, [
+      "Custom message with",
+      "value",
+    ]);
+    assert.strictEqual(records[0].rawMessage, "Custom message with {value}");
+    assert.deepStrictEqual(records[0].properties, {
+      value: "test",
+      source: "external",
+    });
   } finally {
     (logger as LoggerImpl).reset();
   }
@@ -1629,14 +1663,14 @@ test("Logger.emit() preserves all fields", () => {
       properties: testProperties,
     });
 
-    assertEquals(records.length, 1);
+    assert.strictEqual(records.length, 1);
     const record = records[0];
-    assertEquals(record.category, ["emit-test"]);
-    assertEquals(record.level, "debug");
-    assertEquals(record.timestamp, testTimestamp);
-    assertEquals(record.message, testMessage);
-    assertEquals(record.rawMessage, testRawMessage);
-    assertEquals(record.properties, testProperties);
+    assert.deepStrictEqual(record.category, ["emit-test"]);
+    assert.strictEqual(record.level, "debug");
+    assert.strictEqual(record.timestamp, testTimestamp);
+    assert.deepStrictEqual(record.message, testMessage);
+    assert.strictEqual(record.rawMessage, testRawMessage);
+    assert.deepStrictEqual(record.properties, testProperties);
   } finally {
     (logger as LoggerImpl).reset();
   }
@@ -1659,11 +1693,11 @@ test("LoggerCtx.emit() merges contextual properties", () => {
       properties: { system: "external", priority: "high" },
     });
 
-    assertEquals(records.length, 1);
+    assert.strictEqual(records.length, 1);
     const record = records[0];
-    assertEquals(record.category, ["ctx-emit"]);
-    assertEquals(record.level, "warning");
-    assertEquals(record.properties, {
+    assert.deepStrictEqual(record.category, ["ctx-emit"]);
+    assert.strictEqual(record.level, "warning");
+    assert.deepStrictEqual(record.properties, {
       system: "external",
       priority: "high",
       requestId: "req-123",
@@ -1691,9 +1725,9 @@ test("LoggerCtx.emit() record properties override context properties", () => {
       properties: { source: "record", priority: "critical" },
     });
 
-    assertEquals(records.length, 1);
+    assert.strictEqual(records.length, 1);
     const record = records[0];
-    assertEquals(record.properties, {
+    assert.deepStrictEqual(record.properties, {
       source: "record", // record properties override context
       shared: "from-context", // context properties are preserved
       priority: "critical",
@@ -1730,8 +1764,8 @@ test("Logger.emit() respects filters", () => {
       properties: {},
     });
 
-    assertEquals(records.length, 1);
-    assertEquals(records[0].level, "info");
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].level, "info");
   } finally {
     (logger as LoggerImpl).reset();
   }
@@ -1764,8 +1798,8 @@ test("Logger.emit() respects log level threshold", () => {
       properties: {},
     });
 
-    assertEquals(records.length, 1);
-    assertEquals(records[0].level, "warning");
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].level, "warning");
   } finally {
     (logger as LoggerImpl).reset();
   }
@@ -1779,30 +1813,30 @@ test("Logger.isEnabledFor()", () => {
     logger.sinks.push(sink);
 
     // With default lowestLevel ("trace"), all levels are enabled
-    assert(logger.isEnabledFor("trace"));
-    assert(logger.isEnabledFor("debug"));
-    assert(logger.isEnabledFor("info"));
-    assert(logger.isEnabledFor("warning"));
-    assert(logger.isEnabledFor("error"));
-    assert(logger.isEnabledFor("fatal"));
+    assert.ok(logger.isEnabledFor("trace"));
+    assert.ok(logger.isEnabledFor("debug"));
+    assert.ok(logger.isEnabledFor("info"));
+    assert.ok(logger.isEnabledFor("warning"));
+    assert.ok(logger.isEnabledFor("error"));
+    assert.ok(logger.isEnabledFor("fatal"));
 
     // Set lowestLevel to "warning"
     logger.lowestLevel = "warning";
-    assertFalse(logger.isEnabledFor("trace"));
-    assertFalse(logger.isEnabledFor("debug"));
-    assertFalse(logger.isEnabledFor("info"));
-    assert(logger.isEnabledFor("warning"));
-    assert(logger.isEnabledFor("error"));
-    assert(logger.isEnabledFor("fatal"));
+    assert.ok(!logger.isEnabledFor("trace"));
+    assert.ok(!logger.isEnabledFor("debug"));
+    assert.ok(!logger.isEnabledFor("info"));
+    assert.ok(logger.isEnabledFor("warning"));
+    assert.ok(logger.isEnabledFor("error"));
+    assert.ok(logger.isEnabledFor("fatal"));
 
     // Set lowestLevel to null (disabled)
     logger.lowestLevel = null;
-    assertFalse(logger.isEnabledFor("trace"));
-    assertFalse(logger.isEnabledFor("debug"));
-    assertFalse(logger.isEnabledFor("info"));
-    assertFalse(logger.isEnabledFor("warning"));
-    assertFalse(logger.isEnabledFor("error"));
-    assertFalse(logger.isEnabledFor("fatal"));
+    assert.ok(!logger.isEnabledFor("trace"));
+    assert.ok(!logger.isEnabledFor("debug"));
+    assert.ok(!logger.isEnabledFor("info"));
+    assert.ok(!logger.isEnabledFor("warning"));
+    assert.ok(!logger.isEnabledFor("error"));
+    assert.ok(!logger.isEnabledFor("fatal"));
   } finally {
     logger.resetDescendants();
   }
@@ -1813,12 +1847,12 @@ test("Logger.isEnabledFor() without sinks", () => {
 
   try {
     // No sinks configured - should return false
-    assertFalse(logger.isEnabledFor("trace"));
-    assertFalse(logger.isEnabledFor("debug"));
-    assertFalse(logger.isEnabledFor("info"));
-    assertFalse(logger.isEnabledFor("warning"));
-    assertFalse(logger.isEnabledFor("error"));
-    assertFalse(logger.isEnabledFor("fatal"));
+    assert.ok(!logger.isEnabledFor("trace"));
+    assert.ok(!logger.isEnabledFor("debug"));
+    assert.ok(!logger.isEnabledFor("info"));
+    assert.ok(!logger.isEnabledFor("warning"));
+    assert.ok(!logger.isEnabledFor("error"));
+    assert.ok(!logger.isEnabledFor("fatal"));
   } finally {
     logger.resetDescendants();
   }
@@ -1833,12 +1867,12 @@ test("LoggerCtx.isEnabledFor()", () => {
     logger.sinks.push(sink);
     logger.lowestLevel = "warning";
 
-    assertFalse(ctx.isEnabledFor("trace"));
-    assertFalse(ctx.isEnabledFor("debug"));
-    assertFalse(ctx.isEnabledFor("info"));
-    assert(ctx.isEnabledFor("warning"));
-    assert(ctx.isEnabledFor("error"));
-    assert(ctx.isEnabledFor("fatal"));
+    assert.ok(!ctx.isEnabledFor("trace"));
+    assert.ok(!ctx.isEnabledFor("debug"));
+    assert.ok(!ctx.isEnabledFor("info"));
+    assert.ok(ctx.isEnabledFor("warning"));
+    assert.ok(ctx.isEnabledFor("error"));
+    assert.ok(ctx.isEnabledFor("fatal"));
   } finally {
     logger.resetDescendants();
   }
@@ -1878,13 +1912,13 @@ for (
         // deno-lint-ignore require-await
         async () => ({ value: 42 }),
       );
-      assert(result instanceof Promise, "Should return a Promise");
+      assert.ok(result instanceof Promise, "Should return a Promise");
       await result;
 
-      assertEquals(logs.length, 1);
-      assertEquals(logs[0].message, ["Async message with ", 42, "."]);
-      assertEquals(logs[0].rawMessage, "Async message with {value}.");
-      assertEquals(logs[0].properties, { value: 42 });
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, ["Async message with ", 42, "."]);
+      assert.strictEqual(logs[0].rawMessage, "Async message with {value}.");
+      assert.deepStrictEqual(logs[0].properties, { value: 42 });
 
       // Test LoggerCtx with async callback
       logs.length = 0;
@@ -1893,13 +1927,17 @@ for (
         // deno-lint-ignore require-await
         async () => ({ value: 123 }),
       );
-      assert(ctxResult instanceof Promise, "Should return a Promise");
+      assert.ok(ctxResult instanceof Promise, "Should return a Promise");
       await ctxResult;
 
-      assertEquals(logs.length, 1);
-      assertEquals(logs[0].message, ["Async ctx message with ", 123, "."]);
-      assertEquals(logs[0].rawMessage, "Async ctx message with {value}.");
-      assertEquals(logs[0].properties, { ctx: "value", value: 123 });
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, [
+        "Async ctx message with ",
+        123,
+        ".",
+      ]);
+      assert.strictEqual(logs[0].rawMessage, "Async ctx message with {value}.");
+      assert.deepStrictEqual(logs[0].properties, { ctx: "value", value: 123 });
     } finally {
       logger.resetDescendants();
     }
@@ -1926,19 +1964,22 @@ for (
 
       if (method === "fatal") {
         // fatal is enabled, so callback should be called
-        assert(result instanceof Promise, "Should return a Promise");
+        assert.ok(result instanceof Promise, "Should return a Promise");
         await result;
-        assert(callbackCalled, "Callback should be called for enabled level");
-        assertEquals(logs.length, 1);
+        assert.ok(
+          callbackCalled,
+          "Callback should be called for enabled level",
+        );
+        assert.strictEqual(logs.length, 1);
       } else {
         // Other levels are disabled
-        assert(result instanceof Promise, "Should return a Promise");
+        assert.ok(result instanceof Promise, "Should return a Promise");
         await result;
-        assertFalse(
-          callbackCalled,
+        assert.ok(
+          !callbackCalled,
           "Callback should NOT be called for disabled level",
         );
-        assertEquals(logs.length, 0);
+        assert.strictEqual(logs.length, 0);
       }
 
       // Test LoggerCtx with disabled level
@@ -1954,18 +1995,21 @@ for (
       );
 
       if (method === "fatal") {
-        assert(ctxResult instanceof Promise, "Should return a Promise");
+        assert.ok(ctxResult instanceof Promise, "Should return a Promise");
         await ctxResult;
-        assert(callbackCalled, "Callback should be called for enabled level");
-        assertEquals(logs.length, 1);
-      } else {
-        assert(ctxResult instanceof Promise, "Should return a Promise");
-        await ctxResult;
-        assertFalse(
+        assert.ok(
           callbackCalled,
+          "Callback should be called for enabled level",
+        );
+        assert.strictEqual(logs.length, 1);
+      } else {
+        assert.ok(ctxResult instanceof Promise, "Should return a Promise");
+        await ctxResult;
+        assert.ok(
+          !callbackCalled,
           "Callback should NOT be called for disabled level",
         );
-        assertEquals(logs.length, 0);
+        assert.strictEqual(logs.length, 0);
       }
     } finally {
       logger.resetDescendants();
@@ -1977,21 +2021,21 @@ test("lazy() creates a lazy value", () => {
   let counter = 0;
   const lazyValue = lazy(() => ++counter);
 
-  assert(isLazy(lazyValue));
-  assertEquals(counter, 0); // not evaluated yet
-  assertEquals(lazyValue.getter(), 1);
-  assertEquals(lazyValue.getter(), 2);
+  assert.ok(isLazy(lazyValue));
+  assert.strictEqual(counter, 0); // not evaluated yet
+  assert.strictEqual(lazyValue.getter(), 1);
+  assert.strictEqual(lazyValue.getter(), 2);
 });
 
 test("isLazy() returns false for non-lazy values", () => {
-  assertFalse(isLazy(null));
-  assertFalse(isLazy(undefined));
-  assertFalse(isLazy(123));
-  assertFalse(isLazy("string"));
-  assertFalse(isLazy(() => 1)); // plain function
-  assertFalse(isLazy({ getter: () => 1 })); // object without symbol
-  assertFalse(isLazy({}));
-  assertFalse(isLazy([]));
+  assert.ok(!isLazy(null));
+  assert.ok(!isLazy(undefined));
+  assert.ok(!isLazy(123));
+  assert.ok(!isLazy("string"));
+  assert.ok(!isLazy(() => 1)); // plain function
+  assert.ok(!isLazy({ getter: () => 1 })); // object without symbol
+  assert.ok(!isLazy({}));
+  assert.ok(!isLazy([]));
 });
 
 test("Logger.with() with lazy values", () => {
@@ -2004,11 +2048,11 @@ test("Logger.with() with lazy values", () => {
     const ctx = logger.with({ user: lazy(() => currentUser) });
 
     ctx.info("Action 1");
-    assertEquals(records[0].properties.user, "alice");
+    assert.strictEqual(records[0].properties.user, "alice");
 
     currentUser = "bob";
     ctx.info("Action 2");
-    assertEquals(records[1].properties.user, "bob");
+    assert.strictEqual(records[1].properties.user, "bob");
   } finally {
     logger.resetDescendants();
   }
@@ -2033,11 +2077,11 @@ test("Logger.with() lazy values are not evaluated until log time", () => {
       }),
     });
 
-    assertFalse(evaluated); // not evaluated yet
+    assert.ok(!evaluated); // not evaluated yet
 
     ctx.info("Test message");
-    assert(evaluated); // now evaluated (sink accessed properties)
-    assertEquals(records[0].properties.value, "computed");
+    assert.ok(evaluated); // now evaluated (sink accessed properties)
+    assert.strictEqual(records[0].properties.value, "computed");
   } finally {
     logger.resetDescendants();
   }
@@ -2054,11 +2098,11 @@ test("Logger.with() lazy values propagate to child loggers", () => {
     const childCtx = ctx.getChild("child");
 
     childCtx.info("Child action 1");
-    assertEquals(records[0].properties.requestId, "req-1");
+    assert.strictEqual(records[0].properties.requestId, "req-1");
 
     requestId = "req-2";
     childCtx.info("Child action 2");
-    assertEquals(records[1].properties.requestId, "req-2");
+    assert.strictEqual(records[1].properties.requestId, "req-2");
   } finally {
     logger.resetDescendants();
   }
@@ -2075,7 +2119,7 @@ test("Logger.with() lazy values work with template literals", () => {
 
     count = 42;
     ctx.info`The count is ${count}`;
-    assertEquals(records[0].properties.count, 42);
+    assert.strictEqual(records[0].properties.count, 42);
   } finally {
     logger.resetDescendants();
   }
@@ -2092,7 +2136,7 @@ test("Logger.with() lazy values work with logLazily", () => {
 
     value = "updated";
     ctx.info((l) => l`Lazy log`);
-    assertEquals(records[0].properties.dynamic, "updated");
+    assert.strictEqual(records[0].properties.dynamic, "updated");
   } finally {
     logger.resetDescendants();
   }
@@ -2111,13 +2155,13 @@ test("Logger.with() mixed lazy and regular properties", () => {
     });
 
     ctx.info("Test 1");
-    assertEquals(records[0].properties.static, "static-value");
-    assertEquals(records[0].properties.dynamic, "dynamic1");
+    assert.strictEqual(records[0].properties.static, "static-value");
+    assert.strictEqual(records[0].properties.dynamic, "dynamic1");
 
     dynamicValue = "dynamic2";
     ctx.info("Test 2");
-    assertEquals(records[1].properties.static, "static-value");
-    assertEquals(records[1].properties.dynamic, "dynamic2");
+    assert.strictEqual(records[1].properties.static, "static-value");
+    assert.strictEqual(records[1].properties.dynamic, "dynamic2");
   } finally {
     logger.resetDescendants();
   }
@@ -2132,10 +2176,10 @@ test("Logger.with() lazy values can be overridden by log properties", () => {
     const ctx = logger.with({ value: lazy(() => "lazy") });
 
     ctx.info("Without override");
-    assertEquals(records[0].properties.value, "lazy");
+    assert.strictEqual(records[0].properties.value, "lazy");
 
     ctx.info("With override", { value: "override" });
-    assertEquals(records[1].properties.value, "override");
+    assert.strictEqual(records[1].properties.value, "override");
   } finally {
     logger.resetDescendants();
   }
@@ -2153,8 +2197,8 @@ test("Logger.with() lazy getter returning null/undefined", () => {
     });
 
     ctx.info("Test message");
-    assertEquals(records[0].properties.nullValue, null);
-    assertEquals(records[0].properties.undefinedValue, undefined);
+    assert.strictEqual(records[0].properties.nullValue, null);
+    assert.strictEqual(records[0].properties.undefinedValue, undefined);
   } finally {
     logger.resetDescendants();
   }
@@ -2173,14 +2217,14 @@ test("Logger.with() chained with() calls with lazy values", () => {
     const ctx2 = ctx1.with({ second: lazy(() => value2) });
 
     ctx2.info("Test");
-    assertEquals(records[0].properties.first, "a");
-    assertEquals(records[0].properties.second, "x");
+    assert.strictEqual(records[0].properties.first, "a");
+    assert.strictEqual(records[0].properties.second, "x");
 
     value1 = "b";
     value2 = "y";
     ctx2.info("Test");
-    assertEquals(records[1].properties.first, "b");
-    assertEquals(records[1].properties.second, "y");
+    assert.strictEqual(records[1].properties.first, "b");
+    assert.strictEqual(records[1].properties.second, "y");
   } finally {
     logger.resetDescendants();
   }
@@ -2199,16 +2243,16 @@ test("Logger.with() lazy value overridden by another lazy value", () => {
     const ctx2 = ctx1.with({ value: lazy(() => override) });
 
     ctx2.info("Test");
-    assertEquals(records[0].properties.value, "override");
+    assert.strictEqual(records[0].properties.value, "override");
 
     override = "updated";
     ctx2.info("Test");
-    assertEquals(records[1].properties.value, "updated");
+    assert.strictEqual(records[1].properties.value, "updated");
 
     // Original context should still use original lazy
     original = "original-updated";
     ctx1.info("Test");
-    assertEquals(records[2].properties.value, "original-updated");
+    assert.strictEqual(records[2].properties.value, "original-updated");
   } finally {
     logger.resetDescendants();
   }
@@ -2232,8 +2276,8 @@ test("Logger.with() lazy values work with emit()", () => {
       properties: { extra: "prop" },
     });
 
-    assertEquals(records[0].properties.dynamic, "updated");
-    assertEquals(records[0].properties.extra, "prop");
+    assert.strictEqual(records[0].properties.dynamic, "updated");
+    assert.strictEqual(records[0].properties.extra, "prop");
   } finally {
     logger.resetDescendants();
   }
@@ -2262,9 +2306,9 @@ test("Logger.with() lazy getter throwing error propagates", () => {
     });
 
     ctx.info("Test message");
-    assertEquals(errors.length, 1);
-    assert(errors[0] instanceof Error);
-    assertEquals((errors[0] as Error).message, "getter error");
+    assert.strictEqual(errors.length, 1);
+    assert.ok(errors[0] instanceof Error);
+    assert.strictEqual((errors[0] as Error).message, "getter error");
   } finally {
     logger.resetDescendants();
   }

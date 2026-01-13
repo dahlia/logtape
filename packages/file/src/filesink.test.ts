@@ -1,14 +1,12 @@
 import { getFileSink, getRotatingFileSink } from "#filesink";
-import { suite } from "@alinea/suite";
-import { isDeno } from "@david/which-runtime";
-import type { Sink } from "@logtape/logtape";
-import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/equals";
-import { assertThrows } from "@std/assert/throws";
-import { delay } from "@std/async/delay";
-import { join } from "@std/path/join";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { isDeno } from "@david/which-runtime";
+import type { Sink } from "@logtape/logtape";
+import { join } from "@std/path/join";
 import {
   debug,
   error,
@@ -17,8 +15,6 @@ import {
   warning,
 } from "../../logtape/src/fixtures.ts";
 import { type FileSinkDriver, getBaseFileSink } from "./filesink.base.ts";
-
-const test = suite(import.meta);
 
 function makeTempFileSync(): string {
   return join(fs.mkdtempSync(join(tmpdir(), "logtape-")), "logtape.txt");
@@ -60,7 +56,7 @@ test("getBaseFileSink()", () => {
   sink(error);
   sink(fatal);
   sink[Symbol.dispose]();
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -104,12 +100,12 @@ test("getBaseFileSink() with lazy option", () => {
     sink = getBaseFileSink(path, { ...driver, lazy: true });
   }
   if (isDeno) {
-    assertThrows(
+    assert.throws(
       () => Deno.lstatSync(path),
       Deno.errors.NotFound,
     );
   } else {
-    assertEquals(fs.existsSync(path), false);
+    assert.strictEqual(fs.existsSync(path), false);
   }
   sink(debug);
   sink(info);
@@ -117,7 +113,7 @@ test("getBaseFileSink() with lazy option", () => {
   sink(error);
   sink(fatal);
   sink[Symbol.dispose]();
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -138,7 +134,7 @@ test("getFileSink()", () => {
   sink(error);
   sink(fatal);
   sink[Symbol.dispose]();
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -157,14 +153,14 @@ test("getFileSink() with bufferSize: 0 (no buffering)", () => {
   // Write first log entry
   sink(debug);
   // With no buffering, content should be immediately written to file
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
 
   // Write second log entry
   sink(info);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -179,7 +175,7 @@ test("getFileSink() with bufferSize: 0 (no buffering)", () => {
   sink[Symbol.dispose]();
 
   // Final verification
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -199,12 +195,12 @@ test("getFileSink() with small buffer size", () => {
   // Write first log entry (about 65 characters)
   sink(debug);
   // Should be buffered, not yet written to file
-  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), "");
 
   // Write second log entry - this should exceed buffer size and trigger flush
   sink(info);
   // Both entries should now be written to file
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -215,7 +211,7 @@ test("getFileSink() with small buffer size", () => {
   // Write third log entry - should be buffered again
   sink(warning);
   // Should still only have the first two entries
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -225,7 +221,7 @@ test("getFileSink() with small buffer size", () => {
 
   // Dispose should flush remaining buffer content
   sink[Symbol.dispose]();
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -244,14 +240,14 @@ test("getRotatingFileSink() with bufferSize: 0 (no buffering)", () => {
 
   // Write first log entry - should be immediately written
   sink(debug);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
 
   // Write second log entry - should be immediately written
   sink(info);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -261,12 +257,12 @@ test("getRotatingFileSink() with bufferSize: 0 (no buffering)", () => {
 
   // Write third log entry - should trigger rotation
   sink(warning);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!\n",
   );
   // Check that rotation occurred
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -286,11 +282,11 @@ test("getRotatingFileSink() with small buffer size", () => {
 
   // Write first log entry - should be buffered
   sink(debug);
-  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), "");
 
   // Write second log entry - should trigger buffer flush
   sink(info);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -300,7 +296,7 @@ test("getRotatingFileSink() with small buffer size", () => {
 
   // Write third log entry - should be buffered again
   sink(warning);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -333,7 +329,7 @@ test("getRotatingFileSink() with small buffer size", () => {
   ];
 
   for (const entry of expectedEntries) {
-    assertEquals(
+    assert.strictEqual(
       allContent.includes(entry),
       true,
       `Missing log entry: ${entry.trim()}`,
@@ -344,7 +340,11 @@ test("getRotatingFileSink() with small buffer size", () => {
   for (const entry of expectedEntries) {
     const firstIndex = allContent.indexOf(entry);
     const lastIndex = allContent.lastIndexOf(entry);
-    assertEquals(firstIndex, lastIndex, `Duplicate log entry: ${entry.trim()}`);
+    assert.strictEqual(
+      firstIndex,
+      lastIndex,
+      `Duplicate log entry: ${entry.trim()}`,
+    );
   }
 });
 
@@ -355,12 +355,12 @@ test("getRotatingFileSink()", () => {
     bufferSize: 0, // Disable buffering for this test to maintain existing behavior
   });
   sink(debug);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
   sink(info);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -368,11 +368,11 @@ test("getRotatingFileSink()", () => {
 `,
   );
   sink(warning);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -380,14 +380,14 @@ test("getRotatingFileSink()", () => {
 `,
   );
   sink(error);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
 `,
   );
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -396,18 +396,18 @@ test("getRotatingFileSink()", () => {
   );
   sink(fatal);
   sink[Symbol.dispose]();
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!\n",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(`${path}.1`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [ERR] my-app·junk: Hello, 123 & 456!
 `,
   );
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(`${path}.2`, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -422,7 +422,7 @@ test("getRotatingFileSink()", () => {
     bufferSize: 0, // Disable buffering for this test to maintain existing behavior
   });
   sink2(debug);
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path2, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
@@ -463,7 +463,7 @@ test("getBaseFileSink() with buffer edge cases", () => {
 
   sink1(debug);
   // With negative bufferSize, should write immediately
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path1, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
@@ -502,7 +502,7 @@ test("getBaseFileSink() with buffer edge cases", () => {
 
   sink2(debug);
   // With bufferSize of 1, should write immediately since log entry > 1 char
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path2, { encoding: "utf-8" }),
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
@@ -544,11 +544,11 @@ test("getBaseFileSink() with buffer edge cases", () => {
   sink3(info);
   sink3(warning);
   // Should still be buffered (file empty)
-  assertEquals(fs.readFileSync(path3, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(fs.readFileSync(path3, { encoding: "utf-8" }), "");
 
   // Dispose should flush all buffered content
   sink3[Symbol.dispose]();
-  assertEquals(
+  assert.deepStrictEqual(
     fs.readFileSync(path3, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
@@ -602,7 +602,7 @@ test("getBaseFileSink() with time-based flushing", async () => {
   sink(record1);
 
   // Should be buffered (file empty initially)
-  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), "");
 
   // Wait for flush interval to pass and write another record
   await new Promise((resolve) => setTimeout(resolve, 150));
@@ -611,7 +611,7 @@ test("getBaseFileSink() with time-based flushing", async () => {
 
   // First record should now be flushed due to time interval
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assertEquals(content.includes("Hello, 123 & 456!"), true);
+  assert.strictEqual(content.includes("Hello, 123 & 456!"), true);
 
   sink[Symbol.dispose]();
 });
@@ -629,7 +629,7 @@ test("getRotatingFileSink() with time-based flushing", async () => {
   sink(record1);
 
   // Should be buffered (file empty initially)
-  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), "");
 
   // Wait for flush interval to pass and write another record
   await new Promise((resolve) => setTimeout(resolve, 150));
@@ -638,7 +638,7 @@ test("getRotatingFileSink() with time-based flushing", async () => {
 
   // First record should now be flushed due to time interval
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assertEquals(content.includes("Hello, 123 & 456!"), true);
+  assert.strictEqual(content.includes("Hello, 123 & 456!"), true);
 
   sink[Symbol.dispose]();
 });
@@ -691,12 +691,12 @@ test("getBaseFileSink() with flushInterval disabled", () => {
   sink(record2);
 
   // Should still be buffered since time-based flushing is disabled
-  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), "");
 
   // Only disposal should flush
   sink[Symbol.dispose]();
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assertEquals(content.includes("Hello, 123 & 456!"), true);
+  assert.strictEqual(content.includes("Hello, 123 & 456!"), true);
 });
 
 test("getFileSink() with nonBlocking mode", async () => {
@@ -707,8 +707,8 @@ test("getFileSink() with nonBlocking mode", async () => {
   });
 
   // Check that it returns AsyncDisposable
-  assert(typeof sink === "function");
-  assert(Symbol.asyncDispose in sink);
+  assert.ok(typeof sink === "function");
+  assert.ok(Symbol.asyncDispose in sink);
 
   // Add enough records to trigger buffer flush
   sink(debug);
@@ -717,7 +717,7 @@ test("getFileSink() with nonBlocking mode", async () => {
   // Wait for async flush to complete
   await delay(50);
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes("Hello, 123 & 456!"));
+  assert.ok(content.includes("Hello, 123 & 456!"));
 
   await (sink as Sink & AsyncDisposable)[Symbol.asyncDispose]();
 });
@@ -732,20 +732,20 @@ test("getRotatingFileSink() with nonBlocking mode", async () => {
   });
 
   // Check that it returns AsyncDisposable
-  assert(typeof sink === "function");
-  assert(Symbol.asyncDispose in sink);
+  assert.ok(typeof sink === "function");
+  assert.ok(Symbol.asyncDispose in sink);
 
   // Add records with current timestamp
   const record1 = { ...debug, timestamp: Date.now() };
   const record2 = { ...info, timestamp: Date.now() };
   sink(record1);
   sink(record2);
-  assertEquals(fs.readFileSync(path, { encoding: "utf-8" }), ""); // Not written yet
+  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), ""); // Not written yet
 
   // Wait for flush interval to pass
   await delay(100);
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert(content.includes("Hello, 123 & 456!"));
+  assert.ok(content.includes("Hello, 123 & 456!"));
 
   await (sink as Sink & AsyncDisposable)[Symbol.asyncDispose]();
 });
@@ -773,7 +773,7 @@ test("getFileSink() with nonBlocking high-volume logging", async () => {
 
   // Should have some records written by now
   const writtenCount = (content.match(/Hello, 123 & 456!/g) || []).length;
-  assert(
+  assert.ok(
     writtenCount > 0,
     `Expected some records to be written, but got ${writtenCount}`,
   );
@@ -812,7 +812,7 @@ test("getRotatingFileSink() with nonBlocking rotation", async () => {
 
   // Should have all 4 records somewhere
   const recordCount = (allContent.match(/Hello, 123 & 456!/g) || []).length;
-  assertEquals(recordCount, 4);
+  assert.strictEqual(recordCount, 4);
 
   await sink[Symbol.asyncDispose]();
 });
