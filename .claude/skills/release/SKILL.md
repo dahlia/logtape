@@ -54,7 +54,7 @@ They are created from `X.Y-maintenance` branches.
     ~~~~
 
 2.  Update *CHANGES.md*: Find the section for the version being released and
-    change "To be released." to "Released on {Month} {Day}, {Year}." using
+    change “To be released.” to “Released on {Month} {Day}, {Year}.” using
     the current date in English.  For example:
 
     ~~~~ markdown
@@ -149,7 +149,6 @@ branches and eventually to `main`.
          -  Inserted *above* any existing entries in each package section
          -  Issue/PR reference definitions (e.g., `[#123]: ...`) should not
             be duplicated if they already exist
-
 
         For example, if merging 1.2.3 into 1.3-maintenance where 1.3.2 is
         pending:
@@ -254,7 +253,7 @@ changes.  They are always created from the `main` branch with patch version 0.
     ~~~~
 
 2.  Update *CHANGES.md*: Find the section for the version being released and
-    change "To be released." to "Released on {Month} {Day}, {Year}." using
+    change “To be released.” to “Released on {Month} {Day}, {Year}.” using
     the current date in English.  For example:
 
     ~~~~ markdown
@@ -417,7 +416,7 @@ Checklist summary
 
  -  [ ] Check out `X.Y-maintenance` branch
  -  [ ] Update *CHANGES.md* release date
- -  [ ] Commit with message "Release X.Y.Z"
+ -  [ ] Commit with message “Release X.Y.Z”
  -  [ ] Create tag `X.Y.Z` with `-m "LogTape X.Y.Z"`
  -  [ ] Add next version section to *CHANGES.md*
  -  [ ] Run `deno task update-versions X.Y.(Z+1)`
@@ -434,7 +433,7 @@ Checklist summary
 
  -  [ ] Check out `main` branch
  -  [ ] Update *CHANGES.md* release date
- -  [ ] Commit with message "Release X.Y.0"
+ -  [ ] Commit with message “Release X.Y.0”
  -  [ ] Create tag `X.Y.0` with `-m "LogTape X.Y.0"`
  -  [ ] Add next version section to *CHANGES.md*
  -  [ ] Run `deno task update-versions X.(Y+1).0`

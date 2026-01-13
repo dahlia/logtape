@@ -4,4 +4,7 @@ exclude = [
   "**/dist/**",
   "**/site-packages/**",
   "**/.git/**",
+  "CLAUDE.md",
+  "CRUSH.md",
+  "GEMINI.md",
 ]

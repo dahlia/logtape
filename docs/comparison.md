@@ -167,8 +167,8 @@ LogTape, being designed from the ground up for multi-runtime compatibility,
 works identically across all these environments without requiring any
 polyfills or compatibility layers.
 
-[^2]: Legend: ✅ — official support, ⚠️ — unofficial/limited support,
-      ❌ — not supported.
+[^2]: Legend: ✅ — official support, ⚠️ — unofficial/limited support, ❌ — not
+      supported.
 
 ### Example: Universal library
 

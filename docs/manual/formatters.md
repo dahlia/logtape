@@ -467,7 +467,7 @@ The default uses a built-in color scheme.
 #### `~PrettyFormatterOptions.levelStyle`
 
 Visual style applied to log level text. Controls the appearance of the level
-indicator (e.g., "info", "error").
+indicator (e.g., `info`, `error`).
 
 Examples: `"bold"`, `"underline"`, `["bold", "underline"]`, `null`.
 

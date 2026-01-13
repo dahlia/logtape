@@ -791,8 +791,8 @@ Version 1.1.2
 Released on October 22, 2025.
 
  -  Fixed Vercel Edge Runtime compatibility issue where LogTape caused
-    "Node.js API is used (process.on) which is not supported in the Edge
-    Runtime" error during configuration. Implemented defense-in-depth approach
+    “Node.js API is used (process.on) which is not supported in the Edge
+    Runtime” error during configuration. Implemented defense-in-depth approach
     with both `EdgeRuntime` global variable detection and dynamic bracket
     notation access (`proc?.["on"]`) to avoid static analysis detection while
     ensuring runtime safety.  [[#92]]
@@ -883,8 +883,8 @@ Version 1.0.6
 Released on October 22, 2025.
 
  -  Fixed Vercel Edge Runtime compatibility issue where LogTape caused
-    "Node.js API is used (process.on) which is not supported in the Edge
-    Runtime" error during configuration. Implemented defense-in-depth approach
+    “Node.js API is used (process.on) which is not supported in the Edge
+    Runtime” error during configuration. Implemented defense-in-depth approach
     with both `EdgeRuntime` global variable detection and dynamic bracket
     notation access (`proc?.["on"]`) to avoid static analysis detection while
     ensuring runtime safety.  [[#92]]
@@ -894,7 +894,7 @@ Released on October 22, 2025.
     asynchronous stream cleanup. The previous synchronous disposal did not wait
     for streams to finish flushing data to disk, causing incomplete writes in
     high-volume logging scenarios and resource leaks. The new async disposal
-    properly waits for both the stream 'finish' event and file handle closure,
+    properly waits for both the stream ‘finish’ event and file handle closure,
     ensuring all data is written and resources are cleaned up correctly.
 
 

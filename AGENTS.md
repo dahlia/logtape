@@ -527,7 +527,7 @@ Do NOT update the changelog for:
 1.  *Structure*:
      -  Top-level heading for the project name
      -  Second-level heading for each version number
-     -  Version status ("To be released" or "Released on DATE")
+     -  Version status (“To be released” or “Released on DATE”)
      -  Bulleted list of changes
 
 2.  *Entry format*:

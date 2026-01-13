@@ -74,7 +74,7 @@
     ]
   },
   "tasks": {
-    "hongdown": "deno run -A npm:hongdown@^0.1.0",
+    "hongdown": "deno run -A npm:hongdown@^0.2.6",
     "check": {
       "command": "deno check && deno lint && deno fmt --check && deno task hongdown --check",
       "dependencies": [
