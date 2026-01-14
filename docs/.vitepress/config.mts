@@ -236,6 +236,7 @@ export default defineConfig({
   cleanUrls: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    logo: "/logo.svg",
     nav: [
       { text: "Home", link: "/" },
       { text: "What is LogTape?", link: "/intro" },
