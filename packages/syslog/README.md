@@ -48,5 +48,5 @@ Docs
 ----
 
 The docs of this package is available at
-<https://logtape.org/manual/sinks#syslog-sink>. For the API references,
+<https://logtape.org/sinks/syslog>. For the API references,
 see <https://jsr.io/@logtape/syslog>.

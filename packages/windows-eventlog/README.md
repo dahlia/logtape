@@ -161,5 +161,5 @@ Docs
 ----
 
 The docs of this package is available at
-<https://logtape.org/manual/sinks#windows-event-log-sink>. For the API
+<https://logtape.org/sinks/windows-eventlog>. For the API
 references, see <https://jsr.io/@logtape/windows-eventlog>.

@@ -17,8 +17,8 @@ write log records to files.  For details, read the docs:
 [npm badge]: https://img.shields.io/npm/v/@logtape/file?logo=npm
 [npm]: https://www.npmjs.com/package/@logtape/file
 [LogTape]: https://logtape.org/
-[File sink]: https://logtape.org/manual/sinks#file-sink
-[Rotating file sink]: https://logtape.org/manual/sinks#rotating-file-sink
+[File sink]: https://logtape.org/sinks/file
+[Rotating file sink]: https://logtape.org/sinks/file#rotating-file-sink
 
 
 Installation
@@ -39,5 +39,5 @@ bun  add     @logtape/file  # for Bun
 Docs
 ----
 
-The docs of this package is available at <https://logtape.org/manual/sinks>.
+The docs of this package is available at <https://logtape.org/sinks/file>.
 For the API references, see <https://jsr.io/@logtape/file>.

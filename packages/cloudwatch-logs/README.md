@@ -130,3 +130,11 @@ permissions:
   ]
 }
 ~~~~
+
+
+Docs
+----
+
+The docs of this package is available at
+<https://logtape.org/sinks/cloudwatch-logs>. For the API references,
+see <https://jsr.io/@logtape/cloudwatch-logs>.

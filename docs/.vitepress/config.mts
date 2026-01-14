@@ -171,6 +171,21 @@ const MANUAL = {
   ],
 };
 
+const SINKS = {
+  text: "Sinks",
+  items: [
+    { text: "Console sink", link: "/manual/sinks#console-sink" },
+    { text: "Stream sink", link: "/manual/sinks#stream-sink" },
+    { text: "File sink", link: "/sinks/file" },
+    { text: "Rotating file sink", link: "/sinks/file#rotating-file-sink" },
+    { text: "OpenTelemetry", link: "/sinks/otel" },
+    { text: "Sentry", link: "/sinks/sentry" },
+    { text: "Syslog", link: "/sinks/syslog" },
+    { text: "CloudWatch Logs", link: "/sinks/cloudwatch-logs" },
+    { text: "Windows Event Log", link: "/sinks/windows-eventlog" },
+  ],
+};
+
 const REFERENCES = {
   text: "References",
   items: [
@@ -226,6 +241,7 @@ export default defineConfig({
       { text: "What is LogTape?", link: "/intro" },
       { text: "Comparison", link: "/comparison" },
       MANUAL,
+      SINKS,
       REFERENCES,
       ...extraNav,
     ],
@@ -235,6 +251,7 @@ export default defineConfig({
       { text: "Comparison", link: "/comparison" },
       { text: "Changelog", link: "/changelog" },
       MANUAL,
+      SINKS,
       REFERENCES,
     ],
 

@@ -52,6 +52,6 @@ Docs
 ----
 
 The documentation for this package is available at
-<https://logtape.org/manual/sinks#sentry-sink>.
+<https://logtape.org/sinks/sentry>.
 
 For API references, see <https://jsr.io/@logtape/sentry>.
