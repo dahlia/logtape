@@ -3802,6 +3802,13 @@
           ]
         }
       },
+      "packages/adaptor-log4js": {
+        "packageJson": {
+          "dependencies": [
+            "npm:log4js@^6.9.1"
+          ]
+        }
+      },
       "packages/adaptor-pino": {
         "dependencies": [
           "npm:pino-abstract-transport@2"

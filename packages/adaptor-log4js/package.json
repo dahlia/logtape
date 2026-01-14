@@ -1,0 +1,80 @@
+{
+  "name": "@logtape/adaptor-log4js",
+  "version": "2.0.0",
+  "description": "log4js adapter for LogTape logging library",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "log4js",
+    "adapter",
+    "logtape",
+    "sink"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/adaptor-log4js/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs"
+    },
+    "./install": {
+      "types": {
+        "import": "./dist/install.d.ts",
+        "require": "./dist/install.d.cts"
+      },
+      "import": "./dist/install.js",
+      "require": "./dist/install.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist/"
+  ],
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:^",
+    "log4js": "^6.0.0"
+  },
+  "devDependencies": {
+    "@alinea/suite": "catalog:",
+    "@std/assert": "catalog:",
+    "@std/async": "catalog:",
+    "log4js": "^6.9.1",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test --allow-env --allow-sys",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+  }
+}

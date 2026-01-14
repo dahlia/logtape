@@ -117,6 +117,40 @@ To be released.
 [#129]: https://github.com/dahlia/logtape/issues/129
 [#131]: https://github.com/dahlia/logtape/issues/131
 
+### @logtape/adaptor-log4js
+
+ -  Added a new package `@logtape/adaptor-log4js` for integrating LogTape with
+    log4js logging infrastructure.  [[#57]]
+
+     -  Added `getLog4jsSink()` function to forward LogTape log records to
+        log4js loggers.
+     -  Added `Log4jsSinkOptions` type (discriminated union) for configuring
+        the adapter behavior with type-safe context strategy options:
+         -  `Log4jsSinkOptionsMdc`: For MDC strategy with `contextPreservation`
+         -  `Log4jsSinkOptionsArgs`: For args strategy (excludes
+            `contextPreservation`)
+     -  Added `install()` function for convenient auto-configuration with
+        custom log4js logger and configuration options.
+     -  Added `categoryMapper` option to customize how LogTape categories are
+        mapped to log4js categories (default: join with dots).
+     -  Added `contextStrategy` option to control how LogTape properties are
+        handled:
+         -  `"mdc"` (default): Use log4js MDC (Mapped Diagnostic Context)
+         -  `"args"`: Pass properties as additional arguments to log methods
+     -  Added `contextPreservation` option for MDC strategy to control
+        handling of existing log4js context:
+         -  `"preserve"` (default): Save and restore existing context
+         -  `"merge"`: Merge LogTape properties with existing context
+         -  `"replace"`: Replace existing context with LogTape properties
+     -  Maps LogTape log levels to equivalent log4js levels (trace, debug,
+        info, warn, error, fatal).
+     -  Supports dynamic logger creation based on LogTape categories or using
+        a fixed log4js logger instance.
+     -  Enables seamless adoption of LogTape-enabled libraries in applications
+        using log4js without requiring logging infrastructure changes.
+
+[#57]: https://github.com/dahlia/logtape/issues/57
+
 ### @logtape/config
 
  -  Added a new package `@logtape/config` for configuring LogTape from plain

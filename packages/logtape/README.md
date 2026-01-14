@@ -106,6 +106,7 @@ list of the packages in the LogTape monorepo:
 | Package                                                    | JSR                                  | npm                                  | Description                |
 | ---------------------------------------------------------- | ------------------------------------ | ------------------------------------ | -------------------------- |
 | [*@logtape/logtape*](/packages/logtape/)                   | [JSR][jsr:@logtape/logtape]          | [npm][npm:@logtape/logtape]          | Core logging functionality |
+| [*@logtape/adaptor-log4js*](/packages/adaptor-log4js/)     | [JSR][jsr:@logtape/adaptor-log4js]   | [npm][npm:@logtape/adaptor-log4js]   | [log4js] adapter           |
 | [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
 | [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
 | [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
@@ -126,6 +127,9 @@ list of the packages in the LogTape monorepo:
 
 [jsr:@logtape/logtape]: https://jsr.io/@logtape/logtape
 [npm:@logtape/logtape]: https://www.npmjs.com/package/@logtape/logtape
+[jsr:@logtape/adaptor-log4js]: https://jsr.io/@logtape/adaptor-log4js
+[npm:@logtape/adaptor-log4js]: https://www.npmjs.com/package/@logtape/adaptor-log4js
+[log4js]: https://log4js-node.github.io/log4js-node/
 [jsr:@logtape/adaptor-pino]: https://jsr.io/@logtape/adaptor-pino
 [npm:@logtape/adaptor-pino]: https://www.npmjs.com/package/@logtape/adaptor-pino
 [Pino]: https://github.com/pinojs/pino

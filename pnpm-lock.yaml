@@ -138,6 +138,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20240909.0
         version: 4.20250610.0
+      '@logtape/adaptor-log4js':
+        specifier: 'workspace:'
+        version: link:../packages/adaptor-log4js
       '@logtape/adaptor-pino':
         specifier: 'workspace:'
         version: link:../packages/adaptor-pino
@@ -246,6 +249,9 @@ importers:
       koa:
         specifier: 'catalog:'
         version: 2.16.3
+      log4js:
+        specifier: ^6.9.1
+        version: 6.9.1
       markdown-it-deflist:
         specifier: ^3.0.0
         version: 3.0.0
@@ -273,6 +279,31 @@ importers:
       winston:
         specifier: ^3.17.0
         version: 3.17.0
+
+  packages/adaptor-log4js:
+    dependencies:
+      '@logtape/logtape':
+        specifier: workspace:^
+        version: link:../logtape
+    devDependencies:
+      '@alinea/suite':
+        specifier: 'catalog:'
+        version: 0.6.3
+      '@std/assert':
+        specifier: 'catalog:'
+        version: '@jsr/std__assert@1.0.16'
+      '@std/async':
+        specifier: 'catalog:'
+        version: '@jsr/std__async@1.0.16'
+      log4js:
+        specifier: ^6.9.1
+        version: 6.9.1
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
 
   packages/adaptor-pino:
     dependencies:
@@ -1208,11 +1239,20 @@ packages:
   '@jsr/std__assert@1.0.13':
     resolution: {integrity: sha512-rZ44REoi2/p+gqu8OfkcNeaTOSiG1kD6v8gyA0YjkXsOkDsiGw9g8h7JuGC/OD7GgOVgTEY+9Cih49Y18rkrCQ==, tarball: https://npm.jsr.io/~/11/@jsr/std__assert/1.0.13.tgz}
 
+  '@jsr/std__assert@1.0.16':
+    resolution: {integrity: sha512-bX9ih0nR1kQ12/cnQRCQU0ppTCV7MFkP0qjyWxJRoDI8RC5cpTAmLFH/KcFgxmdN4flKkRbub8VtLuyKq+4OxA==, tarball: https://npm.jsr.io/~/11/@jsr/std__assert/1.0.16.tgz}
+
   '@jsr/std__async@1.0.13':
     resolution: {integrity: sha512-GEApyNtzauJ0kEZ/GxebSkdEN0t29qJtkw+WEvzYTwkL6fHX8cq3YWzRjCqHu+4jMl+rpHiwyr/lfitNInntzA==, tarball: https://npm.jsr.io/~/11/@jsr/std__async/1.0.13.tgz}
 
+  '@jsr/std__async@1.0.16':
+    resolution: {integrity: sha512-WoYmNEPSh+Bs09HvVceERknVX813wQjSb2D9Z0KdxGTMYl5Pm13e5xqa3mYu9QBRlxIxpTivGhIQYaslEezrhw==, tarball: https://npm.jsr.io/~/11/@jsr/std__async/1.0.16.tgz}
+
   '@jsr/std__dotenv@0.225.5':
     resolution: {integrity: sha512-qrBt3wfQgvXbjo+Up6lyzBGxk0IPhDqW9Jx7CJQUQpsxqhoqnBmD8gn0Mt8i+RHHI9uZFCO+FP122ClAC8yljg==, tarball: https://npm.jsr.io/~/11/@jsr/std__dotenv/0.225.5.tgz}
+
+  '@jsr/std__internal@1.0.12':
+    resolution: {integrity: sha512-6xReMW9p+paJgqoFRpOE2nogJFvzPfaLHLIlyADYjKMUcwDyjKZxryIbgcU+gxiTygn8yCjld1HoI0ET4/iZeA==, tarball: https://npm.jsr.io/~/11/@jsr/std__internal/1.0.12.tgz}
 
   '@jsr/std__internal@1.0.8':
     resolution: {integrity: sha512-C0HSkIOA4gZPhLT2YXBXYF51YTpWXWHYUgzs3PhRCVbeVpbJ3Iomghu/ylIG+SsIDGDwxUkSCvfOOveRNS/mKg==, tarball: https://npm.jsr.io/~/11/@jsr/std__internal/1.0.8.tgz}
@@ -5000,9 +5040,17 @@ snapshots:
     dependencies:
       '@jsr/std__internal': 1.0.8
 
+  '@jsr/std__assert@1.0.16':
+    dependencies:
+      '@jsr/std__internal': 1.0.12
+
   '@jsr/std__async@1.0.13': {}
 
+  '@jsr/std__async@1.0.16': {}
+
   '@jsr/std__dotenv@0.225.5': {}
+
+  '@jsr/std__internal@1.0.12': {}
 
   '@jsr/std__internal@1.0.8': {}
 

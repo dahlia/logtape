@@ -75,6 +75,12 @@ const jsrRef_windows_eventlog = await jsrRef({
   cachePath: ".jsr-cache-windows-eventlog.json",
 });
 
+const jsrRef_adaptor_log4js = await jsrRef({
+  package: "@logtape/adaptor-log4js",
+  version: jsrRefVersion,
+  cachePath: ".jsr-cache-adaptor-log4js.json",
+});
+
 const jsrRef_adaptor_pino = await jsrRef({
   package: "@logtape/adaptor-pino",
   version: jsrRefVersion,
@@ -328,6 +334,7 @@ export default defineConfig({
       md.use(jsrRef_syslog);
       md.use(jsrRef_cloudwatch_logs);
       md.use(jsrRef_windows_eventlog);
+      md.use(jsrRef_adaptor_log4js);
       md.use(jsrRef_adaptor_pino);
       md.use(jsrRef_adaptor_winston);
       md.use(jsrRef_drizzle_orm);

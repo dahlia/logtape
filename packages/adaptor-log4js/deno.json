@@ -1,0 +1,37 @@
+{
+  "name": "@logtape/adaptor-log4js",
+  "version": "2.0.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./install": "./src/install.ts"
+  },
+  "exclude": [
+    "coverage/",
+    "npm/",
+    ".dnt-import-map.json"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-env --allow-sys",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}

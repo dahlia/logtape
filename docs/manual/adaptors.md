@@ -158,6 +158,191 @@ logger.info("This will be logged through Pino");
 [`install()`]: https://jsr.io/@logtape/adaptor-pino/doc/~/install
 
 
+log4js adapter
+--------------
+
+*This API is available since LogTape 2.0.0.*
+
+The *@logtape/adaptor-log4js* forwards LogTape log records to [log4js]
+loggers, providing flexible category mapping and context handling options:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/adaptor-log4js
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/adaptor-log4js
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/adaptor-log4js
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/adaptor-log4js
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/adaptor-log4js
+~~~~
+
+:::
+
+[log4js]: https://log4js-node.github.io/log4js-node/
+
+### Quick setup
+
+The simplest way to integrate LogTape with log4js is using the auto-installer:
+
+~~~~ typescript twoslash
+import log4js from "log4js";
+
+// Configure log4js first
+log4js.configure({
+  appenders: { out: { type: "stdout" } },
+  categories: { default: { appenders: ["out"], level: "info" } }
+});
+
+// Simply import to automatically set up the adapter
+import "@logtape/adaptor-log4js/install";
+
+// Now all LogTape logs will be routed to log4js
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+logger.info("This will be logged through log4js");
+~~~~
+
+### Using the [`install()`][log4js-install] function
+
+The [`install()`][log4js-install] function provides a convenient way to
+automatically configure LogTape to route all logs to log4js:
+
+~~~~ typescript twoslash
+import log4js from "log4js";
+import { install } from "@logtape/adaptor-log4js";
+
+log4js.configure({
+  appenders: { out: { type: "stdout" } },
+  categories: { default: { appenders: ["out"], level: "info" } }
+});
+
+// With default options (category-based loggers)
+install(log4js);
+
+// Now any LogTape-enabled library will log through log4js
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+logger.info("This will be logged through log4js");
+~~~~
+
+[log4js-install]: https://jsr.io/@logtape/adaptor-log4js/doc/~/install
+
+### Manual configuration
+
+For full control, you can configure LogTape to use log4js as a sink:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getLog4jsSink } from "@logtape/adaptor-log4js";
+import log4js from "log4js";
+
+log4js.configure({
+  appenders: { out: { type: "stdout" } },
+  categories: { default: { appenders: ["out"], level: "info" } }
+});
+
+await configure({
+  sinks: {
+    log4js: getLog4jsSink(log4js, undefined, {
+      categoryMapper: (cat) => cat.join("."),
+      contextStrategy: "mdc",
+      contextPreservation: "preserve"
+    })
+  },
+  loggers: [
+    { category: "my-library", sinks: ["log4js"] }
+  ]
+});
+~~~~
+
+### Category mapping
+
+By default, LogTape categories are mapped to log4js categories using dot
+notation. For example, LogTape category `["app", "database", "query"]` becomes
+log4js category `"app.database.query"`.
+
+You can customize this behavior:
+
+~~~~ typescript twoslash
+import log4js from "log4js";
+import { getLog4jsSink } from "@logtape/adaptor-log4js";
+
+// Use :: as separator
+const sink = getLog4jsSink(log4js, undefined, {
+  categoryMapper: (cat) => cat.join("::")
+});
+
+// Custom logic
+const sink2 = getLog4jsSink(log4js, undefined, {
+  categoryMapper: (cat) => {
+    if (cat.length === 0) return "default";
+    return cat.slice(0, 2).join("."); // Only use first two parts
+  }
+});
+~~~~
+
+### Context handling
+
+The adapter supports two strategies for handling LogTape properties:
+
+~~~~ typescript twoslash
+import log4js from "log4js";
+import { getLog4jsSink } from "@logtape/adaptor-log4js";
+
+// MDC (Mapped Diagnostic Context) strategy (default)
+// Uses log4js's built-in context feature
+const sink1 = getLog4jsSink(log4js, undefined, {
+  contextStrategy: "mdc"
+});
+
+// Args strategy
+// Passes properties as additional arguments to log methods
+const sink2 = getLog4jsSink(log4js, undefined, {
+  contextStrategy: "args"
+});
+~~~~
+
+When using MDC strategy, you can control how existing context is handled:
+
+~~~~ typescript twoslash
+import log4js from "log4js";
+import { getLog4jsSink } from "@logtape/adaptor-log4js";
+
+// Preserve existing context (default)
+// LogTape properties are added during logging, then removed
+const sink1 = getLog4jsSink(log4js, undefined, {
+  contextStrategy: "mdc",
+  contextPreservation: "preserve"
+});
+
+// Merge with existing context
+// LogTape properties are added and left in context
+const sink2 = getLog4jsSink(log4js, undefined, {
+  contextStrategy: "mdc",
+  contextPreservation: "merge"
+});
+
+// Replace existing context
+// Existing context is cleared before adding LogTape properties
+const sink3 = getLog4jsSink(log4js, undefined, {
+  contextStrategy: "mdc",
+  contextPreservation: "replace"
+});
+~~~~
+
+
 winston adapter
 ---------------
 
@@ -274,9 +459,6 @@ Planned adapters
 ----------------
 
 The following adapters are planned for future releases:
-
-log4js adapter (*@logtape/adaptor-log4js*)
-:   Integration with log4js for applications using log4j-style logging
 
 bunyan adapter (*@logtape/adaptor-bunyan*)
 :   Integration with Bunyan structured logging

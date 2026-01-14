@@ -1,5 +1,6 @@
 packages:
 - packages/logtape
+- packages/adaptor-log4js
 - packages/adaptor-pino
 - packages/adaptor-winston
 - packages/drizzle-orm
