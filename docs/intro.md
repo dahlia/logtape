@@ -1,8 +1,13 @@
 What is LogTape?
 ================
 
-LogTape is a logging library for JavaScript and TypeScript.  It provides a
-simple and flexible logging system that is easy to use and easy to extend.
+LogTape is a logging library for JavaScript and TypeScript designed with
+a library-first philosophy.  Unlike traditional loggers, LogTape is
+unobtrusive—libraries can safely log without any configuration, while
+applications retain full control.  With zero dependencies and universal runtime
+support, it works seamlessly across Deno, Node.js, Bun, browsers, and edge
+functions.
+
 The highlights of LogTape are:
 
  -  *Zero dependencies*: LogTape has zero dependencies.  You can use LogTape
