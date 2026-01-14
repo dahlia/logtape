@@ -2,4 +2,76 @@
 bun = "1"
 node = "24"
 deno = "2"
-"npm:pnpm" = "latest"
+pnpm = "latest"
+
+[tools."github:dahlia/hongdown"]
+version = "0.2.6"
+
+[tools."github:dahlia/hongdown".platforms]
+linux-x64 = "hongdown-*-x86_64-unknown-linux-musl.tar.bz2"
+linux-arm64 = "hongdown-*-aarch64-unknown-linux-musl.tar.bz2"
+
+[tasks.deps]
+alias = "install"
+description = "Install all dependencies and update the lockfiles"
+run = "pnpm install"
+
+[tasks.check]
+description = "Check code formatting, linting, and type checking"
+depends = ["check-versions"]
+run = "deno check && deno lint && deno fmt --check && hongdown --check && mise fmt --check"
+
+[tasks.check-versions]
+description = "Check that all subpackages have matching versions"
+run = "deno task check:versions"
+
+[tasks.update-versions]
+description = "Update all subpackage versions to match"
+run = "deno task update-versions"
+
+[tasks.fmt]
+description = "Format code"
+run = "deno fmt && hongdown --write && mise fmt"
+
+[tasks."test:deno"]
+description = "Run the test suite using Deno"
+run = "deno task test"
+
+[tasks."test:node"]
+description = "Run the test suite using Node.js"
+run = "deno task test:node"
+
+[tasks."test:bun"]
+description = "Run the test suite using Bun"
+run = "deno task test:bun"
+
+[tasks.test]
+description = "Run the test suite across all environments"
+depends = ["check", "test:*"]
+
+[tasks.coverage]
+description = "Run tests with coverage and generate HTML report"
+run = "deno task coverage"
+
+[tasks.build]
+description = "Build all packages for npm publishing"
+run = "deno task build"
+
+[tasks.publish]
+description = "Publish packages to JSR"
+run = "deno task publish"
+
+[tasks."hooks:install"]
+description = "Install git hooks"
+run = """
+mise generate git-pre-commit --write --task=hooks:pre-commit
+mise generate git-pre-commit --write --task=hooks:pre-push --hook=pre-push
+"""
+
+[tasks."hooks:pre-commit"]
+description = "Run pre-commit checks"
+depends = ["check"]
+
+[tasks."hooks:pre-push"]
+description = "Run pre-push checks"
+depends = ["check", "test:deno"]

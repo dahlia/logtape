@@ -73,14 +73,8 @@
     ]
   },
   "tasks": {
-    "hongdown": "deno run -A npm:hongdown@^0.2.6",
-    "check": {
-      "command": "deno check && deno lint && deno fmt --check && deno task hongdown --check",
-      "dependencies": [
-        "check:versions"
-      ]
-    },
-    "fmt": "deno fmt && deno task hongdown --write",
+    "check": "mise run check",
+    "fmt": "mise run fmt",
     "check:versions": "deno run --allow-read scripts/check_versions.ts",
     "update-versions": "deno run --allow-read --allow-write scripts/update_versions.ts",
     "build": "pnpm install && pnpm run -r --filter './packages/*' build",
@@ -103,17 +97,8 @@
         "test"
       ]
     },
-    "hooks:install": "deno run --allow-read=deno.json,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
-    "hooks:pre-commit": {
-      "dependencies": [
-        "check"
-      ]
-    },
-    "hooks:pre-push": {
-      "dependencies": [
-        "check",
-        "test"
-      ]
-    }
+    "hooks:install": "mise run hooks:install",
+    "hooks:pre-push": "mise run hooks:pre-push",
+    "hooks:pre-commit": "mise run hooks:pre-commit"
   }
 }

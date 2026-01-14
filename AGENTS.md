@@ -251,21 +251,17 @@ The project supports testing across multiple JavaScript runtimes:
 
 ~~~~ bash
 # Run Deno tests only
-deno task test
+mise run test:deno
 
 # Run tests with coverage (Deno)
-deno task coverage
+mise run coverage
 
 # Run tests across ALL runtimes (Deno, Node.js, Bun)
-deno task test-all
+mise run test
 
 # Run tests for specific runtime
-deno task test:node    # Node.js only
-deno task test:bun     # Bun only
-
-# Individual package testing
-deno task test:node:logtape    # Test logtape package in Node.js
-deno task test:bun:file        # Test file package in Bun
+mise run test:node    # Node.js only
+mise run test:bun     # Bun only
 ~~~~
 
 ### Test workflow
@@ -280,6 +276,43 @@ For Node.js and Bun testing:
 Development workflow
 --------------------
 
+### Task runner
+
+The project uses [mise] as the primary task runner. All common development
+tasks are available through `mise run`:
+
+~~~~ bash
+# List all available tasks
+mise tasks
+
+# Install dependencies
+mise run deps
+
+# Check code (formatting, linting, type checking)
+mise run check
+
+# Run tests
+mise run test           # All runtimes (includes check)
+mise run test:deno      # Deno only
+mise run test:node      # Node.js only
+mise run test:bun       # Bun only
+
+# Build packages
+mise run build
+
+# Format code
+mise run fmt
+
+# Other useful tasks
+mise run coverage       # Run tests with coverage
+mise run check-versions # Check version consistency
+mise run update-versions # Update versions
+mise run hooks:install  # Install git hooks
+mise run publish        # Publish to JSR
+~~~~
+
+[mise]: https://mise.jdx.dev/
+
 ### Build system
 
 The project uses *tsdown* for cross-platform package building:
@@ -293,14 +326,7 @@ The project uses *tsdown* for cross-platform package building:
 
 ~~~~ bash
 # Build all packages
-deno task build
-
-# Build specific packages
-deno task build:logtape
-deno task build:file
-deno task build:otel
-deno task build:redaction
-deno task build:sentry
+mise run build
 ~~~~
 
 ### Checking code
@@ -308,7 +334,7 @@ deno task build:sentry
 Before submitting changes, run:
 
 ~~~~ bash
-deno task check
+mise run check
 ~~~~
 
 This runs:
@@ -316,40 +342,51 @@ This runs:
  -  `deno check`: Type checking across all workspace members
  -  `deno lint`: Linting
  -  `deno fmt --check`: Format checking
- -  `deno task check:versions`: Version consistency check across packages
+ -  `mise run check-versions`: Version consistency check across packages
 
 ### Workspace vs package-level tasks
 
- -  *Workspace-level tasks*: Run from the root directory using `deno task`
- -  *Package-level tasks*: Run from individual package directories or using `-f`
-    flag
+ -  *Workspace-level tasks*: Run from the root directory using `mise run`
+ -  *Package-level tasks*: Run from individual package directories
  -  Cross-runtime testing requires building packages first
 
 ### Git hooks
 
-The project uses git hooks:
+The project uses git hooks managed by mise's `generate git-pre-commit` feature:
 
- -  *pre-commit*: Runs `deno task check` to verify code quality
- -  *pre-push*: Runs `deno task check` and `deno task test` to verify
-    functionality
+ -  *pre-commit*: Runs `mise run hooks:pre-commit` (which depends on `check`)
+ -  *pre-push*: Runs `mise run hooks:pre-push` (which depends on `check` and
+    `test:deno`)
 
 To install hooks:
 
 ~~~~ bash
-deno task hooks:install
+mise run hooks:install
 ~~~~
+
+This generates the hook scripts in *.git/hooks/* using
+`mise generate git-pre-commit`.
 
 ### CI/CD
 
-The project uses GitHub Actions for:
+The project uses GitHub Actions with [jdx/mise-action] to manage all tool
+versions consistently. The workflow is structured as separate jobs:
 
- -  Running tests across multiple platforms (macOS, Ubuntu, Windows)
- -  Cross-runtime testing (Deno, Node.js, Bun)
- -  Checking code style and types
- -  Building packages with tsdown
- -  Generating test coverage reports
- -  Publishing to JSR and npm
+ -  *check*: Code formatting, linting, and type checking
+ -  *test-deno*: Deno tests across multiple platforms (macOS, Ubuntu, Windows)
+ -  *test-node*: Node.js tests
+ -  *test-bun*: Bun tests
+ -  *publish*: Publishing to JSR and npm
+ -  *publish-docs*: Documentation deployment
+
+Key features:
+
+ -  Tool versions are managed by mise (defined in *mise.toml*)
+ -  Concurrency control to cancel redundant workflow runs
+ -  Test coverage reporting via Codecov
  -  Monorepo-aware package publishing
+
+[jdx/mise-action]: https://github.com/jdx/mise-action
 
 
 Documentation
