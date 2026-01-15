@@ -301,6 +301,160 @@ resetSync();
 > you should use `resetSync()`.
 
 
+Browser and SPA environments
+----------------------------
+
+LogTape works seamlessly in browser environments, including Single Page
+Applications (SPAs).  The key principle is simple: *configure LogTape before
+your application starts*.  This doesn't require top-level `await`—you can use
+`configureSync()` at your application's entry point.
+
+### The recommended pattern
+
+The most reliable approach is to create a dedicated configuration file and
+import it *first* in your entry point.  This pattern is widely used by other
+SDKs like [Sentry] and analytics libraries:
+
+::: code-group
+
+~~~~ typescript twoslash [setup.ts]
+import { configureSync, getConsoleSink } from "@logtape/logtape";
+
+configureSync({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "debug",
+      sinks: ["console"],
+    },
+  ],
+});
+~~~~
+
+~~~~ typescript [main.ts]
+// Configuration must be imported first!
+import "./setup";
+
+import { App } from "./App";
+// ... rest of your application
+~~~~
+
+:::
+
+This pattern ensures that:
+
+ -  LogTape is configured before any logging calls are made
+ -  The configuration runs synchronously during module evaluation
+ -  No top-level `await` is needed
+
+[Sentry]: https://docs.sentry.io/platforms/javascript/
+
+### React
+
+In React applications, configure LogTape before calling `createRoot()`:
+
+~~~~ tsx [main.ts]
+import "./setup";  // Import configuration first
+
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+
+createRoot(document.getElementById("root")!).render(<App />);
+~~~~
+
+Or configure inline if you prefer:
+
+~~~~ tsx [main.ts]
+import { configureSync, getConsoleSink } from "@logtape/logtape";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+
+// Configure before rendering
+configureSync({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: "my-app", lowestLevel: "info", sinks: ["console"] },
+  ],
+});
+
+createRoot(document.getElementById("root")!).render(<App />);
+~~~~
+
+### Vue
+
+In Vue applications, configure LogTape before calling `app.mount()`.
+This aligns with Vue's own guidance: *“Make sure to apply all app
+configurations before mounting the app!”*
+
+~~~~ typescript [main.ts]
+import "./setup";  // Import configuration first
+
+import { createApp } from "vue";
+import App from "./App.vue";
+
+const app = createApp(App);
+// ... register plugins, components, etc.
+app.mount("#app");
+~~~~
+
+Or configure inline:
+
+~~~~ typescript [main.ts]
+import { configureSync, getConsoleSink } from "@logtape/logtape";
+import { createApp } from "vue";
+import App from "./App.vue";
+
+// Configure before mounting
+configureSync({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: "my-app", lowestLevel: "info", sinks: ["console"] },
+  ],
+});
+
+const app = createApp(App);
+app.mount("#app");
+~~~~
+
+### Next.js
+
+For Next.js applications, you can use the [`instrumentation-client.js`] file
+for client-side initialization:
+
+~~~~ typescript twoslash [instrumentation-client.ts]
+import { configureSync, getConsoleSink } from "@logtape/logtape";
+
+configureSync({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: "my-app", lowestLevel: "info", sinks: ["console"] },
+  ],
+});
+~~~~
+
+For server-side logging, use the standard [`instrumentation.js`] file with
+the `register()` function.
+
+[`instrumentation-client.js`]: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
+[`instrumentation.js`]: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
+
+### Common mistakes to avoid
+
+> [!WARNING]
+> *Don't configure LogTape inside libraries.*  If you're authoring a library,
+> leave configuration to the application developer.  See
+> [*Using in libraries*](./library.md) for details.
+
+> [!WARNING]
+> *Don't configure inside React components or Vue setup functions.*
+> Configuration should happen once at application startup, not during
+> component rendering.  Calling `configureSync()` inside components can lead
+> to repeated configuration attempts and errors.
+
+
 Best practices
 --------------
 
