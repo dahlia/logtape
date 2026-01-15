@@ -135,6 +135,9 @@ logger.debug("Or you can use a function call: {value}.", () => {
 });
 ~~~~
 
+For comprehensive information on lazy evaluation patterns and when to use
+each approach, see *[Lazy evaluation](./lazy.md)*.
+
 ### Checking if a level is enabled
 
 *This API is available since LogTape 2.0.0.*
@@ -161,3 +164,8 @@ if (logger.isEnabledFor("debug")) {
 
 This method checks both the logger's `lowestLevel` and whether any sinks are
 configured to receive logs at that level.
+
+For a comprehensive guide on choosing between different lazy evaluation
+approaches, see *[Lazy evaluation]*.
+
+[Lazy evaluation]: ./lazy.md

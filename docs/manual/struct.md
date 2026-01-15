@@ -362,6 +362,9 @@ resolves immediately.
 > [*Checking if a level is enabled*](./start.md#checking-if-a-level-is-enabled)
 > for details.
 
+For more details on lazy evaluation patterns and when to use each approach,
+see *[Lazy evaluation](./lazy.md)*.
+
 
 Configuring sinks for structured logging
 ----------------------------------------

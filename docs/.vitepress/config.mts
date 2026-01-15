@@ -165,6 +165,7 @@ const MANUAL = {
     { text: "Severity levels", link: "/manual/levels" },
     { text: "Structured logging", link: "/manual/struct" },
     { text: "Contexts", link: "/manual/contexts" },
+    { text: "Lazy evaluation", link: "/manual/lazy" },
     { text: "Sinks", link: "/manual/sinks" },
     { text: "Filters", link: "/manual/filters" },
     { text: "Text formatters", link: "/manual/formatters" },

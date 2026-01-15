@@ -98,6 +98,9 @@ const ctx = logger.with({
 > If the getter function is expensive, consider caching the result inside
 > the getter.
 
+For more details on lazy evaluation, including when to use it and performance
+considerations, see *[Lazy evaluation](./lazy.md)*.
+
 
 Implicit contexts
 -----------------
