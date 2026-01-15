@@ -1,6 +1,6 @@
 {
   "name": "@logtape/hono",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Hono adapter for LogTape logging library",
   "keywords": [
     "logging",
