@@ -231,13 +231,13 @@ try {
 > [!NOTE]
 > Error objects appearing in log message values (not properties) are always
 > serialized as JSON strings regardless of the `exceptionAttributes` setting.
-> The semantic conventions only apply to Error objects in properties.
+> The semantic conventions only apply to `Error` objects in properties.
 
 [OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
 
 
-Using an existing LoggerProvider
---------------------------------
+Using an existing `LoggerProvider`
+----------------------------------
 
 For maximum control, you can pass an existing OpenTelemetry [`LoggerProvider`]
 instance.  This is the recommended approach for production applications where

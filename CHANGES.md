@@ -8,6 +8,37 @@ Version 2.0.1
 
 To be released.
 
+### @logtape/otel
+
+ -  Fixed OpenTelemetry sink to preserve nested object structures in attributes
+    instead of converting them to JSON strings.  This follows the OpenTelemetry
+    specification which supports `map<string, AnyValue>` for nested objects.
+    [[#135]]
+
+    Before this fix, nested objects were serialized as JSON strings:
+
+    ~~~~ typescript
+    logger.info("Event", { workspace: { id: 42, name: "test" } });
+    // OpenTelemetry attribute: workspace = '{"id":42,"name":"test"}'
+    ~~~~
+
+    After this fix, nested objects are preserved as structured data:
+
+    ~~~~ typescript
+    logger.info("Event", { workspace: { id: 42, name: "test" } });
+    // OpenTelemetry attribute: workspace = { id: 42, name: "test" }
+    ~~~~
+
+    This allows OpenTelemetry backends (like Axiom, Honeycomb, etc.) to properly
+    query and filter on nested properties (e.g., `workspace.id = 42`).
+
+     -  `Error` objects in properties (when `exceptionAttributes` is `"raw"` or
+        `false`) are now serialized as structured objects instead of JSON
+        strings, preserving properties like `name`, `message`, `stack`, `cause`,
+        and custom properties.
+
+[#135]: https://github.com/dahlia/logtape/issues/135
+
 
 Version 2.0.0
 -------------
@@ -237,9 +268,8 @@ Released on January 15, 2026.
  -  Fixed primitive type preservation in attributes: numbers and booleans are
     now preserved as their original types instead of being converted to strings.
 
-[OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
-[#127]: https://github.com/dahlia/logtape/discussions/127
 [#130]: https://github.com/dahlia/logtape/issues/130
+[OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
 
 ### @logtape/file
 

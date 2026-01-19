@@ -291,9 +291,10 @@ test("sink converts properties to attributes", () => {
   assert.strictEqual(emittedRecords.length, 1);
   assert.strictEqual(emittedRecords[0].attributes["userId"], 123);
   assert.strictEqual(emittedRecords[0].attributes["action"], "login");
-  assert.strictEqual(
+  // Nested objects are now preserved as Record<string, AnyValue>
+  assert.deepStrictEqual(
     emittedRecords[0].attributes["details"],
-    '{"ip":"127.0.0.1"}',
+    { ip: "127.0.0.1" },
   );
 });
 
@@ -824,12 +825,17 @@ test("sink serializes Error objects in properties with JSON renderer (raw mode)"
   sink(record);
 
   assert.strictEqual(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["error"] as string;
-  // Should not be an empty object
-  assert.strictEqual(errorAttr.includes("Something went wrong"), true);
-  assert.strictEqual(errorAttr.includes("name"), true);
-  assert.strictEqual(errorAttr.includes("message"), true);
-  assert.strictEqual(errorAttr.includes("stack"), true);
+  const errorAttr = emittedRecords[0].attributes["error"] as Record<
+    string,
+    unknown
+  >;
+  // Error should be serialized as a structured object, not a JSON string
+  assert.strictEqual(errorAttr["name"], "Error");
+  assert.strictEqual(errorAttr["message"], "Something went wrong");
+  assert.strictEqual(
+    errorAttr["stack"],
+    "Error: Something went wrong\n  at test.ts:1:1",
+  );
 });
 
 test("sink serializes Error with cause (raw mode)", () => {
@@ -851,9 +857,14 @@ test("sink serializes Error with cause (raw mode)", () => {
   sink(record);
 
   assert.strictEqual(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["error"] as string;
-  assert.strictEqual(errorAttr.includes("cause"), true);
-  assert.strictEqual(errorAttr.includes("Root cause"), true);
+  const errorAttr = emittedRecords[0].attributes["error"] as Record<
+    string,
+    unknown
+  >;
+  // Error with cause should include nested cause object
+  assert.ok(errorAttr["cause"]);
+  const causeAttr = errorAttr["cause"] as Record<string, unknown>;
+  assert.strictEqual(causeAttr["message"], "Root cause");
 });
 
 test("sink serializes AggregateError with errors array (raw mode)", () => {
@@ -881,10 +892,16 @@ test("sink serializes AggregateError with errors array (raw mode)", () => {
   sink(record);
 
   assert.strictEqual(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["error"] as string;
-  assert.strictEqual(errorAttr.includes("errors"), true);
-  assert.strictEqual(errorAttr.includes("Error 1"), true);
-  assert.strictEqual(errorAttr.includes("Error 2"), true);
+  const errorAttr = emittedRecords[0].attributes["error"] as Record<
+    string,
+    unknown
+  >;
+  // AggregateError should include errors array
+  assert.ok(errorAttr["errors"]);
+  const errorsArray = errorAttr["errors"] as Array<Record<string, unknown>>;
+  assert.strictEqual(errorsArray.length, 2);
+  assert.strictEqual(errorsArray[0]["message"], "Error 1");
+  assert.strictEqual(errorsArray[1]["message"], "Error 2");
 });
 
 test("sink serializes Error with custom properties (raw mode)", () => {
@@ -910,9 +927,13 @@ test("sink serializes Error with custom properties (raw mode)", () => {
   sink(record);
 
   assert.strictEqual(emittedRecords.length, 1);
-  const errorAttr = emittedRecords[0].attributes["error"] as string;
-  assert.strictEqual(errorAttr.includes("ERR_CUSTOM"), true);
-  assert.strictEqual(errorAttr.includes("500"), true);
+  const errorAttr = emittedRecords[0].attributes["error"] as Record<
+    string,
+    unknown
+  >;
+  // Error with custom properties should include those properties
+  assert.strictEqual(errorAttr["code"], "ERR_CUSTOM");
+  assert.strictEqual(errorAttr["statusCode"], 500);
 });
 
 test("sink handles Error in message values with JSON renderer (raw mode)", () => {
@@ -1064,11 +1085,112 @@ test("sink with exceptionAttributes: false treats Error as object", () => {
 
   assert.strictEqual(emittedRecords.length, 1);
   const attrs = emittedRecords[0].attributes;
-  // Should be serialized as JSON, but as a plain object (likely empty {})
-  assert.strictEqual(attrs["error"], "{}");
+  // When exceptionAttributes is false, Error is treated as a regular object
+  // and serialized to a structured object (not semantic conventions)
+  const errorAttr = attrs["error"] as Record<string, unknown>;
+  assert.strictEqual(errorAttr["name"], "Error");
+  assert.strictEqual(errorAttr["message"], "Treated as object");
+  assert.ok(errorAttr["stack"]); // Stack should be present
+  // Should NOT use semantic conventions
   assert.strictEqual(attrs["exception.type"], undefined);
   assert.strictEqual(attrs["exception.message"], undefined);
   assert.strictEqual(attrs["exception.stacktrace"], undefined);
+});
+
+test("sink preserves nested object structures in properties", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    properties: {
+      workspace: {
+        id: 42,
+        name: "test-workspace",
+        plan: "pro",
+        stripe_id: "cus_123",
+      },
+      auth_method: "custom_key",
+      metadata: {
+        duration: {
+          ms: 150,
+        },
+        nested: {
+          deep: {
+            value: "test",
+          },
+        },
+      },
+    },
+  });
+  sink(record);
+
+  assert.strictEqual(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+
+  // Verify nested objects are preserved as structured data, not JSON strings
+  const workspace = attrs["workspace"] as Record<string, unknown>;
+  assert.strictEqual(workspace["id"], 42);
+  assert.strictEqual(workspace["name"], "test-workspace");
+  assert.strictEqual(workspace["plan"], "pro");
+  assert.strictEqual(workspace["stripe_id"], "cus_123");
+
+  // Verify deeply nested structures
+  const metadata = attrs["metadata"] as Record<string, unknown>;
+  const duration = metadata["duration"] as Record<string, unknown>;
+  assert.strictEqual(duration["ms"], 150);
+
+  const nested = metadata["nested"] as Record<string, unknown>;
+  const deep = nested["deep"] as Record<string, unknown>;
+  assert.strictEqual(deep["value"], "test");
+
+  // Verify primitive is preserved
+  assert.strictEqual(attrs["auth_method"], "custom_key");
+});
+
+test("sink handles arrays with nested objects", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "json",
+  });
+
+  const record = createMockLogRecord({
+    properties: {
+      items: [
+        { id: 1, name: "first" },
+        { id: 2, name: "second" },
+      ],
+      tags: ["tag1", "tag2", "tag3"],
+      mixed: [1, "string", { key: "value" }],
+    },
+  });
+  sink(record);
+
+  assert.strictEqual(emittedRecords.length, 1);
+  const attrs = emittedRecords[0].attributes;
+
+  // Array of objects should be converted to array of AnyValue
+  const items = attrs["items"] as Array<Record<string, unknown>>;
+  assert.strictEqual(items.length, 2);
+  assert.strictEqual(items[0]["id"], 1);
+  assert.strictEqual(items[0]["name"], "first");
+  assert.strictEqual(items[1]["id"], 2);
+  assert.strictEqual(items[1]["name"], "second");
+
+  // Homogeneous array of primitives should be preserved
+  const tags = attrs["tags"] as string[];
+  assert.deepStrictEqual(tags, ["tag1", "tag2", "tag3"]);
+
+  // Mixed array should be converted to array of AnyValue
+  const mixed = attrs["mixed"] as unknown[];
+  assert.strictEqual(mixed.length, 3);
+  assert.strictEqual(mixed[0], 1);
+  assert.strictEqual(mixed[1], "string");
+  const mixedObj = mixed[2] as Record<string, unknown>;
+  assert.strictEqual(mixedObj["key"], "value");
 });
 
 test("sink handles Error in message body with semconv mode", () => {
