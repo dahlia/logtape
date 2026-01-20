@@ -583,6 +583,133 @@ function mapLevelToSeverityNumber(level: string): number {
   }
 }
 
+/**
+ * Converts a JavaScript value to an OpenTelemetry AnyValue.
+ * This function recursively handles nested objects and arrays while preserving
+ * their structure according to the OpenTelemetry specification.
+ *
+ * @param value The value to convert
+ * @param objectRenderer How to render objects that can't be converted directly
+ * @param exceptionMode How to handle Error objects
+ * @returns An AnyValue or null if the value should be skipped
+ */
+function convertValueToAnyValue(
+  value: unknown,
+  objectRenderer: ObjectRenderer,
+  exceptionMode: ExceptionAttributeMode,
+): AnyValue | null {
+  // Handle null/undefined
+  if (value == null) return null;
+
+  // Preserve primitives as-is
+  if (
+    typeof value === "string" || typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  // Handle arrays - recursively convert elements
+  if (Array.isArray(value)) {
+    // Check if it's a homogeneous array of primitives (OTel spec prefers these)
+    let primitiveType: string | null = null;
+    let isHomogeneous = true;
+
+    for (const item of value) {
+      if (item == null) continue;
+      const itemType = typeof item;
+      if (
+        itemType !== "string" && itemType !== "number" &&
+        itemType !== "boolean"
+      ) {
+        isHomogeneous = false;
+        break;
+      }
+      if (primitiveType === null) {
+        primitiveType = itemType;
+      } else if (primitiveType !== itemType) {
+        isHomogeneous = false;
+        break;
+      }
+    }
+
+    // If homogeneous array of primitives, return as-is
+    if (isHomogeneous && primitiveType !== null) {
+      return value as AnyValue;
+    }
+
+    // Otherwise, recursively convert each element to AnyValue
+    const converted: AnyValue[] = [];
+    for (const item of value) {
+      const convertedItem = convertValueToAnyValue(
+        item,
+        objectRenderer,
+        exceptionMode,
+      );
+      // Skip null items but preserve the structure
+      if (convertedItem !== null) {
+        converted.push(convertedItem);
+      }
+    }
+    return converted;
+  }
+
+  // Handle Date objects - convert to ISO string
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  // Handle Error objects - serialize to structured object
+  if (value instanceof Error) {
+    const errorObj = serializeValue(value) as Record<string, unknown>;
+    const converted: Record<string, AnyValue> = {};
+    for (const [key, val] of Object.entries(errorObj)) {
+      const convertedVal = convertValueToAnyValue(
+        val,
+        objectRenderer,
+        exceptionMode,
+      );
+      if (convertedVal !== null) {
+        converted[key] = convertedVal;
+      }
+    }
+    return converted;
+  }
+
+  // Handle plain objects - recursively convert to map<string, AnyValue>
+  if (typeof value === "object") {
+    // Check if it's a plain object (not a special class instance)
+    const proto = Object.getPrototypeOf(value);
+    const isPlainObject = proto === Object.prototype || proto === null;
+
+    if (isPlainObject) {
+      const converted: Record<string, AnyValue> = {};
+      for (
+        const [key, val] of Object.entries(value as Record<string, unknown>)
+      ) {
+        const convertedVal = convertValueToAnyValue(
+          val,
+          objectRenderer,
+          exceptionMode,
+        );
+        if (convertedVal !== null) {
+          converted[key] = convertedVal;
+        }
+      }
+      return converted;
+    }
+
+    // For non-plain objects (class instances, etc.), fall back to string representation
+    if (objectRenderer === "inspect") {
+      return inspect(value);
+    }
+    return JSON.stringify(value);
+  }
+
+  // Fallback for other types
+  return String(value);
+}
+
 function convertToAttributes(
   properties: Record<string, unknown>,
   objectRenderer: ObjectRenderer,
@@ -603,29 +730,14 @@ function convertToAttributes(
       continue;
     }
 
-    if (Array.isArray(value)) {
-      let t = null;
-      for (const v of value) {
-        if (v == null) continue;
-        if (t != null && typeof v !== t) {
-          attributes[name] = value.map((v) =>
-            convertToString(v, objectRenderer, exceptionMode)
-          );
-          break;
-        }
-        t = typeof v;
-      }
-      attributes[name] = value;
-    } else if (
-      typeof value === "string" || typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
-      // Preserve primitive types as-is
-      attributes[name] = value;
-    } else {
-      const encoded = convertToString(value, objectRenderer, exceptionMode);
-      if (encoded == null) continue;
-      attributes[name] = encoded;
+    // Use the new recursive converter
+    const convertedValue = convertValueToAnyValue(
+      value,
+      objectRenderer,
+      exceptionMode,
+    );
+    if (convertedValue !== null) {
+      attributes[name] = convertedValue;
     }
   }
   return attributes;
