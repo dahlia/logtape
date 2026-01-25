@@ -8,6 +8,15 @@ Version 2.0.2
 
 To be released.
 
+### @logtape/pretty
+
+ -  Fixed `getters` and `showProxy` options in `inspectOptions` not being
+    passed to `Deno.inspect()` on Deno runtime.  Previously, these options
+    were defined in the interface but ignored, causing getter properties
+    to display as `[Getter]` instead of their evaluated values.  [[#136]]
+
+[#136]: https://github.com/dahlia/logtape/issues/136
+
 
 Version 2.0.1
 -------------
@@ -274,8 +283,9 @@ Released on January 15, 2026.
  -  Fixed primitive type preservation in attributes: numbers and booleans are
     now preserved as their original types instead of being converted to strings.
 
-[#130]: https://github.com/dahlia/logtape/issues/130
 [OpenTelemetry semantic conventions for exceptions]: https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/
+[#127]: https://github.com/dahlia/logtape/issues/127
+[#130]: https://github.com/dahlia/logtape/issues/130
 
 ### @logtape/file
 
@@ -311,6 +321,19 @@ Released on January 15, 2026.
         file in the Windows Registry.
 
 [#115]: https://github.com/dahlia/logtape/pull/115
+
+
+Version 1.3.7
+-------------
+
+Released on January 25, 2026.
+
+### @logtape/pretty
+
+ -  Fixed `getters` and `showProxy` options in `inspectOptions` not being
+    passed to `Deno.inspect()` on Deno runtime.  Previously, these options
+    were defined in the interface but ignored, causing getter properties
+    to display as `[Getter]` instead of their evaluated values.  [[#136]]
 
 
 Version 1.3.6
@@ -628,6 +651,19 @@ Released on December 15, 2025.
      -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
         certificate validation (defaults to `true` for security).
      -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
+
+Version 1.2.7
+-------------
+
+Released on January 25, 2026.
+
+### @logtape/pretty
+
+ -  Fixed `getters` and `showProxy` options in `inspectOptions` not being
+    passed to `Deno.inspect()` on Deno runtime.  Previously, these options
+    were defined in the interface but ignored, causing getter properties
+    to display as `[Getter]` instead of their evaluated values.  [[#136]]
 
 
 Version 1.2.6

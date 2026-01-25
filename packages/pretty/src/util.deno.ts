@@ -13,6 +13,8 @@ export function inspect(obj: unknown, options?: InspectOptions): string {
       colors: options?.colors,
       depth: options?.depth ?? undefined,
       compact: options?.compact ?? true,
+      getters: options?.getters,
+      showProxy: options?.showProxy,
     });
   } else {
     const indent = options?.compact === true ? undefined : 2;
