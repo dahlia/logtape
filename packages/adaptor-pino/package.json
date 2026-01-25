@@ -1,6 +1,6 @@
 {
   "name": "@logtape/adaptor-pino",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "Pino adapter for LogTape logging library",
   "keywords": [
     "logging",
