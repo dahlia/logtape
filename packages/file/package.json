@@ -1,6 +1,6 @@
 {
   "name": "@logtape/file",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "File sink and rotating file sink for LogTape",
   "keywords": [
     "logging",
