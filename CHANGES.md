@@ -8,6 +8,15 @@ Version 1.2.7
 
 To be released.
 
+### @logtape/pretty
+
+ -  Fixed `getters` and `showProxy` options in `inspectOptions` not being
+    passed to `Deno.inspect()` on Deno runtime.  Previously, these options
+    were defined in the interface but ignored, causing getter properties
+    to display as `[Getter]` instead of their evaluated values.  [[#136]]
+
+[#136]: https://github.com/dahlia/logtape/issues/136
+
 
 Version 1.2.6
 -------------
