@@ -895,6 +895,42 @@ test("getPrettyFormatter() with getters option", () => {
   assertStringIncludes(result, "Object with getter:");
 });
 
+// Regression test for https://github.com/dahlia/logtape/issues/136
+// getters option should work for named properties, not just top-level {*}
+("Deno" in globalThis ? test : test.skip)(
+  "getPrettyFormatter() getters option should evaluate getters (regression #136)",
+  () => {
+    const formatter = getPrettyFormatter({
+      colors: false,
+      inspectOptions: { getters: true },
+    });
+
+    // Create an object with getters that return specific values
+    const objectWithGetters = {
+      get status() {
+        return "PENDING";
+      },
+      get timestamp() {
+        return "2026-01-24";
+      },
+    };
+
+    const record = createLogRecord("info", ["test"], [
+      "Result: ",
+      objectWithGetters,
+    ]);
+
+    const result = formatter(record);
+
+    // With getters: true, the actual getter values should be in the output
+    // NOT "[Getter]" placeholders
+    assertStringIncludes(result, "PENDING");
+    assertStringIncludes(result, "2026-01-24");
+    // Should NOT contain [Getter] since getters should be evaluated
+    assertEquals(result.includes("[Getter]"), false);
+  },
+);
+
 test("getPrettyFormatter() with showProxy option", () => {
   const formatter = getPrettyFormatter({
     colors: false,

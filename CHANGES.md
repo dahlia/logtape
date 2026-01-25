@@ -8,6 +8,15 @@ Version 1.3.7
 
 To be released.
 
+### @logtape/pretty
+
+ -  Fixed `getters` and `showProxy` options in `inspectOptions` not being
+    passed to `Deno.inspect()` on Deno runtime.  Previously, these options
+    were defined in the interface but ignored, causing getter properties
+    to display as `[Getter]` instead of their evaluated values.  [[#136]]
+
+[#136]: https://github.com/dahlia/logtape/issues/136
+
 
 Version 1.3.6
 -------------
@@ -320,6 +329,21 @@ Released on December 15, 2025.
     -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
        certificate validation (defaults to `true` for security).
     -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
+
+Version 1.2.7
+-------------
+
+Released on January 25, 2026.
+
+### @logtape/pretty
+
+ -  Fixed `getters` and `showProxy` options in `inspectOptions` not being
+    passed to `Deno.inspect()` on Deno runtime.  Previously, these options
+    were defined in the interface but ignored, causing getter properties
+    to display as `[Getter]` instead of their evaluated values.  [[#136]]
+
+[#136]: https://github.com/dahlia/logtape/issues/136
 
 
 Version 1.2.6
