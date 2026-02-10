@@ -1847,6 +1847,34 @@ test("Logger.emit() respects log level threshold", () => {
   }
 });
 
+test("Logger.error() [error overload callback disabled]", async () => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  try {
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+    logger.lowestLevel = "fatal";
+    const err = new Error("boom");
+    let callbackCalled = 0;
+
+    await logger.error(err, () => {
+      callbackCalled++;
+      return Promise.resolve({ extra: "my extra value" });
+    });
+
+    await ctx.error(err, () => {
+      callbackCalled++;
+      return Promise.resolve({ extra: "my extra value" });
+    });
+
+    assert.strictEqual(callbackCalled, 0);
+    assert.deepStrictEqual(logs, []);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
 test("Logger.isEnabledFor()", () => {
   const logger = LoggerImpl.getLogger("isEnabledFor");
 

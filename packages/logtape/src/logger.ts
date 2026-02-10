@@ -1837,6 +1837,7 @@ export class LoggerImpl implements Logger {
         });
         return;
       }
+      if (!this.isEnabledFor("error")) return Promise.resolve();
       const callback = props as
         | (() => Record<string, unknown>)
         | (() => Promise<Record<string, unknown>>);
@@ -1848,19 +1849,11 @@ export class LoggerImpl implements Logger {
           error: message,
         });
       };
-      // Check for AsyncFunction before calling to avoid unnecessary invocation
-      if (callback.constructor.name === "AsyncFunction") {
-        if (!this.isEnabledFor("error")) return Promise.resolve();
-        return (callback as () => Promise<Record<string, unknown>>)().then(
-          logErrorWithResolvedProps,
-        );
-      }
-      const result = (callback as () => Record<string, unknown>)();
+      const result = callback();
       if (!(result instanceof Promise)) {
         logErrorWithResolvedProps(result);
         return;
       }
-      if (!this.isEnabledFor("error")) return Promise.resolve();
       return result.then(logErrorWithResolvedProps);
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
@@ -2348,6 +2341,7 @@ export class LoggerCtx implements Logger {
         });
         return;
       }
+      if (!this.isEnabledFor("error")) return Promise.resolve();
       const callback = props as
         | (() => Record<string, unknown>)
         | (() => Promise<Record<string, unknown>>);
@@ -2359,19 +2353,11 @@ export class LoggerCtx implements Logger {
           error: message,
         });
       };
-      // Check for AsyncFunction before calling to avoid unnecessary invocation
-      if (callback.constructor.name === "AsyncFunction") {
-        if (!this.isEnabledFor("error")) return Promise.resolve();
-        return (callback as () => Promise<Record<string, unknown>>)().then(
-          logErrorWithResolvedProps,
-        );
-      }
-      const result = (callback as () => Record<string, unknown>)();
+      const result = callback();
       if (!(result instanceof Promise)) {
         logErrorWithResolvedProps(result);
         return;
       }
-      if (!this.isEnabledFor("error")) return Promise.resolve();
       return result.then(logErrorWithResolvedProps);
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
