@@ -1830,36 +1830,38 @@ export class LoggerImpl implements Logger {
   ): void | Promise<void> {
     if (message instanceof Error) {
       const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("error", "{error.message}", {
-                ...resolvedProps,
-                error: message,
-              });
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("error", "{error.message}", {
-              ...resolvedProps,
-              error: message,
-            });
-          });
-        }
-        this.log("error", "{error.message}", { ...result, error: message });
+      if (typeof props !== "function") {
+        this.log("error", "{error.message}", {
+          ...(props ?? {}) as Record<string, unknown>,
+          error: message,
+        });
         return;
       }
-      this.log("error", "{error.message}", {
-        ...(props ?? {}) as Record<string, unknown>,
-        error: message,
-      });
+      const callback = props as
+        | (() => Record<string, unknown>)
+        | (() => Promise<Record<string, unknown>>);
+      const logErrorWithResolvedProps = (
+        resolvedProps: Record<string, unknown>,
+      ): void => {
+        this.log("error", "{error.message}", {
+          ...resolvedProps,
+          error: message,
+        });
+      };
+      // Check for AsyncFunction before calling to avoid unnecessary invocation
+      if (callback.constructor.name === "AsyncFunction") {
+        if (!this.isEnabledFor("error")) return Promise.resolve();
+        return (callback as () => Promise<Record<string, unknown>>)().then(
+          logErrorWithResolvedProps,
+        );
+      }
+      const result = (callback as () => Record<string, unknown>)();
+      if (!(result instanceof Promise)) {
+        logErrorWithResolvedProps(result);
+        return;
+      }
+      if (!this.isEnabledFor("error")) return Promise.resolve();
+      return result.then(logErrorWithResolvedProps);
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
@@ -2339,36 +2341,38 @@ export class LoggerCtx implements Logger {
   ): void | Promise<void> {
     if (message instanceof Error) {
       const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("error", "{error.message}", {
-                ...resolvedProps,
-                error: message,
-              });
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("error", "{error.message}", {
-              ...resolvedProps,
-              error: message,
-            });
-          });
-        }
-        this.log("error", "{error.message}", { ...result, error: message });
+      if (typeof props !== "function") {
+        this.log("error", "{error.message}", {
+          ...(props ?? {}) as Record<string, unknown>,
+          error: message,
+        });
         return;
       }
-      this.log("error", "{error.message}", {
-        ...(props ?? {}) as Record<string, unknown>,
-        error: message,
-      });
+      const callback = props as
+        | (() => Record<string, unknown>)
+        | (() => Promise<Record<string, unknown>>);
+      const logErrorWithResolvedProps = (
+        resolvedProps: Record<string, unknown>,
+      ): void => {
+        this.log("error", "{error.message}", {
+          ...resolvedProps,
+          error: message,
+        });
+      };
+      // Check for AsyncFunction before calling to avoid unnecessary invocation
+      if (callback.constructor.name === "AsyncFunction") {
+        if (!this.isEnabledFor("error")) return Promise.resolve();
+        return (callback as () => Promise<Record<string, unknown>>)().then(
+          logErrorWithResolvedProps,
+        );
+      }
+      const result = (callback as () => Record<string, unknown>)();
+      if (!(result instanceof Promise)) {
+        logErrorWithResolvedProps(result);
+        return;
+      }
+      if (!this.isEnabledFor("error")) return Promise.resolve();
+      return result.then(logErrorWithResolvedProps);
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
