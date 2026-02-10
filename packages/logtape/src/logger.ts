@@ -794,6 +794,57 @@ export interface Logger {
   error(error: Error): void;
 
   /**
+   * Log an error with additional properties.
+   *
+   * This overload is a shorthand for logging an {@link Error} instance as a
+   * structured property while also adding extra properties.
+   *
+   * ```typescript
+   * logger.error(new Error("Oops"), { requestId });
+   * ```
+   *
+   * If the properties are expensive to compute, you can pass a callback that
+   * returns the properties:
+   *
+   * ```typescript
+   * logger.error(
+   *   new Error("Oops"),
+   *   () => ({ requestId: expensiveLookup() })
+   * );
+   * ```
+   *
+   * @param error The error to log.
+   * @param properties Additional properties to log alongside the error.
+   * @since 2.1.0
+   */
+  error(
+    error: Error,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+
+  /**
+   * Log an error with additional properties computed asynchronously.
+   *
+   * Use this when the properties require async operations to compute:
+   *
+   * ```typescript
+   * await logger.error(
+   *   new Error("Oops"),
+   *   async () => ({ requestId: await fetchRequestId() })
+   * );
+   * ```
+   *
+   * @param error The error to log.
+   * @param properties An async callback that returns the properties.
+   * @returns A promise that resolves when the log is written.
+   * @since 2.1.0
+   */
+  error(
+    error: Error,
+    properties: () => Promise<Record<string, unknown>>,
+  ): Promise<void>;
+
+  /**
    * Log an error message with an {@link Error}.
    *
    * ```typescript
@@ -1748,6 +1799,14 @@ export class LoggerImpl implements Logger {
   }
 
   error(error: Error): void;
+  error(
+    error: Error,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  error(
+    error: Error,
+    properties: () => Promise<Record<string, unknown>>,
+  ): Promise<void>;
   error(message: string, error: Error): void;
   error(message: TemplateStringsArray, ...values: readonly unknown[]): void;
   error(
@@ -1770,7 +1829,37 @@ export class LoggerImpl implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (message instanceof Error) {
-      this.log("error", "{error.message}", { error: message });
+      const props = values[0];
+      if (typeof props === "function") {
+        // Check for AsyncFunction before calling to avoid unnecessary invocation
+        if (props.constructor.name === "AsyncFunction") {
+          if (!this.isEnabledFor("error")) return Promise.resolve();
+          return (props as () => Promise<Record<string, unknown>>)().then(
+            (resolvedProps) => {
+              this.log("error", "{error.message}", {
+                ...resolvedProps,
+                error: message,
+              });
+            },
+          );
+        }
+        const result = (props as () => Record<string, unknown>)();
+        if (result instanceof Promise) {
+          if (!this.isEnabledFor("error")) return Promise.resolve();
+          return result.then((resolvedProps) => {
+            this.log("error", "{error.message}", {
+              ...resolvedProps,
+              error: message,
+            });
+          });
+        }
+        this.log("error", "{error.message}", { ...result, error: message });
+        return;
+      }
+      this.log("error", "{error.message}", {
+        ...(props ?? {}) as Record<string, unknown>,
+        error: message,
+      });
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
@@ -2219,6 +2308,14 @@ export class LoggerCtx implements Logger {
   }
 
   error(error: Error): void;
+  error(
+    error: Error,
+    properties?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): void;
+  error(
+    error: Error,
+    properties: () => Promise<Record<string, unknown>>,
+  ): Promise<void>;
   error(message: string, error: Error): void;
   error(message: TemplateStringsArray, ...values: readonly unknown[]): void;
   error(
@@ -2241,7 +2338,37 @@ export class LoggerCtx implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (message instanceof Error) {
-      this.log("error", "{error.message}", { error: message });
+      const props = values[0];
+      if (typeof props === "function") {
+        // Check for AsyncFunction before calling to avoid unnecessary invocation
+        if (props.constructor.name === "AsyncFunction") {
+          if (!this.isEnabledFor("error")) return Promise.resolve();
+          return (props as () => Promise<Record<string, unknown>>)().then(
+            (resolvedProps) => {
+              this.log("error", "{error.message}", {
+                ...resolvedProps,
+                error: message,
+              });
+            },
+          );
+        }
+        const result = (props as () => Record<string, unknown>)();
+        if (result instanceof Promise) {
+          if (!this.isEnabledFor("error")) return Promise.resolve();
+          return result.then((resolvedProps) => {
+            this.log("error", "{error.message}", {
+              ...resolvedProps,
+              error: message,
+            });
+          });
+        }
+        this.log("error", "{error.message}", { ...result, error: message });
+        return;
+      }
+      this.log("error", "{error.message}", {
+        ...(props ?? {}) as Record<string, unknown>,
+        error: message,
+      });
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {

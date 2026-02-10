@@ -782,6 +782,27 @@ test("Logger.error() [error overload]", () => {
     {
       const err = new Error("boom");
       const before = Date.now();
+      logger.error(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
       logger.error("Something happened", err);
       const after = Date.now();
       assert.deepStrictEqual(logs, [
@@ -813,6 +834,27 @@ test("Logger.error() [error overload]", () => {
           rawMessage: "{error.message}",
           timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.error(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { a: 1, b: 2, error: err, extra: "my extra value" },
         },
       ]);
       assert.ok(logs[0].timestamp >= before);

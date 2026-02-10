@@ -8,6 +8,19 @@ Version 2.1.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added support for logging an `Error` with extra properties using
+    `logger.error(
+      error: Error,
+      properties?: Record<string, unknown> | (() => Record<string, unknown>)
+    ): void` and
+    `logger.error(
+      error: Error,
+      properties: () => Promise<Record<string, unknown>>
+    ): Promise<void>`, which preserve the default `{error.message}` template
+    while attaching additional context.
+
 
 Version 2.0.2
 -------------
