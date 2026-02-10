@@ -11,11 +11,35 @@ To be released.
 ### @logtape/logtape
 
  -  Added support for logging an `Error` with extra properties using
+    `logger.warn(
+      error: Error,
+      properties?: Record<string, unknown> | (() => Record<string, unknown>)
+    ): void`,
+    `logger.warn(
+      error: Error,
+      properties: () => Promise<Record<string, unknown>>
+    ): Promise<void>`,
+    `logger.warning(
+      error: Error,
+      properties?: Record<string, unknown> | (() => Record<string, unknown>)
+    ): void`,
+    `logger.warning(
+      error: Error,
+      properties: () => Promise<Record<string, unknown>>
+    ): Promise<void>`,
     `logger.error(
       error: Error,
       properties?: Record<string, unknown> | (() => Record<string, unknown>)
-    ): void` and
+    ): void`,
     `logger.error(
+      error: Error,
+      properties: () => Promise<Record<string, unknown>>
+    ): Promise<void>`,
+    `logger.fatal(
+      error: Error,
+      properties?: Record<string, unknown> | (() => Record<string, unknown>)
+    ): void`, and
+    `logger.fatal(
       error: Error,
       properties: () => Promise<Record<string, unknown>>
     ): Promise<void>`, which preserve the default `{error.message}` template
