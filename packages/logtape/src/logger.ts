@@ -1269,6 +1269,33 @@ interface GlobalRootLoggerRegistry {
   [globalRootLoggerSymbol]?: LoggerImpl;
 }
 
+function logErrorWithProperties(
+  error: Error,
+  properties: unknown,
+  log: (rawMessage: string, properties: Record<string, unknown>) => void,
+  isEnabledFor: () => boolean,
+): void | Promise<void> {
+  if (typeof properties !== "function") {
+    log("{error.message}", {
+      ...(properties ?? {}) as Record<string, unknown>,
+      error,
+    });
+    return;
+  }
+  if (!isEnabledFor()) return Promise.resolve();
+  const callback = properties as
+    | (() => Record<string, unknown>)
+    | (() => Promise<Record<string, unknown>>);
+  const result = callback();
+  if (!(result instanceof Promise)) {
+    log("{error.message}", { ...result, error });
+    return;
+  }
+  return result.then((resolvedProps) => {
+    log("{error.message}", { ...resolvedProps, error });
+  });
+}
+
 /**
  * A logger implementation.  Do not use this directly; use {@link getLogger}
  * instead.  This class is exported for testing purposes.
@@ -1829,32 +1856,14 @@ export class LoggerImpl implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (message instanceof Error) {
-      const props = values[0];
-      if (typeof props !== "function") {
-        this.log("error", "{error.message}", {
-          ...(props ?? {}) as Record<string, unknown>,
-          error: message,
-        });
-        return;
-      }
-      if (!this.isEnabledFor("error")) return Promise.resolve();
-      const callback = props as
-        | (() => Record<string, unknown>)
-        | (() => Promise<Record<string, unknown>>);
-      const logErrorWithResolvedProps = (
-        resolvedProps: Record<string, unknown>,
-      ): void => {
-        this.log("error", "{error.message}", {
-          ...resolvedProps,
-          error: message,
-        });
-      };
-      const result = callback();
-      if (!(result instanceof Promise)) {
-        logErrorWithResolvedProps(result);
-        return;
-      }
-      return result.then(logErrorWithResolvedProps);
+      return logErrorWithProperties(
+        message,
+        values[0],
+        (rawMessage, properties) => {
+          this.log("error", rawMessage, properties);
+        },
+        () => this.isEnabledFor("error"),
+      );
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
@@ -2333,32 +2342,14 @@ export class LoggerCtx implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (message instanceof Error) {
-      const props = values[0];
-      if (typeof props !== "function") {
-        this.log("error", "{error.message}", {
-          ...(props ?? {}) as Record<string, unknown>,
-          error: message,
-        });
-        return;
-      }
-      if (!this.isEnabledFor("error")) return Promise.resolve();
-      const callback = props as
-        | (() => Record<string, unknown>)
-        | (() => Promise<Record<string, unknown>>);
-      const logErrorWithResolvedProps = (
-        resolvedProps: Record<string, unknown>,
-      ): void => {
-        this.log("error", "{error.message}", {
-          ...resolvedProps,
-          error: message,
-        });
-      };
-      const result = callback();
-      if (!(result instanceof Promise)) {
-        logErrorWithResolvedProps(result);
-        return;
-      }
-      return result.then(logErrorWithResolvedProps);
+      return logErrorWithProperties(
+        message,
+        values[0],
+        (rawMessage, properties) => {
+          this.log("error", rawMessage, properties);
+        },
+        () => this.isEnabledFor("error"),
+      );
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
