@@ -327,8 +327,9 @@ function configureInternal<
   const meta = LoggerImpl.getLogger(["logtape", "meta"]);
   if (!metaConfigured) {
     meta.sinks.push(getConsoleSink());
-  }
-
+    return;
+  } 
+  
   meta.info(
     "LogTape loggers are configured.  Note that LogTape itself uses the meta " +
       "logger, which has category {metaLoggerCategory}.  The meta logger " +
