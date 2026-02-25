@@ -9,6 +9,21 @@ Version 2.1.0
 To be released.
 
 
+Version 2.0.3
+-------------
+
+Released on February 26, 2026.
+
+### @logtape/logtape
+
+ -  Revised the startup notice text from the meta logger to avoid implying
+    that seeing the message always means the meta logger was auto-configured.
+    The message now uses neutral wording while keeping guidance for suppressing
+    it with a higher meta logger level.  [[#141]]
+
+[#141]: https://github.com/dahlia/logtape/issues/141
+
+
 Version 2.0.2
 -------------
 
