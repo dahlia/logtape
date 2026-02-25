@@ -187,6 +187,33 @@ a string.
 
 The default is `"date-time-timezone"`.
 
+#### `~TextFormatterOptions.timeZone`
+
+*This option is available since LogTape 2.1.0.*
+
+The timezone used to render timestamps.  This option applies to built-in
+timestamp formats (e.g., `"date-time-timezone"`, `"time"`, `"rfc3339"`).
+
+Possible values:
+
+ -  `undefined` (default): UTC (preserves previous behavior)
+ -  `null`: system local timezone
+ -  IANA timezone name such as `"America/Bogota"`, `"Asia/Seoul"`, `"UTC"`
+ -  Fixed UTC offset string such as `"+09:00"` or `"-05:00"`
+
+If this option is invalid, formatter creation throws a `TypeError`.
+
+Example:
+
+~~~~ typescript
+import { getTextFormatter } from "@logtape/logtape";
+
+const formatter = getTextFormatter({
+  timestamp: "date-time-timezone",
+  timeZone: "Asia/Seoul",
+});
+~~~~
+
 #### `~TextFormatterOptions.level`
 
 The log level format.  This can be one of the following:
@@ -278,6 +305,11 @@ The timestamp format.  The available options are the same as the
 formatter.
 
 The default is `"date-time-tz"`.
+
+#### `~TextFormatterOptions.timeZone`
+
+The timezone used for timestamp rendering.  Behaves the same as
+[`timeZone`](#textformatteroptions-timezone) in the default text formatter.
 
 #### `~AnsiColorFormatterOptions.timestampStyle`
 
@@ -421,6 +453,11 @@ The timestamp format. The available options are the same as the
 formatter.
 
 The default is `"none"`.
+
+#### `~TextFormatterOptions.timeZone`
+
+The timezone used for timestamp rendering.  Behaves the same as
+[`timeZone`](#textformatteroptions-timezone) in the default text formatter.
 
 #### `~PrettyFormatterOptions.timestampColor`
 

@@ -12,6 +12,28 @@ import {
 } from "./formatter.ts";
 import type { LogRecord } from "./record.ts";
 
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : `${value}`;
+}
+
+function pad3(value: number): string {
+  return value < 10 ? `00${value}` : value < 100 ? `0${value}` : `${value}`;
+}
+
+function formatLocalDateTimeTimezone(ts: number): string {
+  const d = new Date(ts);
+  const offsetMinutes = -d.getTimezoneOffset();
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const abs = Math.abs(offsetMinutes);
+  const offHour = pad2(Math.floor(abs / 60));
+  const offMinute = pad2(abs % 60);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${
+    pad2(d.getHours())
+  }:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${
+    pad3(d.getMilliseconds())
+  } ${sign}${offHour}:${offMinute}`;
+}
+
 test("getTextFormatter()", () => {
   assert.deepStrictEqual(
     getTextFormatter()(info),
@@ -57,6 +79,40 @@ test("getTextFormatter()", () => {
     getTextFormatter({ timestamp: "time-tz" })(info),
     "22:13:20.000 +00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
+  assert.deepStrictEqual(
+    getTextFormatter({
+      timestamp: "date-time-timezone",
+      timeZone: "Asia/Seoul",
+    })(info),
+    "2023-11-15 07:13:20.000 +09:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assert.deepStrictEqual(
+    getTextFormatter({
+      timestamp: "time-timezone",
+      timeZone: "-05:30",
+    })(info),
+    "16:43:20.000 -05:30 [INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assert.deepStrictEqual(
+    getTextFormatter({
+      timestamp: "rfc3339",
+      timeZone: "Asia/Seoul",
+    })(info),
+    "2023-11-15T07:13:20.000+09:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+
+  const localTimestampRecord: LogRecord = { ...info };
+  const localExpected = formatLocalDateTimeTimezone(
+    localTimestampRecord.timestamp,
+  );
+  assert.deepStrictEqual(
+    getTextFormatter({
+      timestamp: "date-time-timezone",
+      timeZone: null,
+    })(localTimestampRecord),
+    `${localExpected} [INF] my-app·junk: Hello, 123 & 456!\n`,
+  );
+
   assert.deepStrictEqual(
     getTextFormatter({
       timestamp(ts) {
@@ -366,6 +422,18 @@ test("getAnsiColorFormatter()", () => {
       "\x1b[2mmy-app·junk:\x1b[0m " +
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
   );
+  assert.deepStrictEqual(
+    getAnsiColorFormatter({
+      timestamp: "date-time-tz",
+      timeZone: "Asia/Seoul",
+      timestampStyle: null,
+      timestampColor: null,
+    })(info),
+    "2023-11-15 07:13:20.000 +09 " +
+      "\x1b[1m\x1b[32mINF\x1b[0m " +
+      "\x1b[2mmy-app·junk:\x1b[0m " +
+      "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
+  );
 
   let recordedValues: FormattedValues | null = null;
   assert.deepStrictEqual(
@@ -390,6 +458,51 @@ test("getAnsiColorFormatter()", () => {
       message: "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!",
       record: info,
     },
+  );
+});
+
+test("getTextFormatter() with timeZone validation", () => {
+  assert.throws(
+    () => getTextFormatter({ timeZone: "not/a-real-zone" }),
+    TypeError,
+  );
+  assert.throws(
+    () => getTextFormatter({ timeZone: "+9:00" }),
+    TypeError,
+  );
+  assert.throws(
+    () => getTextFormatter({ timeZone: "+24:00" }),
+    TypeError,
+  );
+  assert.throws(
+    () => getAnsiColorFormatter({ timeZone: "not/a-real-zone" }),
+    TypeError,
+  );
+});
+
+test("getTextFormatter() uses timezone-specific DST offsets", () => {
+  const summerRecord: LogRecord = {
+    ...info,
+    timestamp: Date.parse("2024-07-01T12:00:00.000Z"),
+  };
+  const winterRecord: LogRecord = {
+    ...info,
+    timestamp: Date.parse("2024-01-01T12:00:00.000Z"),
+  };
+
+  assert.deepStrictEqual(
+    getTextFormatter({
+      timestamp: "date-time-timezone",
+      timeZone: "America/New_York",
+    })(summerRecord),
+    "2024-07-01 08:00:00.000 -04:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assert.deepStrictEqual(
+    getTextFormatter({
+      timestamp: "date-time-timezone",
+      timeZone: "America/New_York",
+    })(winterRecord),
+    "2024-01-01 07:00:00.000 -05:00 [INF] my-app·junk: Hello, 123 & 456!\n",
   );
 });
 

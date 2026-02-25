@@ -8,6 +8,30 @@ Version 2.1.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added `timeZone` option to text-based formatters for explicit timezone
+    control of timestamp rendering.  [[#140]]
+
+     -  Added `TextFormatterOptions.timeZone?: string | null`.
+     -  Added support for IANA timezone names (e.g., `"Asia/Seoul"`) and fixed
+        UTC offsets (e.g., `"+09:00"`).
+     -  Added `null` behavior for system local timezone and preserved `undefined`
+        default behavior as UTC.
+     -  Updated built-in timestamp formats, including `"rfc3339"`, to reflect
+        the configured timezone.
+     -  Invalid `timeZone` values now throw `TypeError` at formatter creation.
+
+ -  `getAnsiColorFormatter()` now supports timezone control through the inherited
+    `timeZone` option from `TextFormatterOptions`.  [[#140]]
+
+[#140]: https://github.com/dahlia/logtape/issues/140
+
+### @logtape/pretty
+
+ -  Added `timeZone` support to `getPrettyFormatter()` for timestamp rendering,
+    aligned with `@logtape/logtape` formatter semantics.  [[#140]]
+
 
 Version 2.0.3
 -------------

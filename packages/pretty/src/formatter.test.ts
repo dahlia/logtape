@@ -7,6 +7,26 @@ import {
   prettyFormatter,
 } from "./formatter.ts";
 
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : `${value}`;
+}
+
+function pad3(value: number): string {
+  return value < 10 ? `00${value}` : value < 100 ? `0${value}` : `${value}`;
+}
+
+function formatLocalDateTimeTimezone(ts: number): string {
+  const d = new Date(ts);
+  const offsetMinutes = -d.getTimezoneOffset();
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const abs = Math.abs(offsetMinutes);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${
+    pad2(d.getHours())
+  }:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${
+    pad3(d.getMilliseconds())
+  } ${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
+}
+
 function createLogRecord(
   level: LogRecord["level"],
   category: string[],
@@ -315,6 +335,62 @@ test("getPrettyFormatter() with extended timestamp formats", () => {
   // Check that none/disabled don't include timestamps
   assert.strictEqual(noneResult.includes("2023"), false);
   assert.strictEqual(disabledResult.includes("2023"), false);
+});
+
+test("getPrettyFormatter() with timeZone option", () => {
+  const timestamp = new Date("2023-11-14T22:13:20.000Z").getTime();
+  const record = createLogRecord("info", ["test"], ["Message"], timestamp);
+
+  const seoulFormatter = getPrettyFormatter({
+    timestamp: "date-time-timezone",
+    timeZone: "Asia/Seoul",
+    colors: false,
+    align: false,
+  });
+  const seoulResult = seoulFormatter(record);
+  assert.ok(seoulResult.includes("2023-11-15 07:13:20.000 +09:00"));
+
+  const fixedOffsetFormatter = getPrettyFormatter({
+    timestamp: "time-timezone",
+    timeZone: "-05:30",
+    colors: false,
+    align: false,
+  });
+  const fixedOffsetResult = fixedOffsetFormatter(record);
+  assert.ok(fixedOffsetResult.includes("16:43:20.000 -05:30"));
+
+  const rfc3339Formatter = getPrettyFormatter({
+    timestamp: "rfc3339",
+    timeZone: "Asia/Seoul",
+    colors: false,
+    align: false,
+  });
+  const rfc3339Result = rfc3339Formatter(record);
+  assert.ok(rfc3339Result.includes("2023-11-15T07:13:20.000+09:00"));
+
+  const localFormatter = getPrettyFormatter({
+    timestamp: "date-time-timezone",
+    timeZone: null,
+    colors: false,
+    align: false,
+  });
+  const localResult = localFormatter(record);
+  assert.ok(localResult.includes(formatLocalDateTimeTimezone(timestamp)));
+});
+
+test("getPrettyFormatter() with invalid timeZone", () => {
+  assert.throws(
+    () => getPrettyFormatter({ timeZone: "not/a-real-zone" }),
+    TypeError,
+  );
+  assert.throws(
+    () => getPrettyFormatter({ timeZone: "+9:00" }),
+    TypeError,
+  );
+  assert.throws(
+    () => getPrettyFormatter({ timeZone: "+24:00" }),
+    TypeError,
+  );
 });
 
 test("getPrettyFormatter() with styles", () => {

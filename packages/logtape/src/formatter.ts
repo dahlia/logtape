@@ -144,6 +144,18 @@ export interface TextFormatterOptions {
     | ((ts: number) => string | null);
 
   /**
+   * The timezone used for timestamp rendering.
+   *
+   * - `undefined` (default): UTC (preserves existing behavior)
+   * - `null`: System local timezone
+   * - IANA timezone name such as `"America/Bogota"` or `"Asia/Seoul"`
+   * - Fixed UTC offset string such as `"+09:00"` or `"-05:00"`
+   *
+   * @since 2.1.0
+   */
+  timeZone?: string | null;
+
+  /**
    * The log level format.  This can be one of the following:
    *
    * - `"ABBR"`: The log level abbreviation in uppercase (e.g., `"INF"`).
@@ -255,75 +267,197 @@ function padThree(num: number): string {
   return num < 10 ? `00${num}` : num < 100 ? `0${num}` : `${num}`;
 }
 
-// Pre-optimized timestamp formatter functions
-const timestampFormatters = {
-  "date-time-timezone": (ts: number): string => {
-    const d = new Date(ts);
-    const year = d.getUTCFullYear();
-    const month = padZero(d.getUTCMonth() + 1);
-    const day = padZero(d.getUTCDate());
-    const hour = padZero(d.getUTCHours());
-    const minute = padZero(d.getUTCMinutes());
-    const second = padZero(d.getUTCSeconds());
-    const ms = padThree(d.getUTCMilliseconds());
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms} +00:00`;
-  },
-  "date-time-tz": (ts: number): string => {
-    const d = new Date(ts);
-    const year = d.getUTCFullYear();
-    const month = padZero(d.getUTCMonth() + 1);
-    const day = padZero(d.getUTCDate());
-    const hour = padZero(d.getUTCHours());
-    const minute = padZero(d.getUTCMinutes());
-    const second = padZero(d.getUTCSeconds());
-    const ms = padThree(d.getUTCMilliseconds());
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms} +00`;
-  },
-  "date-time": (ts: number): string => {
-    const d = new Date(ts);
-    const year = d.getUTCFullYear();
-    const month = padZero(d.getUTCMonth() + 1);
-    const day = padZero(d.getUTCDate());
-    const hour = padZero(d.getUTCHours());
-    const minute = padZero(d.getUTCMinutes());
-    const second = padZero(d.getUTCSeconds());
-    const ms = padThree(d.getUTCMilliseconds());
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms}`;
-  },
-  "time-timezone": (ts: number): string => {
-    const d = new Date(ts);
-    const hour = padZero(d.getUTCHours());
-    const minute = padZero(d.getUTCMinutes());
-    const second = padZero(d.getUTCSeconds());
-    const ms = padThree(d.getUTCMilliseconds());
-    return `${hour}:${minute}:${second}.${ms} +00:00`;
-  },
-  "time-tz": (ts: number): string => {
-    const d = new Date(ts);
-    const hour = padZero(d.getUTCHours());
-    const minute = padZero(d.getUTCMinutes());
-    const second = padZero(d.getUTCSeconds());
-    const ms = padThree(d.getUTCMilliseconds());
-    return `${hour}:${minute}:${second}.${ms} +00`;
-  },
-  "time": (ts: number): string => {
-    const d = new Date(ts);
-    const hour = padZero(d.getUTCHours());
-    const minute = padZero(d.getUTCMinutes());
-    const second = padZero(d.getUTCSeconds());
-    const ms = padThree(d.getUTCMilliseconds());
-    return `${hour}:${minute}:${second}.${ms}`;
-  },
-  "date": (ts: number): string => {
-    const d = new Date(ts);
-    const year = d.getUTCFullYear();
-    const month = padZero(d.getUTCMonth() + 1);
-    const day = padZero(d.getUTCDate());
-    return `${year}-${month}-${day}`;
-  },
-  "rfc3339": (ts: number): string => new Date(ts).toISOString(),
-  "none": (): null => null,
-} as const;
+type TimestampPattern =
+  | "date-time-timezone"
+  | "date-time-tz"
+  | "date-time"
+  | "time-timezone"
+  | "time-tz"
+  | "time"
+  | "date"
+  | "rfc3339"
+  | "none";
+
+type TimeZoneConfig =
+  | { kind: "utc" }
+  | { kind: "local" }
+  | { kind: "offset"; minutes: number }
+  | { kind: "iana"; formatter: Intl.DateTimeFormat };
+
+type DateParts = {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+  second: string;
+  ms: string;
+  offsetMinutes: number;
+};
+
+const fixedOffsetPattern = /^([+-])(0\d|1\d|2[0-3]):([0-5]\d)$/;
+
+function formatOffset(minutes: number, full: boolean): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const absolute = Math.abs(minutes);
+  const hour = padZero(Math.floor(absolute / 60));
+  const minute = padZero(absolute % 60);
+  if (!full && minute === "00") return `${sign}${hour}`;
+  return `${sign}${hour}:${minute}`;
+}
+
+function readPartsFromFormatter(
+  formatter: Intl.DateTimeFormat,
+  ts: number,
+): Omit<DateParts, "ms" | "offsetMinutes"> {
+  const parts = formatter.formatToParts(new Date(ts));
+  let year = "";
+  let month = "";
+  let day = "";
+  let hour = "";
+  let minute = "";
+  let second = "";
+  for (const part of parts) {
+    if (part.type === "year") year = part.value;
+    else if (part.type === "month") month = part.value;
+    else if (part.type === "day") day = part.value;
+    else if (part.type === "hour") hour = part.value;
+    else if (part.type === "minute") minute = part.value;
+    else if (part.type === "second") second = part.value;
+  }
+  return { year, month, day, hour, minute, second };
+}
+
+function getDateParts(ts: number, config: TimeZoneConfig): DateParts {
+  const d = new Date(ts);
+  const ms = padThree(d.getUTCMilliseconds());
+
+  if (config.kind === "utc") {
+    return {
+      year: `${d.getUTCFullYear()}`,
+      month: padZero(d.getUTCMonth() + 1),
+      day: padZero(d.getUTCDate()),
+      hour: padZero(d.getUTCHours()),
+      minute: padZero(d.getUTCMinutes()),
+      second: padZero(d.getUTCSeconds()),
+      ms,
+      offsetMinutes: 0,
+    };
+  }
+
+  if (config.kind === "local") {
+    return {
+      year: `${d.getFullYear()}`,
+      month: padZero(d.getMonth() + 1),
+      day: padZero(d.getDate()),
+      hour: padZero(d.getHours()),
+      minute: padZero(d.getMinutes()),
+      second: padZero(d.getSeconds()),
+      ms,
+      offsetMinutes: -d.getTimezoneOffset(),
+    };
+  }
+
+  if (config.kind === "offset") {
+    const shifted = new Date(ts + config.minutes * 60_000);
+    return {
+      year: `${shifted.getUTCFullYear()}`,
+      month: padZero(shifted.getUTCMonth() + 1),
+      day: padZero(shifted.getUTCDate()),
+      hour: padZero(shifted.getUTCHours()),
+      minute: padZero(shifted.getUTCMinutes()),
+      second: padZero(shifted.getUTCSeconds()),
+      ms,
+      offsetMinutes: config.minutes,
+    };
+  }
+
+  const parts = readPartsFromFormatter(config.formatter, ts);
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+    d.getUTCMilliseconds(),
+  );
+  const offsetMinutes = Math.round((asUtc - ts) / 60_000);
+  return { ...parts, ms, offsetMinutes };
+}
+
+function resolveTimeZone(timeZone: string | null | undefined): TimeZoneConfig {
+  if (typeof timeZone === "undefined") return { kind: "utc" };
+  if (timeZone === null) return { kind: "local" };
+
+  const offsetMatch = fixedOffsetPattern.exec(timeZone);
+  if (offsetMatch != null) {
+    const sign = offsetMatch[1] === "-" ? -1 : 1;
+    const hours = Number(offsetMatch[2]);
+    const minutes = Number(offsetMatch[3]);
+    return { kind: "offset", minutes: sign * (hours * 60 + minutes) };
+  }
+
+  if (
+    typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function"
+  ) {
+    throw new TypeError(
+      `Invalid timeZone option: ${
+        JSON.stringify(timeZone)
+      }. This environment does not support IANA time zones.`,
+    );
+  }
+
+  try {
+    return {
+      kind: "iana",
+      formatter: new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        hour12: false,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    };
+  } catch {
+    throw new TypeError(
+      `Invalid timeZone option: ${
+        JSON.stringify(timeZone)
+      }. Expected an IANA time zone name (e.g., "Asia/Seoul") or a fixed UTC offset string (e.g., "+09:00").`,
+    );
+  }
+}
+
+function createTimestampFormatter(
+  pattern: TimestampPattern,
+  timeZone: TimeZoneConfig,
+): (ts: number) => string | null {
+  if (pattern === "none") return () => null;
+  if (pattern === "rfc3339" && timeZone.kind === "utc") {
+    return (ts: number): string => new Date(ts).toISOString();
+  }
+
+  return (ts: number): string => {
+    const parts = getDateParts(ts, timeZone);
+    const date = `${parts.year}-${parts.month}-${parts.day}`;
+    const time = `${parts.hour}:${parts.minute}:${parts.second}.${parts.ms}`;
+    const tzLong = formatOffset(parts.offsetMinutes, true);
+    const tzShort = formatOffset(parts.offsetMinutes, false);
+
+    if (pattern === "date-time-timezone") return `${date} ${time} ${tzLong}`;
+    if (pattern === "date-time-tz") return `${date} ${time} ${tzShort}`;
+    if (pattern === "date-time") return `${date} ${time}`;
+    if (pattern === "time-timezone") return `${time} ${tzLong}`;
+    if (pattern === "time-tz") return `${time} ${tzShort}`;
+    if (pattern === "time") return time;
+    if (pattern === "date") return date;
+    return `${date}T${time}${tzLong}`;
+  };
+}
 
 // Pre-computed level renderers for common cases
 const levelRenderersCache = {
@@ -435,14 +569,26 @@ export function getTextFormatter(
   // Pre-compute timestamp formatter with optimized lookup
   const timestampRenderer = (() => {
     const tsOption = options.timestamp;
+    const timeZone = resolveTimeZone(options.timeZone);
     if (tsOption == null) {
-      return timestampFormatters["date-time-timezone"];
+      return createTimestampFormatter("date-time-timezone", timeZone);
     } else if (tsOption === "disabled") {
-      return timestampFormatters["none"];
+      return createTimestampFormatter("none", timeZone);
     } else if (
-      typeof tsOption === "string" && tsOption in timestampFormatters
+      typeof tsOption === "string" &&
+      (
+        tsOption === "date-time-timezone" ||
+        tsOption === "date-time-tz" ||
+        tsOption === "date-time" ||
+        tsOption === "time-timezone" ||
+        tsOption === "time-tz" ||
+        tsOption === "time" ||
+        tsOption === "date" ||
+        tsOption === "rfc3339" ||
+        tsOption === "none"
+      )
     ) {
-      return timestampFormatters[tsOption as keyof typeof timestampFormatters];
+      return createTimestampFormatter(tsOption, timeZone);
     } else {
       return tsOption as (ts: number) => string | null;
     }

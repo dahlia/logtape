@@ -100,6 +100,7 @@ export type Style = keyof typeof styles | (keyof typeof styles)[] | null;
 // Pre-compiled regex patterns for color parsing
 const RGB_PATTERN = /^rgb\((\d+),(\d+),(\d+)\)$/;
 const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const FIXED_OFFSET_PATTERN = /^([+-])(0\d|1\d|2[0-3]):([0-5]\d)$/;
 
 /**
  * Helper function to convert color to ANSI escape code
@@ -197,6 +198,166 @@ function categoryMatches(
   }
 
   return true;
+}
+
+type TimeZoneConfig =
+  | { kind: "utc" }
+  | { kind: "local" }
+  | { kind: "offset"; minutes: number }
+  | { kind: "iana"; formatter: Intl.DateTimeFormat };
+
+type DateParts = {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+  second: string;
+  ms: string;
+  offsetMinutes: number;
+};
+
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : `${value}`;
+}
+
+function pad3(value: number): string {
+  return value < 10 ? `00${value}` : value < 100 ? `0${value}` : `${value}`;
+}
+
+function formatOffset(minutes: number, full: boolean): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const absolute = Math.abs(minutes);
+  const hour = pad2(Math.floor(absolute / 60));
+  const minute = pad2(absolute % 60);
+  if (!full && minute === "00") return `${sign}${hour}`;
+  return `${sign}${hour}:${minute}`;
+}
+
+function resolveTimeZone(timeZone: string | null | undefined): TimeZoneConfig {
+  if (typeof timeZone === "undefined") return { kind: "utc" };
+  if (timeZone === null) return { kind: "local" };
+
+  const offsetMatch = FIXED_OFFSET_PATTERN.exec(timeZone);
+  if (offsetMatch != null) {
+    const sign = offsetMatch[1] === "-" ? -1 : 1;
+    const hours = Number(offsetMatch[2]);
+    const minutes = Number(offsetMatch[3]);
+    return { kind: "offset", minutes: sign * (hours * 60 + minutes) };
+  }
+
+  if (
+    typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function"
+  ) {
+    throw new TypeError(
+      `Invalid timeZone option: ${
+        JSON.stringify(timeZone)
+      }. This environment does not support IANA time zones.`,
+    );
+  }
+
+  try {
+    return {
+      kind: "iana",
+      formatter: new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        hour12: false,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    };
+  } catch {
+    throw new TypeError(
+      `Invalid timeZone option: ${
+        JSON.stringify(timeZone)
+      }. Expected an IANA time zone name (e.g., "Asia/Seoul") or a fixed UTC offset string (e.g., "+09:00").`,
+    );
+  }
+}
+
+function readPartsFromFormatter(
+  formatter: Intl.DateTimeFormat,
+  ts: number,
+): Omit<DateParts, "ms" | "offsetMinutes"> {
+  const parts = formatter.formatToParts(new Date(ts));
+  let year = "";
+  let month = "";
+  let day = "";
+  let hour = "";
+  let minute = "";
+  let second = "";
+  for (const part of parts) {
+    if (part.type === "year") year = part.value;
+    else if (part.type === "month") month = part.value;
+    else if (part.type === "day") day = part.value;
+    else if (part.type === "hour") hour = part.value;
+    else if (part.type === "minute") minute = part.value;
+    else if (part.type === "second") second = part.value;
+  }
+  return { year, month, day, hour, minute, second };
+}
+
+function getDateParts(ts: number, config: TimeZoneConfig): DateParts {
+  const d = new Date(ts);
+  const ms = pad3(d.getUTCMilliseconds());
+
+  if (config.kind === "utc") {
+    return {
+      year: `${d.getUTCFullYear()}`,
+      month: pad2(d.getUTCMonth() + 1),
+      day: pad2(d.getUTCDate()),
+      hour: pad2(d.getUTCHours()),
+      minute: pad2(d.getUTCMinutes()),
+      second: pad2(d.getUTCSeconds()),
+      ms,
+      offsetMinutes: 0,
+    };
+  }
+
+  if (config.kind === "local") {
+    return {
+      year: `${d.getFullYear()}`,
+      month: pad2(d.getMonth() + 1),
+      day: pad2(d.getDate()),
+      hour: pad2(d.getHours()),
+      minute: pad2(d.getMinutes()),
+      second: pad2(d.getSeconds()),
+      ms,
+      offsetMinutes: -d.getTimezoneOffset(),
+    };
+  }
+
+  if (config.kind === "offset") {
+    const shifted = new Date(ts + config.minutes * 60_000);
+    return {
+      year: `${shifted.getUTCFullYear()}`,
+      month: pad2(shifted.getUTCMonth() + 1),
+      day: pad2(shifted.getUTCDate()),
+      hour: pad2(shifted.getUTCHours()),
+      minute: pad2(shifted.getUTCMinutes()),
+      second: pad2(shifted.getUTCSeconds()),
+      ms,
+      offsetMinutes: config.minutes,
+    };
+  }
+
+  const parts = readPartsFromFormatter(config.formatter, ts);
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+    d.getUTCMilliseconds(),
+  );
+  const offsetMinutes = Math.round((asUtc - ts) / 60_000);
+  return { ...parts, ms, offsetMinutes };
 }
 
 /**
@@ -676,6 +837,7 @@ export function getPrettyFormatter(
   // Extract options with defaults
   const {
     timestamp = "none",
+    timeZone,
     timestampColor = "rgb(100,116,139)",
     timestampStyle = "dim",
     level: levelFormat = "full",
@@ -765,35 +927,7 @@ export function getPrettyFormatter(
     return levelMappings[levelFormat]?.[level] ?? level;
   };
 
-  // Timestamp formatters lookup table
-  const timestampFormatters: Record<string, (ts: number) => string> = {
-    "date-time-timezone": (ts) => {
-      const iso = new Date(ts).toISOString();
-      return iso.replace("T", " ").replace("Z", " +00:00");
-    },
-    "date-time-tz": (ts) => {
-      const iso = new Date(ts).toISOString();
-      return iso.replace("T", " ").replace("Z", " +00");
-    },
-    "date-time": (ts) => {
-      const iso = new Date(ts).toISOString();
-      return iso.replace("T", " ").replace("Z", "");
-    },
-    "time-timezone": (ts) => {
-      const iso = new Date(ts).toISOString();
-      return iso.replace(/.*T/, "").replace("Z", " +00:00");
-    },
-    "time-tz": (ts) => {
-      const iso = new Date(ts).toISOString();
-      return iso.replace(/.*T/, "").replace("Z", " +00");
-    },
-    "time": (ts) => {
-      const iso = new Date(ts).toISOString();
-      return iso.replace(/.*T/, "").replace("Z", "");
-    },
-    "date": (ts) => new Date(ts).toISOString().replace(/T.*/, ""),
-    "rfc3339": (ts) => new Date(ts).toISOString(),
-  };
+  const resolvedTimeZone = resolveTimeZone(timeZone);
 
   // Resolve timestamp formatter
   let timestampFn: ((ts: number) => string | null) | null = null;
@@ -802,7 +936,28 @@ export function getPrettyFormatter(
   } else if (typeof timestamp === "function") {
     timestampFn = timestamp;
   } else {
-    timestampFn = timestampFormatters[timestamp as string] ?? null;
+    timestampFn = (ts: number): string => {
+      if (timestamp === "rfc3339" && resolvedTimeZone.kind === "utc") {
+        return new Date(ts).toISOString();
+      }
+
+      const parts = getDateParts(ts, resolvedTimeZone);
+      const date = `${parts.year}-${parts.month}-${parts.day}`;
+      const time = `${parts.hour}:${parts.minute}:${parts.second}.${parts.ms}`;
+      const tzLong = formatOffset(parts.offsetMinutes, true);
+      const tzShort = formatOffset(parts.offsetMinutes, false);
+
+      if (timestamp === "date-time-timezone") {
+        return `${date} ${time} ${tzLong}`;
+      }
+      if (timestamp === "date-time-tz") return `${date} ${time} ${tzShort}`;
+      if (timestamp === "date-time") return `${date} ${time}`;
+      if (timestamp === "time-timezone") return `${time} ${tzLong}`;
+      if (timestamp === "time-tz") return `${time} ${tzShort}`;
+      if (timestamp === "time") return time;
+      if (timestamp === "date") return date;
+      return `${date}T${time}${tzLong}`;
+    };
   }
 
   // Configure word wrap settings
