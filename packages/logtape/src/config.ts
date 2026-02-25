@@ -331,9 +331,8 @@ function configureInternal<
 
   meta.info(
     "LogTape loggers are configured.  Note that LogTape itself uses the meta " +
-      "logger, which has category {metaLoggerCategory}.  The meta logger " +
-      "purposes to log internal errors such as sink exceptions.  If you " +
-      "are seeing this message, the meta logger is automatically configured.  " +
+      "logger, which has category {metaLoggerCategory}.  The meta logger is " +
+      "used to log internal diagnostics such as sink exceptions.  " +
       "It's recommended to configure the meta logger with a separate sink " +
       "so that you can easily notice if logging itself fails or is " +
       "misconfigured.  To turn off this message, configure the meta logger " +

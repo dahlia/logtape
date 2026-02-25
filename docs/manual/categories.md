@@ -194,6 +194,9 @@ enabled when you call `configure()` without specifying the meta logger.
 To disable the meta logger, you can set the `sinks` property of the meta logger
 to an empty array.
 
+To hide the startup notice from the meta logger, set its `lowestLevel` to
+`"warning"` or higher.
+
 > [!NOTE]
 > On sink errors, the meta logger is used to log the error messages, but these
 > messages are not logged to the same sink that caused the error.  This is to

@@ -8,6 +8,15 @@ Version 2.0.3
 
 To be released.
 
+### @logtape/logtape
+
+ -  Revised the startup notice text from the meta logger to avoid implying
+    that seeing the message always means the meta logger was auto-configured.
+    The message now uses neutral wording while keeping guidance for suppressing
+    it with a higher meta logger level.  [[#141]]
+
+[#141]: https://github.com/dahlia/logtape/issues/141
+
 
 Version 2.0.2
 -------------
