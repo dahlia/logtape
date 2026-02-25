@@ -8,6 +8,18 @@ Version 2.0.4
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `CREDIT_CARD_NUMBER_PATTERN` to correctly match American Express-style
+    credit card numbers (e.g., `1234-5678-901234`) on Bun.  The previous regex
+    `/(?:\d{4}-){3}\d{4}|(?:\d{4}-){2}\d{6}/g` triggered a backtracking bug
+    in Bun's regex engine where, after the first alternative partially consumed
+    a common prefix and failed, the engine incorrectly started the second
+    alternative from the failure position rather than from the original match
+    position.  The pattern has been rewritten as
+    `/(?:\d{4}-){2}(?:\d{4}-\d{4}|\d{6})/g` to factor out the common prefix,
+    which avoids the issue while preserving the same matching behavior.
+
 
 Version 2.0.3
 -------------

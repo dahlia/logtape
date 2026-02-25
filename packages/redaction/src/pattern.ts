@@ -42,7 +42,7 @@ export const EMAIL_ADDRESS_PATTERN: RedactionPattern = {
  * @since 0.10.0
  */
 export const CREDIT_CARD_NUMBER_PATTERN: RedactionPattern = {
-  pattern: /(?:\d{4}-){3}\d{4}|(?:\d{4}-){2}\d{6}/g,
+  pattern: /(?:\d{4}-){2}(?:\d{4}-\d{4}|\d{6})/g,
   replacement: "XXXX-XXXX-XXXX-XXXX",
 };
 
