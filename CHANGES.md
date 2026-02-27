@@ -26,6 +26,11 @@ To be released.
     `timeZone` option from `TextFormatterOptions`.  [[#140]]
 
 [#140]: https://github.com/dahlia/logtape/issues/140
+ -  Added `logger.warn/warning/error/fatal(error, properties)` overloads for
+    attaching extra structured properties while preserving the
+    `{error.message}` template.  [[#137]]
+
+[#137]: https://github.com/dahlia/logtape/issues/137
 
 ### @logtape/pretty
 
