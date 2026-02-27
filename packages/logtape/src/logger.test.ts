@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
+import type { LogLevel } from "./level.ts";
 import {
   getLogger,
   isLazy,
@@ -782,6 +783,27 @@ test("Logger.error() [error overload]", () => {
     {
       const err = new Error("boom");
       const before = Date.now();
+      logger.error(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
       logger.error("Something happened", err);
       const after = Date.now();
       assert.deepStrictEqual(logs, [
@@ -813,6 +835,27 @@ test("Logger.error() [error overload]", () => {
           rawMessage: "{error.message}",
           timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.error(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "error",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { a: 1, b: 2, error: err, extra: "my extra value" },
         },
       ]);
       assert.ok(logs[0].timestamp >= before);
@@ -866,6 +909,27 @@ test("Logger.error() [error overload]", () => {
     {
       const err = new Error("boom");
       const before = Date.now();
+      logger.warn(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
       logger.warn("Something happened", err);
       const after = Date.now();
       assert.deepStrictEqual(logs, [
@@ -897,6 +961,69 @@ test("Logger.error() [error overload]", () => {
           rawMessage: "{error.message}",
           timestamp: (logs[0] as LogRecord).timestamp,
           properties: { a: 1, b: 2, error: err },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.warn(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { a: 1, b: 2, error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      logger.warning(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
+      ctx.warning(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "warning",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { a: 1, b: 2, error: err, extra: "my extra value" },
         },
       ]);
       assert.ok(logs[0].timestamp >= before);
@@ -950,6 +1077,27 @@ test("Logger.error() [error overload]", () => {
     {
       const err = new Error("boom");
       const before = Date.now();
+      logger.fatal(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "fatal",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
       logger.fatal("Something happened", err);
       const after = Date.now();
       assert.deepStrictEqual(logs, [
@@ -992,6 +1140,27 @@ test("Logger.error() [error overload]", () => {
     {
       const err = new Error("boom");
       const before = Date.now();
+      ctx.fatal(err, { extra: "my extra value" });
+      const after = Date.now();
+      assert.deepStrictEqual(logs, [
+        {
+          category: ["foo"],
+          level: "fatal",
+          message: ["", "boom", ""],
+          rawMessage: "{error.message}",
+          timestamp: (logs[0] as LogRecord).timestamp,
+          properties: { a: 1, b: 2, error: err, extra: "my extra value" },
+        },
+      ]);
+      assert.ok(logs[0].timestamp >= before);
+      assert.ok(logs[0].timestamp <= after);
+    }
+
+    logs.shift();
+
+    {
+      const err = new Error("boom");
+      const before = Date.now();
       ctx.fatal("Something happened", err);
       const after = Date.now();
       assert.deepStrictEqual(logs, [
@@ -1006,6 +1175,107 @@ test("Logger.error() [error overload]", () => {
       ]);
       assert.ok(logs[0].timestamp >= before);
       assert.ok(logs[0].timestamp <= after);
+    }
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger error-first overload callbacks [warn/warning/error/fatal]", async () => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  try {
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+
+    const methods = [
+      { method: "warn", level: "warning" as LogLevel },
+      { method: "warning", level: "warning" as LogLevel },
+      { method: "error", level: "error" as LogLevel },
+      { method: "fatal", level: "fatal" as LogLevel },
+    ] as const;
+
+    const assertLastLog = (
+      expectedLevel: LogLevel,
+      expectedError: Error,
+      expectedExtra: string,
+      withContext: boolean,
+    ) => {
+      const record = logs.pop();
+      assert.ok(record);
+      assert.strictEqual(record.level, expectedLevel);
+      assert.deepStrictEqual(record.message, ["", expectedError.message, ""]);
+      assert.strictEqual(record.rawMessage, "{error.message}");
+      assert.deepStrictEqual(record.properties, {
+        ...(withContext ? { a: 1, b: 2 } : {}),
+        error: expectedError,
+        extra: expectedExtra,
+      });
+    };
+
+    for (const { method, level } of methods) {
+      const err = new Error(`${method}-boom`);
+      const loggerMethod = logger[method].bind(logger) as (
+        error: Error,
+        properties:
+          | Record<string, unknown>
+          | (() => Record<string, unknown> | Promise<Record<string, unknown>>),
+      ) => void | Promise<void>;
+      const ctxMethod = ctx[method].bind(ctx) as (
+        error: Error,
+        properties:
+          | Record<string, unknown>
+          | (() => Record<string, unknown> | Promise<Record<string, unknown>>),
+      ) => void | Promise<void>;
+
+      let loggerSyncCalls = 0;
+      await loggerMethod(err, () => {
+        loggerSyncCalls++;
+        return { extra: `${method}-logger-sync` };
+      });
+      assert.strictEqual(loggerSyncCalls, 1);
+      assertLastLog(level, err, `${method}-logger-sync`, false);
+
+      let loggerPromiseCalls = 0;
+      await loggerMethod(err, () => {
+        loggerPromiseCalls++;
+        return Promise.resolve({ extra: `${method}-logger-promise` });
+      });
+      assert.strictEqual(loggerPromiseCalls, 1);
+      assertLastLog(level, err, `${method}-logger-promise`, false);
+
+      let loggerAsyncCalls = 0;
+      await loggerMethod(err, async () => {
+        loggerAsyncCalls++;
+        return { extra: `${method}-logger-async` };
+      });
+      assert.strictEqual(loggerAsyncCalls, 1);
+      assertLastLog(level, err, `${method}-logger-async`, false);
+
+      let ctxSyncCalls = 0;
+      await ctxMethod(err, () => {
+        ctxSyncCalls++;
+        return { extra: `${method}-ctx-sync` };
+      });
+      assert.strictEqual(ctxSyncCalls, 1);
+      assertLastLog(level, err, `${method}-ctx-sync`, true);
+
+      let ctxPromiseCalls = 0;
+      await ctxMethod(err, () => {
+        ctxPromiseCalls++;
+        return Promise.resolve({ extra: `${method}-ctx-promise` });
+      });
+      assert.strictEqual(ctxPromiseCalls, 1);
+      assertLastLog(level, err, `${method}-ctx-promise`, true);
+
+      let ctxAsyncCalls = 0;
+      await ctxMethod(err, async () => {
+        ctxAsyncCalls++;
+        return { extra: `${method}-ctx-async` };
+      });
+      assert.strictEqual(ctxAsyncCalls, 1);
+      assertLastLog(level, err, `${method}-ctx-async`, true);
     }
   } finally {
     logger.resetDescendants();
@@ -1802,6 +2072,66 @@ test("Logger.emit() respects log level threshold", () => {
     assert.strictEqual(records[0].level, "warning");
   } finally {
     (logger as LoggerImpl).reset();
+  }
+});
+
+test("Logger.error() [error overload callback disabled]", async () => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  try {
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+    logger.lowestLevel = "fatal";
+    const err = new Error("boom");
+    let callbackCalled = 0;
+
+    await logger.error(err, () => {
+      callbackCalled++;
+      return Promise.resolve({ extra: "my extra value" });
+    });
+
+    await ctx.error(err, () => {
+      callbackCalled++;
+      return Promise.resolve({ extra: "my extra value" });
+    });
+
+    assert.strictEqual(callbackCalled, 0);
+    assert.deepStrictEqual(logs, []);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger warn/warning/fatal [error overload callback disabled]", async () => {
+  const logger = LoggerImpl.getLogger("foo");
+  const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+  try {
+    const logs: LogRecord[] = [];
+    logger.sinks.push(logs.push.bind(logs));
+    logger.lowestLevel = null;
+    const err = new Error("boom");
+
+    for (const method of ["warn", "warning", "fatal"] as const) {
+      let callbackCalled = 0;
+
+      await logger[method](err, () => {
+        callbackCalled++;
+        return Promise.resolve({ extra: "my extra value" });
+      });
+
+      await ctx[method](err, () => {
+        callbackCalled++;
+        return Promise.resolve({ extra: "my extra value" });
+      });
+
+      assert.strictEqual(callbackCalled, 0);
+    }
+
+    assert.deepStrictEqual(logs, []);
+  } finally {
+    logger.resetDescendants();
   }
 });
 
