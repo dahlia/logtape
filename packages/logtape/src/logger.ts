@@ -106,6 +106,10 @@ interface StringMessageLogger {
   ): void;
 }
 
+// Callback-based string-message overloads are intentionally "fire-and-forget".
+// When the level is filtered out, we return an already-resolved promise
+// without invoking the callback so async property callbacks remain awaitable.
+// Synchronous callback call sites are expected to ignore the return value.
 function logStringMessage(
   logger: StringMessageLogger,
   level: LogLevel,
@@ -143,6 +147,13 @@ function logStringMessage(
  * logger.error `An error message with ${value}.`;
  * logger.fatal `A fatal error message with ${value}.`;
  * ```
+ *
+ * Callback-based string-message overloads should be treated as
+ * fire-and-forget.  Async callbacks return `Promise<void>`, and when a
+ * callback is filtered out because the level is disabled an implementation may
+ * still return an already-resolved promise so the async path remains awaitable
+ * without invoking the callback.  Call sites should not branch on these
+ * return values.
  */
 export interface Logger {
   /**
