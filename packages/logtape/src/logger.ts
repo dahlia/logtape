@@ -90,11 +90,6 @@ function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
     typeof (value as PromiseLike<T>).then === "function";
 }
 
-function isAsyncFunction(value: unknown): value is LazyPropertiesCallback {
-  return typeof value === "function" &&
-    value.constructor.name === "AsyncFunction";
-}
-
 interface StringMessageLogger {
   isEnabledFor(level: LogLevel): boolean;
   log(
@@ -116,10 +111,7 @@ function logStringMessage(
     return;
   }
 
-  if (!logger.isEnabledFor(level)) {
-    if (isAsyncFunction(props)) return Promise.resolve();
-    return;
-  }
+  if (!logger.isEnabledFor(level)) return Promise.resolve();
 
   const result = (props as LazyPropertiesCallback)();
   if (isPromiseLike<Record<string, unknown>>(result)) {

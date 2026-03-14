@@ -749,24 +749,34 @@ for (const method of methods) {
           return { c: 3 };
         },
       );
-      assert.strictEqual(loggerResult, undefined);
-      assert.strictEqual(ctxResult, undefined);
+      await loggerResult;
+      await ctxResult;
       assert.strictEqual(callbackCalled, 0);
 
-      await logger[method](
+      const promiseLoggerResult = logger[method](
         "Hello, {foo}!",
         () => {
           callbackCalled++;
           return Promise.resolve({ foo: 123 });
         },
       );
-      await ctx[method](
+      const promiseCtxResult = ctx[method](
         "Hello, {a} {b} {c}!",
         () => {
           callbackCalled++;
           return Promise.resolve({ c: 3 });
         },
       );
+      assert.ok(
+        promiseLoggerResult != null &&
+          typeof promiseLoggerResult.then === "function",
+      );
+      assert.ok(
+        promiseCtxResult != null &&
+          typeof promiseCtxResult.then === "function",
+      );
+      await promiseLoggerResult;
+      await promiseCtxResult;
       assert.strictEqual(callbackCalled, 0);
 
       assert.deepStrictEqual(logs, []);
