@@ -111,7 +111,8 @@ function logStringMessage(
   props?: unknown,
 ): void | Promise<void> {
   if (typeof props !== "function") {
-    logger.log(level, message, (props ?? {}) as Record<string, unknown>);
+    const properties = (props ?? {}) as Record<string, unknown>;
+    logger.log(level, message, properties);
     return;
   }
 
