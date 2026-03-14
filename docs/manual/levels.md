@@ -96,6 +96,7 @@ logger.warn("API rate limit is close to exceeding, 95% of limit reached.");
 // Shorthand overloads (added in LogTape 2.0.0):
 logger.warn(err);
 logger.warn("API rate limit exceeded", err);
+logger.warn(err, { endpoint: "/api/users" });  // with extra properties (2.1.0)
 ~~~~
 
 ### Error
@@ -112,6 +113,7 @@ const err = new Error("Database write failed");
 // Shorthand overloads (added in LogTape 2.0.0):
 logger.error(err);
 logger.error("Failed to save user data to database", err);
+logger.error(err, { userId: "12345" });  // with extra properties (2.1.0)
 
 // Equivalent explicit structured logging:
 logger.error(
@@ -137,6 +139,7 @@ const err = new Error("Database connection lost");
 // Shorthand overloads (added in LogTape 2.0.0):
 logger.fatal(err);
 logger.fatal("Unrecoverable error", err);
+logger.fatal(err, { service: "database" });  // with extra properties (2.1.0)
 
 // Equivalent explicit structured logging:
 logger.fatal(
@@ -153,10 +156,10 @@ Error object overloads
 
 For convenience, LogTape provides `Error` overloads for these methods:
 
- -  `logger.warn(error)`/`logger.warn(message, error)`
- -  `logger.warning(error)`/`logger.warning(message, error)`
- -  `logger.error(error)`/`logger.error(message, error)`
- -  `logger.fatal(error)`/`logger.fatal(message, error)`
+ -  `logger.warn(error)`/`logger.warn(message, error)`/`logger.warn(error, properties)`
+ -  `logger.warning(error)`/`logger.warning(message, error)`/`logger.warning(error, properties)`
+ -  `logger.error(error)`/`logger.error(message, error)`/`logger.error(error, properties)`
+ -  `logger.fatal(error)`/`logger.fatal(message, error)`/`logger.fatal(error, properties)`
 
 They are shorthands for logging an error as a structured `{ error }` property.
 When you call the `logger.*(error)` form, LogTape uses `{error.message}` as the
@@ -172,6 +175,46 @@ logger.warn("Something happened", err);
 
 logger.error(err);
 logger.error("Failed to save user", err);
+~~~~
+
+### Extra properties
+
+*This API is available since LogTape 2.1.0.*
+
+You can also attach extra structured properties alongside the error:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const err = new Error("boom");
+// ---cut-before---
+logger.error(err, { requestId: "abc-123", userId: "user-456" });
+~~~~
+
+This is equivalent to:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const err = new Error("boom");
+// ---cut-before---
+logger.error("{error.message}", {
+  error: err,
+  requestId: "abc-123",
+  userId: "user-456",
+});
+~~~~
+
+If the properties are expensive to compute, you can pass a callback instead.
+The callback is only invoked when the log level is enabled:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger();
+const err = new Error("boom");
+declare function gatherDiagnostics(): Record<string, unknown>;
+// ---cut-before---
+logger.error(err, () => gatherDiagnostics());
 ~~~~
 
 > [!NOTE]
