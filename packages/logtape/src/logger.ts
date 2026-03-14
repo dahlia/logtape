@@ -85,10 +85,16 @@ type LazyPropertiesCallback = () =>
   | Promise<Record<string, unknown>>;
 
 function isPromiseObject<T>(value: unknown): value is Promise<T> {
-  return value != null &&
-    (typeof value === "object" || typeof value === "function") &&
-    typeof (value as Promise<T>).then === "function" &&
-    Object.prototype.toString.call(value) === "[object Promise]";
+  // `instanceof Promise` only works for promises created in this realm.
+  // Lazy callbacks may return a promise from another realm, such as a
+  // `node:vm` context or a browser iframe, so we need a fallback.
+  if (value instanceof Promise) return true;
+
+  // `Object.prototype.toString` recognizes native promises across realms.
+  // We also require a callable `then` so an object that only spoofs
+  // `Symbol.toStringTag = "Promise"` is not treated as an async result.
+  return Object.prototype.toString.call(value) === "[object Promise]" &&
+    typeof (value as Promise<T>).then === "function";
 }
 
 interface StringMessageLogger {
