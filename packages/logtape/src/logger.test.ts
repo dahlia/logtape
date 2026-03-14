@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import vm from "node:vm";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
@@ -2306,6 +2307,75 @@ for (
       ]);
       assert.strictEqual(logs[0].rawMessage, "Async ctx message with {value}.");
       assert.deepStrictEqual(logs[0].properties, { ctx: "value", value: 123 });
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
+  test(`Logger.${method}() [async callback cross realm]`, async () => {
+    const logger = LoggerImpl.getLogger("async-callback-cross-realm");
+    const ctx = new LoggerCtx(logger, { ctx: "value" });
+    const callbackContext = vm.createContext({});
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+
+      const loggerCallback = vm.runInContext(
+        "(async function () { return { value: 42 }; })",
+        callbackContext,
+      ) as () => Promise<Record<string, unknown>>;
+      const loggerResult = logger[method](
+        "Cross realm async message with {value}.",
+        loggerCallback,
+      );
+      assert.ok(
+        loggerResult != null && typeof loggerResult.then === "function",
+        "Should return a thenable",
+      );
+      await loggerResult;
+
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, [
+        "Cross realm async message with ",
+        42,
+        ".",
+      ]);
+      assert.strictEqual(
+        logs[0].rawMessage,
+        "Cross realm async message with {value}.",
+      );
+      assert.deepStrictEqual(logs[0].properties, { value: 42 });
+
+      logs.length = 0;
+      const ctxCallback = vm.runInContext(
+        "(async function () { return { value: 123 }; })",
+        callbackContext,
+      ) as () => Promise<Record<string, unknown>>;
+      const ctxResult = ctx[method](
+        "Cross realm async ctx message with {value}.",
+        ctxCallback,
+      );
+      assert.ok(
+        ctxResult != null && typeof ctxResult.then === "function",
+        "Should return a thenable",
+      );
+      await ctxResult;
+
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, [
+        "Cross realm async ctx message with ",
+        123,
+        ".",
+      ]);
+      assert.strictEqual(
+        logs[0].rawMessage,
+        "Cross realm async ctx message with {value}.",
+      );
+      assert.deepStrictEqual(logs[0].properties, {
+        ctx: "value",
+        value: 123,
+      });
     } finally {
       logger.resetDescendants();
     }
