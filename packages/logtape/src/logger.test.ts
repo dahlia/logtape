@@ -2405,6 +2405,42 @@ for (
     }
   });
 
+  test(`Logger.${method}() [properties with then key]`, () => {
+    const logger = LoggerImpl.getLogger("then-property");
+    const ctx = new LoggerCtx(logger, { ctx: "value" });
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+
+      logger[method]("Then key {foo}.", () => ({
+        then() {
+          throw new Error("should not be treated as a promise");
+        },
+        foo: 42,
+      }));
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, ["Then key ", 42, "."]);
+      assert.deepStrictEqual(logs[0].properties.foo, 42);
+      assert.strictEqual(typeof logs[0].properties.then, "function");
+
+      logs.length = 0;
+      ctx[method]("Then ctx key {foo}.", () => ({
+        then() {
+          throw new Error("should not be treated as a promise");
+        },
+        foo: 123,
+      }));
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, ["Then ctx key ", 123, "."]);
+      assert.deepStrictEqual(logs[0].properties.foo, 123);
+      assert.strictEqual(logs[0].properties.ctx, "value");
+      assert.strictEqual(typeof logs[0].properties.then, "function");
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
   test(`Logger.${method}() [async callback disabled]`, async () => {
     const logger = LoggerImpl.getLogger("async-callback-disabled");
     const ctx = new LoggerCtx(logger, { ctx: "value" });

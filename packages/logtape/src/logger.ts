@@ -84,10 +84,11 @@ type LazyPropertiesCallback = () =>
   | Record<string, unknown>
   | Promise<Record<string, unknown>>;
 
-function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+function isPromiseObject<T>(value: unknown): value is Promise<T> {
   return value != null &&
     (typeof value === "object" || typeof value === "function") &&
-    typeof (value as PromiseLike<T>).then === "function";
+    typeof (value as Promise<T>).then === "function" &&
+    Object.prototype.toString.call(value) === "[object Promise]";
 }
 
 interface StringMessageLogger {
@@ -114,7 +115,7 @@ function logStringMessage(
   if (!logger.isEnabledFor(level)) return Promise.resolve();
 
   const result = (props as LazyPropertiesCallback)();
-  if (isPromiseLike<Record<string, unknown>>(result)) {
+  if (isPromiseObject<Record<string, unknown>>(result)) {
     return Promise.resolve(result).then((resolvedProps) => {
       logger.log(level, message, resolvedProps);
     });
