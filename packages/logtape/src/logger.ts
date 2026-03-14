@@ -80,6 +80,42 @@ function resolveProperties(
   return resolved;
 }
 
+type LazyPropertiesCallback = () =>
+  | Record<string, unknown>
+  | Promise<Record<string, unknown>>;
+
+interface StringMessageLogger {
+  isEnabledFor(level: LogLevel): boolean;
+  log(
+    level: LogLevel,
+    message: string,
+    properties: Record<string, unknown>,
+  ): void;
+}
+
+function logStringMessage(
+  logger: StringMessageLogger,
+  level: LogLevel,
+  message: string,
+  props?: unknown,
+): void | Promise<void> {
+  if (typeof props !== "function") {
+    logger.log(level, message, (props ?? {}) as Record<string, unknown>);
+    return;
+  }
+
+  if (!logger.isEnabledFor(level)) return Promise.resolve();
+
+  const result = (props as LazyPropertiesCallback)();
+  if (result instanceof Promise) {
+    return result.then((resolvedProps) => {
+      logger.log(level, message, resolvedProps);
+    });
+  }
+
+  logger.log(level, message, result);
+}
+
 /**
  * A logger interface.  It provides methods to log messages at different
  * severity levels.
@@ -1645,28 +1681,7 @@ export class LoggerImpl implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("trace")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("trace", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("trace")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("trace", message, resolvedProps);
-          });
-        }
-        this.log("trace", message, result);
-        return;
-      }
-      this.log("trace", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "trace", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("trace", message);
     } else if (!Array.isArray(message)) {
@@ -1696,28 +1711,7 @@ export class LoggerImpl implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("debug")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("debug", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("debug")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("debug", message, resolvedProps);
-          });
-        }
-        this.log("debug", message, result);
-        return;
-      }
-      this.log("debug", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "debug", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("debug", message);
     } else if (!Array.isArray(message)) {
@@ -1747,28 +1741,7 @@ export class LoggerImpl implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("info")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("info", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("info")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("info", message, resolvedProps);
-          });
-        }
-        this.log("info", message, result);
-        return;
-      }
-      this.log("info", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "info", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("info", message);
     } else if (!Array.isArray(message)) {
@@ -1841,28 +1814,7 @@ export class LoggerImpl implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("warning", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("warning", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("warning", message, resolvedProps);
-          });
-        }
-        this.log("warning", message, result);
-        return;
-      }
-      this.log("warning", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "warning", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("warning", message);
     } else if (!Array.isArray(message)) {
@@ -1907,28 +1859,7 @@ export class LoggerImpl implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("warning", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("warning", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("warning", message, resolvedProps);
-          });
-        }
-        this.log("warning", message, result);
-        return;
-      }
-      this.log("warning", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "warning", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("warning", message);
     } else if (!Array.isArray(message)) {
@@ -1973,28 +1904,7 @@ export class LoggerImpl implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("error", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("error", message, resolvedProps);
-          });
-        }
-        this.log("error", message, result);
-        return;
-      }
-      this.log("error", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "error", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("error", message);
     } else if (!Array.isArray(message)) {
@@ -2039,28 +1949,7 @@ export class LoggerImpl implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("fatal", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("fatal")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("fatal", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("fatal")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("fatal", message, resolvedProps);
-          });
-        }
-        this.log("fatal", message, result);
-        return;
-      }
-      this.log("fatal", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "fatal", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("fatal", message);
     } else if (!Array.isArray(message)) {
@@ -2176,28 +2065,7 @@ export class LoggerCtx implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("trace")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("trace", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("trace")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("trace", message, resolvedProps);
-          });
-        }
-        this.log("trace", message, result);
-        return;
-      }
-      this.log("trace", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "trace", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("trace", message);
     } else if (!Array.isArray(message)) {
@@ -2227,28 +2095,7 @@ export class LoggerCtx implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("debug")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("debug", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("debug")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("debug", message, resolvedProps);
-          });
-        }
-        this.log("debug", message, result);
-        return;
-      }
-      this.log("debug", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "debug", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("debug", message);
     } else if (!Array.isArray(message)) {
@@ -2278,28 +2125,7 @@ export class LoggerCtx implements Logger {
     ...values: unknown[]
   ): void | Promise<void> {
     if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("info")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("info", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("info")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("info", message, resolvedProps);
-          });
-        }
-        this.log("info", message, result);
-        return;
-      }
-      this.log("info", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "info", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("info", message);
     } else if (!Array.isArray(message)) {
@@ -2372,28 +2198,7 @@ export class LoggerCtx implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("warning", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("warning", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("warning", message, resolvedProps);
-          });
-        }
-        this.log("warning", message, result);
-        return;
-      }
-      this.log("warning", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "warning", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("warning", message);
     } else if (!Array.isArray(message)) {
@@ -2438,28 +2243,7 @@ export class LoggerCtx implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("warning", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("warning", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("warning")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("warning", message, resolvedProps);
-          });
-        }
-        this.log("warning", message, result);
-        return;
-      }
-      this.log("warning", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "warning", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("warning", message);
     } else if (!Array.isArray(message)) {
@@ -2504,28 +2288,7 @@ export class LoggerCtx implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("error", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("error", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("error")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("error", message, resolvedProps);
-          });
-        }
-        this.log("error", message, result);
-        return;
-      }
-      this.log("error", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "error", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("error", message);
     } else if (!Array.isArray(message)) {
@@ -2570,28 +2333,7 @@ export class LoggerCtx implements Logger {
     } else if (typeof message === "string" && values[0] instanceof Error) {
       this.log("fatal", message, { error: values[0] });
     } else if (typeof message === "string") {
-      const props = values[0];
-      if (typeof props === "function") {
-        // Check for AsyncFunction before calling to avoid unnecessary invocation
-        if (props.constructor.name === "AsyncFunction") {
-          if (!this.isEnabledFor("fatal")) return Promise.resolve();
-          return (props as () => Promise<Record<string, unknown>>)().then(
-            (resolvedProps) => {
-              this.log("fatal", message, resolvedProps);
-            },
-          );
-        }
-        const result = (props as () => Record<string, unknown>)();
-        if (result instanceof Promise) {
-          if (!this.isEnabledFor("fatal")) return Promise.resolve();
-          return result.then((resolvedProps) => {
-            this.log("fatal", message, resolvedProps);
-          });
-        }
-        this.log("fatal", message, result);
-        return;
-      }
-      this.log("fatal", message, (props ?? {}) as Record<string, unknown>);
+      return logStringMessage(this, "fatal", message, values[0]);
     } else if (typeof message === "function") {
       this.logLazily("fatal", message);
     } else if (!Array.isArray(message)) {

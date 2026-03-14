@@ -724,6 +724,42 @@ for (const method of methods) {
     }
   });
 
+  test(`Logger.${method}() [lazy disabled]`, async () => {
+    const logger = LoggerImpl.getLogger("foo");
+    const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+      logger.lowestLevel = null;
+
+      let callbackCalled = 0;
+      await logger[method]("Hello, {foo}!", () => {
+        callbackCalled++;
+        return { foo: 123 };
+      });
+      await ctx[method]("Hello, {a} {b} {c}!", () => {
+        callbackCalled++;
+        return { c: 3 };
+      });
+      assert.strictEqual(callbackCalled, 0);
+
+      await logger[method]("Hello, {foo}!", () => {
+        callbackCalled++;
+        return Promise.resolve({ foo: 123 });
+      });
+      await ctx[method]("Hello, {a} {b} {c}!", () => {
+        callbackCalled++;
+        return Promise.resolve({ c: 3 });
+      });
+      assert.strictEqual(callbackCalled, 0);
+
+      assert.deepStrictEqual(logs, []);
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
   test(`Logger.${method}() [with no message]`, () => {
     const logger = LoggerImpl.getLogger("foo");
 
