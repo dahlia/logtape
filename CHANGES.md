@@ -25,11 +25,13 @@ To be released.
  -  `getAnsiColorFormatter()` now supports timezone control through the inherited
     `timeZone` option from `TextFormatterOptions`.  [[#140]]
 
- -  Added `logger.warn/warning/error/fatal(error, properties)` overloads for
-    attaching extra structured properties while preserving the
-    `{error.message}` template.  [[#137]]
+ -  Added `Logger.warn(error, properties)`, `Logger.warning(error, properties)`,
+    `Logger.error(error, properties)`, and `Logger.fatal(error, properties)`
+    overloads for attaching extra structured properties while preserving
+    the `{error.message}` template.  [[#137], [#138] by fadomire]
 
 [#137]: https://github.com/dahlia/logtape/issues/137
+[#138]: https://github.com/dahlia/logtape/pull/138
 [#140]: https://github.com/dahlia/logtape/issues/140
 
 ### @logtape/pretty
