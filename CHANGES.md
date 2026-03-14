@@ -30,9 +30,18 @@ To be released.
     overloads for attaching extra structured properties while preserving
     the `{error.message}` template.  [[#137], [#138] by fadomire]
 
+ -  Fixed lazy property callbacks for string-message overloads so they are not
+    invoked when the log level is disabled. This now applies consistently to
+    synchronous and Promise-returning callbacks across `Logger.trace()`,
+    `Logger.debug()`, `Logger.info()`, `Logger.warn()`/`Logger.warning()`,
+    `Logger.error()`, and `Logger.fatal()`, including contextual loggers
+    created with `Logger.with()`.  [[#143], [#145]]
+
 [#137]: https://github.com/dahlia/logtape/issues/137
 [#138]: https://github.com/dahlia/logtape/pull/138
 [#140]: https://github.com/dahlia/logtape/issues/140
+[#143]: https://github.com/dahlia/logtape/issues/143
+[#145]: https://github.com/dahlia/logtape/pull/145
 
 ### @logtape/pretty
 

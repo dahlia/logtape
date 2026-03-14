@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import vm from "node:vm";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
@@ -719,6 +720,66 @@ for (const method of methods) {
       ]);
       assert.ok(logs[0].timestamp >= before);
       assert.ok(logs[0].timestamp <= after);
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
+  test(`Logger.${method}() [lazy disabled]`, async () => {
+    const logger = LoggerImpl.getLogger("foo");
+    const ctx = new LoggerCtx(logger, { a: 1, b: 2 });
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+      logger.lowestLevel = null;
+
+      let callbackCalled = 0;
+      const loggerResult = logger[method](
+        "Hello, {foo}!",
+        () => {
+          callbackCalled++;
+          return { foo: 123 };
+        },
+      );
+      const ctxResult = ctx[method](
+        "Hello, {a} {b} {c}!",
+        () => {
+          callbackCalled++;
+          return { c: 3 };
+        },
+      );
+      await loggerResult;
+      await ctxResult;
+      assert.strictEqual(callbackCalled, 0);
+
+      const promiseLoggerResult = logger[method](
+        "Hello, {foo}!",
+        () => {
+          callbackCalled++;
+          return Promise.resolve({ foo: 123 });
+        },
+      );
+      const promiseCtxResult = ctx[method](
+        "Hello, {a} {b} {c}!",
+        () => {
+          callbackCalled++;
+          return Promise.resolve({ c: 3 });
+        },
+      );
+      assert.ok(
+        promiseLoggerResult != null &&
+          typeof promiseLoggerResult.then === "function",
+      );
+      assert.ok(
+        promiseCtxResult != null &&
+          typeof promiseCtxResult.then === "function",
+      );
+      await promiseLoggerResult;
+      await promiseCtxResult;
+      assert.strictEqual(callbackCalled, 0);
+
+      assert.deepStrictEqual(logs, []);
     } finally {
       logger.resetDescendants();
     }
@@ -2270,6 +2331,111 @@ for (
       ]);
       assert.strictEqual(logs[0].rawMessage, "Async ctx message with {value}.");
       assert.deepStrictEqual(logs[0].properties, { ctx: "value", value: 123 });
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
+  test(`Logger.${method}() [async callback cross realm]`, async () => {
+    const logger = LoggerImpl.getLogger("async-callback-cross-realm");
+    const ctx = new LoggerCtx(logger, { ctx: "value" });
+    const callbackContext = vm.createContext({});
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+
+      const loggerCallback = vm.runInContext(
+        "(async function () { return { value: 42 }; })",
+        callbackContext,
+      ) as () => Promise<Record<string, unknown>>;
+      const loggerResult = logger[method](
+        "Cross realm async message with {value}.",
+        loggerCallback,
+      );
+      assert.ok(
+        loggerResult != null && typeof loggerResult.then === "function",
+        "Should return a thenable",
+      );
+      await loggerResult;
+
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, [
+        "Cross realm async message with ",
+        42,
+        ".",
+      ]);
+      assert.strictEqual(
+        logs[0].rawMessage,
+        "Cross realm async message with {value}.",
+      );
+      assert.deepStrictEqual(logs[0].properties, { value: 42 });
+
+      logs.length = 0;
+      const ctxCallback = vm.runInContext(
+        "(async function () { return { value: 123 }; })",
+        callbackContext,
+      ) as () => Promise<Record<string, unknown>>;
+      const ctxResult = ctx[method](
+        "Cross realm async ctx message with {value}.",
+        ctxCallback,
+      );
+      assert.ok(
+        ctxResult != null && typeof ctxResult.then === "function",
+        "Should return a thenable",
+      );
+      await ctxResult;
+
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, [
+        "Cross realm async ctx message with ",
+        123,
+        ".",
+      ]);
+      assert.strictEqual(
+        logs[0].rawMessage,
+        "Cross realm async ctx message with {value}.",
+      );
+      assert.deepStrictEqual(logs[0].properties, {
+        ctx: "value",
+        value: 123,
+      });
+    } finally {
+      logger.resetDescendants();
+    }
+  });
+
+  test(`Logger.${method}() [properties with then key]`, () => {
+    const logger = LoggerImpl.getLogger("then-property");
+    const ctx = new LoggerCtx(logger, { ctx: "value" });
+
+    try {
+      const logs: LogRecord[] = [];
+      logger.sinks.push(logs.push.bind(logs));
+
+      logger[method]("Then key {foo}.", () => ({
+        then() {
+          throw new Error("should not be treated as a promise");
+        },
+        foo: 42,
+      }));
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, ["Then key ", 42, "."]);
+      assert.deepStrictEqual(logs[0].properties.foo, 42);
+      assert.strictEqual(typeof logs[0].properties.then, "function");
+
+      logs.length = 0;
+      ctx[method]("Then ctx key {foo}.", () => ({
+        then() {
+          throw new Error("should not be treated as a promise");
+        },
+        foo: 123,
+      }));
+      assert.strictEqual(logs.length, 1);
+      assert.deepStrictEqual(logs[0].message, ["Then ctx key ", 123, "."]);
+      assert.deepStrictEqual(logs[0].properties.foo, 123);
+      assert.strictEqual(logs[0].properties.ctx, "value");
+      assert.strictEqual(typeof logs[0].properties.then, "function");
     } finally {
       logger.resetDescendants();
     }
