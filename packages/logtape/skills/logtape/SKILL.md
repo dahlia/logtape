@@ -48,7 +48,7 @@ const dbLogger = logger.getChild("database");
 // category = ["my-app", "users", "auth", "database"]
 ~~~~
 
-See <https://logtape.org/manual/categories> for details.
+See <https://logtape.org/manual/categories.md> for details.
 
 
 Structured messages
@@ -76,7 +76,7 @@ produce structured data:
 logger.debug`User ${userId} logged in`;
 ~~~~
 
-See <https://logtape.org/manual/struct> for full structured logging details.
+See <https://logtape.org/manual/struct.md> for full structured logging details.
 
 
 Severity levels
@@ -96,7 +96,7 @@ LogTape provides six levels, from most to least verbose:
 Use the lowest appropriate level.  Reserve `error`/`fatal` for actual failures;
 avoid using them for expected conditions like validation errors.
 
-See <https://logtape.org/manual/levels> for details.
+See <https://logtape.org/manual/levels.md> for details.
 
 
 Configuration
@@ -167,7 +167,7 @@ configureSync({
     *instrumentation-client.js* (client).
  -  **SvelteKit**: configure in *hooks.server.ts*.
 
-See <https://logtape.org/manual/config> for all options.
+See <https://logtape.org/manual/config.md> for all options.
 
 
 Library author rule
@@ -207,7 +207,7 @@ export function myOperation() {
 > **Note:** `withCategoryPrefix()` requires `contextLocalStorage` to be
 > configured by the application.
 
-See <https://logtape.org/manual/library> for the full guide.
+See <https://logtape.org/manual/library.md> for the full guide.
 
 
 Context with `with()` and lazy evaluation
@@ -289,8 +289,8 @@ if (logger.isEnabledFor("debug")) {
 }
 ~~~~
 
-See <https://logtape.org/manual/lazy> and
-<https://logtape.org/manual/contexts> for details.
+See <https://logtape.org/manual/lazy.md> and
+<https://logtape.org/manual/contexts.md> for details.
 
 
 Logging errors
@@ -384,8 +384,8 @@ import { dispose } from "@logtape/logtape";
 await dispose();
 ~~~~
 
-See <https://logtape.org/manual/sinks> and
-<https://logtape.org/manual/formatters> for details.
+See <https://logtape.org/manual/sinks.md> and
+<https://logtape.org/manual/formatters.md> for details.
 
 
 Data redaction
@@ -449,7 +449,7 @@ const sink = redactByField(
 );
 ~~~~
 
-See <https://logtape.org/manual/redaction> for details.
+See <https://logtape.org/manual/redaction.md> for details.
 
 
 Adaptors for existing loggers
@@ -470,7 +470,7 @@ install(winstonLogger);
 Available: `@logtape/adaptor-winston`, `@logtape/adaptor-pino`,
 `@logtape/adaptor-log4js`.
 
-See <https://logtape.org/manual/adaptors> for details.
+See <https://logtape.org/manual/adaptors.md> for details.
 
 
 Testing
@@ -511,7 +511,7 @@ resetSync();
 Always call `reset()` / `resetSync()` in test teardown so that each test can
 configure independently.
 
-See <https://logtape.org/manual/testing> for more patterns.
+See <https://logtape.org/manual/testing.md> for more patterns.
 
 
 Available packages
