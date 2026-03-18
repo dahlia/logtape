@@ -77,7 +77,7 @@ skills and symlinks them into the appropriate agent directories.
 
 3.  Run `npm install` (or your package manager's equivalent).  This symlinks
     skills from *node\_modules* into the appropriate agent directories
-    (e.g., *.claude/skills/*, *.cursor/rules/*).
+    (e.g., *.claude/skills/*, *.cursor/skills/*).
 
 4.  Add the generated symlinks to your *.gitignore*:
 
