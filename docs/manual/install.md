@@ -66,3 +66,18 @@ bun add @logtape/logtape@dev
 
 [JSR]: https://jsr.io/@logtape/logtape
 [npm]: https://www.npmjs.com/package/@logtape/logtape
+
+
+Setting up for AI coding assistants
+-----------------------------------
+
+LogTape bundles an [Agent Skills] skill inside the npm package.  If you use
+AI coding assistants like [Claude Code], [GitHub Copilot], [Cursor], or
+[Windsurf], you can expose the skill so that they learn LogTape's best practices
+automatically.  See [*LLM integration*](./llm.md) for setup instructions.
+
+[Agent Skills]: https://agentskills.io/
+[Claude Code]: https://claude.com/claude-code
+[GitHub Copilot]: https://github.com/features/copilot
+[Cursor]: https://cursor.com/
+[Windsurf]: https://windsurf.com/

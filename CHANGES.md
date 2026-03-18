@@ -37,11 +37,17 @@ To be released.
     `Logger.error()`, and `Logger.fatal()`, including contextual loggers
     created with `Logger.with()`.  [[#143], [#145]]
 
+ -  Added agent skill for AI coding assistants ([Agent Skills] standard).
+    The skill is bundled inside the npm package and teaches AI agents how to
+    use LogTape correctly.  [[#147]]
+
+[Agent Skills]: https://agentskills.io/
 [#137]: https://github.com/dahlia/logtape/issues/137
 [#138]: https://github.com/dahlia/logtape/pull/138
 [#140]: https://github.com/dahlia/logtape/issues/140
 [#143]: https://github.com/dahlia/logtape/issues/143
 [#145]: https://github.com/dahlia/logtape/pull/145
+[#147]: https://github.com/dahlia/logtape/issues/147
 
 ### @logtape/pretty
 
