@@ -388,6 +388,70 @@ See <https://logtape.org/manual/sinks> and
 <https://logtape.org/manual/formatters> for details.
 
 
+Data redaction
+--------------
+
+Use `@logtape/redaction` to prevent sensitive data from reaching log output.
+
+### Pattern-based redaction (scans formatted text)
+
+Wrap a formatter with `redactByPattern()` to catch data like emails, credit
+card numbers, or JWTs anywhere in the log output:
+
+~~~~ typescript
+import { defaultConsoleFormatter, getConsoleSink } from "@logtape/logtape";
+import {
+  EMAIL_ADDRESS_PATTERN,
+  JWT_PATTERN,
+  redactByPattern,
+} from "@logtape/redaction";
+
+const sink = getConsoleSink({
+  formatter: redactByPattern(defaultConsoleFormatter, [
+    EMAIL_ADDRESS_PATTERN,
+    JWT_PATTERN,
+  ]),
+});
+~~~~
+
+Built-in patterns: `EMAIL_ADDRESS_PATTERN`, `CREDIT_CARD_NUMBER_PATTERN`,
+`JWT_PATTERN`, `US_SSN_PATTERN`, `KR_RRN_PATTERN`.
+
+### Field-based redaction (removes/replaces properties by name)
+
+Wrap a sink with `redactByField()` to strip sensitive fields from structured
+log data before it reaches the sink:
+
+~~~~ typescript
+import { getConsoleSink } from "@logtape/logtape";
+import { redactByField } from "@logtape/redaction";
+
+// Uses DEFAULT_REDACT_FIELDS (password, secret, token, etc.)
+const sink = redactByField(getConsoleSink());
+
+// Or customize with replacement instead of removal
+const sink2 = redactByField(getConsoleSink(), {
+  fieldPatterns: [/password/i, /secret/i, /api[-_]?key/i],
+  action: () => "[REDACTED]",
+});
+~~~~
+
+### Combining both for maximum security
+
+~~~~ typescript
+const sink = redactByField(
+  getConsoleSink({
+    formatter: redactByPattern(defaultConsoleFormatter, [
+      EMAIL_ADDRESS_PATTERN,
+      JWT_PATTERN,
+    ]),
+  }),
+);
+~~~~
+
+See <https://logtape.org/manual/redaction> for details.
+
+
 Adaptors for existing loggers
 -----------------------------
 
