@@ -3,8 +3,8 @@ LLM integration
 
 LogTape ships with built-in support for AI coding assistants through the
 [Agent Skills] standard.  This means tools like [Claude Code], [GitHub Copilot],
-[Cursor], [Windsurf], and others can automatically learn how to use LogTape
-correctly when working on your project.
+[Cursor], [Windsurf], and [many others][Agent Skills] can automatically learn
+how to use LogTape correctly when working on your project.
 
 [Agent Skills]: https://agentskills.io/
 [Claude Code]: https://claude.com/claude-code
@@ -20,9 +20,11 @@ The bundled agent skill teaches AI assistants:
 
  -  How to get loggers with hierarchical categories
  -  The structured message syntax (named placeholders, not string interpolation)
- -  Configuration rules (`configure()` is app-only, must be `await`ed)
+ -  Configuration rules (`configure()` and `configureSync()`)
  -  The library author rule (never call `configure()` in library code)
- -  Context management with `with()` and `lazy()`
+ -  Context management with `with()`, `withContext()`, and `lazy()`
+ -  Sink and formatter setup
+ -  Adaptor integration for existing loggers (winston, Pino, log4js)
  -  Testing patterns
  -  Common mistakes to avoid
 
@@ -32,17 +34,36 @@ library for general-purpose LLM consumption.
 [llms.txt]: https://logtape.org/llms.txt
 
 
-Setting up with npm (recommended)
----------------------------------
+Setting up with skills-npm
+--------------------------
 
-The skill is bundled inside the `@logtape/logtape` npm package.  To expose it
-to your AI coding assistant, use [skills-npm]:
+[skills-npm] by Anthony Fu scans *node\_modules* for packages that declare
+skills and symlinks them into the appropriate agent directories.
 
 1.  Install *skills-npm* as a dev dependency:
 
-    ~~~~ bash
+    :::code-group
+
+    ~~~~ bash [npm]
     npm install -D skills-npm
     ~~~~
+
+
+    ~~~~ bash [pnpm]
+    pnpm add -D skills-npm
+    ~~~~
+
+
+    ~~~~ bash [Yarn]
+    yarn add -D skills-npm
+    ~~~~
+
+
+    ~~~~ bash [Bun]
+    bun add -D skills-npm
+    ~~~~
+
+    :::
 
 2.  Add a `prepare` script to your *package.json*:
 
@@ -58,7 +79,7 @@ to your AI coding assistant, use [skills-npm]:
     skills from *node\_modules* into the appropriate agent directories
     (e.g., *.claude/skills/*, *.cursor/rules/*).
 
-4.  Add `skills/npm-*` to your *.gitignore*:
+4.  Add the generated symlinks to your *.gitignore*:
 
     ~~~~ text
     skills/npm-*
@@ -68,6 +89,80 @@ After this one-time setup, the skill stays in sync with the installed version
 of LogTape.  Every `npm install` refreshes the symlinks automatically.
 
 [skills-npm]: https://github.com/antfu/skills-npm
+
+
+Setting up with npm-agentskills
+-------------------------------
+
+[npm-agentskills] by onmax is another tool that discovers agent skills from
+npm packages.  It offers a CLI and a Nuxt module.
+
+[npm-agentskills]: https://github.com/onmax/npm-agentskills
+
+### CLI usage
+
+~~~~ bash
+npx agents export --target claude
+~~~~
+
+You can also export to other agents:
+
+~~~~ bash
+npx agents export --target cursor
+npx agents export --target codex
+~~~~
+
+To see all discovered skills:
+
+~~~~ bash
+npx agents list
+~~~~
+
+### Automatic setup via postinstall
+
+Add to your *package.json*:
+
+~~~~ json
+{
+  "scripts": {
+    "postinstall": "agents export --target claude"
+  }
+}
+~~~~
+
+### Nuxt integration
+
+For Nuxt projects, add the module and skills are discovered automatically
+when running `nuxi prepare` or `nuxi dev`.
+
+
+Manual setup
+------------
+
+If you prefer not to use a discovery tool, you can set up the skill manually
+for your specific AI coding assistant.
+
+### Claude Code
+
+Copy or symlink the skill directory into your project:
+
+~~~~ bash
+mkdir -p .claude/skills
+cp -r node_modules/@logtape/logtape/skills/logtape .claude/skills/logtape
+~~~~
+
+### Cursor
+
+~~~~ bash
+mkdir -p .cursor/skills
+cp -r node_modules/@logtape/logtape/skills/logtape .cursor/skills/logtape
+~~~~
+
+### Other agents
+
+Most Agent Skills-compatible tools look for skills in a directory like
+*.\<agent\>/skills/* in your project root.  Consult your tool's documentation
+for the exact path.
 
 
 Setting up for Deno
@@ -94,11 +189,11 @@ field:
 }
 ~~~~
 
-When *skills-npm* runs, it reads this field from every package in
-*node\_modules* and creates symlinks so that agent tools can discover and load
-the skills.  The skill's `description` field in its frontmatter tells the agent
-*when* to activate it, so it loads automatically whenever the agent is working
-on logging-related code.
+When a discovery tool like *skills-npm* or *npm-agentskills* runs, it reads
+this field from every package in *node\_modules* and copies or symlinks the
+skill directories so that agent tools can discover and load them.  The skill's
+`description` field in its frontmatter tells the agent *when* to activate it,
+so it loads automatically whenever the agent is working on logging-related code.
 
 > [!NOTE]
 > The `agents` field is purely metadata.  It does not add any runtime

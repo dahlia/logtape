@@ -40,6 +40,14 @@ const rootLogger = getLogger("my-app");
 Choose category segments that reflect your module structure so that operators
 can selectively enable/disable logging per subsystem.
 
+Use `logger.getChild("sub")` to derive a child logger without repeating the
+full category:
+
+~~~~ typescript
+const dbLogger = logger.getChild("database");
+// category = ["my-app", "users", "auth", "database"]
+~~~~
+
 See <https://logtape.org/manual/categories> for details.
 
 
@@ -55,6 +63,9 @@ logger.info("User {userId} logged in from {ip}", { userId, ip });
 
 // Correct: structured data without a message
 logger.info({ userId, ip, action: "login" });
+
+// Nested property access (since 1.2.0)
+logger.info("Name: {user.name}", { user: { name: "Alice" } });
 ~~~~
 
 Template literal syntax is available for quick debug logging but does **not**
@@ -91,6 +102,8 @@ See <https://logtape.org/manual/levels> for details.
 Configuration
 -------------
 
+### Async configuration (most common)
+
 `configure()` is **application-only**.  It must be `await`ed and called
 **exactly once** at startup (e.g., in your entry point):
 
@@ -111,11 +124,48 @@ await configure({
 });
 ~~~~
 
-Key rules:
+### Synchronous configuration
 
- -  Always `await` the call; it returns a `Promise`.
- -  Call it once.  Calling it again without `await reset()` first throws.
- -  For tests, call `await reset()` in teardown to allow reconfiguration.
+Use `configureSync()` when you cannot use `await` (e.g., top-level in CommonJS,
+or in a synchronous startup path):
+
+~~~~ typescript
+import { configureSync, getConsoleSink } from "@logtape/logtape";
+
+configureSync({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "debug",
+      sinks: ["console"],
+    },
+  ],
+});
+~~~~
+
+> **Limitation:** `configureSync()` cannot use `AsyncDisposable` sinks such as
+> `getStreamSink()` or sinks created with `fromAsyncSink()`.
+
+### Key rules
+
+ -  `configure()` returns a `Promise`; always `await` it.
+ -  `configureSync()` returns `void`; do not `await` it.
+ -  Call either one **once**.  Calling again without resetting first throws
+    `ConfigError`.
+ -  Do **not** mix async and sync: if you used `configure()`, reset with
+    `await reset()`; if you used `configureSync()`, reset with `resetSync()`.
+ -  For tests, call `await reset()` (or `resetSync()`) in teardown.
+
+### Framework-specific patterns
+
+ -  **React**: configure **before** `createRoot()`.
+ -  **Vue**: configure **before** `app.mount()`.
+ -  **Next.js**: use *instrumentation.js* (server) or
+    *instrumentation-client.js* (client).
+ -  **SvelteKit**: configure in *hooks.server.ts*.
 
 See <https://logtape.org/manual/config> for all options.
 
@@ -123,9 +173,9 @@ See <https://logtape.org/manual/config> for all options.
 Library author rule
 -------------------
 
-**Never call `configure()` in library code.**  Libraries should only call
-`getLogger()` and log messages.  The application that depends on your library
-decides how (or whether) to configure sinks and levels.
+**Never call `configure()` or `configureSync()` in library code.**  Libraries
+should only call `getLogger()` and log messages.  The application that depends
+on your library decides how (or whether) to configure sinks and levels.
 
 ~~~~ typescript
 // my-lib/src/client.ts — library code
@@ -140,13 +190,30 @@ export function fetchData(url: string) {
 }
 ~~~~
 
+If your library wraps other LogTape-using libraries, use `withCategoryPrefix()`
+to nest their logs under your category:
+
+~~~~ typescript
+import { withCategoryPrefix } from "@logtape/logtape";
+
+export function myOperation() {
+  return withCategoryPrefix(["my-lib"], () => {
+    // Logs from inner libraries appear as ["my-lib", ...their-category]
+    innerLib.doWork();
+  });
+}
+~~~~
+
+> **Note:** `withCategoryPrefix()` requires `contextLocalStorage` to be
+> configured by the application.
+
 See <https://logtape.org/manual/library> for the full guide.
 
 
 Context with `with()` and lazy evaluation
 -----------------------------------------
 
-### Adding context
+### Adding explicit context
 
 Use `logger.with()` to create a child logger that attaches properties to every
 subsequent log call:
@@ -156,6 +223,31 @@ const reqLogger = logger.with({ requestId, userId });
 reqLogger.info("Processing order {orderId}", { orderId });
 // Log record will contain requestId, userId, AND orderId
 ~~~~
+
+### Implicit context (request tracing)
+
+Use `withContext()` to propagate context across an entire call stack without
+threading loggers manually.  Requires `contextLocalStorage` in configuration:
+
+~~~~ typescript
+import { configure, getConsoleSink, withContext } from "@logtape/logtape";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [{ category: "app", sinks: ["console"] }],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+function handleRequest(req: Request) {
+  withContext({ requestId: crypto.randomUUID() }, () => {
+    // All logs inside this callback automatically include requestId
+    processRequest(req);
+  });
+}
+~~~~
+
+> **Note:** Implicit contexts are not available in browsers yet.
 
 ### Lazy evaluation
 
@@ -180,6 +272,23 @@ logger.debug("Diagnostics", () => ({
 }));
 ~~~~
 
+For **async** lazy evaluation, pass an async callback and `await` the result:
+
+~~~~ typescript
+await logger.info("User details", async () => ({
+  user: await fetchUserDetails(),
+}));
+~~~~
+
+For multiple expensive log calls, use `isEnabledFor()`:
+
+~~~~ typescript
+if (logger.isEnabledFor("debug")) {
+  const snapshot = await captureExpensiveSnapshot();
+  logger.debug("Snapshot: {data}", { data: snapshot });
+}
+~~~~
+
 See <https://logtape.org/manual/lazy> and
 <https://logtape.org/manual/contexts> for details.
 
@@ -197,6 +306,107 @@ try {
   logger.error(error, { operation: "riskyOperation", userId });
 }
 ~~~~
+
+
+Sinks and formatters
+--------------------
+
+### Built-in sinks
+
+~~~~ typescript
+import {
+  configure,
+  getConsoleSink,
+  getStreamSink,
+} from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink(),
+    stderr: getStreamSink(Writable.toWeb(process.stderr)),
+  },
+  loggers: [{ category: "app", sinks: ["console"] }],
+});
+~~~~
+
+### Sink filters
+
+Use `withFilter()` to route different levels to different sinks:
+
+~~~~ typescript
+import { configure, getConsoleSink, withFilter } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    errorsOnly: withFilter(getConsoleSink(), "error"),
+    allLevels: getConsoleSink(),
+  },
+  loggers: [
+    { category: "app", sinks: ["allLevels", "errorsOnly"] },
+  ],
+});
+~~~~
+
+### Formatters
+
+~~~~ typescript
+import {
+  configure,
+  getAnsiColorFormatter,
+  getConsoleSink,
+  getJsonLinesFormatter,
+} from "@logtape/logtape";
+
+// Pretty ANSI-colored output for development
+getConsoleSink({ formatter: getAnsiColorFormatter() });
+
+// JSON Lines for production / log aggregation
+getConsoleSink({ formatter: getJsonLinesFormatter() });
+~~~~
+
+For even nicer development output, use `@logtape/pretty`:
+
+~~~~ typescript
+import { getPrettyFormatter } from "@logtape/pretty";
+
+getConsoleSink({ formatter: getPrettyFormatter() });
+~~~~
+
+### Disposal
+
+Non-blocking sinks and stream sinks hold resources.  In **edge functions** or
+short-lived processes, explicitly dispose before exit:
+
+~~~~ typescript
+import { dispose } from "@logtape/logtape";
+
+// At shutdown
+await dispose();
+~~~~
+
+See <https://logtape.org/manual/sinks> and
+<https://logtape.org/manual/formatters> for details.
+
+
+Adaptors for existing loggers
+-----------------------------
+
+If the project already uses winston, Pino, or log4js, use an adaptor instead
+of `configure()`:
+
+~~~~ typescript
+import { install } from "@logtape/adaptor-winston";
+import winston from "winston";
+
+const winstonLogger = winston.createLogger({ /* ... */ });
+install(winstonLogger);
+// All LogTape logs now route through winston
+~~~~
+
+Available: `@logtape/adaptor-winston`, `@logtape/adaptor-pino`,
+`@logtape/adaptor-log4js`.
+
+See <https://logtape.org/manual/adaptors> for details.
 
 
 Testing
@@ -224,8 +434,18 @@ assert(buffer[0].level === "info");
 await reset();
 ~~~~
 
-Always call `await reset()` in test teardown so that each test can call
-`configure()` independently.
+If using `configureSync()`, reset with `resetSync()`:
+
+~~~~ typescript
+import { configureSync, resetSync } from "@logtape/logtape";
+
+configureSync({ /* ... */ });
+// ... test ...
+resetSync();
+~~~~
+
+Always call `reset()` / `resetSync()` in test teardown so that each test can
+configure independently.
 
 See <https://logtape.org/manual/testing> for more patterns.
 
@@ -315,6 +535,25 @@ configure({ /* ... */ });
 
 // CORRECT
 await configure({ /* ... */ });
+
+// Or use the synchronous variant if you can't await
+configureSync({ /* ... */ });
+~~~~
+
+### Mixing async/sync configure and reset
+
+~~~~ typescript
+// WRONG: mismatched pair causes errors
+await configure({ /* ... */ });
+resetSync();  // Can't sync-reset an async config!
+
+// CORRECT: match configure and reset variants
+await configure({ /* ... */ });
+await reset();
+
+// Or:
+configureSync({ /* ... */ });
+resetSync();
 ~~~~
 
 ### Using `console.log` alongside LogTape
@@ -337,15 +576,31 @@ const logger = getLogger("myapp");
 const logger = getLogger(["myapp", "auth", "oauth"]);
 ~~~~
 
+### Logging sensitive data without redaction
+
+~~~~ typescript
+// WRONG: password ends up in log files
+logger.info("Login attempt for {email} with {password}", { email, password });
+
+// CORRECT: never log secrets; use @logtape/redaction if needed
+logger.info("Login attempt for {email}", { email });
+~~~~
+
 
 Best practices summary
 ----------------------
 
- -  One `configure()` call at startup, always `await`ed
+ -  One `configure()` or `configureSync()` call at startup
+ -  Always `await configure()`; never `await configureSync()`
+ -  Match reset variant to configure variant
  -  Hierarchical array categories (e.g., `["app", "module", "sub"]`)
  -  Structured messages with named placeholders, not string interpolation
  -  `lazy()` or callback for expensive computations
  -  `logger.with()` for request-scoped context
+ -  `withContext()` + `AsyncLocalStorage` for implicit context propagation
  -  `error`/`fatal` only for real failures
- -  Libraries: never `configure()`, just `getLogger()`
- -  Tests: `reset()` in teardown, buffer sink for assertions
+ -  Libraries: never configure, just `getLogger()`
+ -  Tests: `reset()` / `resetSync()` in teardown, buffer sink for assertions
+ -  Never log sensitive data (passwords, tokens, PII)
+ -  Use `dispose()` / `disposeSync()` in edge functions or short-lived
+    processes
