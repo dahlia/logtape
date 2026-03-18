@@ -175,6 +175,7 @@ const MANUAL = {
     { text: "Using in libraries", link: "/manual/library" },
     { text: "Debugging", link: "/manual/debug" },
     { text: "Testing", link: "/manual/testing" },
+    { text: "LLM integration", link: "/manual/llm" },
   ],
 };
 

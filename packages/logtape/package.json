@@ -66,8 +66,14 @@
   },
   "sideEffects": false,
   "files": [
-    "dist/"
+    "dist/",
+    "skills/"
   ],
+  "agents": {
+    "skills": [
+      { "name": "logtape", "path": "./skills/logtape" }
+    ]
+  },
   "devDependencies": {
     "@alinea/suite": "catalog:",
     "@std/assert": "catalog:",
