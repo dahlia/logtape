@@ -113,6 +113,38 @@ function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
       cfg.category[1] === "meta");
 }
 
+function registerDisposeHook(allowAsync: boolean): void {
+  const handler = allowAsync ? dispose : disposeSync;
+
+  if (
+    // deno-lint-ignore no-explicit-any
+    typeof (globalThis as any).EdgeRuntime !== "string" &&
+    "process" in globalThis &&
+    !("Deno" in globalThis)
+  ) {
+    // deno-lint-ignore no-explicit-any
+    const proc = (globalThis as any).process;
+    // Use bracket notation to avoid static analysis detection in Edge Runtime.
+    const onMethod = proc?.["on"];
+    if (typeof onMethod === "function") {
+      onMethod.call(proc, "exit", handler);
+      return;
+    }
+  }
+
+  // Some edge runtimes expose neither process.on() nor addEventListener().
+  // In those environments users can still call dispose()/disposeSync() manually.
+  // deno-lint-ignore no-explicit-any
+  const addEventListenerMethod = (globalThis as any).addEventListener;
+  if (typeof addEventListenerMethod !== "function") return;
+
+  if ("Deno" in globalThis) {
+    addEventListenerMethod.call(globalThis, "unload", handler);
+  } else {
+    addEventListenerMethod.call(globalThis, "pagehide", handler);
+  }
+}
+
 /**
  * Configure the loggers with the specified configuration.
  *
@@ -301,29 +333,7 @@ function configureInternal<
     if (Symbol.dispose in filter) disposables.add(filter as Disposable);
   }
 
-  if (
-    // deno-lint-ignore no-explicit-any
-    typeof (globalThis as any).EdgeRuntime !== "string" &&
-    "process" in globalThis &&
-    !("Deno" in globalThis)
-  ) {
-    // deno-lint-ignore no-explicit-any
-    const proc = (globalThis as any).process;
-    // Use bracket notation to avoid static analysis detection in Edge Runtime
-    const onMethod = proc?.["on"];
-    if (typeof onMethod === "function") {
-      onMethod.call(proc, "exit", allowAsync ? dispose : disposeSync);
-    }
-  } else {
-    // Deno: use unload (pagehide is not supported)
-    if ("Deno" in globalThis) {
-      // @ts-ignore: unload event exists in Deno
-      addEventListener("unload", allowAsync ? dispose : disposeSync);
-    } else {
-      // Browser: use pagehide (bfcache-compatible, doesn't block back/forward cache)
-      addEventListener("pagehide", allowAsync ? dispose : disposeSync);
-    }
-  }
+  registerDisposeHook(allowAsync);
   const meta = LoggerImpl.getLogger(["logtape", "meta"]);
   if (!metaConfigured) {
     meta.sinks.push(getConsoleSink());

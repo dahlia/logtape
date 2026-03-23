@@ -55,6 +55,22 @@ To be released.
     aligned with `@logtape/logtape` formatter semantics.  [[#140]]
 
 
+Version 2.0.5
+-------------
+
+Released on March 24, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `configure()` and `configureSync()` threw in Vercel
+    Edge-like runtimes that define `EdgeRuntime` but do not provide browser
+    `addEventListener()` lifecycle hooks.  LogTape now skips automatic cleanup
+    hook registration when neither `process.on()` nor `addEventListener()` is
+    available.  [[#149]]
+
+[#149]: https://github.com/dahlia/logtape/issues/149
+
+
 Version 2.0.4
 -------------
 

@@ -14,6 +14,8 @@ import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
+const hasAddEventListener = typeof globalThis.addEventListener === "function";
+
 test("configure()", async () => {
   let disposed = 0;
 
@@ -288,6 +290,43 @@ test("configure()", async () => {
     }
   }
 });
+
+test(
+  "configure() does not require addEventListener() in Edge runtimes",
+  { skip: hasAddEventListener },
+  async () => {
+    if (hasAddEventListener) return;
+
+    const edgeRuntime = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "EdgeRuntime",
+    );
+
+    try {
+      Object.defineProperty(globalThis, "EdgeRuntime", {
+        configurable: true,
+        value: "edge-runtime",
+        writable: true,
+      });
+
+      const config: Config<string, string> = {
+        sinks: {},
+        loggers: [
+          { category: "my-app" },
+          { category: ["logtape", "meta"], sinks: [] },
+        ],
+      };
+
+      await configure(config);
+      assert.strictEqual(getConfig(), config);
+    } finally {
+      await reset();
+      if (edgeRuntime == null) {
+        Reflect.deleteProperty(globalThis, "EdgeRuntime");
+      } else Object.defineProperty(globalThis, "EdgeRuntime", edgeRuntime);
+    }
+  },
+);
 
 test("configureSync()", async () => {
   let disposed = 0;
@@ -575,3 +614,40 @@ test("configureSync()", async () => {
     assert.strictEqual(getConfig(), null);
   }
 });
+
+test(
+  "configureSync() does not require addEventListener() in Edge runtimes",
+  { skip: hasAddEventListener },
+  () => {
+    if (hasAddEventListener) return;
+
+    const edgeRuntime = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "EdgeRuntime",
+    );
+
+    try {
+      Object.defineProperty(globalThis, "EdgeRuntime", {
+        configurable: true,
+        value: "edge-runtime",
+        writable: true,
+      });
+
+      const config: Config<string, string> = {
+        sinks: {},
+        loggers: [
+          { category: "my-app" },
+          { category: ["logtape", "meta"], sinks: [] },
+        ],
+      };
+
+      configureSync(config);
+      assert.strictEqual(getConfig(), config);
+    } finally {
+      resetSync();
+      if (edgeRuntime == null) {
+        Reflect.deleteProperty(globalThis, "EdgeRuntime");
+      } else Object.defineProperty(globalThis, "EdgeRuntime", edgeRuntime);
+    }
+  },
+);
