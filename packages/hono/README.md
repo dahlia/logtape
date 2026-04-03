@@ -98,6 +98,20 @@ app.use(honoLogger({
 }));
 ~~~~
 
+The formatter callback receives the real Hono `Context`, so you can also read
+context variables when your app uses them:
+
+~~~~ typescript
+app.use(honoLogger({
+  format: (c, responseTime) => ({
+    requestId: c.get("requestId"),
+    method: c.req.method,
+    path: c.req.path,
+    duration: responseTime,
+  }),
+}));
+~~~~
+
 
 Structured logging output
 -------------------------
