@@ -5,14 +5,14 @@ import type { Context, MiddlewareHandler } from "hono";
 export type { LogLevel } from "@logtape/logtape";
 
 /**
- * Hono context type exposed to custom formatters and skip callbacks.
+ * Hono context interface exposed to custom formatters and skip callbacks.
  *
  * This matches the actual runtime object passed to the middleware, so custom
  * formatters can access context variables via methods like `c.get()` when
  * needed.
  * @since 1.3.0
  */
-export type HonoContext = Context<any, any, any>;
+export interface HonoContext extends Context<any, any, any> {}
 
 /**
  * Predefined log format names compatible with Morgan.
