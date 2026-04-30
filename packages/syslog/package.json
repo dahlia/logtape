@@ -1,6 +1,6 @@
 {
   "name": "@logtape/syslog",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "Syslog sink for LogTape",
   "keywords": [
     "logging",
