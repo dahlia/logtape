@@ -8,6 +8,15 @@ Version 2.0.6
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed `withCategoryPrefix()` so logger configuration is applied using the
+    prefixed effective category.  Previously, records displayed the prefixed
+    category but still used the original logger category for `lowestLevel`,
+    filters, and sink routing.  [[#151]]
+
+[#151]: https://github.com/dahlia/logtape/issues/151
+
 
 Version 2.0.5
 -------------
@@ -376,6 +385,19 @@ Released on January 15, 2026.
         file in the Windows Registry.
 
 [#115]: https://github.com/dahlia/logtape/pull/115
+
+
+Version 1.3.8
+-------------
+
+Released on May 1, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `withCategoryPrefix()` so logger configuration is applied using the
+    prefixed effective category.  Previously, records displayed the prefixed
+    category but still used the original logger category for `lowestLevel`,
+    filters, and sink routing.  [[#151]]
 
 
 Version 1.3.7

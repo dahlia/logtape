@@ -4,8 +4,9 @@ import { delay } from "@std/async/delay";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { configure, reset } from "./config.ts";
 import { withCategoryPrefix, withContext } from "./context.ts";
-import { getLogger } from "./logger.ts";
+import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
+import type { Sink } from "./sink.ts";
 
 test("withContext()", async () => {
   const buffer: LogRecord[] = [];
@@ -333,6 +334,188 @@ test("withCategoryPrefix()", async () => {
     assert.deepStrictEqual(metaBuffer.length, 1);
     assert.deepStrictEqual(metaBuffer[0].category, ["logtape", "meta"]);
     assert.deepStrictEqual(metaBuffer[0].level, "warning");
+  } finally {
+    await reset();
+  }
+});
+
+test("withCategoryPrefix() routes records by the prefixed category", async () => {
+  const buffer: LogRecord[] = [];
+  let lazyEvaluationCount = 0;
+
+  await configure({
+    sinks: {
+      buffer: buffer.push.bind(buffer),
+    },
+    loggers: [
+      { category: [], sinks: ["buffer"], lowestLevel: "trace" },
+      { category: ["worker", "b"], lowestLevel: "warning" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "warning" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    const workerB = LoggerImpl.getLogger(["worker", "b"]);
+    assert.deepStrictEqual(workerB.children.database, undefined);
+
+    await withCategoryPrefix(["worker", "b"], async () => {
+      assert.deepStrictEqual(
+        getLogger("database").isEnabledFor("debug"),
+        false,
+      );
+      assert.deepStrictEqual(
+        getLogger("database").isEnabledFor("warning"),
+        true,
+      );
+      await getLogger("database").debug("hidden {value}", async () => {
+        await Promise.resolve();
+        lazyEvaluationCount++;
+        return { value: 1 };
+      });
+      getLogger("database").warning("shown");
+    });
+
+    assert.deepStrictEqual(lazyEvaluationCount, 0);
+    assert.deepStrictEqual(buffer.length, 1);
+    assert.deepStrictEqual(buffer[0].category, ["worker", "b", "database"]);
+    assert.deepStrictEqual(buffer[0].level, "warning");
+    assert.deepStrictEqual(buffer[0].message, ["shown"]);
+    assert.deepStrictEqual(workerB.children.database, undefined);
+  } finally {
+    await reset();
+  }
+});
+
+test("withCategoryPrefix() uses the deepest configured prefixed logger", async () => {
+  const buffer: LogRecord[] = [];
+  const filteredCategories: (readonly string[])[] = [];
+
+  await configure({
+    sinks: {
+      buffer: buffer.push.bind(buffer),
+    },
+    filters: {
+      databaseOnly(record) {
+        filteredCategories.push(record.category);
+        return record.rawMessage === "allowed";
+      },
+    },
+    loggers: [
+      { category: [], sinks: ["buffer"], lowestLevel: "trace" },
+      { category: ["worker", "b"], lowestLevel: "trace" },
+      {
+        category: ["worker", "b", "database"],
+        filters: ["databaseOnly"],
+      },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "warning" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    withCategoryPrefix(["worker", "b"], () => {
+      getLogger("database").info("blocked");
+      getLogger("database").info("allowed");
+    });
+
+    assert.deepStrictEqual(filteredCategories, [
+      ["worker", "b", "database"],
+      ["worker", "b", "database"],
+    ]);
+    assert.deepStrictEqual(buffer.length, 1);
+    assert.deepStrictEqual(buffer[0].category, ["worker", "b", "database"]);
+    assert.deepStrictEqual(buffer[0].rawMessage, "allowed");
+  } finally {
+    await reset();
+  }
+});
+
+test("withCategoryPrefix() respects parentSinks on prefixed loggers", async () => {
+  const rootBuffer: LogRecord[] = [];
+  const workerBuffer: LogRecord[] = [];
+
+  await configure({
+    sinks: {
+      root: rootBuffer.push.bind(rootBuffer),
+      worker: workerBuffer.push.bind(workerBuffer),
+    },
+    loggers: [
+      { category: [], sinks: ["root"], lowestLevel: "trace" },
+      {
+        category: ["worker", "c"],
+        sinks: ["worker"],
+        parentSinks: "override",
+        lowestLevel: "debug",
+      },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "warning" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    withCategoryPrefix(["worker", "c"], () => {
+      getLogger("database").debug("worker only");
+    });
+
+    assert.deepStrictEqual(rootBuffer, []);
+    assert.deepStrictEqual(workerBuffer.length, 1);
+    assert.deepStrictEqual(workerBuffer[0].category, [
+      "worker",
+      "c",
+      "database",
+    ]);
+  } finally {
+    await reset();
+  }
+});
+
+test("withCategoryPrefix() does not apply prefixes to meta logger records", async () => {
+  const metaBuffer: LogRecord[] = [];
+  const error = new Error("Sink failed");
+  const errorSink: Sink = () => {
+    throw error;
+  };
+
+  await configure({
+    sinks: {
+      error: errorSink,
+      meta: metaBuffer.push.bind(metaBuffer),
+    },
+    loggers: [
+      { category: [], sinks: [], lowestLevel: "trace" },
+      { category: ["worker", "b"], lowestLevel: "trace" },
+      {
+        category: ["worker", "b", "app"],
+        sinks: ["error"],
+        lowestLevel: "error",
+      },
+      {
+        category: ["logtape", "meta"],
+        sinks: ["meta"],
+        parentSinks: "override",
+        lowestLevel: "fatal",
+      },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    withCategoryPrefix(["worker", "b"], () => {
+      getLogger("app").error("explode");
+    });
+
+    assert.deepStrictEqual(metaBuffer.length, 1);
+    assert.deepStrictEqual(metaBuffer[0].category, ["logtape", "meta"]);
+    assert.deepStrictEqual(metaBuffer[0].level, "fatal");
+    assert.deepStrictEqual(
+      (metaBuffer[0].properties.record as LogRecord).category,
+      ["worker", "b", "app"],
+    );
   } finally {
     await reset();
   }
