@@ -2,7 +2,7 @@
 bun = "1"
 node = "24"
 deno = "2"
-pnpm = "latest"
+pnpm = "10.33.1"
 
 [tools."github:dahlia/hongdown"]
 version = "0.2.6"
