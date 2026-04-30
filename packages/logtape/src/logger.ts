@@ -807,6 +807,12 @@ export function getLogger(category: string | readonly string[] = []): Logger {
  */
 const globalRootLoggerSymbol = Symbol.for("logtape.rootLogger");
 
+function isMetaLoggerCategory(category: readonly string[]): boolean {
+  return category.length === 2 &&
+    category[0] === "logtape" &&
+    category[1] === "meta";
+}
+
 /**
  * The global root logger registry.
  */
@@ -841,6 +847,21 @@ export class LoggerImpl implements Logger {
     if (typeof category === "string") return rootLogger.getChild(category);
     if (category.length === 0) return rootLogger;
     return rootLogger.getChild(category as readonly [string, ...string[]]);
+  }
+
+  private static getNearestExistingLogger(
+    category: readonly string[],
+  ): LoggerImpl {
+    let logger = LoggerImpl.getLogger();
+    for (const name of category) {
+      const childRef = logger.children[name];
+      const child = childRef instanceof LoggerImpl
+        ? childRef
+        : childRef?.deref();
+      if (child == null) break;
+      logger = child;
+    }
+    return logger;
   }
 
   private constructor(parent: LoggerImpl | null, category: readonly string[]) {
@@ -928,10 +949,12 @@ export class LoggerImpl implements Logger {
     record: Omit<LogRecord, "category"> | LogRecord,
     bypassSinks?: Set<Sink>,
   ): void {
-    const categoryPrefix = getCategoryPrefix();
     const baseCategory = "category" in record
       ? (record as LogRecord).category
       : this.category;
+    const categoryPrefix = isMetaLoggerCategory(baseCategory)
+      ? []
+      : getCategoryPrefix();
     const fullCategory = categoryPrefix.length > 0
       ? [...categoryPrefix, ...baseCategory]
       : baseCategory;
@@ -947,25 +970,31 @@ export class LoggerImpl implements Logger {
       configurable: true,
     };
     const fullRecord = Object.defineProperties({}, descriptors) as LogRecord;
+    const dispatcher = categoryPrefix.length > 0
+      ? LoggerImpl.getNearestExistingLogger(fullCategory)
+      : this;
+    dispatcher.emitResolved(fullRecord, bypassSinks);
+  }
 
+  private emitResolved(record: LogRecord, bypassSinks?: Set<Sink>): void {
     if (
       this.lowestLevel === null ||
-      compareLogLevel(fullRecord.level, this.lowestLevel) < 0 ||
-      !this.filter(fullRecord)
+      compareLogLevel(record.level, this.lowestLevel) < 0 ||
+      !this.filter(record)
     ) {
       return;
     }
-    for (const sink of this.getSinks(fullRecord.level)) {
+    for (const sink of this.getSinks(record.level)) {
       if (bypassSinks?.has(sink)) continue;
       try {
-        sink(fullRecord);
+        sink(record);
       } catch (error) {
         const bypassSinks2 = new Set(bypassSinks);
         bypassSinks2.add(sink);
         metaLogger.log(
           "fatal",
           "Failed to emit a log record to sink {sink}: {error}",
-          { sink, error, record: fullRecord },
+          { sink, error, record },
           bypassSinks2,
         );
       }
