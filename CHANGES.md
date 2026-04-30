@@ -16,14 +16,14 @@ To be released.
      -  Added `TextFormatterOptions.timeZone?: string | null`.
      -  Added support for IANA timezone names (e.g., `"Asia/Seoul"`) and fixed
         UTC offsets (e.g., `"+09:00"`).
-     -  Added `null` behavior for system local timezone and preserved `undefined`
-        default behavior as UTC.
+     -  Added `null` behavior for system local timezone and preserved
+        `undefined` default behavior as UTC.
      -  Updated built-in timestamp formats, including `"rfc3339"`, to reflect
         the configured timezone.
      -  Invalid `timeZone` values now throw `TypeError` at formatter creation.
 
- -  `getAnsiColorFormatter()` now supports timezone control through the inherited
-    `timeZone` option from `TextFormatterOptions`.  [[#140]]
+ -  `getAnsiColorFormatter()` now supports timezone control through the
+    inherited `timeZone` option from `TextFormatterOptions`.  [[#140]]
 
  -  Added `Logger.warn(error, properties)`, `Logger.warning(error, properties)`,
     `Logger.error(error, properties)`, and `Logger.fatal(error, properties)`
@@ -398,8 +398,8 @@ Released on January 15, 2026.
         `YYYY-MM-DD-HH.log` (hourly), `YYYY-WNN.log` (weekly).
      -  Added `TimeRotatingFileSinkOptions.filename` option for custom filename
         patterns.
-     -  Added `TimeRotatingFileSinkOptions.maxAgeMs` option for automatic cleanup
-        of old log files.
+     -  Added `TimeRotatingFileSinkOptions.maxAgeMs` option for automatic
+        cleanup of old log files.
      -  Supports buffering and non-blocking mode like other file sinks.
      -  Added `TimeRotatingFileSinkOptions` interface.
      -  Added `TimeRotationInterval` type.
@@ -687,10 +687,10 @@ Released on December 15, 2025.
  -  Refactored `OpenTelemetrySinkOptions` to a discriminated union type for
     better type safety.
 
-     -  Added `OpenTelemetrySinkProviderOptions` interface for providing a custom
-        `LoggerProvider` (recommended for production use).
-     -  Added `OpenTelemetrySinkExporterOptions` interface for automatic exporter
-        creation based on environment variables.
+     -  Added `OpenTelemetrySinkProviderOptions` interface for providing a
+        custom `LoggerProvider` (recommended for production use).
+     -  Added `OpenTelemetrySinkExporterOptions` interface for automatic
+        exporter creation based on environment variables.
      -  `loggerProvider` and exporter options (`serviceName`,
         `otlpExporterConfig`) are now mutually exclusive at the type level.
 
@@ -727,12 +727,14 @@ Released on December 15, 2025.
  -  Enhanced Sentry sink with modern observability features including automatic
     trace correlation, breadcrumbs, and structured logging support.  [[#90]]
 
-     -  The `getSentrySink()` function now accepts an optional `SentrySinkOptions`
-        object instead of a Sentry client instance. The old pattern
-        `getSentrySink(getClient())` still works with a deprecation warning.
+     -  The `getSentrySink()` function now accepts an optional
+        `SentrySinkOptions` object instead of a Sentry client instance. The old
+        pattern `getSentrySink(getClient())` still works with a deprecation
+        warning.
      -  Added automatic trace correlation with active Sentry spans (`trace_id`,
         `span_id` context).
-     -  Added `enableBreadcrumbs` option to create breadcrumbs for all log events.
+     -  Added `enableBreadcrumbs` option to create breadcrumbs for all log
+        events.
      -  Added `beforeSend` hook to transform or filter records before sending.
      -  Added automatic structured logging support via Sentry's Logs API (SDK
         v9.41.0+ with `enableLogs: true`).
@@ -1202,7 +1204,8 @@ Released on June 22, 2025.
         background flushing for file sinks.
      -  Default flush interval is 100ms for console/stream sinks.
      -  Console sink returns `Sink & Disposable` in non-blocking mode.
-     -  Stream and file sinks return `Sink & AsyncDisposable` in non-blocking mode.
+     -  Stream and file sinks return `Sink & AsyncDisposable` in non-blocking
+        mode.
      -  Buffer-full flushes are now asynchronous (non-blocking) instead of
         synchronous to maintain performance during high-volume logging.
      -  Console and stream sinks include automatic buffer overflow protection
@@ -1216,16 +1219,17 @@ Released on June 22, 2025.
 
      -  Added `StreamFileSinkOptions` interface for configuring stream-based
         file sink behavior.
-     -  Uses PassThrough streams piped to WriteStreams for optimal I/O performance
-        with automatic backpressure management and non-blocking writes.
+     -  Uses PassThrough streams piped to WriteStreams for optimal I/O
+        performance with automatic backpressure management and non-blocking
+        writes.
      -  Optimized for high-volume logging scenarios with superior throughput
         compared to standard file sinks.
      -  Simple configuration with `highWaterMark` (default: 16384 bytes) and
         optional custom `formatter` options.
      -  Automatic stream cleanup and proper resource disposal via `Disposable`
         interface.
-     -  Ideal for production applications requiring high-performance file logging
-        without complex buffering configuration.
+     -  Ideal for production applications requiring high-performance file
+        logging without complex buffering configuration.
 
  -  Added `fromAsyncSink()` function to convert async sinks to regular sinks
     with proper async handling.
@@ -1286,8 +1290,9 @@ Released on June 22, 2025.
         for enhanced readability.
      -  Provides optional timestamp display, custom icons, color control, and
         flexible layout options.
-     -  Supports multiple text styles combination (e.g., `["bold", "underline"]`)
-        for level, category, message, and timestamp formatting.
+     -  Supports multiple text styles combination (e.g.,
+        `["bold", "underline"]`) for level, category, message, and timestamp
+        formatting.
      -  Includes word wrapping feature with proper indentation alignment
         to maintain visual consistency for long messages.
      -  Optimized for development environments with focus on visual clarity

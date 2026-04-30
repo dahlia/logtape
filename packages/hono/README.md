@@ -77,7 +77,8 @@ The middleware supports Morgan-compatible predefined formats:
 
  -  `"combined"`: Apache Combined Log Format with all properties (default)
  -  `"common"`: Apache Common Log Format (without referrer/userAgent)
- -  `"dev"`: Concise output for development (e.g., `GET /path 200 1.234 ms - 123`)
+ -  `"dev"`: Concise output for development (e.g.,
+    `GET /path 200 1.234 ms - 123`)
  -  `"short"`: Shorter format with remote address
  -  `"tiny"`: Minimal output
 

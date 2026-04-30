@@ -464,8 +464,8 @@ Best practices
     your categories to make filtering and management easier.
 3.  *Configure for different environments*: Have different configurations for
     development, testing, and production.
-4.  *Don't overuse [filters](./filters.md)*: While powerful, too many filters can
-    make your logging system complex and hard to maintain.
+4.  *Don't overuse [filters](./filters.md)*: While powerful, too many filters
+    can make your logging system complex and hard to maintain.
 5.  *Monitor performance*: Be mindful of the performance impact of your logging,
     especially in production environments.
 

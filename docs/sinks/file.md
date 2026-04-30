@@ -238,7 +238,8 @@ period, making it easier to find logs from specific time ranges.
 
 Unlike the size-based rotating file sink, the time-based version:
 
-1.  Creates new log files at specified time intervals (hourly, daily, or weekly).
+1.  Creates new log files at specified time intervals (hourly, daily, or
+    weekly).
 2.  Names files based on the date/time they cover.
 3.  Can automatically delete old log files based on age.
 

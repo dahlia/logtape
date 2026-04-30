@@ -114,8 +114,9 @@ When adding a new package to the workspace:
      -  Add to `workspace:` array in root *deno.json*
 3.  Configure dependencies using the dual dependency management system
 4.  Update documentation:
-     -  Add JSR ref configuration and register it in *docs/.vitepress/config.mts*
-        (add to both the `jsrRef_*` variables and the `REFERENCES` constant)
+     -  Add JSR ref configuration and register it in
+        *docs/.vitepress/config.mts* (add to both the `jsrRef_*` variables and
+        the `REFERENCES` constant)
      -  Add the package to the packages table in the root *README.md*
 
 

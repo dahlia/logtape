@@ -145,7 +145,8 @@ branches and eventually to `main`.
         changelog entries from the merged tag's version into the current
         branch's unreleased version section.  The entries should be:
 
-         -  Grouped by package (e.g., `### @logtape/logtape`, `### @logtape/file`)
+         -  Grouped by package (e.g., `### @logtape/logtape`,
+            `### @logtape/file`)
          -  Inserted *above* any existing entries in each package section
          -  Issue/PR reference definitions (e.g., `[#123]: ...`) should not
             be duplicated if they already exist
@@ -424,7 +425,8 @@ Checklist summary
  -  [ ] Push tag and branch
  -  [ ] Cascade merge to newer maintenance branches (if any):
      -  [ ] Merge tag into newer branch
-     -  [ ] Copy changelog entries to unreleased version (above existing entries)
+     -  [ ] Copy changelog entries to unreleased version (above existing
+        entries)
      -  [ ] Run tests and complete merge commit
      -  [ ] Create patch release for that branch
  -  [ ] Merge to `main` (if no newer maintenance branches)
