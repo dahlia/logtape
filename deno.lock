@@ -3865,6 +3865,18 @@
           ]
         }
       },
+      "packages/adaptor-bunyan": {
+        "dependencies": [
+          "npm:@types/bunyan@^1.8.11",
+          "npm:bunyan@^1.8.15"
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/bunyan@^1.8.11",
+            "npm:bunyan@^1.8.15"
+          ]
+        }
+      },
       "packages/adaptor-log4js": {
         "packageJson": {
           "dependencies": [

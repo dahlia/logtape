@@ -15,118 +15,48 @@ const jsrRefVersion =
     ? "stable"
     : "unstable";
 
-const jsrRef_logtape = await jsrRef({
-  package: "@logtape/logtape",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache.json",
-});
+const jsrRefPackages: readonly (readonly [string, string])[] = [
+  ["@logtape/logtape", ".jsr-cache.json"],
+  ["@logtape/adaptor-bunyan", ".jsr-cache-adaptor-bunyan.json"],
+  ["@logtape/adaptor-log4js", ".jsr-cache-adaptor-log4js.json"],
+  ["@logtape/adaptor-pino", ".jsr-cache-adaptor-pino.json"],
+  ["@logtape/adaptor-winston", ".jsr-cache-adaptor-winston.json"],
+  ["@logtape/cloudwatch-logs", ".jsr-cache-cloudwatch-logs.json"],
+  ["@logtape/config", ".jsr-cache-config.json"],
+  ["@logtape/drizzle-orm", ".jsr-cache-drizzle-orm.json"],
+  ["@logtape/elysia", ".jsr-cache-elysia.json"],
+  ["@logtape/express", ".jsr-cache-express.json"],
+  ["@logtape/fastify", ".jsr-cache-fastify.json"],
+  ["@logtape/file", ".jsr-cache-file.json"],
+  ["@logtape/hono", ".jsr-cache-hono.json"],
+  ["@logtape/koa", ".jsr-cache-koa.json"],
+  ["@logtape/otel", ".jsr-cache-otel.json"],
+  ["@logtape/pretty", ".jsr-cache-pretty.json"],
+  ["@logtape/redaction", ".jsr-cache-redaction.json"],
+  ["@logtape/sentry", ".jsr-cache-sentry.json"],
+  ["@logtape/syslog", ".jsr-cache-syslog.json"],
+  ["@logtape/windows-eventlog", ".jsr-cache-windows-eventlog.json"],
+];
 
-const jsrRef_config = await jsrRef({
-  package: "@logtape/config",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-config.json",
-});
+const jsrRefSettled = await Promise.allSettled(
+  jsrRefPackages.map(([packageName, cachePath]) =>
+    jsrRef({
+      package: packageName,
+      version: jsrRefVersion,
+      cachePath,
+    })
+  ),
+);
 
-const jsrRef_file = await jsrRef({
-  package: "@logtape/file",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-file.json",
-});
-
-const jsrRef_otel = await jsrRef({
-  package: "@logtape/otel",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-otel.json",
-});
-
-const jsrRef_pretty = await jsrRef({
-  package: "@logtape/pretty",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-pretty.json",
-});
-
-const jsrRef_redaction = await jsrRef({
-  package: "@logtape/redaction",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-redaction.json",
-});
-
-const jsrRef_sentry = await jsrRef({
-  package: "@logtape/sentry",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-sentry.json",
-});
-
-const jsrRef_syslog = await jsrRef({
-  package: "@logtape/syslog",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-syslog.json",
-});
-
-const jsrRef_cloudwatch_logs = await jsrRef({
-  package: "@logtape/cloudwatch-logs",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-cloudwatch-logs.json",
-});
-
-const jsrRef_windows_eventlog = await jsrRef({
-  package: "@logtape/windows-eventlog",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-windows-eventlog.json",
-});
-
-const jsrRef_adaptor_log4js = await jsrRef({
-  package: "@logtape/adaptor-log4js",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-adaptor-log4js.json",
-});
-
-const jsrRef_adaptor_pino = await jsrRef({
-  package: "@logtape/adaptor-pino",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-adaptor-pino.json",
-});
-
-const jsrRef_adaptor_winston = await jsrRef({
-  package: "@logtape/adaptor-winston",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-adaptor-winston.json",
-});
-
-const jsrRef_drizzle_orm = await jsrRef({
-  package: "@logtape/drizzle-orm",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-drizzle-orm.json",
-});
-
-const jsrRef_express = await jsrRef({
-  package: "@logtape/express",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-express.json",
-});
-
-const jsrRef_fastify = await jsrRef({
-  package: "@logtape/fastify",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-fastify.json",
-});
-
-const jsrRef_hono = await jsrRef({
-  package: "@logtape/hono",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-hono.json",
-});
-
-const jsrRef_koa = await jsrRef({
-  package: "@logtape/koa",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-koa.json",
-});
-
-const jsrRef_elysia = await jsrRef({
-  package: "@logtape/elysia",
-  version: jsrRefVersion,
-  cachePath: ".jsr-cache-elysia.json",
+const jsrRefPlugins = jsrRefSettled.flatMap((result, index) => {
+  if (result.status === "fulfilled") return [result.value];
+  const [packageName] = jsrRefPackages[index];
+  console.warn(
+    `[markdown-it-jsr-ref] Failed to load references for ${packageName}; ` +
+      `affected JSR doc links will render as plain code. ` +
+      `Reason: ${result.reason}`,
+  );
+  return [];
 });
 
 let extraNav: { text: string; link: string }[] = [];
@@ -199,6 +129,14 @@ const REFERENCES = {
   items: [
     { text: "@logtape/logtape", link: "https://jsr.io/@logtape/logtape/doc" },
     { text: "@logtape/config", link: "https://jsr.io/@logtape/config/doc" },
+    {
+      text: "@logtape/adaptor-bunyan",
+      link: "https://jsr.io/@logtape/adaptor-bunyan/doc",
+    },
+    {
+      text: "@logtape/adaptor-log4js",
+      link: "https://jsr.io/@logtape/adaptor-log4js/doc",
+    },
     {
       text: "@logtape/adaptor-pino",
       link: "https://jsr.io/@logtape/adaptor-pino/doc",
@@ -326,25 +264,9 @@ export default defineConfig({
       md.use(deflist);
       md.use(footnote);
       md.use(groupIconMdPlugin);
-      md.use(jsrRef_logtape);
-      md.use(jsrRef_config);
-      md.use(jsrRef_file);
-      md.use(jsrRef_otel);
-      md.use(jsrRef_pretty);
-      md.use(jsrRef_redaction);
-      md.use(jsrRef_sentry);
-      md.use(jsrRef_syslog);
-      md.use(jsrRef_cloudwatch_logs);
-      md.use(jsrRef_windows_eventlog);
-      md.use(jsrRef_adaptor_log4js);
-      md.use(jsrRef_adaptor_pino);
-      md.use(jsrRef_adaptor_winston);
-      md.use(jsrRef_drizzle_orm);
-      md.use(jsrRef_express);
-      md.use(jsrRef_fastify);
-      md.use(jsrRef_hono);
-      md.use(jsrRef_koa);
-      md.use(jsrRef_elysia);
+      for (const plugin of jsrRefPlugins) {
+        md.use(plugin);
+      }
     },
   },
   sitemap: {
