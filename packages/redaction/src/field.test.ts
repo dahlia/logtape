@@ -45,6 +45,12 @@ test("shouldFieldRedacted()", () => {
       true,
     );
   }
+
+  { // immutable RegExp
+    const pattern = /password/;
+    Object.freeze(pattern);
+    assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
+  }
 });
 
 test("shouldFieldRedacted() is repeatable for generated stateful regexes", () => {
@@ -56,6 +62,23 @@ test("shouldFieldRedacted() is repeatable for generated stateful regexes", () =>
       assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
       assert.strictEqual(pattern.lastIndex, 0);
     }),
+  );
+});
+
+test("shouldFieldRedacted() does not mutate generated regex state", () => {
+  fc.assert(
+    fc.property(
+      fieldNameArb,
+      fc.constantFrom("g", "y"),
+      fc.integer({ min: 1, max: 100 }),
+      (field, flag, lastIndex) => {
+        const pattern = new RegExp(escapeRegExp(field), flag);
+        pattern.lastIndex = lastIndex;
+
+        assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
+        assert.strictEqual(pattern.lastIndex, lastIndex);
+      },
+    ),
   );
 });
 

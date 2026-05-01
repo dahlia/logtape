@@ -277,9 +277,8 @@ export function shouldFieldRedacted(
     if (typeof fieldPattern === "string") {
       if (fieldPattern === field) return true;
     } else {
-      fieldPattern.lastIndex = 0;
-      const matched = fieldPattern.test(field);
-      fieldPattern.lastIndex = 0;
+      const pattern = new RegExp(fieldPattern);
+      const matched = pattern.test(field);
       if (matched) return true;
     }
   }
