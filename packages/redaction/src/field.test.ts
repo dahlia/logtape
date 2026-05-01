@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import {
   type FieldPatterns,
@@ -7,6 +8,13 @@ import {
   redactProperties,
   shouldFieldRedacted,
 } from "./field.ts";
+
+const fieldNameArb = fc.stringMatching(/^[A-Za-z0-9_]*$/).map((name) =>
+  `field${name}`
+);
+const publicFieldNameArb = fc.stringMatching(/^[A-Za-z0-9_]*$/).map((name) =>
+  `public${name}`
+);
 
 test("shouldFieldRedacted()", () => {
   { // matches string pattern
@@ -37,6 +45,27 @@ test("shouldFieldRedacted()", () => {
       true,
     );
   }
+});
+
+test("shouldFieldRedacted() is repeatable for generated stateful regexes", () => {
+  fc.assert(
+    fc.property(fieldNameArb, fc.constantFrom("g", "y"), (field, flag) => {
+      const pattern = new RegExp(escapeRegExp(field), flag);
+
+      assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
+      assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
+      assert.strictEqual(pattern.lastIndex, 0);
+    }),
+  );
+});
+
+test("shouldFieldRedacted() matches generated exact field names", () => {
+  fc.assert(
+    fc.property(fieldNameArb, publicFieldNameArb, (field, otherField) => {
+      assert.strictEqual(shouldFieldRedacted(field, [field]), true);
+      assert.strictEqual(shouldFieldRedacted(otherField, [field]), false);
+    }),
+  );
 });
 
 test("redactProperties()", () => {
@@ -332,6 +361,50 @@ test("redactProperties()", () => {
       "[REDACTED]",
     );
   }
+});
+
+test("redactProperties() deletes generated matching fields", () => {
+  fc.assert(
+    fc.property(
+      fieldNameArb,
+      publicFieldNameArb,
+      fc.jsonValue(),
+      fc.jsonValue(),
+      (sensitiveField, publicField, sensitiveValue, publicValue) => {
+        const properties = {
+          [sensitiveField]: sensitiveValue,
+          [publicField]: publicValue,
+        };
+
+        const result = redactProperties(properties, {
+          fieldPatterns: [sensitiveField],
+        });
+
+        assert.ok(!(sensitiveField in result));
+        assert.deepStrictEqual(result[publicField], publicValue);
+      },
+    ),
+  );
+});
+
+test("redactProperties() applies generated replacement actions", () => {
+  fc.assert(
+    fc.property(fieldNameArb, fc.jsonValue(), fc.string(), (
+      sensitiveField,
+      sensitiveValue,
+      replacement,
+    ) => {
+      const result = redactProperties(
+        { [sensitiveField]: sensitiveValue },
+        {
+          fieldPatterns: [sensitiveField],
+          action: () => replacement,
+        },
+      );
+
+      assert.deepStrictEqual(result, { [sensitiveField]: replacement });
+    }),
+  );
 });
 
 test("redactByField()", async () => {
@@ -798,3 +871,7 @@ test("redactByField()", async () => {
     assert.strictEqual(messageObj.secret, "[REDACTED]");
   }
 });
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

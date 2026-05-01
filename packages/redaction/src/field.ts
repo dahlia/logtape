@@ -260,7 +260,10 @@ export function shouldFieldRedacted(
     if (typeof fieldPattern === "string") {
       if (fieldPattern === field) return true;
     } else {
-      if (fieldPattern.test(field)) return true;
+      fieldPattern.lastIndex = 0;
+      const matched = fieldPattern.test(field);
+      fieldPattern.lastIndex = 0;
+      if (matched) return true;
     }
   }
   return false;

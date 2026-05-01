@@ -54,6 +54,14 @@ To be released.
  -  Added `timeZone` support to `getPrettyFormatter()` for timestamp rendering,
     aligned with `@logtape/logtape` formatter semantics.  [[#140]]
 
+### @logtape/redaction
+
+ -  Fixed `redactByField()` and `shouldFieldRedacted()` so field patterns using
+    global or sticky regular expressions produce consistent results across
+    repeated records.  [[#155]]
+
+[#155]: https://github.com/dahlia/logtape/pull/155
+
 ### @logtape/hono
 
  -  Changed the `HonoContext` interface to extend Hono's `Context` so custom

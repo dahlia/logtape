@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import type {
   ConsoleFormatter,
   LogRecord,
@@ -14,6 +15,14 @@ import {
   type RedactionPattern,
   US_SSN_PATTERN,
 } from "./pattern.ts";
+
+const emailPartArb = fc.stringMatching(/^[A-Za-z0-9_]*$/).map((part) =>
+  `user${part}`
+);
+const domainPartArb = fc.stringMatching(/^[A-Za-z0-9-]*$/).map((part) =>
+  `domain${part}x`
+);
+const digitArb = fc.integer({ min: 0, max: 9 }).map(String);
 
 test("EMAIL_ADDRESS_PATTERN", () => {
   const { pattern, replacement } = EMAIL_ADDRESS_PATTERN;
@@ -66,6 +75,25 @@ test("EMAIL_ADDRESS_PATTERN", () => {
   );
 });
 
+test("EMAIL_ADDRESS_PATTERN redacts generated email addresses", () => {
+  fc.assert(
+    fc.property(emailPartArb, domainPartArb, domainPartArb, (
+      localPart,
+      domain,
+      tld,
+    ) => {
+      const email = `${localPart}@${domain}.${tld}`;
+      const output = `Contact ${email}`.replaceAll(
+        EMAIL_ADDRESS_PATTERN.pattern,
+        EMAIL_ADDRESS_PATTERN.replacement as string,
+      );
+
+      assert.strictEqual(output.includes(email), false);
+      assert.strictEqual(output, "Contact REDACTED@EMAIL.ADDRESS");
+    }),
+  );
+});
+
 test("CREDIT_CARD_NUMBER_PATTERN", () => {
   const { pattern, replacement } = CREDIT_CARD_NUMBER_PATTERN;
 
@@ -90,6 +118,25 @@ test("CREDIT_CARD_NUMBER_PATTERN", () => {
       replacement as string,
     ),
     "Cards: XXXX-XXXX-XXXX-XXXX and XXXX-XXXX-XXXX-XXXX",
+  );
+});
+
+test("CREDIT_CARD_NUMBER_PATTERN redacts generated dashed card numbers", () => {
+  fc.assert(
+    fc.property(
+      fc.array(digitArb, { minLength: 16, maxLength: 16 }),
+      (digits) => {
+        const card = `${digits.slice(0, 4).join("")}-${
+          digits.slice(4, 8).join("")
+        }-${digits.slice(8, 12).join("")}-${digits.slice(12).join("")}`;
+        const output = `Card ${card}`.replaceAll(
+          CREDIT_CARD_NUMBER_PATTERN.pattern,
+          CREDIT_CARD_NUMBER_PATTERN.replacement as string,
+        );
+
+        assert.strictEqual(output, "Card XXXX-XXXX-XXXX-XXXX");
+      },
+    ),
   );
 });
 
@@ -237,6 +284,22 @@ test("redactByPattern(TextFormatter)", () => {
       TypeError,
     );
   }
+});
+
+test("redactByPattern(TextFormatter) redacts generated text output", () => {
+  fc.assert(
+    fc.property(emailPartArb, domainPartArb, domainPartArb, (
+      localPart,
+      domain,
+      tld,
+    ) => {
+      const email = `${localPart}@${domain}.${tld}`;
+      const formatter: TextFormatter = () => `Email: ${email}`;
+      const redacted = redactByPattern(formatter, [EMAIL_ADDRESS_PATTERN]);
+
+      assert.strictEqual(redacted(record()), "Email: REDACTED@EMAIL.ADDRESS");
+    }),
+  );
 });
 
 test("redactByPattern(ConsoleFormatter)", () => {
@@ -477,3 +540,14 @@ test("redactByPattern(ConsoleFormatter)", () => {
     );
   }
 });
+
+function record(): LogRecord {
+  return {
+    level: "info",
+    category: ["test"],
+    message: ["message"],
+    rawMessage: "message",
+    timestamp: 0,
+    properties: {},
+  };
+}
