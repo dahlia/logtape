@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import { parseModuleReference } from "./parser.ts";
+
+const referencePartArb = fc.stringMatching(/^[A-Za-z0-9_./@-]*$/);
 
 test("parseModuleReference()", () => {
   // Shorthands
@@ -50,4 +53,57 @@ test("parseModuleReference()", () => {
     exportName: "custom",
     isFactory: true,
   });
+});
+
+test("parseModuleReference() parses generated shorthand references", () => {
+  fc.assert(
+    fc.property(referencePartArb, fc.boolean(), (name, isFactory) => {
+      const reference = `#${name}${isFactory ? "()" : ""}`;
+
+      assert.deepStrictEqual(parseModuleReference(reference), {
+        isShorthand: true,
+        shorthandName: name,
+        isFactory,
+      });
+    }),
+  );
+});
+
+test("parseModuleReference() parses generated named exports", () => {
+  fc.assert(
+    fc.property(
+      referencePartArb.map((path) => `./module${path}`),
+      referencePartArb.map((name) => `export${name}`),
+      fc.boolean(),
+      (modulePath, exportName, isFactory) => {
+        const reference = `${modulePath}#${exportName}${isFactory ? "()" : ""}`;
+
+        assert.deepStrictEqual(parseModuleReference(reference), {
+          isShorthand: false,
+          modulePath,
+          exportName,
+          isFactory,
+        });
+      },
+    ),
+  );
+});
+
+test("parseModuleReference() parses generated default exports", () => {
+  fc.assert(
+    fc.property(
+      referencePartArb.map((path) => `./module${path}`),
+      fc.boolean(),
+      (modulePath, isFactory) => {
+        const reference = `${modulePath}${isFactory ? "()" : ""}`;
+
+        assert.deepStrictEqual(parseModuleReference(reference), {
+          isShorthand: false,
+          modulePath,
+          exportName: "default",
+          isFactory,
+        });
+      },
+    ),
+  );
 });
