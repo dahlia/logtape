@@ -125,6 +125,23 @@ const sink3 = getBunyanSink(logger, {
 ~~~~
 
 
+Customizing interpolated value formatting
+-----------------------------------------
+
+By default the adapter renders interpolated values in the message template
+with `node:util.inspect()` (`breakLength: Infinity`).  Provide a
+`valueFormatter` to override that — for example, to use `JSON.stringify`
+or a redaction-aware serializer:
+
+~~~~ typescript
+import { getBunyanSink } from "@logtape/adaptor-bunyan";
+
+const sink = getBunyanSink(logger, {
+  valueFormatter: (value) => JSON.stringify(value),
+});
+~~~~
+
+
 Properties and Bunyan reserved fields
 -------------------------------------
 

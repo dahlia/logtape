@@ -55,6 +55,18 @@ export interface BunyanSinkOptions {
    * - `CategoryOptions`: Custom category formatting configuration
    */
   readonly category?: boolean | CategoryOptions;
+
+  /**
+   * A function that converts an interpolated value in the message template
+   * to a string.  By default, values are formatted with
+   * `node:util#inspect()` using `breakLength: Infinity` so each value
+   * appears on a single line in the rendered `msg` field.
+   *
+   * Supply a custom formatter to use, for example, `JSON.stringify`,
+   * a redaction-aware serializer, or any other strategy.
+   * @default `(value) => inspect(value, { breakLength: Infinity })`
+   */
+  readonly valueFormatter?: (value: unknown) => string;
 }
 
 /**
@@ -93,13 +105,20 @@ export interface CategoryOptions {
   readonly decorator?: "[]" | "()" | "<>" | "{}" | ":" | "-" | "|" | "/" | "";
 }
 
-function renderMessage(parts: readonly (string | unknown)[]): string {
+function defaultValueFormatter(value: unknown): string {
+  return inspect(value, { breakLength: Infinity });
+}
+
+function renderMessage(
+  parts: readonly (string | unknown)[],
+  valueFormatter: (value: unknown) => string,
+): string {
   let rendered = "";
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
       rendered += parts[i] as string;
     } else {
-      rendered += inspect(parts[i], { breakLength: Infinity });
+      rendered += valueFormatter(parts[i]);
     }
   }
   return rendered;
@@ -213,6 +232,7 @@ export function getBunyanSink(
       position: categoryOptions.position ?? "start",
       decorator: categoryOptions.decorator ?? ":",
     };
+  const valueFormatter = options.valueFormatter ?? defaultValueFormatter;
   return (record: LogRecord) => {
     let message = "";
     if (category != null && record.category.length > 0) {
@@ -220,12 +240,12 @@ export function getBunyanSink(
       if (category.position === "start") {
         message += decorateCategoryStart(joined, category.decorator);
       }
-      message += renderMessage(record.message);
+      message += renderMessage(record.message, valueFormatter);
       if (category.position === "end") {
         message += decorateCategoryEnd(joined, category.decorator);
       }
     } else {
-      message = renderMessage(record.message);
+      message = renderMessage(record.message, valueFormatter);
     }
     const properties = record.properties as Record<string, unknown>;
     switch (record.level) {

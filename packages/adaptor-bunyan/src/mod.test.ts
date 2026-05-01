@@ -225,6 +225,23 @@ test("install(): forwards options to getBunyanSink", () => {
   }
 });
 
+test("getBunyanSink(): valueFormatter customizes interpolation", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const sink = getBunyanSink(logger, {
+    valueFormatter: (v) => JSON.stringify(v),
+  });
+  sink({
+    category: ["test"],
+    level: "info",
+    message: ["User ", { id: 7, name: "Ada" }, " signed in"],
+    properties: {},
+    rawMessage: "User {user} signed in",
+    timestamp: Date.now(),
+  });
+  assert.strictEqual(buffer.length, 1);
+  assert.strictEqual(buffer[0].msg, 'User {"id":7,"name":"Ada"} signed in');
+});
+
 test("getBunyanSink(): empty category arrays are skipped", () => {
   const { logger, buffer } = createLoggerWithBuffer();
   const sink = getBunyanSink(logger, {
