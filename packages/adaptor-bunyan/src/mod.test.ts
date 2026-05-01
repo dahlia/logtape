@@ -54,3 +54,35 @@ test("getBunyanSink(): basic scenario", () => {
   assert.ok(recordTimeMs >= before);
   assert.ok(recordTimeMs <= after);
 });
+
+test("getBunyanSink(): log level mappings", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const sink = getBunyanSink(logger);
+  const cases = [
+    { level: "trace", expected: 10 },
+    { level: "debug", expected: 20 },
+    { level: "info", expected: 30 },
+    { level: "warning", expected: 40 },
+    { level: "error", expected: 50 },
+    { level: "fatal", expected: 60 },
+  ] as const;
+  for (const { level } of cases) {
+    sink({
+      category: ["test"],
+      level,
+      message: [`${level} message`],
+      properties: {},
+      rawMessage: `${level} message`,
+      timestamp: Date.now(),
+    });
+  }
+  assert.equal(buffer.length, cases.length);
+  for (let i = 0; i < cases.length; i++) {
+    assert.equal(
+      buffer[i].level,
+      cases[i].expected,
+      `Level mapping failed for ${cases[i].level}`,
+    );
+    assert.equal(buffer[i].msg, `${cases[i].level} message`);
+  }
+});
