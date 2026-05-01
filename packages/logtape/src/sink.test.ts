@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import makeConsoleMock from "consolemock";
+import fc from "fast-check";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
-import type { LogLevel } from "./level.ts";
+import { compareLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 import {
   type AsyncSink,
@@ -16,6 +17,15 @@ import {
   withFilter,
 } from "./sink.ts";
 
+const logLevelArb = fc.constantFrom<LogLevel>(
+  "trace",
+  "debug",
+  "info",
+  "warning",
+  "error",
+  "fatal",
+);
+
 test("withFilter()", () => {
   const buffer: LogRecord[] = [];
   const sink = withFilter(buffer.push.bind(buffer), "warning");
@@ -26,6 +36,29 @@ test("withFilter()", () => {
   sink(error);
   sink(fatal);
   assert.deepStrictEqual(buffer, [warning, error, fatal]);
+});
+
+test("withFilter() forwards generated records accepted by level filters", () => {
+  fc.assert(
+    fc.property(
+      logLevelArb,
+      fc.array(logLevelArb),
+      (minimum, levels) => {
+        const buffer: LogRecord[] = [];
+        const sink = withFilter(buffer.push.bind(buffer), minimum);
+        const records = levels.map(recordWithLevel);
+
+        for (const record of records) sink(record);
+
+        assert.deepStrictEqual(
+          buffer,
+          records.filter((record) =>
+            compareLogLevel(record.level, minimum) >= 0
+          ),
+        );
+      },
+    ),
+  );
 });
 
 interface ConsoleMock extends Console {
@@ -2770,3 +2803,14 @@ test("fingersCrossed() - bufferLevel preserves chronological order on flush", ()
   // info records passed through first, then buffered records flushed, then trigger
   assert.deepStrictEqual(buffer, [t2, t4, t1, t3, t5]);
 });
+
+function recordWithLevel(level: LogLevel): LogRecord {
+  return {
+    level,
+    category: ["test"],
+    message: ["message"],
+    rawMessage: "message",
+    timestamp: 0,
+    properties: {},
+  };
+}

@@ -161,6 +161,25 @@ test("US_SSN_PATTERN", () => {
   );
 });
 
+test("US_SSN_PATTERN redacts generated Social Security numbers", () => {
+  fc.assert(
+    fc.property(
+      fc.array(digitArb, { minLength: 9, maxLength: 9 }),
+      (digits) => {
+        const ssn = `${digits.slice(0, 3).join("")}-${
+          digits.slice(3, 5).join("")
+        }-${digits.slice(5).join("")}`;
+        const output = `SSN ${ssn}`.replaceAll(
+          US_SSN_PATTERN.pattern,
+          US_SSN_PATTERN.replacement as string,
+        );
+
+        assert.strictEqual(output, "SSN XXX-XX-XXXX");
+      },
+    ),
+  );
+});
+
 test("KR_RRN_PATTERN", () => {
   const { pattern, replacement } = KR_RRN_PATTERN;
 
@@ -179,6 +198,25 @@ test("KR_RRN_PATTERN", () => {
       replacement as string,
     ),
     "RRNs: XXXXXX-XXXXXXX and XXXXXX-XXXXXXX",
+  );
+});
+
+test("KR_RRN_PATTERN redacts generated resident registration numbers", () => {
+  fc.assert(
+    fc.property(
+      fc.array(digitArb, { minLength: 13, maxLength: 13 }),
+      (digits) => {
+        const rrn = `${digits.slice(0, 6).join("")}-${
+          digits.slice(6).join("")
+        }`;
+        const output = `RRN ${rrn}`.replaceAll(
+          KR_RRN_PATTERN.pattern,
+          KR_RRN_PATTERN.replacement as string,
+        );
+
+        assert.strictEqual(output, "RRN XXXXXX-XXXXXXX");
+      },
+    ),
   );
 });
 
@@ -202,6 +240,26 @@ test("JWT_PATTERN", () => {
       replacement as string,
     ),
     "First: [JWT REDACTED], Second: [JWT REDACTED]",
+  );
+});
+
+test("JWT_PATTERN redacts generated JSON Web Tokens", () => {
+  const jwtPartArb = fc.stringMatching(/^[A-Za-z0-9_-]*$/);
+
+  fc.assert(
+    fc.property(jwtPartArb, jwtPartArb, jwtPartArb, (
+      header,
+      payload,
+      signature,
+    ) => {
+      const jwt = `eyJ${header}.${payload}.${signature}`;
+      const output = `Token ${jwt}`.replaceAll(
+        JWT_PATTERN.pattern,
+        JWT_PATTERN.replacement as string,
+      );
+
+      assert.strictEqual(output, "Token [JWT REDACTED]");
+    }),
   );
 });
 
