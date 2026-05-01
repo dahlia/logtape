@@ -83,6 +83,7 @@
   "devDependencies": {
     "@alinea/suite": "catalog:",
     "@std/assert": "catalog:",
+    "fast-check": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

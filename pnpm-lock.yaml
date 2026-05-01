@@ -66,6 +66,9 @@ catalogs:
     express:
       specifier: ^5.2.1
       version: 5.2.1
+    fast-check:
+      specifier: ^4.7.0
+      version: 4.7.0
     fastify:
       specifier: ^5.0.0
       version: 5.6.2
@@ -441,6 +444,9 @@ importers:
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.7.0
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -560,6 +566,9 @@ importers:
       '@std/path':
         specifier: 'catalog:'
         version: '@jsr/std__path@1.1.0'
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.7.0
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -628,6 +637,9 @@ importers:
       consolemock:
         specifier: 'catalog:'
         version: 1.1.0
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.7.0
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -696,6 +708,9 @@ importers:
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.7.0
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -715,6 +730,9 @@ importers:
       '@std/assert':
         specifier: 'catalog:'
         version: '@jsr/std__assert@1.0.13'
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.7.0
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)
@@ -2954,6 +2972,10 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
+  fast-check@4.7.0:
+    resolution: {integrity: sha512-NsZRtqvSSoCP0HbNjUD+r1JH8zqZalyp6gLY9e7OYs7NK9b6AHOs2baBFeBG7bVNsuoukh89x2Yg3rPsul8ziQ==}
+    engines: {node: '>=12.17.0'}
+
   fast-decode-uri-component@1.0.1:
     resolution: {integrity: sha512-WKgKWg5eUxvRZGwW8FvfbaH7AXSh2cL+3j5fMGzUMCxWBJ3dV3a7Wz8y2f/uQ0e3B6WmodD3oS54jTQ9HVTIIg==}
 
@@ -3823,6 +3845,9 @@ packages:
   punycode.js@2.3.1:
     resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
     engines: {node: '>=6'}
+
+  pure-rand@8.4.0:
+    resolution: {integrity: sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A==}
 
   qs@6.14.0:
     resolution: {integrity: sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==}
@@ -6890,6 +6915,10 @@ snapshots:
 
   extend@3.0.2: {}
 
+  fast-check@4.7.0:
+    dependencies:
+      pure-rand: 8.4.0
+
   fast-decode-uri-component@1.0.1: {}
 
   fast-deep-equal@3.1.3: {}
@@ -7947,6 +7976,8 @@ snapshots:
       ipaddr.js: 1.9.1
 
   punycode.js@2.3.1: {}
+
+  pure-rand@8.4.0: {}
 
   qs@6.14.0:
     dependencies:

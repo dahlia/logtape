@@ -79,6 +79,7 @@
     "@std/assert": "catalog:",
     "@std/async": "catalog:",
     "consolemock": "catalog:",
+    "fast-check": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

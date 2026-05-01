@@ -44,6 +44,7 @@
     "npm:consolemock@^1.1.0": "1.1.0",
     "npm:elysia@^1.4.0": "1.4.19_@sinclair+typebox@0.34.41_@types+bun@1.2.16_exact-mirror@0.2.5__@sinclair+typebox@0.34.41_file-type@21.1.1_openapi-types@12.1.3",
     "npm:express@^5.2.1": "5.2.1",
+    "npm:fast-check@^4.7.0": "4.7.0",
     "npm:fastify@5": "5.6.2",
     "npm:hongdown@0.1": "0.1.0",
     "npm:hongdown@~0.1.0-dev.37": "0.1.0",
@@ -2121,6 +2122,12 @@
         "vary"
       ]
     },
+    "fast-check@4.7.0": {
+      "integrity": "sha512-NsZRtqvSSoCP0HbNjUD+r1JH8zqZalyp6gLY9e7OYs7NK9b6AHOs2baBFeBG7bVNsuoukh89x2Yg3rPsul8ziQ==",
+      "dependencies": [
+        "pure-rand"
+      ]
+    },
     "fast-decode-uri-component@1.0.1": {
       "integrity": "sha512-WKgKWg5eUxvRZGwW8FvfbaH7AXSh2cL+3j5fMGzUMCxWBJ3dV3a7Wz8y2f/uQ0e3B6WmodD3oS54jTQ9HVTIIg=="
     },
@@ -3254,6 +3261,9 @@
     "punycode.js@2.3.1": {
       "integrity": "sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA=="
     },
+    "pure-rand@8.4.0": {
+      "integrity": "sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A=="
+    },
     "qs@6.14.0": {
       "integrity": "sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==",
       "dependencies": [
@@ -3830,6 +3840,7 @@
       "npm:consolemock@^1.1.0",
       "npm:elysia@^1.4.0",
       "npm:express@^5.2.1",
+      "npm:fast-check@^4.7.0",
       "npm:fastify@5",
       "npm:koa@^2.16.1",
       "npm:tsdown@~0.12.7"
