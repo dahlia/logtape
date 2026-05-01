@@ -1,0 +1,38 @@
+{
+  "name": "@logtape/adaptor-bunyan",
+  "version": "2.1.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "bunyan": "npm:bunyan@^1.8.15",
+    "@types/bunyan": "npm:@types/bunyan@^1.8.11"
+  },
+  "exclude": [
+    "coverage/",
+    "npm/",
+    ".dnt-import-map.json"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-env --allow-sys",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}
