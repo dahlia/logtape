@@ -130,7 +130,7 @@ Customizing interpolated value formatting
 
 By default the adapter renders interpolated values in the message template
 with `node:util.inspect()` (`breakLength: Infinity`).  Provide a
-`valueFormatter` to override that — for example, to use `JSON.stringify`
+`valueFormatter` to override that, for example to use `JSON.stringify`
 or a redaction-aware serializer:
 
 ~~~~ typescript
@@ -151,7 +151,7 @@ the logger to matching top-level fields.
 
 Bunyan reserves a small set of field names (`name`, `hostname`, `pid`,
 `level`, `time`, `msg`, `src`, `v`).  If your LogTape properties happen to
-contain any of these names, Bunyan's normal collision behaviour applies —
+contain any of these names, Bunyan's normal collision behaviour applies, so
 configure your structured property names to avoid conflicts.
 
 
