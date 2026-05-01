@@ -1,9 +1,9 @@
+import { getLogger, resetSync } from "@logtape/logtape";
+import bunyan from "bunyan";
 import assert from "node:assert/strict";
 import os from "node:os";
 import process from "node:process";
 import test from "node:test";
-import bunyan from "bunyan";
-import { getLogger, resetSync } from "@logtape/logtape";
 import { getBunyanSink, install } from "./mod.ts";
 
 interface BunyanRecord {

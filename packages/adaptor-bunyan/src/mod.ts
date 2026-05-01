@@ -1,5 +1,5 @@
-import { inspect } from "node:util";
 import { configureSync, type LogRecord, type Sink } from "@logtape/logtape";
+import { inspect } from "node:util";
 
 /**
  * A structural representation of a [Bunyan] logger sufficient for the
