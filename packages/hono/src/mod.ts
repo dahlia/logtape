@@ -12,6 +12,7 @@ export type { LogLevel } from "@logtape/logtape";
  * needed.
  * @since 1.3.0
  */
+// deno-lint-ignore no-explicit-any
 export interface HonoContext extends Context<any, any, any> {}
 
 /**
