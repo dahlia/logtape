@@ -68,6 +68,7 @@
     "@std/assert": "catalog:",
     "@std/async": "catalog:",
     "@std/path": "catalog:",
+    "fast-check": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

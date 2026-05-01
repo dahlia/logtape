@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
+import { getDisplayWidth } from "./wcwidth.ts";
 import { wrapText } from "./wordwrap.ts";
 
 test("wrapText() should not wrap short text", () => {
@@ -108,4 +110,53 @@ test("wrapText() should break at word boundaries", () => {
     const words = line.trim().split(" ");
     assert.ok(words.every((word) => word.length > 0), "Should not break words");
   }
+});
+
+test("wrapText() should preserve generated text for non-positive widths", () => {
+  fc.assert(
+    fc.property(
+      fc.string(),
+      fc.integer({ max: 0 }),
+      fc.integer(),
+      (text, maxWidth, indentWidth) => {
+        assert.strictEqual(wrapText(text, maxWidth, indentWidth), text);
+      },
+    ),
+  );
+});
+
+test("wrapText() should preserve generated single-line text that fits", () => {
+  fc.assert(
+    fc.property(
+      fc.string().map((text) => text.replace(/\n/g, "")),
+      fc.nat(),
+      fc.integer(),
+      (text, extraWidth, indentWidth) => {
+        const maxWidth = getDisplayWidth(text) + extraWidth;
+
+        assert.strictEqual(wrapText(text, maxWidth, indentWidth), text);
+      },
+    ),
+  );
+});
+
+test("wrapText() should indent generated multiline continuation lines", () => {
+  fc.assert(
+    fc.property(
+      fc.string().map((text) => text.replace(/\n/g, "")),
+      fc.string().map((text) => text.replace(/\n/g, "")),
+      fc.integer({ min: 0, max: 40 }),
+      (first, second, indentWidth) => {
+        const result = wrapText(
+          `${first}\n${second}`,
+          Number.MAX_SAFE_INTEGER,
+          indentWidth,
+        );
+        const lines = result.split("\n");
+
+        assert.strictEqual(lines[0], first);
+        assert.strictEqual(lines[1], `${" ".repeat(indentWidth)}${second}`);
+      },
+    ),
+  );
 });

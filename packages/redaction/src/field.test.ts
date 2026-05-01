@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import {
   type FieldPatterns,
@@ -7,6 +8,13 @@ import {
   redactProperties,
   shouldFieldRedacted,
 } from "./field.ts";
+
+const fieldNameArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9_]*$/,
+).map((name) => `field${name}`);
+const publicFieldNameArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9_]*$/,
+).map((name) => `public${name}`);
 
 test("shouldFieldRedacted()", () => {
   { // matches string pattern
@@ -37,6 +45,56 @@ test("shouldFieldRedacted()", () => {
       true,
     );
   }
+
+  { // immutable RegExp
+    const pattern = /password/;
+    Object.freeze(pattern);
+    assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
+  }
+
+  { // immutable stateful RegExp
+    const pattern = /password/g;
+    Object.freeze(pattern);
+    assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
+  }
+});
+
+test("shouldFieldRedacted() is repeatable for generated stateful regexes", () => {
+  fc.assert(
+    fc.property(fieldNameArb, fc.constantFrom("g", "y"), (field, flag) => {
+      const pattern = new RegExp(escapeRegExp(field), flag);
+
+      assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
+      assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
+      assert.strictEqual(pattern.lastIndex, 0);
+    }),
+  );
+});
+
+test("shouldFieldRedacted() does not mutate generated regex state", () => {
+  fc.assert(
+    fc.property(
+      fieldNameArb,
+      fc.constantFrom("g", "y"),
+      fc.integer({ min: 1, max: 100 }),
+      (field, flag, lastIndex) => {
+        const pattern = new RegExp(escapeRegExp(field), flag);
+        pattern.lastIndex = lastIndex;
+
+        assert.strictEqual(shouldFieldRedacted(field, [pattern]), true);
+        assert.strictEqual(pattern.lastIndex, lastIndex);
+      },
+    ),
+  );
+});
+
+test("shouldFieldRedacted() matches generated exact field names", () => {
+  fc.assert(
+    fc.property(fieldNameArb, publicFieldNameArb, (field, otherField) => {
+      assert.strictEqual(shouldFieldRedacted(field, [field]), true);
+      assert.strictEqual(shouldFieldRedacted(otherField, [field]), false);
+    }),
+  );
 });
 
 test("redactProperties()", () => {
@@ -332,6 +390,67 @@ test("redactProperties()", () => {
       "[REDACTED]",
     );
   }
+
+  { // preserves __proto__ as an own property
+    const properties = Object.create(null) as Record<string, unknown>;
+    properties["__proto__"] = "public";
+    properties["password"] = "secret";
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+    });
+
+    assert.ok(Object.hasOwn(result, "__proto__"));
+    assert.strictEqual(result["__proto__"], "public");
+    assert.strictEqual(
+      Object.getPrototypeOf(result),
+      Object.prototype,
+    );
+  }
+});
+
+test("redactProperties() deletes generated matching fields", () => {
+  fc.assert(
+    fc.property(
+      fieldNameArb,
+      publicFieldNameArb,
+      fc.jsonValue(),
+      fc.jsonValue(),
+      (sensitiveField, publicField, sensitiveValue, publicValue) => {
+        const properties = {
+          [sensitiveField]: sensitiveValue,
+          [publicField]: publicValue,
+        };
+
+        const result = redactProperties(properties, {
+          fieldPatterns: [sensitiveField],
+        });
+
+        assert.ok(!(sensitiveField in result));
+        assert.deepStrictEqual(result[publicField], publicValue);
+      },
+    ),
+  );
+});
+
+test("redactProperties() applies generated replacement actions", () => {
+  fc.assert(
+    fc.property(fieldNameArb, fc.jsonValue(), fc.string(), (
+      sensitiveField,
+      sensitiveValue,
+      replacement,
+    ) => {
+      const result = redactProperties(
+        { [sensitiveField]: sensitiveValue },
+        {
+          fieldPatterns: [sensitiveField],
+          action: () => replacement,
+        },
+      );
+
+      assert.deepStrictEqual(result, { [sensitiveField]: replacement });
+    }),
+  );
 });
 
 test("redactByField()", async () => {
@@ -798,3 +917,7 @@ test("redactByField()", async () => {
     assert.strictEqual(messageObj.secret, "[REDACTED]");
   }
 });
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

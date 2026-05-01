@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getDisplayWidth, wcwidth } from "./wcwidth.ts";
+import fc from "fast-check";
+import { getDisplayWidth, stripAnsi, wcwidth } from "./wcwidth.ts";
 
 test("wcwidth() basic functionality", () => {
   // Control characters should return -1
@@ -55,4 +56,46 @@ test("getDisplayWidth() with CJK characters", () => {
   assert.strictEqual(getDisplayWidth("你好"), 4); // two CJK chars = 4 width
   assert.strictEqual(getDisplayWidth("こんにちは"), 10); // five hiragana = 10 width
   assert.strictEqual(getDisplayWidth("안녕"), 4); // two hangul = 4 width
+});
+
+test("stripAnsi() removes generated SGR escape sequences", () => {
+  fc.assert(
+    fc.property(
+      fc.array(fc.integer({ min: 0, max: 255 })),
+      fc.string(),
+      (codes, text) => {
+        const sequence = `\x1b[${codes.join(";")}m`;
+
+        assert.strictEqual(
+          stripAnsi(`${sequence}${text}\x1b[0m`),
+          stripAnsi(text),
+        );
+      },
+    ),
+  );
+});
+
+test("getDisplayWidth() ignores generated ANSI SGR escape sequences", () => {
+  fc.assert(
+    fc.property(
+      fc.array(fc.integer({ min: 0, max: 255 })),
+      fc.string(),
+      (codes, text) => {
+        const sequence = `\x1b[${codes.join(";")}m`;
+
+        assert.strictEqual(
+          getDisplayWidth(`${sequence}${text}\x1b[0m`),
+          getDisplayWidth(text),
+        );
+      },
+    ),
+  );
+});
+
+test("getDisplayWidth() is never negative for generated strings", () => {
+  fc.assert(
+    fc.property(fc.string(), (text) => {
+      assert.ok(getDisplayWidth(text) >= 0);
+    }),
+  );
 });

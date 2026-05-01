@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import { truncateCategory } from "./truncate.ts";
 
 test("truncateCategory() with no truncation", () => {
@@ -98,5 +99,59 @@ test("truncateCategory() with custom separator", () => {
   assert.deepStrictEqual(
     truncateCategory(category, 10, "::", "middle"),
     "app…http",
+  );
+});
+
+test("truncateCategory() preserves generated categories when disabled", () => {
+  fc.assert(
+    fc.property(
+      fc.array(fc.string()),
+      fc.string(),
+      fc.integer(),
+      (category, separator, maxWidth) => {
+        assert.strictEqual(
+          truncateCategory(category, maxWidth, separator, false),
+          category.join(separator),
+        );
+      },
+    ),
+  );
+});
+
+test("truncateCategory() keeps end-truncated output within width", () => {
+  fc.assert(
+    fc.property(
+      fc.array(fc.string(), { minLength: 1 }),
+      fc.string(),
+      fc.integer({ min: 5 }),
+      (category, separator, maxWidth) => {
+        const result = truncateCategory(category, maxWidth, separator, "end");
+
+        assert.ok(result.length <= maxWidth);
+        if (category.join(separator).length > maxWidth) {
+          assert.ok(result.endsWith("…"));
+        }
+      },
+    ),
+  );
+});
+
+test("truncateCategory() keeps middle-truncated output within width", () => {
+  fc.assert(
+    fc.property(
+      fc.array(fc.string(), { minLength: 1 }),
+      fc.string(),
+      fc.integer({ min: 5 }),
+      (category, separator, maxWidth) => {
+        const result = truncateCategory(
+          category,
+          maxWidth,
+          separator,
+          "middle",
+        );
+
+        assert.ok(result.length <= maxWidth);
+      },
+    ),
   );
 });

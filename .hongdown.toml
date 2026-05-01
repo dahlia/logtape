@@ -4,6 +4,7 @@ exclude = [
   "**/dist/**",
   "**/site-packages/**",
   "**/.git/**",
+  ".{agents,claude}/skills/javascript-testing-expert/SKILL.md",
   "CLAUDE.md",
   "CRUSH.md",
   "GEMINI.md",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
+import fc from "fast-check";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
@@ -1891,6 +1892,36 @@ test("parseMessageTemplate()", () => {
   );
 });
 
+test("parseMessageTemplate() interpolates generated safe identifiers", () => {
+  fc.assert(
+    fc.property(
+      fc.string().map((text) => text.replace(/[{}]/g, "")),
+      fc.stringMatching(/^[A-Za-z0-9_$]*$/).map((key) => `field${key}`),
+      fc.string().map((text) => text.replace(/[{}]/g, "")),
+      fc.jsonValue(),
+      (prefix, key, suffix, value) => {
+        const properties = { [key]: value };
+
+        assert.deepStrictEqual(
+          parseMessageTemplate(`${prefix}{${key}}${suffix}`, properties),
+          [prefix, value, suffix],
+        );
+      },
+    ),
+  );
+});
+
+test("parseMessageTemplate() leaves strings without placeholders intact", () => {
+  fc.assert(
+    fc.property(
+      fc.string().map((text) => text.replace(/[{}]/g, "")),
+      (text) => {
+        assert.deepStrictEqual(parseMessageTemplate(text, {}), [text]);
+      },
+    ),
+  );
+});
+
 test("renderMessage()", () => {
   function rm(tpl: TemplateStringsArray, ...values: unknown[]) {
     return renderMessage(tpl, values);
@@ -1911,6 +1942,25 @@ test("renderMessage()", () => {
     456,
     "",
   ]);
+});
+
+test("renderMessage() preserves generated interpolated values", () => {
+  fc.assert(
+    fc.property(
+      fc.string(),
+      fc.jsonValue(),
+      fc.string(),
+      (prefix, value, suffix) => {
+        const template = [prefix, suffix] as unknown as TemplateStringsArray;
+
+        assert.deepStrictEqual(renderMessage(template, [value]), [
+          prefix,
+          value,
+          suffix,
+        ]);
+      },
+    ),
+  );
 });
 
 test("LogMethod", () => {

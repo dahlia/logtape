@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import { fatal, info } from "./fixtures.ts";
 import {
   ansiColorFormatter,
@@ -10,7 +11,17 @@ import {
   getJsonLinesFormatter,
   getTextFormatter,
 } from "./formatter.ts";
+import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
+
+const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
+  "trace",
+  "debug",
+  "info",
+  "warning",
+  "error",
+  "fatal",
+);
 
 function pad2(value: number): string {
   return value < 10 ? `0${value}` : `${value}`;
@@ -758,6 +769,47 @@ test("getJsonLinesFormatter()", () => {
       prop_requestId: "abc-def",
     });
   }
+});
+
+test("getJsonLinesFormatter() emits parseable JSON lines", () => {
+  fc.assert(
+    fc.property(
+      logLevelArb,
+      fc.array(fc.string()),
+      fc.string(),
+      fc.jsonValue(),
+      fc.integer({ min: 0, max: 8_640_000_000_000_000 }),
+      (level, category, message, properties, timestamp) => {
+        const record: LogRecord = {
+          level,
+          category,
+          message: [message],
+          rawMessage: message,
+          timestamp,
+          properties: { value: properties },
+        };
+
+        const line = getJsonLinesFormatter()(record);
+        const parsed = JSON.parse(line);
+
+        assert.strictEqual(line.endsWith("\n"), true);
+        assert.strictEqual(
+          parsed["@timestamp"],
+          new Date(timestamp).toISOString(),
+        );
+        assert.strictEqual(
+          parsed.level,
+          level === "warning" ? "WARN" : level.toUpperCase(),
+        );
+        assert.strictEqual(parsed.message, message);
+        assert.strictEqual(parsed.logger, category.join("."));
+        assert.deepStrictEqual(
+          parsed.properties,
+          JSON.parse(JSON.stringify({ value: properties })),
+        );
+      },
+    ),
+  );
 });
 
 test("getTextFormatter() with lineEnding option", () => {

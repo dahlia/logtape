@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fc from "fast-check";
 import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
-import type { LogLevel } from "./level.ts";
+import { compareLogLevel, type LogLevel } from "./level.ts";
+
+const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
+  "trace",
+  "debug",
+  "info",
+  "warning",
+  "error",
+  "fatal",
+);
 
 test("getLevelFilter()", () => {
   const noneFilter = getLevelFilter(null);
@@ -68,6 +78,29 @@ test("getLevelFilter()", () => {
   );
 });
 
+test("getLevelFilter() accepts records at or above the minimum level", () => {
+  fc.assert(
+    fc.property(logLevelArb, logLevelArb, (minimum, level) => {
+      const filter = getLevelFilter(minimum);
+
+      assert.strictEqual(
+        filter(recordWithLevel(level)),
+        compareLogLevel(level, minimum) >= 0,
+      );
+    }),
+  );
+});
+
+test("getLevelFilter() rejects every record when level is null", () => {
+  fc.assert(
+    fc.property(logLevelArb, (level) => {
+      const filter = getLevelFilter(null);
+
+      assert.strictEqual(filter(recordWithLevel(level)), false);
+    }),
+  );
+});
+
 test("toFilter()", () => {
   const hasJunk: Filter = (record) => record.category.includes("junk");
   assert.strictEqual(toFilter(hasJunk), hasJunk);
@@ -77,3 +110,27 @@ test("toFilter()", () => {
   assert.ok(infoFilter(info));
   assert.ok(infoFilter(warning));
 });
+
+test("toFilter() accepts records at or above a minimum level", () => {
+  fc.assert(
+    fc.property(logLevelArb, logLevelArb, (minimum, level) => {
+      const filter = toFilter(minimum);
+
+      assert.strictEqual(
+        filter(recordWithLevel(level)),
+        compareLogLevel(level, minimum) >= 0,
+      );
+    }),
+  );
+});
+
+function recordWithLevel(level: LogLevel) {
+  return {
+    level,
+    category: ["test"],
+    message: ["message"],
+    rawMessage: "message",
+    timestamp: 0,
+    properties: {},
+  };
+}
