@@ -224,7 +224,7 @@ export function getBunyanSink(
   logger: BunyanLogger,
   options: BunyanSinkOptions = {},
 ): Sink {
-  const categoryOptions = !options.category
+  const categoryOptions: CategoryOptions | undefined = !options.category
     ? undefined
     : typeof options.category === "object"
     ? options.category
