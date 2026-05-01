@@ -68,6 +68,6 @@
     "test": "tsdown && node --experimental-transform-types --test",
     "test:bun": "tsdown && bun test",
     "test:deno": "deno test --allow-env --allow-sys",
-    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test --allow-env --allow-sys"
   }
 }

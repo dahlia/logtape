@@ -111,7 +111,7 @@ import { getBunyanSink } from "@logtape/adaptor-bunyan";
 // Hide categories completely (default)
 const sink1 = getBunyanSink(logger, { category: false });
 
-// Use default formatting (category with ":" separator)
+// Use default formatting ("·" separator and ":" decorator)
 const sink2 = getBunyanSink(logger, { category: true });
 
 // Custom formatting
