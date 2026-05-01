@@ -227,7 +227,7 @@ export function getBunyanSink(
     ? options.category
     : {};
   const category: Required<CategoryOptions> | undefined =
-    categoryOptions == null ? undefined : {
+    categoryOptions === undefined ? undefined : {
       separator: categoryOptions.separator ?? "·",
       position: categoryOptions.position ?? "start",
       decorator: categoryOptions.decorator ?? ":",
@@ -235,7 +235,7 @@ export function getBunyanSink(
   const valueFormatter = options.valueFormatter ?? defaultValueFormatter;
   return (record: LogRecord) => {
     let message = "";
-    if (category != null && record.category.length > 0) {
+    if (category !== undefined && record.category.length > 0) {
       const joined = record.category.join(category.separator);
       if (category.position === "start") {
         message += decorateCategoryStart(joined, category.decorator);
@@ -247,7 +247,7 @@ export function getBunyanSink(
     } else {
       message = renderMessage(record.message, valueFormatter);
     }
-    const properties = record.properties as Record<string, unknown>;
+    const properties = record.properties;
     switch (record.level) {
       case "trace":
         logger.trace(properties, message);
