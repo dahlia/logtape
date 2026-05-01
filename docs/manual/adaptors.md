@@ -52,12 +52,12 @@ When to use adapters
  -  You want to take full advantage of LogTape's structured logging capabilities
 
 
-bunyan adapter
+Bunyan adapter
 --------------
 
 *This API is available since LogTape 2.1.0.*
 
-The *@logtape/adaptor-bunyan* forwards LogTape log records to [bunyan]
+The *@logtape/adaptor-bunyan* forwards LogTape log records to [Bunyan]
 loggers, preserving structured properties and providing flexible category
 formatting:
 
@@ -85,12 +85,12 @@ bun add @logtape/adaptor-bunyan
 
 :::
 
-[bunyan]: https://github.com/trentm/node-bunyan
+[Bunyan]: https://github.com/trentm/node-bunyan
 
 ### Manual configuration
 
 The adapter provides a `getBunyanSink()` function that creates a LogTape sink
-that forwards log records to a bunyan logger.  bunyan does not provide a
+that forwards log records to a Bunyan logger.  Bunyan does not provide a
 global default logger, so you must create one with `bunyan.createLogger()`
 and pass it in:
 
@@ -120,7 +120,7 @@ await configure({
 ### Using the [`install()`][bunyan-install] function
 
 The [`install()`][bunyan-install] function provides a convenient way to
-automatically configure LogTape to route all logs to a bunyan logger:
+automatically configure LogTape to route all logs to a Bunyan logger:
 
 ~~~~ typescript twoslash
 import bunyan from "bunyan";
@@ -137,10 +137,10 @@ install(bunyanLogger, {
   }
 });
 
-// Now any LogTape-enabled library will log through bunyan
+// Now any LogTape-enabled library will log through Bunyan
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger("my-app");
-logger.info("This will be logged through bunyan");
+logger.info("This will be logged through Bunyan");
 ~~~~
 
 [bunyan-install]: https://jsr.io/@logtape/adaptor-bunyan/doc/~/install
@@ -148,7 +148,7 @@ logger.info("This will be logged through bunyan");
 ### Customizing interpolated value formatting
 
 Values interpolated into the LogTape message template are rendered through
-the configured `valueFormatter` before being assembled into bunyan's `msg`
+the configured `valueFormatter` before being assembled into Bunyan's `msg`
 field.  The default uses `node:util.inspect()` with `breakLength: Infinity`;
 swap it for `JSON.stringify` or any other strategy as needed:
 
@@ -165,12 +165,12 @@ const sink = getBunyanSink(logger, {
 
 ### Properties and serializers
 
-LogTape's structured properties are passed verbatim to bunyan as the
-merge-object of the call, so any `serializers` configured on the bunyan
-logger apply automatically.  bunyan reserves a small set of field names
+LogTape's structured properties are passed verbatim to Bunyan as the
+merge-object of the call, so any `serializers` configured on the Bunyan
+logger apply automatically.  Bunyan reserves a small set of field names
 (`name`, `hostname`, `pid`, `level`, `time`, `msg`, `src`, `v`); avoid
 using these names as LogTape property keys to prevent collisions with
-bunyan's envelope.
+Bunyan's envelope.
 
 
 Pino adapter
