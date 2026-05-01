@@ -237,18 +237,14 @@ export function getBunyanSink(
     };
   const valueFormatter = options.valueFormatter ?? defaultValueFormatter;
   return (record: LogRecord) => {
-    let message = "";
+    let message = renderMessage(record.message, valueFormatter);
     if (category !== undefined && record.category.length > 0) {
       const joined = record.category.join(category.separator);
       if (category.position === "start") {
-        message += decorateCategoryStart(joined, category.decorator);
+        message = decorateCategoryStart(joined, category.decorator) + message;
+      } else {
+        message = message + decorateCategoryEnd(joined, category.decorator);
       }
-      message += renderMessage(record.message, valueFormatter);
-      if (category.position === "end") {
-        message += decorateCategoryEnd(joined, category.decorator);
-      }
-    } else {
-      message = renderMessage(record.message, valueFormatter);
     }
     const properties = {
       ...record.properties,
