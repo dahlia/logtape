@@ -24,7 +24,7 @@ import {
   type TimeRotatingFileSinkDriver,
 } from "./timefilesink.ts";
 
-const dateArb = fc.date({
+const dateArb: fc.Arbitrary<Date> = fc.date({
   min: new Date(1900, 0, 1),
   max: new Date(9999, 11, 31, 23, 59, 59, 999),
   noInvalidDate: true,

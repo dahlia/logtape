@@ -17,7 +17,7 @@ import {
   withFilter,
 } from "./sink.ts";
 
-const logLevelArb = fc.constantFrom<LogLevel>(
+const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
   "trace",
   "debug",
   "info",

@@ -11,9 +11,10 @@ import {
   getJsonLinesFormatter,
   getTextFormatter,
 } from "./formatter.ts";
+import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 
-const logLevelArb = fc.constantFrom(
+const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
   "trace",
   "debug",
   "info",

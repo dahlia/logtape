@@ -16,13 +16,15 @@ import {
   US_SSN_PATTERN,
 } from "./pattern.ts";
 
-const emailPartArb = fc.stringMatching(/^[A-Za-z0-9_]*$/).map((part) =>
-  `user${part}`
+const emailPartArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9_]*$/,
+).map((part) => `user${part}`);
+const domainPartArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9-]*$/,
+).map((part) => `domain${part}x`);
+const digitArb: fc.Arbitrary<string> = fc.integer({ min: 0, max: 9 }).map(
+  String,
 );
-const domainPartArb = fc.stringMatching(/^[A-Za-z0-9-]*$/).map((part) =>
-  `domain${part}x`
-);
-const digitArb = fc.integer({ min: 0, max: 9 }).map(String);
 
 test("EMAIL_ADDRESS_PATTERN", () => {
   const { pattern, replacement } = EMAIL_ADDRESS_PATTERN;

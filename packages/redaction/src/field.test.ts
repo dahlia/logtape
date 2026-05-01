@@ -9,12 +9,12 @@ import {
   shouldFieldRedacted,
 } from "./field.ts";
 
-const fieldNameArb = fc.stringMatching(/^[A-Za-z0-9_]*$/).map((name) =>
-  `field${name}`
-);
-const publicFieldNameArb = fc.stringMatching(/^[A-Za-z0-9_]*$/).map((name) =>
-  `public${name}`
-);
+const fieldNameArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9_]*$/,
+).map((name) => `field${name}`);
+const publicFieldNameArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9_]*$/,
+).map((name) => `public${name}`);
 
 test("shouldFieldRedacted()", () => {
   { // matches string pattern

@@ -3,7 +3,9 @@ import test from "node:test";
 import fc from "fast-check";
 import { parseModuleReference } from "./parser.ts";
 
-const referencePartArb = fc.stringMatching(/^[A-Za-z0-9_./@-]*$/);
+const referencePartArb: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z0-9_./@-]*$/,
+);
 
 test("parseModuleReference()", () => {
   // Shorthands

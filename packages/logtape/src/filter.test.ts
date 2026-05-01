@@ -5,7 +5,7 @@ import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
 
-const logLevelArb = fc.constantFrom<LogLevel>(
+const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
   "trace",
   "debug",
   "info",
