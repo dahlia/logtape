@@ -68,10 +68,11 @@ To be released.
  -  Initial release of *@logtape/adaptor-bunyan*.  Forwards LogTape log
     records to [Bunyan] loggers, with structured properties passed through
     as the bunyan merge-object and a category formatting surface mirroring
-    *@logtape/adaptor-pino*.  [[#58]]
+    *@logtape/adaptor-pino*.  [[#58], [#154]]
 
 [Bunyan]: https://github.com/trentm/node-bunyan
 [#58]: https://github.com/dahlia/logtape/issues/58
+[#154]: https://github.com/dahlia/logtape/pull/154
 
 
 Version 2.0.6
