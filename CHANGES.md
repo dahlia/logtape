@@ -60,6 +60,10 @@ To be released.
     global or sticky regular expressions produce consistent results across
     repeated records.  [[#155]]
 
+ -  Fixed `redactByField()` so public fields named `__proto__` are preserved as
+    own properties instead of changing the prototype of the redacted properties
+    object.  [[#155]]
+
 [#155]: https://github.com/dahlia/logtape/pull/155
 
 ### @logtape/hono

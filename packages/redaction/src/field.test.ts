@@ -361,6 +361,23 @@ test("redactProperties()", () => {
       "[REDACTED]",
     );
   }
+
+  { // preserves __proto__ as an own property
+    const properties = Object.create(null) as Record<string, unknown>;
+    properties["__proto__"] = "public";
+    properties["password"] = "secret";
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+    });
+
+    assert.ok(Object.hasOwn(result, "__proto__"));
+    assert.strictEqual(result["__proto__"], "public");
+    assert.strictEqual(
+      Object.getPrototypeOf(result),
+      Object.prototype,
+    );
+  }
 });
 
 test("redactProperties() deletes generated matching fields", () => {

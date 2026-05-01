@@ -169,29 +169,46 @@ export function redactProperties(
   for (const field in properties) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       if (typeof options.action === "function") {
-        copy[field] = options.action(properties[field]);
+        setProperty(copy, field, options.action(properties[field]));
       }
       continue;
     }
 
     const value = properties[field];
     if (Array.isArray(value)) {
-      copy[field] = redactArray(value, options, visited);
+      setProperty(copy, field, redactArray(value, options, visited));
     } else if (typeof value === "object" && value !== null) {
       if (isBuiltInObject(value)) {
-        copy[field] = value;
+        setProperty(copy, field, value);
       } else {
-        copy[field] = redactProperties(
-          value as Record<string, unknown>,
-          options,
-          visited,
+        setProperty(
+          copy,
+          field,
+          redactProperties(
+            value as Record<string, unknown>,
+            options,
+            visited,
+          ),
         );
       }
     } else {
-      copy[field] = value;
+      setProperty(copy, field, value);
     }
   }
   return copy;
+}
+
+function setProperty(
+  object: Record<string, unknown>,
+  field: string,
+  value: unknown,
+): void {
+  Object.defineProperty(object, field, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
 }
 
 /**
