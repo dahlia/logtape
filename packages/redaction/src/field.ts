@@ -203,12 +203,16 @@ function setProperty(
   field: string,
   value: unknown,
 ): void {
-  Object.defineProperty(object, field, {
-    value,
-    enumerable: true,
-    configurable: true,
-    writable: true,
-  });
+  if (field === "__proto__") {
+    Object.defineProperty(object, field, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  } else {
+    object[field] = value;
+  }
 }
 
 /**
@@ -277,12 +281,22 @@ export function shouldFieldRedacted(
     if (typeof fieldPattern === "string") {
       if (fieldPattern === field) return true;
     } else {
-      const pattern = new RegExp(fieldPattern);
-      const matched = pattern.test(field);
+      const matched = testFieldPattern(field, fieldPattern);
       if (matched) return true;
     }
   }
   return false;
+}
+
+function testFieldPattern(field: string, fieldPattern: RegExp): boolean {
+  if (!fieldPattern.global && !fieldPattern.sticky) {
+    return fieldPattern.test(field);
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(fieldPattern, "lastIndex");
+  if (descriptor?.writable === false) {
+    return new RegExp(fieldPattern).test(field);
+  }
+  return RegExp.prototype[Symbol.search].call(fieldPattern, field) !== -1;
 }
 
 /**

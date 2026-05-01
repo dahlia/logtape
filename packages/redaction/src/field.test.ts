@@ -51,6 +51,12 @@ test("shouldFieldRedacted()", () => {
     Object.freeze(pattern);
     assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
   }
+
+  { // immutable stateful RegExp
+    const pattern = /password/g;
+    Object.freeze(pattern);
+    assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
+  }
 });
 
 test("shouldFieldRedacted() is repeatable for generated stateful regexes", () => {
