@@ -138,6 +138,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20240909.0
         version: 4.20250610.0
+      '@logtape/adaptor-bunyan':
+        specifier: 'workspace:'
+        version: link:../packages/adaptor-bunyan
       '@logtape/adaptor-log4js':
         specifier: 'workspace:'
         version: link:../packages/adaptor-log4js
@@ -219,6 +222,9 @@ importers:
       '@types/bun':
         specifier: ^1.2.15
         version: 1.2.15
+      '@types/bunyan':
+        specifier: ^1.8.11
+        version: 1.8.11
       '@types/deno':
         specifier: ^2.3.0
         version: 2.3.0
@@ -231,6 +237,9 @@ importers:
       '@types/node':
         specifier: ^22.15.31
         version: 22.15.31
+      bunyan:
+        specifier: ^1.8.15
+        version: 1.8.15
       drizzle-orm:
         specifier: ^0.45.1
         version: 0.45.1(@cloudflare/workers-types@4.20250610.0)(@opentelemetry/api@1.9.0)(@types/pg@8.6.1)(bun-types@1.2.15)(postgres@3.4.7)

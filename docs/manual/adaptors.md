@@ -52,6 +52,109 @@ When to use adapters
  -  You want to take full advantage of LogTape's structured logging capabilities
 
 
+bunyan adapter
+--------------
+
+*This API is available since LogTape 2.1.0.*
+
+The *@logtape/adaptor-bunyan* forwards LogTape log records to [bunyan]
+loggers, preserving structured properties and providing flexible category
+formatting:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/adaptor-bunyan
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/adaptor-bunyan
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/adaptor-bunyan
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/adaptor-bunyan
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/adaptor-bunyan
+~~~~
+
+:::
+
+[bunyan]: https://github.com/trentm/node-bunyan
+
+### Manual configuration
+
+The adapter provides a `getBunyanSink()` function that creates a LogTape sink
+that forwards log records to a bunyan logger.  bunyan does not provide a
+global default logger, so you must create one with `bunyan.createLogger()`
+and pass it in:
+
+~~~~ typescript twoslash
+import { configure } from "@logtape/logtape";
+import { getBunyanSink } from "@logtape/adaptor-bunyan";
+import bunyan from "bunyan";
+
+const logger = bunyan.createLogger({ name: "my-app", level: "info" });
+
+await configure({
+  sinks: {
+    bunyan: getBunyanSink(logger, {
+      category: {
+        position: "start",
+        decorator: "[]",
+        separator: "."
+      }
+    })
+  },
+  loggers: [
+    { category: "my-library", sinks: ["bunyan"] }
+  ]
+});
+~~~~
+
+### Using the [`install()`][bunyan-install] function
+
+The [`install()`][bunyan-install] function provides a convenient way to
+automatically configure LogTape to route all logs to a bunyan logger:
+
+~~~~ typescript twoslash
+import bunyan from "bunyan";
+import { install } from "@logtape/adaptor-bunyan";
+
+const bunyanLogger = bunyan.createLogger({ name: "my-app", level: "info" });
+
+// Install with custom logger and options
+install(bunyanLogger, {
+  category: {
+    position: "start",
+    decorator: "[]",
+    separator: "."
+  }
+});
+
+// Now any LogTape-enabled library will log through bunyan
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+logger.info("This will be logged through bunyan");
+~~~~
+
+[bunyan-install]: https://jsr.io/@logtape/adaptor-bunyan/doc/~/install
+
+### Properties and serializers
+
+LogTape's structured properties are passed verbatim to bunyan as the
+merge-object of the call, so any `serializers` configured on the bunyan
+logger apply automatically.  bunyan reserves a small set of field names
+(`name`, `hostname`, `pid`, `level`, `time`, `msg`, `src`, `v`); avoid
+using these names as LogTape property keys to prevent collisions with
+bunyan's envelope.
+
+
 Pino adapter
 ------------
 
@@ -453,20 +556,6 @@ install(customLogger, {
   }
 });
 ~~~~
-
-
-Planned adapters
-----------------
-
-The following adapters are planned for future releases:
-
-bunyan adapter (*@logtape/adaptor-bunyan*)
-:   Integration with Bunyan structured logging
-
-To request priority for a specific adapter or contribute an implementation,
-please see the [adapter development roadmap] on GitHub.
-
-[adapter development roadmap]: https://github.com/dahlia/logtape/issues/52
 
 
 Best practices
