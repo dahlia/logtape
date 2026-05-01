@@ -3,7 +3,8 @@ import os from "node:os";
 import process from "node:process";
 import test from "node:test";
 import bunyan from "bunyan";
-import { getBunyanSink } from "./mod.ts";
+import { getLogger, resetSync } from "@logtape/logtape";
+import { getBunyanSink, install } from "./mod.ts";
 
 interface BunyanRecord {
   name: string;
@@ -195,6 +196,32 @@ test("getBunyanSink(): category separator", () => {
       separators[i].expected,
       `Separator '${separators[i].separator}' failed`,
     );
+  }
+});
+
+test("install(): routes LogTape logs through bunyan", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  try {
+    install(logger);
+    getLogger("my-app").info("Hello {who}", { who: "world" });
+    assert.equal(buffer.length, 1);
+    assert.equal(buffer[0].level, 30);
+    assert.equal(buffer[0].msg, "Hello 'world'");
+    assert.equal(buffer[0].who, "world");
+  } finally {
+    resetSync();
+  }
+});
+
+test("install(): forwards options to getBunyanSink", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  try {
+    install(logger, { category: { decorator: "[]", position: "start" } });
+    getLogger(["app", "auth"]).info("Login");
+    assert.equal(buffer.length, 1);
+    assert.equal(buffer[0].msg, "[app·auth] Login");
+  } finally {
+    resetSync();
   }
 });
 

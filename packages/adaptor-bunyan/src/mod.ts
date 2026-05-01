@@ -1,5 +1,5 @@
 import { inspect } from "node:util";
-import type { LogRecord, Sink } from "@logtape/logtape";
+import { configureSync, type LogRecord, type Sink } from "@logtape/logtape";
 
 /**
  * A structural representation of a [Bunyan] logger sufficient for the
@@ -249,4 +249,67 @@ export function getBunyanSink(
         return;
     }
   };
+}
+
+/**
+ * Automatically configures LogTape to route all logs to a Bunyan logger.
+ *
+ * This is a convenience function that wires up `getBunyanSink()` as
+ * LogTape's catch-all sink and routes the meta logger
+ * (`["logtape", "meta"]`) to the same sink with `lowestLevel: "warning"`,
+ * matching the conventions of the other adapter packages.
+ *
+ * Bunyan does not provide a global default logger, so the logger argument
+ * is required.  Create one with `bunyan.createLogger({ name: "..." })`
+ * and pass it in.
+ *
+ * @example Basic auto-configuration
+ * ```typescript
+ * import bunyan from "bunyan";
+ * import { install } from "@logtape/adaptor-bunyan";
+ *
+ * const bunyanLogger = bunyan.createLogger({ name: "my-app" });
+ * install(bunyanLogger);
+ *
+ * import { getLogger } from "@logtape/logtape";
+ * const logger = getLogger("my-app");
+ * logger.info("This will be logged through Bunyan");
+ * ```
+ *
+ * @example Auto-configuration with custom options
+ * ```typescript
+ * import bunyan from "bunyan";
+ * import { install } from "@logtape/adaptor-bunyan";
+ *
+ * const bunyanLogger = bunyan.createLogger({ name: "my-app" });
+ * install(bunyanLogger, {
+ *   category: {
+ *     position: "start",
+ *     decorator: "[]",
+ *     separator: "."
+ *   }
+ * });
+ * ```
+ *
+ * @param logger The Bunyan logger instance to forward logs to.
+ * @param options Configuration options for the sink adapter.
+ * @since 2.1.0
+ */
+export function install(
+  logger: BunyanLogger,
+  options: BunyanSinkOptions = {},
+): void {
+  configureSync({
+    sinks: {
+      bunyan: getBunyanSink(logger, options),
+    },
+    loggers: [
+      {
+        category: ["logtape", "meta"],
+        sinks: ["bunyan"],
+        lowestLevel: "warning",
+      },
+      { category: [], sinks: ["bunyan"] },
+    ],
+  });
 }
