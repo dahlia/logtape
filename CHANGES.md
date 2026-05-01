@@ -54,6 +54,15 @@ To be released.
  -  Added `timeZone` support to `getPrettyFormatter()` for timestamp rendering,
     aligned with `@logtape/logtape` formatter semantics.  [[#140]]
 
+### @logtape/hono
+
+ -  Changed the `HonoContext` interface to extend Hono's `Context` so custom
+    formatter and skip callbacks receive the real runtime context.  Custom
+    formatters can now read context variables via APIs like `c.get()`.
+    [[#150] by Hamza Zia]
+
+[#150]: https://github.com/dahlia/logtape/pull/150
+
 
 Version 2.0.6
 -------------

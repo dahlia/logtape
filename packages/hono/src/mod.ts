@@ -1,27 +1,19 @@
 import { getLogger, type LogLevel } from "@logtape/logtape";
 import { createMiddleware } from "hono/factory";
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 
 export type { LogLevel } from "@logtape/logtape";
 
 /**
- * Minimal Hono Context interface for compatibility across Hono versions.
+ * Hono context interface exposed to custom formatters and skip callbacks.
+ *
+ * This matches the actual runtime object passed to the middleware, so custom
+ * formatters can access context variables via methods like `c.get()` when
+ * needed.
  * @since 1.3.0
  */
-export interface HonoContext {
-  req: {
-    method: string;
-    url: string;
-    path: string;
-    header(name: string): string | undefined;
-  };
-  res: {
-    status: number;
-    headers: {
-      get(name: string): string | null;
-    };
-  };
-}
+// deno-lint-ignore no-explicit-any
+export interface HonoContext extends Context<any, any, any> {}
 
 /**
  * Predefined log format names compatible with Morgan.
