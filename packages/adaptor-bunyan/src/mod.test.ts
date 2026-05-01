@@ -55,6 +55,166 @@ test("getBunyanSink(): basic scenario", () => {
   assert.ok(recordTimeMs <= after);
 });
 
+test("getBunyanSink(): category option false/undefined excludes category", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const sinkFalse = getBunyanSink(logger, { category: false });
+  sinkFalse({
+    category: ["test", "category"],
+    level: "info",
+    message: ["Test message"],
+    properties: {},
+    rawMessage: "Test message",
+    timestamp: Date.now(),
+  });
+  const sinkUndefined = getBunyanSink(logger);
+  sinkUndefined({
+    category: ["test", "category"],
+    level: "info",
+    message: ["Another message"],
+    properties: {},
+    rawMessage: "Another message",
+    timestamp: Date.now(),
+  });
+  assert.equal(buffer.length, 2);
+  assert.equal(buffer[0].msg, "Test message");
+  assert.equal(buffer[1].msg, "Another message");
+});
+
+test("getBunyanSink(): category true uses defaults", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const sink = getBunyanSink(logger, { category: true });
+  sink({
+    category: ["test", "category"],
+    level: "info",
+    message: ["Test message"],
+    properties: {},
+    rawMessage: "Test message",
+    timestamp: Date.now(),
+  });
+  assert.equal(buffer.length, 1);
+  assert.equal(buffer[0].msg, "test·category: Test message");
+});
+
+test("getBunyanSink(): category decorators", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const decorators = [
+    { decorator: "[]", expected: "[test] Message" },
+    { decorator: "()", expected: "(test) Message" },
+    { decorator: "<>", expected: "<test> Message" },
+    { decorator: "{}", expected: "{test} Message" },
+    { decorator: ":", expected: "test: Message" },
+    { decorator: "-", expected: "test - Message" },
+    { decorator: "|", expected: "test | Message" },
+    { decorator: "/", expected: "test / Message" },
+    { decorator: "", expected: "test Message" },
+  ] as const;
+  for (const { decorator } of decorators) {
+    const sink = getBunyanSink(logger, {
+      category: { decorator, position: "start" },
+    });
+    sink({
+      category: ["test"],
+      level: "info",
+      message: ["Message"],
+      properties: {},
+      rawMessage: "Message",
+      timestamp: Date.now(),
+    });
+  }
+  assert.equal(buffer.length, decorators.length);
+  for (let i = 0; i < decorators.length; i++) {
+    assert.equal(
+      buffer[i].msg,
+      decorators[i].expected,
+      `Decorator '${decorators[i].decorator}' failed`,
+    );
+  }
+});
+
+test("getBunyanSink(): category position end", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const decorators = [
+    { decorator: "[]", expected: "Message [test]" },
+    { decorator: "()", expected: "Message (test)" },
+    { decorator: "<>", expected: "Message <test>" },
+    { decorator: "{}", expected: "Message {test}" },
+    { decorator: ":", expected: "Message: test" },
+    { decorator: "-", expected: "Message - test" },
+    { decorator: "|", expected: "Message | test" },
+    { decorator: "/", expected: "Message / test" },
+    { decorator: "", expected: "Message test" },
+  ] as const;
+  for (const { decorator } of decorators) {
+    const sink = getBunyanSink(logger, {
+      category: { decorator, position: "end" },
+    });
+    sink({
+      category: ["test"],
+      level: "info",
+      message: ["Message"],
+      properties: {},
+      rawMessage: "Message",
+      timestamp: Date.now(),
+    });
+  }
+  assert.equal(buffer.length, decorators.length);
+  for (let i = 0; i < decorators.length; i++) {
+    assert.equal(
+      buffer[i].msg,
+      decorators[i].expected,
+      `End-position decorator '${decorators[i].decorator}' failed`,
+    );
+  }
+});
+
+test("getBunyanSink(): category separator", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const separators = [
+    { separator: ".", expected: "[app.service.logger] Message" },
+    { separator: "/", expected: "[app/service/logger] Message" },
+    { separator: "::", expected: "[app::service::logger] Message" },
+    { separator: " > ", expected: "[app > service > logger] Message" },
+  ];
+  for (const { separator } of separators) {
+    const sink = getBunyanSink(logger, {
+      category: { separator, decorator: "[]", position: "start" },
+    });
+    sink({
+      category: ["app", "service", "logger"],
+      level: "info",
+      message: ["Message"],
+      properties: {},
+      rawMessage: "Message",
+      timestamp: Date.now(),
+    });
+  }
+  assert.equal(buffer.length, separators.length);
+  for (let i = 0; i < separators.length; i++) {
+    assert.equal(
+      buffer[i].msg,
+      separators[i].expected,
+      `Separator '${separators[i].separator}' failed`,
+    );
+  }
+});
+
+test("getBunyanSink(): empty category arrays are skipped", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const sink = getBunyanSink(logger, {
+    category: { decorator: "[]", position: "start" },
+  });
+  sink({
+    category: [],
+    level: "info",
+    message: ["No category here"],
+    properties: {},
+    rawMessage: "No category here",
+    timestamp: Date.now(),
+  });
+  assert.equal(buffer.length, 1);
+  assert.equal(buffer[0].msg, "No category here");
+});
+
 test("getBunyanSink(): log level mappings", () => {
   const { logger, buffer } = createLoggerWithBuffer();
   const sink = getBunyanSink(logger);

@@ -105,6 +105,58 @@ function renderMessage(parts: readonly (string | unknown)[]): string {
   return rendered;
 }
 
+function decorateCategoryStart(
+  category: string,
+  decorator: Required<CategoryOptions>["decorator"],
+): string {
+  switch (decorator) {
+    case "[]":
+      return `[${category}] `;
+    case "()":
+      return `(${category}) `;
+    case "<>":
+      return `<${category}> `;
+    case "{}":
+      return `{${category}} `;
+    case ":":
+      return `${category}: `;
+    case "-":
+      return `${category} - `;
+    case "|":
+      return `${category} | `;
+    case "/":
+      return `${category} / `;
+    case "":
+      return `${category} `;
+  }
+}
+
+function decorateCategoryEnd(
+  category: string,
+  decorator: Required<CategoryOptions>["decorator"],
+): string {
+  switch (decorator) {
+    case "[]":
+      return ` [${category}]`;
+    case "()":
+      return ` (${category})`;
+    case "<>":
+      return ` <${category}>`;
+    case "{}":
+      return ` {${category}}`;
+    case ":":
+      return `: ${category}`;
+    case "-":
+      return ` - ${category}`;
+    case "|":
+      return ` | ${category}`;
+    case "/":
+      return ` / ${category}`;
+    case "":
+      return ` ${category}`;
+  }
+}
+
 /**
  * Creates a LogTape sink that forwards log records to a Bunyan logger.
  *
@@ -148,11 +200,33 @@ function renderMessage(parts: readonly (string | unknown)[]): string {
  */
 export function getBunyanSink(
   logger: BunyanLogger,
-  // deno-lint-ignore no-unused-vars
   options: BunyanSinkOptions = {},
 ): Sink {
+  const categoryOptions = !options.category
+    ? undefined
+    : typeof options.category === "object"
+    ? options.category
+    : {};
+  const category: Required<CategoryOptions> | undefined =
+    categoryOptions == null ? undefined : {
+      separator: categoryOptions.separator ?? "·",
+      position: categoryOptions.position ?? "start",
+      decorator: categoryOptions.decorator ?? ":",
+    };
   return (record: LogRecord) => {
-    const message = renderMessage(record.message);
+    let message = "";
+    if (category != null && record.category.length > 0) {
+      const joined = record.category.join(category.separator);
+      if (category.position === "start") {
+        message += decorateCategoryStart(joined, category.decorator);
+      }
+      message += renderMessage(record.message);
+      if (category.position === "end") {
+        message += decorateCategoryEnd(joined, category.decorator);
+      }
+    } else {
+      message = renderMessage(record.message);
+    }
     const properties = record.properties as Record<string, unknown>;
     switch (record.level) {
       case "trace":
