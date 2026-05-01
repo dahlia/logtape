@@ -225,6 +225,34 @@ test("install(): forwards options to getBunyanSink", () => {
   }
 });
 
+test("getBunyanSink(): bunyan serializers apply to merged properties", () => {
+  const ring = new bunyan.RingBuffer({ limit: 10 });
+  const logger = bunyan.createLogger({
+    name: "test",
+    level: "trace",
+    streams: [{ type: "raw", stream: ring, level: "trace" }],
+    serializers: { err: bunyan.stdSerializers.err },
+  });
+  const buffer = ring.records as BunyanRecord[];
+  const sink = getBunyanSink(logger);
+  const error = new Error("boom");
+  sink({
+    category: ["test"],
+    level: "error",
+    message: ["Something broke"],
+    properties: { err: error },
+    rawMessage: "Something broke",
+    timestamp: Date.now(),
+  });
+  assert.strictEqual(buffer.length, 1);
+  const serialized = buffer[0].err as { message: string; name: string };
+  assert.strictEqual(serialized.message, "boom");
+  assert.strictEqual(serialized.name, "Error");
+  // The serializer turns the Error into a plain object; raw Error
+  // instances would be omitted by Bunyan's default JSON encoding.
+  assert.strictEqual(typeof serialized, "object");
+});
+
 test("getBunyanSink(): valueFormatter customizes interpolation", () => {
   const { logger, buffer } = createLoggerWithBuffer();
   const sink = getBunyanSink(logger, {
