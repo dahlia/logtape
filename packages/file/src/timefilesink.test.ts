@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { isDeno } from "@david/which-runtime";
 import type { Sink } from "@logtape/logtape";
 import { join } from "@std/path/join";
+import fc from "fast-check";
 import {
   debug,
   error,
@@ -22,6 +23,16 @@ import {
   getISOWeekYear,
   type TimeRotatingFileSinkDriver,
 } from "./timefilesink.ts";
+
+const dateArb = fc.date({
+  min: new Date(1900, 0, 1),
+  max: new Date(9999, 11, 31, 23, 59, 59, 999),
+  noInvalidDate: true,
+});
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
 
 function makeTempDirSync(): string {
   return fs.mkdtempSync(join(tmpdir(), "logtape-time-"));
@@ -118,6 +129,18 @@ test("getISOWeek()", () => {
   assert.strictEqual(getISOWeek(new Date(2024, 11, 29)), 52);
 });
 
+test("getISOWeek() returns a valid ISO week for generated dates", () => {
+  fc.assert(
+    fc.property(dateArb, (date) => {
+      const week = getISOWeek(date);
+
+      assert.ok(Number.isInteger(week));
+      assert.ok(week >= 1);
+      assert.ok(week <= 53);
+    }),
+  );
+});
+
 test("getISOWeekYear()", () => {
   // 2025-01-01 is in ISO week year 2025
   assert.strictEqual(getISOWeekYear(new Date(2025, 0, 1)), 2025);
@@ -129,10 +152,37 @@ test("getISOWeekYear()", () => {
   assert.strictEqual(getISOWeekYear(new Date(2024, 11, 29)), 2024);
 });
 
+test("getISOWeekYear() stays near the calendar year for generated dates", () => {
+  fc.assert(
+    fc.property(dateArb, (date) => {
+      const weekYear = getISOWeekYear(date);
+      const calendarYear = date.getFullYear();
+
+      assert.ok(weekYear >= calendarYear - 1);
+      assert.ok(weekYear <= calendarYear + 1);
+    }),
+  );
+});
+
 test("getDefaultFilename() with daily interval", () => {
   const fn = getDefaultFilename("daily");
   assert.strictEqual(fn(new Date(2025, 0, 15)), "2025-01-15.log");
   assert.strictEqual(fn(new Date(2025, 11, 31)), "2025-12-31.log");
+});
+
+test("getDefaultFilename() formats generated daily filenames", () => {
+  fc.assert(
+    fc.property(dateArb, (date) => {
+      const filename = getDefaultFilename("daily")(date);
+
+      assert.strictEqual(
+        filename,
+        `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${
+          pad2(date.getDate())
+        }.log`,
+      );
+    }),
+  );
 });
 
 test("getDefaultFilename() with hourly interval", () => {
@@ -141,11 +191,40 @@ test("getDefaultFilename() with hourly interval", () => {
   assert.strictEqual(fn(new Date(2025, 11, 31, 23, 59)), "2025-12-31-23.log");
 });
 
+test("getDefaultFilename() formats generated hourly filenames", () => {
+  fc.assert(
+    fc.property(dateArb, (date) => {
+      const filename = getDefaultFilename("hourly")(date);
+
+      assert.strictEqual(
+        filename,
+        `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${
+          pad2(date.getDate())
+        }-${pad2(date.getHours())}.log`,
+      );
+    }),
+  );
+});
+
 test("getDefaultFilename() with weekly interval", () => {
   const fn = getDefaultFilename("weekly");
   assert.strictEqual(fn(new Date(2025, 0, 1)), "2025-W01.log");
   assert.strictEqual(fn(new Date(2024, 11, 31)), "2025-W01.log"); // ISO week 1 of 2025
   assert.strictEqual(fn(new Date(2024, 11, 29)), "2024-W52.log"); // ISO week 52 of 2024
+});
+
+test("getDefaultFilename() formats generated weekly filenames", () => {
+  fc.assert(
+    fc.property(dateArb, (date) => {
+      const filename = getDefaultFilename("weekly")(date);
+
+      assert.strictEqual(
+        filename,
+        `${getISOWeekYear(date)}-W${pad2(getISOWeek(date))}.log`,
+      );
+      assert.match(filename, /^\d{4}-W\d{2}\.log$/);
+    }),
+  );
 });
 
 test("getBaseTimeRotatingFileSink() with daily interval", () => {
