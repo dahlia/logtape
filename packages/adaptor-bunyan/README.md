@@ -145,14 +145,15 @@ const sink = getBunyanSink(logger, {
 Properties and Bunyan reserved fields
 -------------------------------------
 
-LogTape `record.properties` are passed verbatim to Bunyan as the merge-object
-of the call.  Bunyan automatically applies any `serializers` configured on
-the logger to matching top-level fields.
+LogTape `record.properties` are passed to Bunyan as the merge-object of
+the call.  Bunyan automatically applies any `serializers` configured on
+the logger to matching top-level fields.  The adapter also sets the
+merge-object's `time` field to a `Date` derived from `record.timestamp`
+so the resulting Bunyan record reflects when LogTape created the record,
+not when the sink call ran.
 
-Bunyan reserves a small set of field names (`name`, `hostname`, `pid`,
-`level`, `time`, `msg`, `src`, `v`).  If your LogTape properties happen to
-contain any of these names, Bunyan's normal collision behavior applies, so
-configure your structured property names to avoid conflicts.
+Bunyan's other reserved field names (`name`, `hostname`, `pid`, `level`,
+`msg`, `src`, `v`) should not be used as keys in your LogTape properties.
 
 
 Docs

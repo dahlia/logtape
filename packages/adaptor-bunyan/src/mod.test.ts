@@ -303,6 +303,24 @@ test("getBunyanSink(): empty category arrays are skipped", () => {
   assert.strictEqual(buffer[0].msg, "No category here");
 });
 
+test("getBunyanSink(): preserves LogRecord.timestamp on the bunyan record", () => {
+  const { logger, buffer } = createLoggerWithBuffer();
+  const sink = getBunyanSink(logger);
+  // Pick a fixed timestamp clearly in the past so we can detect any
+  // accidental "now" stamping by Bunyan.
+  const recordTimestamp = new Date("2025-01-15T03:42:17.123Z").getTime();
+  sink({
+    category: ["test"],
+    level: "info",
+    message: ["historical log"],
+    properties: {},
+    rawMessage: "historical log",
+    timestamp: recordTimestamp,
+  });
+  assert.strictEqual(buffer.length, 1);
+  assert.strictEqual(buffer[0].time.getTime(), recordTimestamp);
+});
+
 test("getBunyanSink(): log level mappings", () => {
   const { logger, buffer } = createLoggerWithBuffer();
   const sink = getBunyanSink(logger);

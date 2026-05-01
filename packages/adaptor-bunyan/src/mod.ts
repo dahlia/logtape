@@ -182,11 +182,14 @@ function decorateCategoryEnd(
  * Bunyan does not provide a global default logger; you must create one
  * with `bunyan.createLogger({ name: "..." })` and pass it in.
  *
- * LogTape's `record.properties` are passed verbatim to Bunyan as the
- * merge-object, so any `serializers` configured on the Bunyan logger
- * apply automatically.  Bunyan's reserved fields (`name`, `hostname`,
- * `pid`, `level`, `time`, `msg`, `src`, `v`) should not be used as
- * property keys.
+ * LogTape's `record.properties` are passed to Bunyan as the merge-object,
+ * so any `serializers` configured on the Bunyan logger apply automatically.
+ * The adapter also sets the merge-object's `time` field to a `Date`
+ * derived from `record.timestamp`, so the resulting Bunyan record reflects
+ * when LogTape created the record rather than when the sink call ran.
+ *
+ * Bunyan's other reserved fields (`name`, `hostname`, `pid`, `level`,
+ * `msg`, `src`, `v`) should not be used as property keys.
  *
  * @example
  * ```typescript
@@ -247,7 +250,10 @@ export function getBunyanSink(
     } else {
       message = renderMessage(record.message, valueFormatter);
     }
-    const properties = record.properties;
+    const properties = {
+      ...record.properties,
+      time: new Date(record.timestamp),
+    };
     switch (record.level) {
       case "trace":
         logger.trace(properties, message);

@@ -165,12 +165,14 @@ const sink = getBunyanSink(logger, {
 
 ### Properties and serializers
 
-LogTape's structured properties are passed verbatim to Bunyan as the
-merge-object of the call, so any `serializers` configured on the Bunyan
-logger apply automatically.  Bunyan reserves a small set of field names
-(`name`, `hostname`, `pid`, `level`, `time`, `msg`, `src`, `v`); avoid
-using these names as LogTape property keys to prevent collisions with
-Bunyan's envelope.
+LogTape's structured properties are passed to Bunyan as the merge-object
+of the call, so any `serializers` configured on the Bunyan logger apply
+automatically.  The adapter also sets the merge-object's `time` field to
+a `Date` derived from `record.timestamp` so the resulting Bunyan record
+reflects when LogTape created the record, not when the sink call ran.
+
+Bunyan's other reserved field names (`name`, `hostname`, `pid`, `level`,
+`msg`, `src`, `v`) should not be used as LogTape property keys.
 
 
 Pino adapter
