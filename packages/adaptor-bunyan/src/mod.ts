@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import type { LogRecord, Sink } from "@logtape/logtape";
 
 /**
@@ -92,6 +93,18 @@ export interface CategoryOptions {
   readonly decorator?: "[]" | "()" | "<>" | "{}" | ":" | "-" | "|" | "/" | "";
 }
 
+function renderMessage(parts: readonly (string | unknown)[]): string {
+  let rendered = "";
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      rendered += parts[i] as string;
+    } else {
+      rendered += inspect(parts[i], { breakLength: Infinity });
+    }
+  }
+  return rendered;
+}
+
 /**
  * Creates a LogTape sink that forwards log records to a Bunyan logger.
  *
@@ -134,13 +147,32 @@ export interface CategoryOptions {
  * @since 2.1.0
  */
 export function getBunyanSink(
-  // deno-lint-ignore no-unused-vars
   logger: BunyanLogger,
   // deno-lint-ignore no-unused-vars
   options: BunyanSinkOptions = {},
 ): Sink {
-  // deno-lint-ignore no-unused-vars
   return (record: LogRecord) => {
-    // Implementation lands in the next commit.
+    const message = renderMessage(record.message);
+    const properties = record.properties as Record<string, unknown>;
+    switch (record.level) {
+      case "trace":
+        logger.trace(properties, message);
+        return;
+      case "debug":
+        logger.debug(properties, message);
+        return;
+      case "info":
+        logger.info(properties, message);
+        return;
+      case "warning":
+        logger.warn(properties, message);
+        return;
+      case "error":
+        logger.error(properties, message);
+        return;
+      case "fatal":
+        logger.fatal(properties, message);
+        return;
+    }
   };
 }
