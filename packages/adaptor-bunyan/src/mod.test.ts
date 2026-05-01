@@ -227,11 +227,21 @@ test("install(): forwards options to getBunyanSink", () => {
 
 test("getBunyanSink(): bunyan serializers apply to merged properties", () => {
   const ring = new bunyan.RingBuffer({ limit: 10 });
+  let serializerCalls = 0;
   const logger = bunyan.createLogger({
     name: "test",
     level: "trace",
     streams: [{ type: "raw", stream: ring, level: "trace" }],
-    serializers: { err: bunyan.stdSerializers.err },
+    serializers: {
+      err: (e: Error) => {
+        serializerCalls++;
+        return {
+          name: e.name,
+          message: e.message,
+          serialized: true,
+        };
+      },
+    },
   });
   const buffer = ring.records as BunyanRecord[];
   const sink = getBunyanSink(logger);
@@ -245,12 +255,18 @@ test("getBunyanSink(): bunyan serializers apply to merged properties", () => {
     timestamp: Date.now(),
   });
   assert.strictEqual(buffer.length, 1);
-  const serialized = buffer[0].err as { message: string; name: string };
+  assert.strictEqual(serializerCalls, 1);
+  const serialized = buffer[0].err as {
+    message: string;
+    name: string;
+    serialized: boolean;
+  };
   assert.strictEqual(serialized.message, "boom");
   assert.strictEqual(serialized.name, "Error");
-  // The serializer turns the Error into a plain object; raw Error
-  // instances would be omitted by Bunyan's default JSON encoding.
-  assert.strictEqual(typeof serialized, "object");
+  assert.strictEqual(serialized.serialized, true);
+  // The serializer must replace the raw Error with the plain object it
+  // returns; otherwise bunyan would have forwarded the Error untouched.
+  assert.ok(!(buffer[0].err instanceof Error));
 });
 
 test("getBunyanSink(): valueFormatter customizes interpolation", () => {

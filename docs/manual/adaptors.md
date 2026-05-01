@@ -145,6 +145,24 @@ logger.info("This will be logged through bunyan");
 
 [bunyan-install]: https://jsr.io/@logtape/adaptor-bunyan/doc/~/install
 
+### Customizing interpolated value formatting
+
+Values interpolated into the LogTape message template are rendered through
+the configured `valueFormatter` before being assembled into bunyan's `msg`
+field.  The default uses `node:util.inspect()` with `breakLength: Infinity`;
+swap it for `JSON.stringify` or any other strategy as needed:
+
+~~~~ typescript twoslash
+import bunyan from "bunyan";
+import { getBunyanSink } from "@logtape/adaptor-bunyan";
+
+const logger = bunyan.createLogger({ name: "my-app" });
+
+const sink = getBunyanSink(logger, {
+  valueFormatter: (value) => JSON.stringify(value),
+});
+~~~~
+
 ### Properties and serializers
 
 LogTape's structured properties are passed verbatim to bunyan as the
