@@ -81,7 +81,9 @@ function resolveProperties(
 }
 
 function snapshotLogRecordProperties(record: LogRecord): LogRecord {
-  const properties = resolveProperties(record.properties);
+  const properties: Record<string, unknown> = resolveProperties(
+    record.properties,
+  );
   const descriptors = Object.getOwnPropertyDescriptors(record) as
     & PropertyDescriptorMap
     & { properties?: PropertyDescriptor };
@@ -1426,10 +1428,10 @@ export class LoggerImpl implements Logger {
     ) {
       return;
     }
-    const sinks = [...this.getSinks(record.level)];
+    const sinks: Sink[] = [...this.getSinks(record.level)];
     if (sinks.length < 1) return;
     let snapshot: LogRecord | undefined;
-    let snapshotFailed = false;
+    let snapshotFailed: boolean = false;
     for (const sink of sinks) {
       if (bypassSinks?.has(sink)) continue;
       try {
@@ -1461,7 +1463,7 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
-    const implicitContext = getImplicitContext();
+    const implicitContext: Record<string, unknown> = getImplicitContext();
     let cachedProps: Record<string, unknown> | undefined = undefined;
     let cachedMessage: readonly unknown[] | undefined = undefined;
     const record: LogRecord = typeof properties === "function"

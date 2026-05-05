@@ -6,6 +6,7 @@ import {
   getLogger,
   isLazy,
   lazy,
+  type Logger,
   LoggerCtx,
   LoggerImpl,
   type LogMethod,
@@ -2315,14 +2316,16 @@ test("Logger.with() lazy getter throwing error propagates", () => {
 });
 
 test("Logger.with() lazy values are snapshotted before buffered sinks read them", () => {
-  const logger = LoggerImpl.getLogger(["lazy-buffer-snapshot-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-buffer-snapshot-test",
+  ]);
   const records: LogRecord[] = [];
   logger.parentSinks = "override";
   logger.sinks.push((record) => records.push(record));
 
   try {
-    let currentUser = "alice";
-    const ctx = logger.with({ user: lazy(() => currentUser) });
+    let currentUser: string = "alice";
+    const ctx: Logger = logger.with({ user: lazy(() => currentUser) });
 
     ctx.info("First {user}");
     currentUser = "bob";
@@ -2340,9 +2343,11 @@ test("Logger.with() lazy values are snapshotted before buffered sinks read them"
 });
 
 test("Logger.with() lazy values are snapshotted for non-blocking console sinks", () => {
-  const logger = LoggerImpl.getLogger(["lazy-non-blocking-console-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-non-blocking-console-test",
+  ]);
   const logs: unknown[][] = [];
-  const fakeConsole = {
+  const fakeConsole: Console = {
     debug: (...args: unknown[]) => logs.push(args),
     error: (...args: unknown[]) => logs.push(args),
     info: (...args: unknown[]) => logs.push(args),
@@ -2350,7 +2355,7 @@ test("Logger.with() lazy values are snapshotted for non-blocking console sinks",
     trace: (...args: unknown[]) => logs.push(args),
     warn: (...args: unknown[]) => logs.push(args),
   } as unknown as Console;
-  const sink = getConsoleSink({
+  const sink: Sink | (Sink & Disposable) = getConsoleSink({
     console: fakeConsole,
     formatter: (record) => [
       record.level,
@@ -2367,8 +2372,8 @@ test("Logger.with() lazy values are snapshotted for non-blocking console sinks",
   logger.sinks.push(sink);
 
   try {
-    let currentUser = "alice";
-    const ctx = logger.with({ user: lazy(() => currentUser) });
+    let currentUser: string = "alice";
+    const ctx: Logger = logger.with({ user: lazy(() => currentUser) });
 
     ctx.info("First action");
     currentUser = "bob";
@@ -2397,7 +2402,9 @@ test("Logger.with() lazy values are snapshotted for non-blocking console sinks",
 });
 
 test("Logger lazy values are resolved once for all sinks", () => {
-  const logger = LoggerImpl.getLogger(["lazy-single-evaluation-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-single-evaluation-test",
+  ]);
   const records1: LogRecord[] = [];
   const records2: LogRecord[] = [];
   logger.parentSinks = "override";
@@ -2405,8 +2412,8 @@ test("Logger lazy values are resolved once for all sinks", () => {
   logger.sinks.push((record) => records2.push(record));
 
   try {
-    let evaluations = 0;
-    const ctx = logger.with({
+    let evaluations: number = 0;
+    const ctx: Logger = logger.with({
       value: lazy(() => {
         evaluations++;
         return evaluations;
@@ -2424,14 +2431,16 @@ test("Logger lazy values are resolved once for all sinks", () => {
 });
 
 test("Logger does not resolve lazy values when level disables record", () => {
-  const logger = LoggerImpl.getLogger(["lazy-disabled-level-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-disabled-level-test",
+  ]);
   logger.parentSinks = "override";
   logger.lowestLevel = "warning";
   logger.sinks.push(() => assert.fail("sink should not be called"));
 
   try {
-    let evaluated = false;
-    const ctx = logger.with({
+    let evaluated: boolean = false;
+    const ctx: Logger = logger.with({
       value: lazy(() => {
         evaluated = true;
         return "computed";
@@ -2447,14 +2456,14 @@ test("Logger does not resolve lazy values when level disables record", () => {
 });
 
 test("Logger does not resolve lazy values when filters reject record", () => {
-  const logger = LoggerImpl.getLogger(["lazy-filtered-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger(["lazy-filtered-test"]);
   logger.parentSinks = "override";
   logger.filters.push(() => false);
   logger.sinks.push(() => assert.fail("sink should not be called"));
 
   try {
-    let evaluated = false;
-    const ctx = logger.with({
+    let evaluated: boolean = false;
+    const ctx: Logger = logger.with({
       value: lazy(() => {
         evaluated = true;
         return "computed";
@@ -2470,14 +2479,16 @@ test("Logger does not resolve lazy values when filters reject record", () => {
 });
 
 test("Logger filters see resolved direct lazy properties", () => {
-  const logger = LoggerImpl.getLogger(["lazy-direct-filter-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-direct-filter-test",
+  ]);
   const records: LogRecord[] = [];
   logger.parentSinks = "override";
   logger.filters.push((record) => record.properties.user === "alice");
   logger.sinks.push((record) => records.push(record));
 
   try {
-    let currentUser = "alice";
+    let currentUser: string = "alice";
 
     logger.info("Accepted {user}", { user: lazy(() => currentUser) });
     currentUser = "bob";
@@ -2492,14 +2503,16 @@ test("Logger filters see resolved direct lazy properties", () => {
 });
 
 test("Logger filters see messages rendered with resolved direct lazy properties", () => {
-  const logger = LoggerImpl.getLogger(["lazy-direct-message-filter-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-direct-message-filter-test",
+  ]);
   const records: LogRecord[] = [];
   logger.parentSinks = "override";
   logger.filters.push((record) => record.message.includes("alice"));
   logger.sinks.push((record) => records.push(record));
 
   try {
-    let currentUser = "alice";
+    let currentUser: string = "alice";
 
     logger.info("Accepted {user}", { user: lazy(() => currentUser) });
     currentUser = "bob";
@@ -2514,7 +2527,9 @@ test("Logger filters see messages rendered with resolved direct lazy properties"
 });
 
 test("Logger caches direct message rendering across filter and sink access", () => {
-  const logger = LoggerImpl.getLogger(["lazy-direct-message-cache-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-direct-message-cache-test",
+  ]);
   const records: LogRecord[] = [];
   let filteredMessage: readonly unknown[] | undefined;
   logger.parentSinks = "override";
@@ -2526,7 +2541,7 @@ test("Logger caches direct message rendering across filter and sink access", () 
   logger.sinks.push((record) => records.push(record));
 
   try {
-    let currentUser = "alice";
+    let currentUser: string = "alice";
 
     logger.info("Cached {user}", { user: lazy(() => currentUser) });
     currentUser = "bob";
@@ -2541,13 +2556,15 @@ test("Logger caches direct message rendering across filter and sink access", () 
 });
 
 test("Logger filters do not resolve direct lazy properties when not inspected", () => {
-  const logger = LoggerImpl.getLogger(["lazy-direct-uninspected-filter-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-direct-uninspected-filter-test",
+  ]);
   logger.parentSinks = "override";
   logger.filters.push(() => false);
   logger.sinks.push(() => assert.fail("sink should not be called"));
 
   try {
-    let evaluated = false;
+    let evaluated: boolean = false;
 
     logger.info("Rejected", {
       value: lazy(() => {
@@ -2563,12 +2580,12 @@ test("Logger filters do not resolve direct lazy properties when not inspected", 
 });
 
 test("Logger does not resolve lazy values when no sinks are configured", () => {
-  const logger = LoggerImpl.getLogger(["lazy-no-sink-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger(["lazy-no-sink-test"]);
   logger.parentSinks = "override";
 
   try {
-    let evaluated = false;
-    const ctx = logger.with({
+    let evaluated: boolean = false;
+    const ctx: Logger = logger.with({
       value: lazy(() => {
         evaluated = true;
         return "computed";
@@ -2584,13 +2601,15 @@ test("Logger does not resolve lazy values when no sinks are configured", () => {
 });
 
 test("Logger resolves direct lazy properties before buffered sinks read them", () => {
-  const logger = LoggerImpl.getLogger(["lazy-direct-buffer-snapshot-test"]);
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-direct-buffer-snapshot-test",
+  ]);
   const records: LogRecord[] = [];
   logger.parentSinks = "override";
   logger.sinks.push((record) => records.push(record));
 
   try {
-    let value = "initial";
+    let value: string = "initial";
 
     logger.info("Direct {value}", { value: lazy(() => value) });
     value = "updated";
