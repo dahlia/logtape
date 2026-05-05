@@ -87,6 +87,22 @@ To be released.
 [#154]: https://github.com/dahlia/logtape/pull/154
 
 
+Version 2.0.7
+-------------
+
+Released on May 5, 2026.
+
+### @logtape/logtape
+
+ -  Fixed lazy properties so they are evaluated when a log record is emitted,
+    not later when a buffering sink flushes the record.  This makes
+    `lazy()` values stable for non-blocking console sinks and custom buffering
+    sinks.  [[#156], [#157]]
+
+[#156]: https://github.com/dahlia/logtape/issues/156
+[#157]: https://github.com/dahlia/logtape/pull/157
+
+
 Version 2.0.6
 -------------
 
