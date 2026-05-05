@@ -80,6 +80,21 @@ function resolveProperties(
   return resolved;
 }
 
+function snapshotLogRecordProperties(record: LogRecord): LogRecord {
+  const properties: Record<string, unknown> = resolveProperties(
+    record.properties,
+  );
+  const descriptors = Object.getOwnPropertyDescriptors(record) as
+    & PropertyDescriptorMap
+    & { properties?: PropertyDescriptor };
+  descriptors.properties = {
+    value: properties,
+    enumerable: true,
+    configurable: true,
+  };
+  return Object.defineProperties({}, descriptors) as LogRecord;
+}
+
 /**
  * A logger interface.  It provides methods to log messages at different
  * severity levels.
@@ -1413,10 +1428,22 @@ export class LoggerImpl implements Logger {
     ) {
       return;
     }
-    for (const sink of this.getSinks(record.level)) {
+    const sinks: Sink[] = [...this.getSinks(record.level)];
+    if (sinks.length < 1) return;
+    let snapshot: LogRecord | undefined;
+    let snapshotFailed: boolean = false;
+    for (const sink of sinks) {
       if (bypassSinks?.has(sink)) continue;
       try {
-        sink(record);
+        if (snapshot == null && !snapshotFailed) {
+          try {
+            snapshot = snapshotLogRecordProperties(record);
+          } catch {
+            snapshotFailed = true;
+            snapshot = record;
+          }
+        }
+        sink(snapshot ?? record);
       } catch (error) {
         const bypassSinks2 = new Set(bypassSinks);
         bypassSinks2.add(sink);
@@ -1436,23 +1463,27 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
-    const implicitContext = getImplicitContext();
+    const implicitContext: Record<string, unknown> = getImplicitContext();
     let cachedProps: Record<string, unknown> | undefined = undefined;
+    let cachedMessage: readonly unknown[] | undefined = undefined;
     const record: LogRecord = typeof properties === "function"
       ? {
         category: this.category,
         level,
         timestamp: Date.now(),
         get message() {
-          return parseMessageTemplate(rawMessage, this.properties);
+          if (cachedMessage == null) {
+            cachedMessage = parseMessageTemplate(rawMessage, this.properties);
+          }
+          return cachedMessage;
         },
         rawMessage,
         get properties() {
           if (cachedProps == null) {
-            cachedProps = {
+            cachedProps = resolveProperties({
               ...implicitContext,
               ...properties(),
-            };
+            });
           }
           return cachedProps;
         },
@@ -1461,12 +1492,22 @@ export class LoggerImpl implements Logger {
         category: this.category,
         level,
         timestamp: Date.now(),
-        message: parseMessageTemplate(rawMessage, {
-          ...implicitContext,
-          ...properties,
-        }),
+        get message() {
+          if (cachedMessage == null) {
+            cachedMessage = parseMessageTemplate(rawMessage, this.properties);
+          }
+          return cachedMessage;
+        },
         rawMessage,
-        properties: { ...implicitContext, ...properties },
+        get properties() {
+          if (cachedProps == null) {
+            cachedProps = resolveProperties({
+              ...implicitContext,
+              ...properties,
+            });
+          }
+          return cachedProps;
+        },
       };
     this.emit(record, bypassSinks);
   }
