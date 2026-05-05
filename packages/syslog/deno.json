@@ -1,6 +1,6 @@
 {
   "name": "@logtape/syslog",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "exclude": [
