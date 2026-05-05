@@ -13,7 +13,7 @@ import {
   renderMessage,
 } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
-import type { Sink } from "./sink.ts";
+import { getConsoleSink, type Sink } from "./sink.ts";
 
 function templateLiteral(tpl: TemplateStringsArray, ..._: unknown[]) {
   return tpl;
@@ -2309,6 +2309,295 @@ test("Logger.with() lazy getter throwing error propagates", () => {
     assert.strictEqual(errors.length, 1);
     assert.ok(errors[0] instanceof Error);
     assert.strictEqual((errors[0] as Error).message, "getter error");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values are snapshotted before buffered sinks read them", () => {
+  const logger = LoggerImpl.getLogger(["lazy-buffer-snapshot-test"]);
+  const records: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let currentUser = "alice";
+    const ctx = logger.with({ user: lazy(() => currentUser) });
+
+    ctx.info("First {user}");
+    currentUser = "bob";
+    ctx.info("Second {user}");
+    currentUser = "carol";
+
+    assert.strictEqual(records.length, 2);
+    assert.deepStrictEqual(records[0].message, ["First ", "alice", ""]);
+    assert.strictEqual(records[0].properties.user, "alice");
+    assert.deepStrictEqual(records[1].message, ["Second ", "bob", ""]);
+    assert.strictEqual(records[1].properties.user, "bob");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger.with() lazy values are snapshotted for non-blocking console sinks", () => {
+  const logger = LoggerImpl.getLogger(["lazy-non-blocking-console-test"]);
+  const logs: unknown[][] = [];
+  const fakeConsole = {
+    debug: (...args: unknown[]) => logs.push(args),
+    error: (...args: unknown[]) => logs.push(args),
+    info: (...args: unknown[]) => logs.push(args),
+    log: (...args: unknown[]) => logs.push(args),
+    trace: (...args: unknown[]) => logs.push(args),
+    warn: (...args: unknown[]) => logs.push(args),
+  } as unknown as Console;
+  const sink = getConsoleSink({
+    console: fakeConsole,
+    formatter: (record) => [
+      record.level,
+      record.category.join("."),
+      record.message.join(" "),
+      record.properties,
+    ],
+    nonBlocking: {
+      bufferSize: 100,
+      flushInterval: 5000,
+    },
+  });
+  logger.parentSinks = "override";
+  logger.sinks.push(sink);
+
+  try {
+    let currentUser = "alice";
+    const ctx = logger.with({ user: lazy(() => currentUser) });
+
+    ctx.info("First action");
+    currentUser = "bob";
+    ctx.info("Second action");
+    currentUser = "carol";
+
+    (sink as Sink & Disposable)[Symbol.dispose]();
+
+    assert.deepStrictEqual(logs, [
+      [
+        "info",
+        "lazy-non-blocking-console-test",
+        "First action",
+        { user: "alice" },
+      ],
+      [
+        "info",
+        "lazy-non-blocking-console-test",
+        "Second action",
+        { user: "bob" },
+      ],
+    ]);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger lazy values are resolved once for all sinks", () => {
+  const logger = LoggerImpl.getLogger(["lazy-single-evaluation-test"]);
+  const records1: LogRecord[] = [];
+  const records2: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.sinks.push((record) => records1.push(record));
+  logger.sinks.push((record) => records2.push(record));
+
+  try {
+    let evaluations = 0;
+    const ctx = logger.with({
+      value: lazy(() => {
+        evaluations++;
+        return evaluations;
+      }),
+    });
+
+    ctx.info("Shared lazy value");
+
+    assert.strictEqual(evaluations, 1);
+    assert.strictEqual(records1[0].properties.value, 1);
+    assert.strictEqual(records2[0].properties.value, 1);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger does not resolve lazy values when level disables record", () => {
+  const logger = LoggerImpl.getLogger(["lazy-disabled-level-test"]);
+  logger.parentSinks = "override";
+  logger.lowestLevel = "warning";
+  logger.sinks.push(() => assert.fail("sink should not be called"));
+
+  try {
+    let evaluated = false;
+    const ctx = logger.with({
+      value: lazy(() => {
+        evaluated = true;
+        return "computed";
+      }),
+    });
+
+    ctx.info("Filtered by level");
+
+    assert.strictEqual(evaluated, false);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger does not resolve lazy values when filters reject record", () => {
+  const logger = LoggerImpl.getLogger(["lazy-filtered-test"]);
+  logger.parentSinks = "override";
+  logger.filters.push(() => false);
+  logger.sinks.push(() => assert.fail("sink should not be called"));
+
+  try {
+    let evaluated = false;
+    const ctx = logger.with({
+      value: lazy(() => {
+        evaluated = true;
+        return "computed";
+      }),
+    });
+
+    ctx.info("Filtered by predicate");
+
+    assert.strictEqual(evaluated, false);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger filters see resolved direct lazy properties", () => {
+  const logger = LoggerImpl.getLogger(["lazy-direct-filter-test"]);
+  const records: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.filters.push((record) => record.properties.user === "alice");
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let currentUser = "alice";
+
+    logger.info("Accepted {user}", { user: lazy(() => currentUser) });
+    currentUser = "bob";
+    logger.info("Rejected {user}", { user: lazy(() => currentUser) });
+
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].message, ["Accepted ", "alice", ""]);
+    assert.strictEqual(records[0].properties.user, "alice");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger filters see messages rendered with resolved direct lazy properties", () => {
+  const logger = LoggerImpl.getLogger(["lazy-direct-message-filter-test"]);
+  const records: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.filters.push((record) => record.message.includes("alice"));
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let currentUser = "alice";
+
+    logger.info("Accepted {user}", { user: lazy(() => currentUser) });
+    currentUser = "bob";
+    logger.info("Rejected {user}", { user: lazy(() => currentUser) });
+
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].message, ["Accepted ", "alice", ""]);
+    assert.strictEqual(records[0].properties.user, "alice");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger caches direct message rendering across filter and sink access", () => {
+  const logger = LoggerImpl.getLogger(["lazy-direct-message-cache-test"]);
+  const records: LogRecord[] = [];
+  let filteredMessage: readonly unknown[] | undefined;
+  logger.parentSinks = "override";
+  logger.filters.push((record) => {
+    filteredMessage = record.message;
+    assert.strictEqual(record.message, filteredMessage);
+    return true;
+  });
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let currentUser = "alice";
+
+    logger.info("Cached {user}", { user: lazy(() => currentUser) });
+    currentUser = "bob";
+
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].message, filteredMessage);
+    assert.strictEqual(records[0].message, records[0].message);
+    assert.deepStrictEqual(records[0].message, ["Cached ", "alice", ""]);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger filters do not resolve direct lazy properties when not inspected", () => {
+  const logger = LoggerImpl.getLogger(["lazy-direct-uninspected-filter-test"]);
+  logger.parentSinks = "override";
+  logger.filters.push(() => false);
+  logger.sinks.push(() => assert.fail("sink should not be called"));
+
+  try {
+    let evaluated = false;
+
+    logger.info("Rejected", {
+      value: lazy(() => {
+        evaluated = true;
+        return "computed";
+      }),
+    });
+
+    assert.strictEqual(evaluated, false);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger does not resolve lazy values when no sinks are configured", () => {
+  const logger = LoggerImpl.getLogger(["lazy-no-sink-test"]);
+  logger.parentSinks = "override";
+
+  try {
+    let evaluated = false;
+    const ctx = logger.with({
+      value: lazy(() => {
+        evaluated = true;
+        return "computed";
+      }),
+    });
+
+    ctx.info("No destination");
+
+    assert.strictEqual(evaluated, false);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger resolves direct lazy properties before buffered sinks read them", () => {
+  const logger = LoggerImpl.getLogger(["lazy-direct-buffer-snapshot-test"]);
+  const records: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    let value = "initial";
+
+    logger.info("Direct {value}", { value: lazy(() => value) });
+    value = "updated";
+
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].message, ["Direct ", "initial", ""]);
+    assert.strictEqual(records[0].properties.value, "initial");
   } finally {
     logger.resetDescendants();
   }
