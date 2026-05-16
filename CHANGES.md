@@ -87,6 +87,20 @@ To be released.
 [#154]: https://github.com/dahlia/logtape/pull/154
 
 
+Version 2.0.8
+-------------
+
+Released on May 16, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+[#161]: https://github.com/dahlia/logtape/issues/161
+
+
 Version 2.0.7
 -------------
 
@@ -487,6 +501,18 @@ Released on January 15, 2026.
 [#115]: https://github.com/dahlia/logtape/pull/115
 
 
+Version 1.3.9
+-------------
+
+Released on May 16, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+
 Version 1.3.8
 -------------
 
@@ -832,6 +858,18 @@ Released on December 15, 2025.
      -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
 
 
+Version 1.2.8
+-------------
+
+Released on May 16, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+
 Version 1.2.7
 -------------
 
@@ -995,6 +1033,18 @@ Released on November 11, 2025.
     structured data.  [[#94]]
 
 [#94]: https://github.com/dahlia/logtape/issues/94
+
+
+Version 1.1.9
+-------------
+
+Released on May 16, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
 
 
 Version 1.1.8
@@ -1166,6 +1216,16 @@ Released on September 11, 2025.
     issues outside Node.js. [[#80] by Sora Morimoto]
 
 [#80]: https://github.com/dahlia/logtape/pull/80
+
+
+Version 1.0.7
+-------------
+
+Released on May 16, 2026.
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
 
 
 Version 1.0.6
