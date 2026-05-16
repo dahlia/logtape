@@ -2417,6 +2417,54 @@ test("fingersCrossed() - LRU eviction order with access updates", async () => {
   assertEquals(buffer[0], req2Error);
 });
 
+test("fingersCrossed() - LRU access updates within same millisecond", () => {
+  const buffer: LogRecord[] = [];
+  const originalDateNow = Date.now;
+  Date.now = () => 1_000;
+
+  try {
+    const sink = fingersCrossed(buffer.push.bind(buffer), {
+      isolateByContext: {
+        keys: ["requestId"],
+        maxContexts: 2,
+      },
+    });
+
+    const req1Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+    };
+    const req2Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-2" },
+    };
+    const req1Second: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+    };
+    const req3Record: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-3" },
+    };
+
+    sink(req1Record);
+    sink(req2Record);
+    sink(req1Second);
+    sink(req3Record);
+
+    const req2Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-2" },
+    };
+    sink(req2Error);
+
+    assertEquals(buffer.length, 1, "req-2 should have been evicted");
+    assertEquals(buffer[0], req2Error);
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
 test("fingersCrossed() - LRU disabled when maxContexts is zero", () => {
   const buffer: LogRecord[] = [];
   const sink = fingersCrossed(buffer.push.bind(buffer), {

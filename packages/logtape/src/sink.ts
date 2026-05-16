@@ -586,7 +586,7 @@ interface BufferMetadata {
   readonly buffer: LogRecord[];
 
   /**
-   * Timestamp of the last access to this buffer (in milliseconds).
+   * Monotonically increasing order of the last access to this buffer.
    * Used for LRU-based eviction when {@link FingersCrossedOptions.isolateByContext.maxContexts} is set.
    */
   lastAccess: number;
@@ -844,6 +844,7 @@ export function fingersCrossed(
     // Category and/or context-isolated buffers
     const buffers = new Map<string, BufferMetadata>();
     const triggered = new Set<string>();
+    let accessCounter = 0;
 
     // Set up TTL cleanup timer if enabled
     let cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -932,7 +933,6 @@ export function fingersCrossed(
         sink(record);
       } else {
         // Buffer the record
-        const now = Date.now();
         let metadata = buffers.get(bufferKey);
         if (!metadata) {
           // Apply LRU eviction if adding new buffer would exceed capacity
@@ -944,12 +944,12 @@ export function fingersCrossed(
 
           metadata = {
             buffer: [],
-            lastAccess: now,
+            lastAccess: ++accessCounter,
           };
           buffers.set(bufferKey, metadata);
         } else {
-          // Update last access time for LRU
-          metadata.lastAccess = now;
+          // Update last access order for LRU
+          metadata.lastAccess = ++accessCounter;
         }
 
         metadata.buffer.push(record);

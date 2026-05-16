@@ -8,6 +8,13 @@ Version 1.2.9
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed LRU eviction in `fingersCrossed()` context isolation when multiple
+    contexts are accessed within the same millisecond.  Previously, such
+    accesses could evict a recently used context because LRU ordering depended
+    on millisecond-resolution timestamps.
+
 
 Version 1.2.8
 -------------
