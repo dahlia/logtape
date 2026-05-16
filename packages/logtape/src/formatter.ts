@@ -1260,12 +1260,19 @@ function stringifyLogfmtValue(value: unknown): string {
 
   try {
     const json: string | undefined = JSON.stringify(value, jsonReplacer);
-    if (typeof json === "string") return json;
+    if (typeof json === "string") return unwrapJsonStringLiteral(json);
   } catch {
     // Fall back to inspect below.
   }
 
   return inspect(value, { colors: false });
+}
+
+function unwrapJsonStringLiteral(json: string): string {
+  if (json.startsWith('"') && json.endsWith('"')) {
+    return JSON.parse(json) as string;
+  }
+  return json;
 }
 
 function quoteLogfmtValue(value: string, isString: boolean): string {

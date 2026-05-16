@@ -900,6 +900,7 @@ test("getLogfmtFormatter() serializes structured properties", () => {
       error: new Error("boom"),
       nested: { count: 2, labels: ["a", "b"] },
       nil: null,
+      createdAt: new Date("2023-11-14T22:13:20.000Z"),
     },
   };
 
@@ -919,6 +920,7 @@ test("getLogfmtFormatter() serializes structured properties", () => {
   assert.deepStrictEqual(parsedError.name, "Error");
   assert.deepStrictEqual(parsedError.message, "boom");
   assert.deepStrictEqual(parsed.nil, "null");
+  assert.deepStrictEqual(parsed.createdAt, "2023-11-14T22:13:20.000Z");
 });
 
 test("getLogfmtFormatter() coerces browser inspect fallback output", async () => {
