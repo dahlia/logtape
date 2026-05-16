@@ -33,7 +33,10 @@ const levelAbbreviations: Record<LogLevel, string> = {
  *                If `colors` is `true`, the output will be ANSI-colored.
  * @returns The string representation of the value.
  */
-const inspect: (value: unknown, options?: { colors?: boolean }) => string =
+const inspectValue: (
+  value: unknown,
+  options?: { colors?: boolean },
+) => unknown =
   // @ts-ignore: Browser detection
   // dnt-shim-ignore
   typeof document !== "undefined" ||
@@ -67,6 +70,11 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string =
         ...opts,
       })
     : (v) => JSON.stringify(v);
+
+const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
+  value: unknown,
+  options?: { colors?: boolean },
+): string => String(inspectValue(value, options));
 
 /**
  * The formatted values for a log record.
@@ -1194,7 +1202,7 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
   if (msgLen === 1) return record.message[0] as string;
 
   if (msgLen <= 6) {
-    let msg = "";
+    let msg: string = "";
     for (let i = 0; i < msgLen; i++) {
       msg += (i % 2 === 0)
         ? record.message[i] as string
@@ -1254,13 +1262,13 @@ function stringifyLogfmtValue(value: unknown): string {
   }
 
   try {
-    const json = JSON.stringify(value, jsonReplacer);
+    const json: string | undefined = JSON.stringify(value, jsonReplacer);
     if (typeof json === "string") return json;
   } catch {
     // Fall back to inspect below.
   }
 
-  return String(inspect(value, { colors: false }));
+  return inspect(value, { colors: false });
 }
 
 function quoteLogfmtValue(value: string, quoteNull: boolean): string {
@@ -1323,15 +1331,16 @@ function pushLogfmtPair(
 export function getLogfmtFormatter(
   options: LogfmtFormatterOptions = {},
 ): TextFormatter {
-  const prependPrefix = "prepend:";
+  const prependPrefix: string = "prepend:";
   const lineEnding: string = getLineEndingValue(options.lineEnding);
   const timestampRenderer: (ts: number) => string | null =
     createTimestampFormatter(
       "rfc3339",
       resolveTimeZone(options.timeZone),
     );
-  const isTemplateMessage = options.message === "template";
-  const propertiesOption = options.properties ?? "flatten";
+  const isTemplateMessage: boolean = options.message === "template";
+  const propertiesOption: "flatten" | `prepend:${string}` =
+    options.properties ?? "flatten";
 
   let joinCategory: (category: readonly string[]) => string;
   if (typeof options.categorySeparator === "function") {
@@ -1342,16 +1351,17 @@ export function getLogfmtFormatter(
       category.join(separator);
   }
 
-  let propertyPrefix = "";
+  let propertyPrefix: string = "";
   if (propertiesOption === "flatten") {
     propertyPrefix = "";
   } else if (propertiesOption.startsWith(prependPrefix)) {
     propertyPrefix = propertiesOption.substring(prependPrefix.length);
     if (propertyPrefix === "") {
       throw new TypeError(
-        `Invalid properties option: ${
-          JSON.stringify(propertiesOption)
-        }. It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.`,
+        "Invalid properties option: " + JSON.stringify(propertiesOption) +
+          ". " +
+          'It must be of the form "prepend:<prefix>" where <prefix> is a ' +
+          "non-empty string.",
       );
     }
   } else {
