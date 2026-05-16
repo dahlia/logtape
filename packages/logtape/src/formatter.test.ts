@@ -845,6 +845,26 @@ test("getLogfmtFormatter()", () => {
   );
 });
 
+test("getLogfmtFormatter() preserves tagged template literal segments", () => {
+  function rawMessage(tpl: TemplateStringsArray, ..._: unknown[]) {
+    return tpl;
+  }
+
+  const logRecord: LogRecord = {
+    level: "info",
+    category: ["template"],
+    message: ["a ", 1, " b ", 2, " c"],
+    rawMessage: rawMessage`a ${1} b ${2} c`,
+    timestamp: 1700000000000,
+    properties: {},
+  };
+
+  assert.deepStrictEqual(
+    getLogfmtFormatter({ message: "template" })(logRecord),
+    'time=2023-11-14T22:13:20.000Z level=info logger=template msg="a {} b {} c"\n',
+  );
+});
+
 test("getLogfmtFormatter() escapes values", () => {
   const logRecord: LogRecord = {
     level: "warning",

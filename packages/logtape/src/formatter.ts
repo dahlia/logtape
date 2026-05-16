@@ -1187,11 +1187,7 @@ export interface LogfmtFormatterOptions {
 function renderStructuredMessage(record: LogRecord, template: boolean): string {
   if (template) {
     if (typeof record.rawMessage === "string") return record.rawMessage;
-    let msg = "";
-    for (let i = 0; i < record.rawMessage.length; i++) {
-      msg += i % 2 < 1 ? record.rawMessage[i] : "{}";
-    }
-    return msg;
+    return record.rawMessage.join("{}");
   }
 
   const msgLen = record.message.length;
