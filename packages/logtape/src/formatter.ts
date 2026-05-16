@@ -1220,7 +1220,7 @@ function filterLogfmtKey(key: string): string | null {
       code == null || code <= 0x20 || code === 0x7f || code === 0xfffd ||
       char === "=" || char === '"'
     ) {
-      continue;
+      return null;
     }
     result += char;
   }
