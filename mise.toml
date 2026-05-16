@@ -11,10 +11,13 @@ version = "0.3.11"
 linux-x64 = "hongdown-*-x86_64-unknown-linux-musl.tar.bz2"
 linux-arm64 = "hongdown-*-aarch64-unknown-linux-musl.tar.bz2"
 
+[hooks]
+postinstall = "deno install && pnpm install"
+
 [tasks.deps]
 alias = "install"
 description = "Install all dependencies and update the lockfiles"
-run = "pnpm install"
+run = "deno install && pnpm install"
 
 [tasks.check]
 description = "Check code formatting, linting, and type checking"

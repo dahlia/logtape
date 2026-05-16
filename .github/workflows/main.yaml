@@ -22,9 +22,10 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: &mise_options
+        experimental: true
+        install: true
     - run: mise run deps
     - run: mise run check
 
@@ -49,9 +50,8 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: deno task test --coverage=.cov --junit-path=.test-report.xml
     - uses: EnricoMi/publish-unit-test-result-action@v2
       if: runner.os == 'Linux' && always()
@@ -94,9 +94,8 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run deps
     - run: mise run build
     - run: mise run test:node
@@ -113,9 +112,8 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run deps
     - run: mise run build
     - run: mise run test:bun
@@ -130,9 +128,8 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run deps
     - run: |
         set -ex
@@ -178,9 +175,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run deps
     - run: mise run build
     - run: |
