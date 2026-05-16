@@ -960,6 +960,7 @@ test("getLogfmtFormatter() escapes invalid property keys", () => {
       'user"id': "quote",
       "\t": "tab",
       "user%20id": "percent",
+      "bad\uFFFdkey": "replacement",
       userid: "valid",
     },
   });
@@ -971,6 +972,7 @@ test("getLogfmtFormatter() escapes invalid property keys", () => {
   assert.deepStrictEqual(parsed["user%22id"], "quote");
   assert.deepStrictEqual(parsed["%09"], "tab");
   assert.deepStrictEqual(parsed["user%2520id"], "percent");
+  assert.deepStrictEqual(parsed["bad%EF%BF%BDkey"], "replacement");
 });
 
 test("getLogfmtFormatter() renders BigInt message values", () => {

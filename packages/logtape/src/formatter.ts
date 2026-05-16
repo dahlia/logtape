@@ -76,6 +76,8 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
   options?: { colors?: boolean },
 ): string => String(inspectValue(value, options));
 
+const utf8Encoder = new TextEncoder();
+
 /**
  * The formatted values for a log record.
  * @since 0.6.0
@@ -1237,7 +1239,7 @@ function filterLogfmtKey(key: string): string | null {
   for (const char of key) {
     const code: number = char.codePointAt(0)!;
     if (shouldEscapeLogfmtKeyChar(char, code)) {
-      result += `%${code.toString(16).toUpperCase().padStart(2, "0")}`;
+      result += encodeLogfmtKeyChar(char);
     } else {
       result += char;
     }
@@ -1248,6 +1250,14 @@ function filterLogfmtKey(key: string): string | null {
 function shouldEscapeLogfmtKeyChar(char: string, code: number): boolean {
   return code <= 0x20 || code === 0x7f || code === 0xfffd ||
     char === "=" || char === '"' || char === "%";
+}
+
+function encodeLogfmtKeyChar(char: string): string {
+  let result: string = "";
+  for (const byte of utf8Encoder.encode(char)) {
+    result += `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  }
+  return result;
 }
 
 function stringifyLogfmtValue(value: unknown): string {
