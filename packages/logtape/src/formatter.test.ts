@@ -484,6 +484,16 @@ test("getJsonLinesFormatter()", () => {
     assertEquals(result2.message, "Login failed for {}");
   }
 
+  { // message template option with multiple interpolations
+    const formatter = getJsonLinesFormatter({ message: "template" });
+    const result = JSON.parse(formatter({
+      ...logRecord,
+      message: ["a ", 1, " b ", 2, " c"],
+      rawMessage: ["a ", " b ", " c"] as unknown as TemplateStringsArray,
+    }));
+    assertEquals(result.message, "a {} b {} c");
+  }
+
   { // message template with string rawMessage
     const stringRawRecord: LogRecord = {
       ...logRecord,
