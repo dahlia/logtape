@@ -915,7 +915,7 @@ test("getLogfmtFormatter() serializes structured properties", () => {
   assert.deepStrictEqual(parsed.nil, "null");
 });
 
-test("getLogfmtFormatter() rejects invalid property keys", () => {
+test("getLogfmtFormatter() escapes invalid property keys", () => {
   const output = getLogfmtFormatter()({
     ...info,
     properties: {
@@ -923,16 +923,18 @@ test("getLogfmtFormatter() rejects invalid property keys", () => {
       "user=id": "equals",
       'user"id': "quote",
       "\t": "tab",
+      "user%20id": "percent",
       userid: "valid",
     },
   });
   const parsed = parseLogfmt(output);
 
   assert.deepStrictEqual(parsed.userid, "valid");
-  assert.deepStrictEqual(output.includes("space"), false);
-  assert.deepStrictEqual(output.includes("equals"), false);
-  assert.deepStrictEqual(output.includes("quote"), false);
-  assert.deepStrictEqual(output.includes("tab"), false);
+  assert.deepStrictEqual(parsed["user%20id"], "space");
+  assert.deepStrictEqual(parsed["user%3Did"], "equals");
+  assert.deepStrictEqual(parsed["user%22id"], "quote");
+  assert.deepStrictEqual(parsed["%09"], "tab");
+  assert.deepStrictEqual(parsed["user%2520id"], "percent");
 });
 
 test("getLogfmtFormatter() renders BigInt message values", () => {

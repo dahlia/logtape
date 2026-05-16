@@ -1197,7 +1197,7 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
     let msg = "";
     for (let i = 0; i < msgLen; i++) {
       msg += (i % 2 === 0)
-        ? record.message[i]
+        ? record.message[i] as string
         : stringifyLogfmtValue(record.message[i]);
     }
     return msg;
@@ -1218,11 +1218,14 @@ function filterLogfmtKey(key: string): string | null {
     const code = char.codePointAt(0);
     if (
       code == null || code <= 0x20 || code === 0x7f || code === 0xfffd ||
-      char === "=" || char === '"'
+      char === "=" || char === '"' || char === "%"
     ) {
-      return null;
+      result += `%${
+        (code ?? 0xfffd).toString(16).toUpperCase().padStart(2, "0")
+      }`;
+    } else {
+      result += char;
     }
-    result += char;
   }
   return result === "" ? null : result;
 }
