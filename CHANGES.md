@@ -9,6 +9,13 @@ Version 1.2.8
 To be released.
 
 
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+
 Version 1.2.7
 -------------
 
@@ -176,6 +183,32 @@ Released on November 11, 2025.
 [#94]: https://github.com/dahlia/logtape/issues/94
 
 
+Version 1.1.9
+-------------
+
+Released on May 16, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+
+Version 1.1.8
+-------------
+
+Released on January 7, 2026.
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed `getCloudWatchLogsSink()` to properly close internally created
+    `CloudWatchLogsClient` connections on disposal.  Previously, when the sink
+    created its own client (i.e., when `options.client` was not provided),
+    the client's TLS connections were not closed, causing resource leaks that
+    were detected by Deno's stricter resource leak checking in newer versions.
+
+
 Version 1.1.7
 -------------
 
@@ -333,6 +366,18 @@ Released on September 11, 2025.
     issues outside Node.js. [[#80] by Sora Morimoto]
 
 [#80]: https://github.com/dahlia/logtape/pull/80
+
+
+Version 1.0.7
+-------------
+
+Released on May 16, 2026.
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+[#161]: https://github.com/dahlia/logtape/issues/161
 
 
 Version 1.0.6
