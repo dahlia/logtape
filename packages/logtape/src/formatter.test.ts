@@ -875,6 +875,12 @@ test("getLogfmtFormatter() escapes values", () => {
     properties: {
       empty: "",
       nullString: "null",
+      undefinedString: "undefined",
+      trueString: "true",
+      falseString: "false",
+      actualUndefined: undefined,
+      actualTrue: true,
+      actualFalse: false,
       quote: 'a "quote"',
       path: String.raw`C:\tmp\app.log`,
       multiline: "first\nsecond",
@@ -883,7 +889,7 @@ test("getLogfmtFormatter() escapes values", () => {
 
   assert.deepStrictEqual(
     getLogfmtFormatter()(logRecord),
-    'time=2023-11-14T22:13:20.000Z level=warning logger="my app" msg="bad chars: = \\" \\\\ \\n \\t" empty="" nullString="null" quote="a \\"quote\\"" path="C:\\\\tmp\\\\app.log" multiline="first\\nsecond"\n',
+    'time=2023-11-14T22:13:20.000Z level=warning logger="my app" msg="bad chars: = \\" \\\\ \\n \\t" empty="" nullString="null" undefinedString="undefined" trueString="true" falseString="false" actualUndefined=undefined actualTrue=true actualFalse=false quote="a \\"quote\\"" path="C:\\\\tmp\\\\app.log" multiline="first\\nsecond"\n',
   );
 });
 

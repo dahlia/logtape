@@ -1268,17 +1268,30 @@ function stringifyLogfmtValue(value: unknown): string {
   return inspect(value, { colors: false });
 }
 
-function quoteLogfmtValue(value: string, quoteNull: boolean): string {
-  let needsQuote: boolean = value === "" || quoteNull && value === "null";
-  let quoted: string = "";
+function quoteLogfmtValue(value: string, isString: boolean): string {
+  let needsQuote: boolean = value === "" ||
+    isString && shouldQuoteStringLiteral(value);
 
   for (const char of value) {
     const code: number = char.codePointAt(0)!;
-    if (shouldQuoteLogfmtValueChar(char, code)) needsQuote = true;
+    if (shouldQuoteLogfmtValueChar(char, code)) {
+      needsQuote = true;
+      break;
+    }
+  }
+  if (!needsQuote) return value;
+
+  let quoted: string = "";
+  for (const char of value) {
+    const code: number = char.codePointAt(0)!;
     quoted += escapeLogfmtValueChar(char, code);
   }
+  return `"${quoted}"`;
+}
 
-  return needsQuote ? `"${quoted}"` : value;
+function shouldQuoteStringLiteral(value: string): boolean {
+  return value === "null" || value === "undefined" || value === "true" ||
+    value === "false";
 }
 
 function shouldQuoteLogfmtValueChar(char: string, code: number): boolean {
