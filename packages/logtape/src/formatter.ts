@@ -1221,7 +1221,7 @@ function filterLogfmtKey(key: string): string | null {
       char === "=" || char === '"' || char === "%"
     ) {
       result += `%${
-        (code ?? 0xfffd).toString(16).toUpperCase().padStart(2, "0")
+        (code ?? 0xfffd).toString(16).toUpperCase().padStart(4, "0")
       }`;
     } else {
       result += char;
@@ -1311,6 +1311,7 @@ function pushLogfmtPair(
 export function getLogfmtFormatter(
   options: LogfmtFormatterOptions = {},
 ): TextFormatter {
+  const prependPrefix = "prepend:";
   const lineEnding: string = getLineEndingValue(options.lineEnding);
   const timestampRenderer: (ts: number) => string | null =
     createTimestampFormatter(
@@ -1332,8 +1333,8 @@ export function getLogfmtFormatter(
   let propertyPrefix = "";
   if (propertiesOption === "flatten") {
     propertyPrefix = "";
-  } else if (propertiesOption.startsWith("prepend:")) {
-    propertyPrefix = propertiesOption.substring(8);
+  } else if (propertiesOption.startsWith(prependPrefix)) {
+    propertyPrefix = propertiesOption.substring(prependPrefix.length);
     if (propertyPrefix === "") {
       throw new TypeError(
         `Invalid properties option: ${
