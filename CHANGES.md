@@ -25,7 +25,8 @@ To be released.
  -  `getAnsiColorFormatter()` now supports timezone control through the
     inherited `timeZone` option from `TextFormatterOptions`.  [[#140]]
 
- -  Added built-in logfmt formatter for readable structured logs.  [[#159]]
+ -  Added built-in logfmt formatter for readable structured logs.
+    [[#159], [#162]]
 
      -  Added `logfmtFormatter` constant.
      -  Added `getLogfmtFormatter()` function.
@@ -56,6 +57,7 @@ To be released.
 [#145]: https://github.com/dahlia/logtape/pull/145
 [#147]: https://github.com/dahlia/logtape/issues/147
 [#159]: https://github.com/dahlia/logtape/issues/159
+[#162]: https://github.com/dahlia/logtape/pull/162
 
 ### @logtape/pretty
 
