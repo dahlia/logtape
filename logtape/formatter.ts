@@ -823,7 +823,8 @@ export function getJsonLinesFormatter(
       }
       let msg = "";
       for (let i = 0; i < record.rawMessage.length; i++) {
-        msg += i % 2 < 1 ? record.rawMessage[i] : "{}";
+        if (i > 0) msg += "{}";
+        msg += record.rawMessage[i];
       }
       return msg;
     };

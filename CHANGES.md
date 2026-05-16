@@ -8,6 +8,12 @@ Version 1.0.7
 
 To be released.
 
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+[#161]: https://github.com/dahlia/logtape/issues/161
+
 
 Version 1.0.6
 -------------
