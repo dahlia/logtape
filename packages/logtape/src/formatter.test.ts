@@ -930,11 +930,11 @@ test("getLogfmtFormatter() escapes invalid property keys", () => {
   const parsed = parseLogfmt(output);
 
   assert.deepStrictEqual(parsed.userid, "valid");
-  assert.deepStrictEqual(parsed["user%0020id"], "space");
-  assert.deepStrictEqual(parsed["user%003Did"], "equals");
-  assert.deepStrictEqual(parsed["user%0022id"], "quote");
-  assert.deepStrictEqual(parsed["%0009"], "tab");
-  assert.deepStrictEqual(parsed["user%002520id"], "percent");
+  assert.deepStrictEqual(parsed["user%20id"], "space");
+  assert.deepStrictEqual(parsed["user%3Did"], "equals");
+  assert.deepStrictEqual(parsed["user%22id"], "quote");
+  assert.deepStrictEqual(parsed["%09"], "tab");
+  assert.deepStrictEqual(parsed["user%2520id"], "percent");
 });
 
 test("getLogfmtFormatter() renders BigInt message values", () => {

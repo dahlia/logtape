@@ -1215,14 +1215,12 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
 function filterLogfmtKey(key: string): string | null {
   let result = "";
   for (const char of key) {
-    const code = char.codePointAt(0);
+    const code = char.codePointAt(0)!;
     if (
-      code == null || code <= 0x20 || code === 0x7f || code === 0xfffd ||
+      code <= 0x20 || code === 0x7f || code === 0xfffd ||
       char === "=" || char === '"' || char === "%"
     ) {
-      result += `%${
-        (code ?? 0xfffd).toString(16).toUpperCase().padStart(4, "0")
-      }`;
+      result += `%${code.toString(16).toUpperCase().padStart(2, "0")}`;
     } else {
       result += char;
     }
@@ -1256,9 +1254,9 @@ function quoteLogfmtValue(value: string, quoteNull: boolean): string {
   let quoted = "";
 
   for (const char of value) {
-    const code = char.codePointAt(0);
+    const code = char.codePointAt(0)!;
     if (
-      code == null || code <= 0x20 || code === 0x7f || code === 0xfffd ||
+      code <= 0x20 || code === 0x7f || code === 0xfffd ||
       char === "=" || char === '"' || char === "\\"
     ) {
       needsQuote = true;
