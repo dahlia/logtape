@@ -88,6 +88,12 @@ Values containing whitespace, `=`, `"`, `\`, control characters, or empty
 strings are quoted.  Quoted values escape tabs, newlines, carriage returns,
 quotes, and backslashes.
 
+Property keys that contain whitespace, `=`, `"`, `%`, control characters, or
+the Unicode replacement character are percent-escaped so that the output stays
+parseable.  For example, the key `user id` is emitted as `user%20id`.
+Logfmt parsers generally expose these escaped key names literally rather than
+decoding them.
+
 [logfmt]: https://brandur.org/logfmt
 
 ### Pretty formatter
