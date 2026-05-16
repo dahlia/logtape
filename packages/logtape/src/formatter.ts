@@ -1193,13 +1193,23 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
   const msgLen = record.message.length;
   if (msgLen === 1) return record.message[0] as string;
 
-  let msg = "";
+  if (msgLen <= 6) {
+    let msg = "";
+    for (let i = 0; i < msgLen; i++) {
+      msg += (i % 2 < 1)
+        ? record.message[i]
+        : stringifyLogfmtValue(record.message[i]);
+    }
+    return msg;
+  }
+
+  const parts: string[] = new Array(msgLen);
   for (let i = 0; i < msgLen; i++) {
-    msg += (i % 2 < 1)
-      ? record.message[i]
+    parts[i] = (i % 2 < 1)
+      ? record.message[i] as string
       : stringifyLogfmtValue(record.message[i]);
   }
-  return msg;
+  return parts.join("");
 }
 
 function filterLogfmtKey(key: string): string | null {
