@@ -80,7 +80,7 @@ while staying readable in terminals and plain log streams.
 
 It formats log records like this:
 
-~~~~
+~~~~ logfmt
 time=2023-11-14T22:13:20.000Z level=info logger=my.logger msg="Hello, world!" key=value
 ~~~~
 
