@@ -8,6 +8,12 @@ Version 1.1.9
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
 
 Version 1.1.8
 -------------
@@ -180,6 +186,18 @@ Released on September 11, 2025.
     issues outside Node.js. [[#80] by Sora Morimoto]
 
 [#80]: https://github.com/dahlia/logtape/pull/80
+
+
+Version 1.0.7
+-------------
+
+Released on May 16, 2026.
+
+ -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
+    dropped literal segments from tagged-template log messages with multiple
+    interpolations.  [[#161]]
+
+[#161]: https://github.com/dahlia/logtape/issues/161
 
 
 Version 1.0.6
