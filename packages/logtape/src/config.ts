@@ -91,14 +91,24 @@ let currentConfig: Config<string, string> | null = null;
 const strongRefs: Set<LoggerImpl> = new Set();
 
 /**
- * Disposables to dispose when resetting the configuration.
+ * Sync filter disposables to dispose when resetting the configuration.
  */
-const disposables: Set<Disposable> = new Set();
+const filterDisposables: Set<Disposable> = new Set();
 
 /**
- * Async disposables to dispose when resetting the configuration.
+ * Sync sink disposables to dispose when resetting the configuration.
  */
-const asyncDisposables: Set<AsyncDisposable> = new Set();
+const sinkDisposables: Set<Disposable> = new Set();
+
+/**
+ * Async filter disposables to dispose when resetting the configuration.
+ */
+const asyncFilterDisposables: Set<AsyncDisposable> = new Set();
+
+/**
+ * Async sink disposables to dispose when resetting the configuration.
+ */
+const asyncSinkDisposables: Set<AsyncDisposable> = new Set();
 
 /**
  * Check if a config is for the meta logger.
@@ -243,7 +253,7 @@ export function configureSync<TSinkId extends string, TFilterId extends string>(
       "Already configured; if you want to reset, turn on the reset flag.",
     );
   }
-  if (asyncDisposables.size > 0) {
+  if (asyncFilterDisposables.size > 0 || asyncSinkDisposables.size > 0) {
     throw new ConfigError(
       "Previously configured async disposables are still active. " +
         "Use configure() instead or explicitly dispose them using dispose().",
@@ -310,27 +320,27 @@ function configureInternal<
 
   for (const sink of Object.values<Sink>(config.sinks)) {
     if (Symbol.asyncDispose in sink) {
-      if (allowAsync) asyncDisposables.add(sink as AsyncDisposable);
+      if (allowAsync) asyncSinkDisposables.add(sink as AsyncDisposable);
       else {
         throw new ConfigError(
           "Async disposables cannot be used with configureSync().",
         );
       }
     }
-    if (Symbol.dispose in sink) disposables.add(sink as Disposable);
+    if (Symbol.dispose in sink) sinkDisposables.add(sink as Disposable);
   }
 
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
     if (filter == null || typeof filter === "string") continue;
     if (Symbol.asyncDispose in filter) {
-      if (allowAsync) asyncDisposables.add(filter as AsyncDisposable);
+      if (allowAsync) asyncFilterDisposables.add(filter as AsyncDisposable);
       else {
         throw new ConfigError(
           "Async disposables cannot be used with configureSync().",
         );
       }
     }
-    if (Symbol.dispose in filter) disposables.add(filter as Disposable);
+    if (Symbol.dispose in filter) filterDisposables.add(filter as Disposable);
   }
 
   registerDisposeHook(allowAsync);
@@ -390,13 +400,10 @@ function resetInternal(): void {
  * Dispose of the disposables.
  */
 export async function dispose(): Promise<void> {
-  disposeSync();
-  const promises: PromiseLike<void>[] = [];
-  for (const disposable of asyncDisposables) {
-    promises.push(disposable[Symbol.asyncDispose]());
-    asyncDisposables.delete(disposable);
-  }
-  await Promise.all(promises);
+  disposeSyncFilters();
+  await disposeAsyncFilters();
+  disposeSyncSinks();
+  await disposeAsyncSinks();
 }
 
 /**
@@ -405,8 +412,36 @@ export async function dispose(): Promise<void> {
  * @since 0.9.0
  */
 export function disposeSync(): void {
-  for (const disposable of disposables) disposable[Symbol.dispose]();
-  disposables.clear();
+  disposeSyncFilters();
+  disposeSyncSinks();
+}
+
+function disposeSyncFilters(): void {
+  for (const disposable of filterDisposables) disposable[Symbol.dispose]();
+  filterDisposables.clear();
+}
+
+function disposeSyncSinks(): void {
+  for (const disposable of sinkDisposables) disposable[Symbol.dispose]();
+  sinkDisposables.clear();
+}
+
+async function disposeAsyncFilters(): Promise<void> {
+  const promises: PromiseLike<void>[] = [];
+  for (const disposable of asyncFilterDisposables) {
+    promises.push(disposable[Symbol.asyncDispose]());
+    asyncFilterDisposables.delete(disposable);
+  }
+  await Promise.all(promises);
+}
+
+async function disposeAsyncSinks(): Promise<void> {
+  const promises: PromiseLike<void>[] = [];
+  for (const disposable of asyncSinkDisposables) {
+    promises.push(disposable[Symbol.asyncDispose]());
+    asyncSinkDisposables.delete(disposable);
+  }
+  await Promise.all(promises);
 }
 
 /**

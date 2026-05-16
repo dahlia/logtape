@@ -361,6 +361,23 @@ test("getThrottlingFilter() emits summaries when disposed", () => {
   assert.strictEqual(summaries[0].level, "error");
 });
 
+test("getThrottlingFilter() ignores missing summary logger methods", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => 0,
+    summary: {
+      logger: {},
+      level: "error",
+    },
+  });
+  const record = recordWithRawMessage("Database failed");
+
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+  assert.doesNotThrow(() => filter[Symbol.dispose]());
+});
+
 test("getThrottlingFilter() lets summary records pass through reentrantly", () => {
   const filterRef: { current?: ReturnType<typeof getThrottlingFilter> } = {};
   const logger = {

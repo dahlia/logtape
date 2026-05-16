@@ -224,7 +224,6 @@ interface ThrottlingBucket {
   firstRecord: LogRecord;
   lastRecord: LogRecord;
   lastTime: number;
-  lastAccess: number;
 }
 
 /**
@@ -257,7 +256,6 @@ export function getThrottlingFilter(
   const getKey = options.key ?? getDefaultThrottlingKey;
   const maxKeys = options.maxKeys === undefined ? 1000 : options.maxKeys;
   const buckets = new Map<string, ThrottlingBucket>();
-  let accessCounter = 0;
   let emittingSummary = false;
 
   if (mode !== "fixed" && mode !== "sliding") {
@@ -287,11 +285,11 @@ export function getThrottlingFilter(
         firstRecord: record,
         lastRecord: record,
         lastTime: now,
-        lastAccess: ++accessCounter,
       };
       buckets.set(key, bucket);
     } else {
-      bucket.lastAccess = ++accessCounter;
+      buckets.delete(key);
+      buckets.set(key, bucket);
     }
 
     if (mode === "fixed") {
@@ -380,15 +378,8 @@ export function getThrottlingFilter(
   function evictKeysIfNeeded(now: number): void {
     if (maxKeys == null) return;
     while (buckets.size >= maxKeys) {
-      let keyToEvict: string | undefined;
-      let oldestAccess = Infinity;
-      for (const [key, bucket] of buckets) {
-        if (bucket.lastAccess < oldestAccess) {
-          keyToEvict = key;
-          oldestAccess = bucket.lastAccess;
-        }
-      }
-      if (keyToEvict == null) return;
+      const keyToEvict = buckets.keys().next().value;
+      if (keyToEvict === undefined) return;
       const bucket = buckets.get(keyToEvict);
       if (bucket != null) {
         emitSummary(keyToEvict, bucket, "eviction", now);
@@ -424,9 +415,7 @@ export function getThrottlingFilter(
       : summaryOptions.message ??
         "Last log message was suppressed {suppressed} times.";
     const log = summaryOptions.logger[level];
-    if (typeof log !== "function") {
-      throw new TypeError(`Summary logger has no ${level}() method.`);
-    }
+    if (typeof log !== "function") return;
 
     emittingSummary = true;
     try {

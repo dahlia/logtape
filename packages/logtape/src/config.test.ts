@@ -615,6 +615,79 @@ test("configureSync()", async () => {
   }
 });
 
+test("dispose() disposes filters before sinks", async () => {
+  const events: string[] = [];
+  const syncSink: Sink & Disposable = () => {};
+  syncSink[Symbol.dispose] = () => events.push("sync sink");
+  const asyncSink: Sink & AsyncDisposable = () => {};
+  asyncSink[Symbol.asyncDispose] = () => {
+    events.push("async sink");
+    return Promise.resolve();
+  };
+  const syncFilter: Filter & Disposable = () => true;
+  syncFilter[Symbol.dispose] = () => events.push("sync filter");
+  const asyncFilter: Filter & AsyncDisposable = () => true;
+  asyncFilter[Symbol.asyncDispose] = () => {
+    events.push("async filter");
+    return Promise.resolve();
+  };
+
+  try {
+    await configure({
+      sinks: { asyncSink, syncSink },
+      filters: { asyncFilter, syncFilter },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["asyncSink", "syncSink"],
+          filters: ["asyncFilter", "syncFilter"],
+        },
+      ],
+    });
+    events.length = 0;
+
+    await reset();
+
+    assert.deepStrictEqual(events, [
+      "sync filter",
+      "async filter",
+      "sync sink",
+      "async sink",
+    ]);
+  } finally {
+    await reset();
+  }
+});
+
+test("disposeSync() disposes sync filters before sync sinks", () => {
+  const events: string[] = [];
+  const sink: Sink & Disposable = () => {};
+  sink[Symbol.dispose] = () => events.push("sink");
+  const filter: Filter & Disposable = () => true;
+  filter[Symbol.dispose] = () => events.push("filter");
+
+  try {
+    configureSync({
+      sinks: { sink },
+      filters: { filter },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["sink"],
+          filters: ["filter"],
+        },
+      ],
+    });
+    events.length = 0;
+
+    resetSync();
+
+    assert.deepStrictEqual(events, ["filter", "sink"]);
+  } finally {
+    resetSync();
+  }
+});
+
 test(
   "configureSync() does not require addEventListener() in Edge runtimes",
   { skip: hasAddEventListener },
