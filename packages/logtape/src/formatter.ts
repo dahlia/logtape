@@ -36,7 +36,7 @@ const levelAbbreviations: Record<LogLevel, string> = {
 const platformInspect: (
   value: unknown,
   options?: { colors?: boolean },
-) => unknown =
+) => string | undefined =
   // @ts-ignore: Browser detection
   // dnt-shim-ignore
   typeof document !== "undefined" ||
