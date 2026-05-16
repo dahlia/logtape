@@ -1,6 +1,6 @@
 {
   "name": "@logtape/adaptor-winston",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "license": "MIT",
   "exports": {
     ".": "./src/mod.ts",
