@@ -8,6 +8,13 @@ Version 1.3.10
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed LRU eviction in `fingersCrossed()` context isolation when multiple
+    contexts are accessed within the same millisecond.  Previously, such
+    accesses could evict a recently used context because LRU ordering depended
+    on millisecond-resolution timestamps.
+
 
 Version 1.3.9
 -------------
@@ -362,6 +369,19 @@ Released on December 15, 2025.
     -  Added `SyslogTlsOptions.rejectUnauthorized` option to control
        certificate validation (defaults to `true` for security).
     -  Added `SyslogTlsOptions.ca` option to specify custom CA certificates.
+
+
+Version 1.2.9
+-------------
+
+Released on May 17, 2026.
+
+### @logtape/logtape
+
+ -  Fixed LRU eviction in `fingersCrossed()` context isolation when multiple
+    contexts are accessed within the same millisecond.  Previously, such
+    accesses could evict a recently used context because LRU ordering depended
+    on millisecond-resolution timestamps.
 
 
 Version 1.2.8
