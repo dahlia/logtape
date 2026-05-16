@@ -15,7 +15,7 @@ Of course, you can write your own sinks that take a text formatter.
 Built-in text formatters
 ------------------------
 
-LogTape provides three built-in text formatters:
+LogTape provides the following built-in text formatters:
 
 ### Default text formatter
 
@@ -69,6 +69,26 @@ It formats log records like this:
 ~~~~
 
 [JSON Lines]: https://jsonlines.org/
+
+### logfmt formatter
+
+*This API is available since LogTape 2.1.0.*
+
+`logfmtFormatter` formats log records as [logfmt], a sequence of
+space-delimited key-value pairs.  It keeps structured properties easy to parse
+while staying readable in terminals and plain log streams.
+
+It formats log records like this:
+
+~~~~
+time=2023-11-14T22:13:20.000Z level=info logger=my.logger msg="Hello, world!" key=value
+~~~~
+
+Values containing whitespace, `=`, `"`, `\`, control characters, or empty
+strings are quoted.  Quoted values escape tabs, newlines, carriage returns,
+quotes, and backslashes.
+
+[logfmt]: https://brandur.org/logfmt
 
 ### Pretty formatter
 
@@ -437,6 +457,55 @@ The properties format. This can be one of the following:
     `properties` key).
 
 The default is `"nest:properties"`.
+
+### logfmt formatter
+
+*This API is available since LogTape 2.1.0.*
+
+You can customize the logfmt formatter by calling
+the `getLogfmtFormatter()` function with a `LogfmtFormatterOptions` object.
+Customizable options include:
+
+#### `~LogfmtFormatterOptions.categorySeparator`
+
+The separator between category names.  For example, if the separator is `"."`,
+the category `["a", "b", "c"]` will be formatted as `"a.b.c"`.
+
+The default separator is `"."`.
+
+If this is a function, it will be called with the category array and should
+return a string, which will be used for rendering the category.
+
+#### `~LogfmtFormatterOptions.message`
+
+The message format.  This can be one of the following:
+
+ -  `"template"`: The raw message template is used as the message.
+ -  `"rendered"`: The message is rendered with the values.
+
+The default is `"rendered"`.
+
+#### `~LogfmtFormatterOptions.properties`
+
+The properties format.  This can be one of the following:
+
+ -  `"flatten"`: The properties are flattened into logfmt key-value pairs.
+ -  `"prepend:<prefix>"`: The properties are prepended with the given prefix
+    (e.g., `"prepend:ctx_"` will prepend `ctx_` to each property key).
+
+The default is `"flatten"`.
+
+#### `~LogfmtFormatterOptions.timeZone`
+
+The timezone used for timestamp rendering.  Behaves the same as
+[`timeZone`](#textformatteroptions-timezone) in the default text formatter.
+
+#### `~LogfmtFormatterOptions.lineEnding`
+
+The line ending style for formatted output.  This can be `"lf"` for Unix-style
+line endings (`\n`) or `"crlf"` for Windows-style line endings (`\r\n`).
+
+The default is `"lf"`.
 
 ### Pretty formatter
 

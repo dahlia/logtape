@@ -560,6 +560,7 @@ be called with the remaining configuration options as its argument.
 | `#text`      | `@logtape/logtape#getTextFormatter`      |
 | `#ansiColor` | `@logtape/logtape#getAnsiColorFormatter` |
 | `#jsonLines` | `@logtape/logtape#getJsonLinesFormatter` |
+| `#logfmt`    | `@logtape/logtape#getLogfmtFormatter`    |
 
 #### Formatters
 

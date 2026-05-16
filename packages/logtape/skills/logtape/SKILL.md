@@ -355,6 +355,7 @@ import {
   getAnsiColorFormatter,
   getConsoleSink,
   getJsonLinesFormatter,
+  getLogfmtFormatter,
 } from "@logtape/logtape";
 
 // Pretty ANSI-colored output for development
@@ -362,6 +363,9 @@ getConsoleSink({ formatter: getAnsiColorFormatter() });
 
 // JSON Lines for production / log aggregation
 getConsoleSink({ formatter: getJsonLinesFormatter() });
+
+// logfmt for readable structured logs
+getConsoleSink({ formatter: getLogfmtFormatter() });
 ~~~~
 
 For even nicer development output, use `@logtape/pretty`:
