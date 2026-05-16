@@ -915,6 +915,42 @@ test("getLogfmtFormatter() serializes structured properties", () => {
   assert.deepStrictEqual(parsed.nil, "null");
 });
 
+test("getLogfmtFormatter() coerces browser inspect fallback output", async () => {
+  const globals = globalThis as { document?: object };
+  const previousDocument = globals.document;
+  globals.document = {};
+
+  try {
+    const { getLogfmtFormatter: getBrowserLogfmtFormatter } = await import(
+      "./formatter.ts?browser-inspect-fallback"
+    );
+    const formatter = getBrowserLogfmtFormatter();
+    const actual = formatter({
+      level: "info",
+      category: ["browser"],
+      message: ["ok"],
+      rawMessage: "ok",
+      timestamp: 1700000000000,
+      properties: {
+        omitted: {
+          toJSON() {
+            return undefined;
+          },
+        },
+      },
+    });
+
+    assert.deepStrictEqual(
+      actual,
+      "time=2023-11-14T22:13:20.000Z level=info logger=browser " +
+        "msg=ok omitted=undefined\n",
+    );
+  } finally {
+    if (previousDocument == null) delete globals.document;
+    else globals.document = previousDocument;
+  }
+});
+
 test("getLogfmtFormatter() escapes invalid property keys", () => {
   const output = getLogfmtFormatter()({
     ...info,

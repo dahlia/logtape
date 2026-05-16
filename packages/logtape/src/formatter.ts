@@ -1213,19 +1213,33 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
 }
 
 function filterLogfmtKey(key: string): string | null {
-  let result = "";
+  if (key === "") return null;
+
+  let needsEscape: boolean = false;
   for (const char of key) {
-    const code = char.codePointAt(0)!;
-    if (
-      code <= 0x20 || code === 0x7f || code === 0xfffd ||
-      char === "=" || char === '"' || char === "%"
-    ) {
+    const code: number = char.codePointAt(0)!;
+    if (shouldEscapeLogfmtKeyChar(char, code)) {
+      needsEscape = true;
+      break;
+    }
+  }
+  if (!needsEscape) return key;
+
+  let result: string = "";
+  for (const char of key) {
+    const code: number = char.codePointAt(0)!;
+    if (shouldEscapeLogfmtKeyChar(char, code)) {
       result += `%${code.toString(16).toUpperCase().padStart(2, "0")}`;
     } else {
       result += char;
     }
   }
-  return result === "" ? null : result;
+  return result;
+}
+
+function shouldEscapeLogfmtKeyChar(char: string, code: number): boolean {
+  return code <= 0x20 || code === 0x7f || code === 0xfffd ||
+    char === "=" || char === '"' || char === "%";
 }
 
 function stringifyLogfmtValue(value: unknown): string {
@@ -1246,15 +1260,15 @@ function stringifyLogfmtValue(value: unknown): string {
     // Fall back to inspect below.
   }
 
-  return inspect(value, { colors: false });
+  return String(inspect(value, { colors: false }));
 }
 
 function quoteLogfmtValue(value: string, quoteNull: boolean): string {
-  let needsQuote = value === "" || quoteNull && value === "null";
-  let quoted = "";
+  let needsQuote: boolean = value === "" || quoteNull && value === "null";
+  let quoted: string = "";
 
   for (const char of value) {
-    const code = char.codePointAt(0)!;
+    const code: number = char.codePointAt(0)!;
     if (
       code <= 0x20 || code === 0x7f || code === 0xfffd ||
       char === "=" || char === '"' || char === "\\"
@@ -1267,7 +1281,7 @@ function quoteLogfmtValue(value: string, quoteNull: boolean): string {
     else if (char === "\r") quoted += "\\r";
     else if (char === '"') quoted += '\\"';
     else if (char === "\\") quoted += "\\\\";
-    else if (code != null && (code <= 0x1f || code === 0x7f)) {
+    else if (code <= 0x1f || code === 0x7f) {
       quoted += `\\u${code.toString(16).padStart(4, "0")}`;
     } else {
       quoted += char;
