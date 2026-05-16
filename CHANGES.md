@@ -6,7 +6,7 @@ LogTape changelog
 Version 1.0.7
 -------------
 
-To be released.
+Released on May 16, 2026.
 
  -  Fixed a bug where `getJsonLinesFormatter({ message: "template" })`
     dropped literal segments from tagged-template log messages with multiple
