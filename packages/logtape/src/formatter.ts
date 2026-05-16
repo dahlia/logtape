@@ -1412,8 +1412,14 @@ export function getLogfmtFormatter(
       ),
     );
 
-    for (const [key, value] of Object.entries(record.properties)) {
-      pushLogfmtPair(pairs, `${propertyPrefix}${key}`, value);
+    for (const key in record.properties) {
+      if (Object.prototype.hasOwnProperty.call(record.properties, key)) {
+        pushLogfmtPair(
+          pairs,
+          `${propertyPrefix}${key}`,
+          record.properties[key],
+        );
+      }
     }
 
     return `${pairs.join(" ")}${lineEnding}`;
