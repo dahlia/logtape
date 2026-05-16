@@ -13,6 +13,13 @@ packages:
 - docs
 - benchmarks
 
+allowBuilds:
+  '@biomejs/biome': true
+  dtrace-provider: true
+  esbuild: true
+  koffi: true
+  protobufjs: true
+
 catalog:
   "@alinea/suite": ^0.6.3
   "@david/which-runtime": jsr:^0.2.1
