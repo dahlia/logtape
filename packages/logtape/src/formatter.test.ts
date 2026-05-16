@@ -1089,46 +1089,84 @@ test("getAnsiColorFormatter() with lineEnding option", () => {
 
 function parseLogfmt(line: string): Record<string, string> {
   const result: Record<string, string> = {};
-  let index = 0;
-  const source = line.trimEnd();
-  while (index < source.length) {
-    let key = "";
-    while (index < source.length && source[index] !== "=") {
-      key += source[index];
-      index++;
-    }
-    index++;
+  const source: string = line.trimEnd();
+  let index: number = 0;
 
-    let value = "";
-    if (source[index] === '"') {
-      index++;
-      while (index < source.length && source[index] !== '"') {
-        if (source[index] === "\\") {
-          index++;
-          const escaped = source[index];
-          if (escaped === "n") value += "\n";
-          else if (escaped === "r") value += "\r";
-          else if (escaped === "t") value += "\t";
-          else if (escaped === "u") {
-            value += String.fromCharCode(
-              Number.parseInt(source.slice(index + 1, index + 5), 16),
-            );
-            index += 4;
-          } else value += escaped;
-        } else {
-          value += source[index];
-        }
-        index++;
-      }
-      index++;
-    } else {
-      while (index < source.length && source[index] !== " ") {
-        value += source[index];
-        index++;
-      }
-    }
-    result[key] = value;
+  while (index < source.length) {
+    const keyEnd: number = source.indexOf("=", index);
+    const key: string = source.slice(index, keyEnd);
+    const parsed: ParsedLogfmtValue = source[keyEnd + 1] === '"'
+      ? parseQuotedLogfmtValue(source, keyEnd + 2)
+      : parseBareLogfmtValue(source, keyEnd + 1);
+
+    result[key] = parsed.value;
+    index = parsed.nextIndex;
     if (source[index] === " ") index++;
   }
   return result;
+}
+
+interface ParsedLogfmtValue {
+  readonly value: string;
+  readonly nextIndex: number;
+}
+
+function parseBareLogfmtValue(
+  source: string,
+  startIndex: number,
+): ParsedLogfmtValue {
+  const valueEnd: number = source.indexOf(" ", startIndex);
+  const nextIndex: number = valueEnd < 0 ? source.length : valueEnd;
+  return {
+    value: source.slice(startIndex, nextIndex),
+    nextIndex,
+  };
+}
+
+function parseQuotedLogfmtValue(
+  source: string,
+  startIndex: number,
+): ParsedLogfmtValue {
+  let value: string = "";
+  let index: number = startIndex;
+
+  while (index < source.length && source[index] !== '"') {
+    if (source[index] === "\\") {
+      const parsed: ParsedLogfmtValue = parseLogfmtEscape(source, index + 1);
+      value += parsed.value;
+      index = parsed.nextIndex;
+    } else {
+      value += source[index];
+      index++;
+    }
+  }
+
+  return {
+    value,
+    nextIndex: index + 1,
+  };
+}
+
+function parseLogfmtEscape(
+  source: string,
+  escapeIndex: number,
+): ParsedLogfmtValue {
+  const escaped: string = source[escapeIndex];
+  switch (escaped) {
+    case "n":
+      return { value: "\n", nextIndex: escapeIndex + 1 };
+    case "r":
+      return { value: "\r", nextIndex: escapeIndex + 1 };
+    case "t":
+      return { value: "\t", nextIndex: escapeIndex + 1 };
+    case "u":
+      return {
+        value: String.fromCharCode(
+          Number.parseInt(source.slice(escapeIndex + 1, escapeIndex + 5), 16),
+        ),
+        nextIndex: escapeIndex + 5,
+      };
+    default:
+      return { value: escaped, nextIndex: escapeIndex + 1 };
+  }
 }

@@ -33,7 +33,7 @@ const levelAbbreviations: Record<LogLevel, string> = {
  *                If `colors` is `true`, the output will be ANSI-colored.
  * @returns The string representation of the value.
  */
-const inspectValue: (
+const platformInspect: (
   value: unknown,
   options?: { colors?: boolean },
 ) => unknown =
@@ -74,7 +74,7 @@ const inspectValue: (
 const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
   value: unknown,
   options?: { colors?: boolean },
-): string => String(inspectValue(value, options));
+): string => String(platformInspect(value, options));
 
 const utf8Encoder = new TextEncoder();
 
@@ -1203,16 +1203,6 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
   const msgLen = record.message.length;
   if (msgLen === 1) return record.message[0] as string;
 
-  if (msgLen <= 6) {
-    let msg: string = "";
-    for (let i = 0; i < msgLen; i++) {
-      msg += (i % 2 === 0)
-        ? record.message[i] as string
-        : stringifyLogfmtValue(record.message[i]);
-    }
-    return msg;
-  }
-
   const parts: string[] = new Array(msgLen);
   for (let i = 0; i < msgLen; i++) {
     parts[i] = (i % 2 === 0)
@@ -1287,26 +1277,35 @@ function quoteLogfmtValue(value: string, quoteNull: boolean): string {
 
   for (const char of value) {
     const code: number = char.codePointAt(0)!;
-    if (
-      code <= 0x20 || code === 0x7f || code === 0xfffd ||
-      char === "=" || char === '"' || char === "\\"
-    ) {
-      needsQuote = true;
-    }
-
-    if (char === "\t") quoted += "\\t";
-    else if (char === "\n") quoted += "\\n";
-    else if (char === "\r") quoted += "\\r";
-    else if (char === '"') quoted += '\\"';
-    else if (char === "\\") quoted += "\\\\";
-    else if (code <= 0x1f || code === 0x7f) {
-      quoted += `\\u${code.toString(16).padStart(4, "0")}`;
-    } else {
-      quoted += char;
-    }
+    if (shouldQuoteLogfmtValueChar(char, code)) needsQuote = true;
+    quoted += escapeLogfmtValueChar(char, code);
   }
 
   return needsQuote ? `"${quoted}"` : value;
+}
+
+function shouldQuoteLogfmtValueChar(char: string, code: number): boolean {
+  return code <= 0x20 || code === 0x7f || code === 0xfffd ||
+    char === "=" || char === '"' || char === "\\";
+}
+
+function escapeLogfmtValueChar(char: string, code: number): string {
+  switch (char) {
+    case "\t":
+      return "\\t";
+    case "\n":
+      return "\\n";
+    case "\r":
+      return "\\r";
+    case '"':
+      return '\\"';
+    case "\\":
+      return "\\\\";
+    default:
+      return code <= 0x1f || code === 0x7f
+        ? `\\u${code.toString(16).padStart(4, "0")}`
+        : char;
+  }
 }
 
 function formatLogfmtValue(value: unknown): string {
