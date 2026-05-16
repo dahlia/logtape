@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fc from "fast-check";
-import { type Filter, getLevelFilter, toFilter } from "./filter.ts";
+import {
+  type Filter,
+  getLevelFilter,
+  getThrottlingFilter,
+  toFilter,
+} from "./filter.ts";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
+import type { LogRecord } from "./record.ts";
 
 const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
   "trace",
@@ -124,7 +130,266 @@ test("toFilter() accepts records at or above a minimum level", () => {
   );
 });
 
-function recordWithLevel(level: LogLevel) {
+test("getThrottlingFilter() limits records in fixed windows", () => {
+  let now = 1000;
+  const filter = getThrottlingFilter({
+    limit: 2,
+    windowMs: 100,
+    clock: () => now,
+  });
+  const record = recordWithRawMessage("Database failed for {tenant}");
+
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+
+  now = 1099;
+  assert.strictEqual(filter(record), false);
+
+  now = 1100;
+  assert.strictEqual(filter(record), true);
+});
+
+test("getThrottlingFilter() uses a sliding window when configured", () => {
+  let now = 0;
+  const filter = getThrottlingFilter({
+    limit: 2,
+    windowMs: 100,
+    mode: "sliding",
+    clock: () => now,
+  });
+  const record = recordWithRawMessage("Database failed for {tenant}");
+
+  assert.strictEqual(filter(record), true);
+  now = 90;
+  assert.strictEqual(filter(record), true);
+  now = 99;
+  assert.strictEqual(filter(record), false);
+  now = 100;
+  assert.strictEqual(filter(record), true);
+  now = 189;
+  assert.strictEqual(filter(record), false);
+  now = 190;
+  assert.strictEqual(filter(record), true);
+});
+
+test("getThrottlingFilter() can use record timestamps", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    timeSource: "record",
+  });
+
+  assert.strictEqual(filter(recordWithTimestamp(0)), true);
+  assert.strictEqual(filter(recordWithTimestamp(99)), false);
+  assert.strictEqual(filter(recordWithTimestamp(100)), true);
+});
+
+test("getThrottlingFilter() groups records by category, level, and template", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => 0,
+  });
+
+  assert.strictEqual(
+    filter(recordWithRawMessage("Failed for {tenant}", {
+      message: ["Failed for ", "alpha"],
+    })),
+    true,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("Failed for {tenant}", {
+      message: ["Failed for ", "beta"],
+    })),
+    false,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("Failed for {tenant}", {
+      category: ["other"],
+    })),
+    true,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("Failed for {tenant}", { level: "error" })),
+    true,
+  );
+  assert.strictEqual(filter(recordWithRawMessage("Other failure")), true);
+});
+
+test("getThrottlingFilter() supports custom keys", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    key: (record) => String(record.properties.tenant),
+    clock: () => 0,
+  });
+
+  assert.strictEqual(
+    filter(recordWithRawMessage("Failed", { properties: { tenant: "a" } })),
+    true,
+  );
+  assert.strictEqual(
+    filter(
+      recordWithRawMessage("Failed again", { properties: { tenant: "a" } }),
+    ),
+    false,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("Failed", { properties: { tenant: "b" } })),
+    true,
+  );
+});
+
+test("getThrottlingFilter() validates numeric options", () => {
+  assert.throws(
+    () => getThrottlingFilter({ limit: 0, windowMs: 100 }),
+    RangeError,
+  );
+  assert.throws(
+    () => getThrottlingFilter({ limit: 1, windowMs: 0 }),
+    RangeError,
+  );
+  assert.throws(
+    () => getThrottlingFilter({ limit: 1, windowMs: 100, maxKeys: 0 }),
+    RangeError,
+  );
+});
+
+test("getThrottlingFilter() evicts least recently used keys", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    maxKeys: 2,
+    clock: () => 0,
+  });
+  const a = recordWithRawMessage("a");
+  const b = recordWithRawMessage("b");
+  const c = recordWithRawMessage("c");
+
+  assert.strictEqual(filter(a), true);
+  assert.strictEqual(filter(b), true);
+  assert.strictEqual(filter(a), false);
+  assert.strictEqual(filter(c), true);
+  assert.strictEqual(filter(b), true);
+});
+
+test("getThrottlingFilter() emits summaries when suppression ends", () => {
+  let now = 0;
+  const summaries: LogRecord[] = [];
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      summaries.push(recordWithRawMessage(message, { properties }));
+    },
+  };
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => now,
+    summary: { logger },
+  });
+  const firstRecord = recordWithRawMessage("Database failed for {tenant}", {
+    message: ["Database failed for ", "alpha"],
+  });
+  const suppressedRecord1 = recordWithRawMessage(
+    "Database failed for {tenant}",
+    {
+      message: ["Database failed for ", "beta"],
+    },
+  );
+  const suppressedRecord2 = recordWithRawMessage(
+    "Database failed for {tenant}",
+    {
+      message: ["Database failed for ", "gamma"],
+    },
+  );
+  const nextRecord = recordWithRawMessage("Database failed for {tenant}", {
+    message: ["Database failed for ", "delta"],
+  });
+
+  assert.strictEqual(filter(firstRecord), true);
+  assert.strictEqual(filter(suppressedRecord1), false);
+  assert.strictEqual(filter(suppressedRecord2), false);
+  assert.deepStrictEqual(summaries, []);
+
+  now = 100;
+  assert.strictEqual(filter(nextRecord), true);
+  assert.strictEqual(summaries.length, 1);
+  const summary = summaries[0] as LogRecord;
+  assert.deepStrictEqual(summary.properties.suppressed, 2);
+  assert.deepStrictEqual(
+    summary.properties.key,
+    JSON.stringify({
+      category: ["test"],
+      level: "info",
+      rawMessage: "Database failed for {tenant}",
+    }),
+  );
+  assert.strictEqual(summary.properties.firstRecord, firstRecord);
+  assert.strictEqual(summary.properties.lastRecord, suppressedRecord2);
+  assert.strictEqual(summary.properties.startTime, 0);
+  assert.strictEqual(summary.properties.endTime, 100);
+});
+
+test("getThrottlingFilter() emits summaries when disposed", () => {
+  const summaries: LogRecord[] = [];
+  const logger = {
+    error(message: string, properties: Record<string, unknown>) {
+      summaries.push(
+        recordWithRawMessage(message, { level: "error", properties }),
+      );
+    },
+  };
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => 0,
+    summary: {
+      logger,
+      level: "error",
+      message: (summary) => `Suppressed ${summary.suppressed} records`,
+    },
+  });
+  const record = recordWithRawMessage("Database failed");
+
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+  filter[Symbol.dispose]();
+
+  assert.strictEqual(summaries.length, 1);
+  assert.deepStrictEqual(summaries[0].message, ["Suppressed 1 records"]);
+  assert.strictEqual(summaries[0].level, "error");
+});
+
+test("getThrottlingFilter() lets summary records pass through reentrantly", () => {
+  const filterRef: { current?: ReturnType<typeof getThrottlingFilter> } = {};
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      assert.ok(filterRef.current != null);
+      assert.strictEqual(
+        filterRef.current(recordWithRawMessage(message, { properties })),
+        true,
+      );
+    },
+  };
+  let now = 0;
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => now,
+    summary: { logger },
+  });
+  filterRef.current = filter;
+  const record = recordWithRawMessage("Database failed");
+
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+
+  now = 100;
+  assert.strictEqual(filter(record), true);
+});
+
+function recordWithLevel(level: LogLevel): LogRecord {
   return {
     level,
     category: ["test"],
@@ -132,5 +397,30 @@ function recordWithLevel(level: LogLevel) {
     rawMessage: "message",
     timestamp: 0,
     properties: {},
+  };
+}
+
+function recordWithTimestamp(timestamp: number): LogRecord {
+  return { ...recordWithLevel("info"), timestamp };
+}
+
+function recordWithRawMessage(
+  rawMessage: string | TemplateStringsArray,
+  options: {
+    category?: readonly string[];
+    level?: LogLevel;
+    message?: readonly unknown[];
+    timestamp?: number;
+    properties?: Record<string, unknown>;
+  } = {},
+): LogRecord {
+  return {
+    category: options.category ?? ["test"],
+    level: options.level ?? "info",
+    message: options.message ??
+      [typeof rawMessage === "string" ? rawMessage : rawMessage.join("{}")],
+    rawMessage,
+    timestamp: options.timestamp ?? 0,
+    properties: options.properties ?? {},
   };
 }

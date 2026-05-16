@@ -33,6 +33,11 @@ To be released.
      -  Added `LogfmtFormatterOptions` interface.
      -  Added `#logfmt` configuration shorthand.
 
+ -  Added `getThrottlingFilter()` for suppressing repeated log records during
+    bursts.  It supports fixed or sliding windows, custom throttling keys,
+    record timestamp-based windows, LRU key limits, and optional summary
+    logging when suppressed records are reported.  [[#158], [#163]]
+
  -  Added `Logger.warn(error, properties)`, `Logger.warning(error, properties)`,
     `Logger.error(error, properties)`, and `Logger.fatal(error, properties)`
     overloads for attaching extra structured properties while preserving
@@ -56,8 +61,10 @@ To be released.
 [#143]: https://github.com/dahlia/logtape/issues/143
 [#145]: https://github.com/dahlia/logtape/pull/145
 [#147]: https://github.com/dahlia/logtape/issues/147
+[#158]: https://github.com/dahlia/logtape/issues/158
 [#159]: https://github.com/dahlia/logtape/issues/159
 [#162]: https://github.com/dahlia/logtape/pull/162
+[#163]: https://github.com/dahlia/logtape/pull/163
 
 ### @logtape/pretty
 
