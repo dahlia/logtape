@@ -1308,11 +1308,12 @@ function pushLogfmtPair(
 export function getLogfmtFormatter(
   options: LogfmtFormatterOptions = {},
 ): TextFormatter {
-  const lineEnding = getLineEndingValue(options.lineEnding);
-  const timestampRenderer = createTimestampFormatter(
-    "rfc3339",
-    resolveTimeZone(options.timeZone),
-  );
+  const lineEnding: string = getLineEndingValue(options.lineEnding);
+  const timestampRenderer: (ts: number) => string | null =
+    createTimestampFormatter(
+      "rfc3339",
+      resolveTimeZone(options.timeZone),
+    );
   const isTemplateMessage = options.message === "template";
   const propertiesOption = options.properties ?? "flatten";
 
