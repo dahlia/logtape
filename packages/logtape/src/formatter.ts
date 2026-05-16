@@ -1196,7 +1196,7 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
   if (msgLen <= 6) {
     let msg = "";
     for (let i = 0; i < msgLen; i++) {
-      msg += (i % 2 < 1)
+      msg += (i % 2 === 0)
         ? record.message[i]
         : stringifyLogfmtValue(record.message[i]);
     }
@@ -1205,7 +1205,7 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
 
   const parts: string[] = new Array(msgLen);
   for (let i = 0; i < msgLen; i++) {
-    parts[i] = (i % 2 < 1)
+    parts[i] = (i % 2 === 0)
       ? record.message[i] as string
       : stringifyLogfmtValue(record.message[i]);
   }
