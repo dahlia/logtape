@@ -9,7 +9,9 @@ import {
   type FormattedValues,
   getAnsiColorFormatter,
   getJsonLinesFormatter,
+  getLogfmtFormatter,
   getTextFormatter,
+  logfmtFormatter,
 } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -822,6 +824,233 @@ test("getJsonLinesFormatter() emits parseable JSON lines", () => {
   );
 });
 
+test("getLogfmtFormatter()", () => {
+  const logRecord: LogRecord = {
+    level: "info",
+    category: ["my-app", "auth"],
+    message: ["User ", "alice", " logged in"],
+    rawMessage: "User {user} logged in",
+    timestamp: 1700000000000,
+    properties: { userId: "12345", duration: "45ms", cached: false },
+  };
+
+  assert.deepStrictEqual(
+    getLogfmtFormatter()(logRecord),
+    'time=2023-11-14T22:13:20.000Z level=info logger=my-app.auth msg="User alice logged in" userId=12345 duration=45ms cached=false\n',
+  );
+
+  assert.deepStrictEqual(
+    logfmtFormatter(logRecord),
+    'time=2023-11-14T22:13:20.000Z level=info logger=my-app.auth msg="User alice logged in" userId=12345 duration=45ms cached=false\n',
+  );
+
+  assert.deepStrictEqual(
+    getLogfmtFormatter({
+      categorySeparator: "/",
+      message: "template",
+      properties: "prepend:prop_",
+      timeZone: "Asia/Seoul",
+    })(logRecord),
+    'time=2023-11-15T07:13:20.000+09:00 level=info logger=my-app/auth msg="User {user} logged in" prop_userId=12345 prop_duration=45ms prop_cached=false\n',
+  );
+});
+
+test("getLogfmtFormatter() preserves tagged template literal segments", () => {
+  function rawMessage(tpl: TemplateStringsArray, ..._: unknown[]) {
+    return tpl;
+  }
+
+  const logRecord: LogRecord = {
+    level: "info",
+    category: ["template"],
+    message: ["a ", 1, " b ", 2, " c"],
+    rawMessage: rawMessage`a ${1} b ${2} c`,
+    timestamp: 1700000000000,
+    properties: {},
+  };
+
+  assert.deepStrictEqual(
+    getLogfmtFormatter({ message: "template" })(logRecord),
+    'time=2023-11-14T22:13:20.000Z level=info logger=template msg="a {} b {} c"\n',
+  );
+});
+
+test("getLogfmtFormatter() escapes values", () => {
+  const logRecord: LogRecord = {
+    level: "warning",
+    category: ["my app"],
+    message: ['bad chars: = " \\ \n \t'],
+    rawMessage: 'bad chars: = " \\ \n \t',
+    timestamp: 1700000000000,
+    properties: {
+      empty: "",
+      nullString: "null",
+      undefinedString: "undefined",
+      trueString: "true",
+      falseString: "false",
+      actualUndefined: undefined,
+      actualTrue: true,
+      actualFalse: false,
+      quote: 'a "quote"',
+      path: String.raw`C:\tmp\app.log`,
+      multiline: "first\nsecond",
+    },
+  };
+
+  assert.deepStrictEqual(
+    getLogfmtFormatter()(logRecord),
+    'time=2023-11-14T22:13:20.000Z level=warning logger="my app" msg="bad chars: = \\" \\\\ \\n \\t" empty="" nullString="null" undefinedString="undefined" trueString="true" falseString="false" actualUndefined=undefined actualTrue=true actualFalse=false quote="a \\"quote\\"" path="C:\\\\tmp\\\\app.log" multiline="first\\nsecond"\n',
+  );
+});
+
+test("getLogfmtFormatter() serializes structured properties", () => {
+  const recordWithError: LogRecord = {
+    ...info,
+    properties: {
+      error: new Error("boom"),
+      nested: { count: 2, labels: ["a", "b"] },
+      nil: null,
+      createdAt: new Date("2023-11-14T22:13:20.000Z"),
+    },
+  };
+
+  const output = getLogfmtFormatter()(recordWithError);
+  const parsed = parseLogfmt(output);
+
+  assert.deepStrictEqual(parsed.time, "2023-11-14T22:13:20.000Z");
+  assert.deepStrictEqual(parsed.level, "info");
+  assert.deepStrictEqual(parsed.logger, "my-app.junk");
+  assert.deepStrictEqual(parsed.msg, "Hello, 123 & 456!");
+  assert.deepStrictEqual(JSON.parse(parsed.nested), {
+    count: 2,
+    labels: ["a", "b"],
+  });
+
+  const parsedError = JSON.parse(parsed.error);
+  assert.deepStrictEqual(parsedError.name, "Error");
+  assert.deepStrictEqual(parsedError.message, "boom");
+  assert.deepStrictEqual(parsed.nil, "null");
+  assert.deepStrictEqual(parsed.createdAt, "2023-11-14T22:13:20.000Z");
+});
+
+test("getLogfmtFormatter() coerces browser inspect fallback output", async () => {
+  const globals = globalThis as { document?: object };
+  const previousDocument = globals.document;
+  globals.document = {};
+
+  try {
+    const { getLogfmtFormatter: getBrowserLogfmtFormatter } = await import(
+      "./formatter.ts?browser-inspect-fallback"
+    );
+    const formatter = getBrowserLogfmtFormatter();
+    const actual = formatter({
+      level: "info",
+      category: ["browser"],
+      message: ["ok"],
+      rawMessage: "ok",
+      timestamp: 1700000000000,
+      properties: {
+        omitted: {
+          toJSON() {
+            return undefined;
+          },
+        },
+      },
+    });
+
+    assert.deepStrictEqual(
+      actual,
+      "time=2023-11-14T22:13:20.000Z level=info logger=browser " +
+        "msg=ok omitted=undefined\n",
+    );
+  } finally {
+    if (previousDocument == null) delete globals.document;
+    else globals.document = previousDocument;
+  }
+});
+
+test("getLogfmtFormatter() escapes invalid property keys", () => {
+  const output = getLogfmtFormatter()({
+    ...info,
+    properties: {
+      "user id": "space",
+      "user=id": "equals",
+      'user"id': "quote",
+      "\t": "tab",
+      "user%20id": "percent",
+      "bad\uFFFdkey": "replacement",
+      userid: "valid",
+    },
+  });
+  const parsed = parseLogfmt(output);
+
+  assert.deepStrictEqual(parsed.userid, "valid");
+  assert.deepStrictEqual(parsed["user%20id"], "space");
+  assert.deepStrictEqual(parsed["user%3Did"], "equals");
+  assert.deepStrictEqual(parsed["user%22id"], "quote");
+  assert.deepStrictEqual(parsed["%09"], "tab");
+  assert.deepStrictEqual(parsed["user%2520id"], "percent");
+  assert.deepStrictEqual(parsed["bad%EF%BF%BDkey"], "replacement");
+});
+
+test("getLogfmtFormatter() renders BigInt message values", () => {
+  const logRecord: LogRecord = {
+    level: "debug",
+    category: ["counter"],
+    message: ["Count is ", 123n],
+    rawMessage: "Count is {count}",
+    timestamp: 1700000000000,
+    properties: {},
+  };
+
+  assert.deepStrictEqual(
+    getLogfmtFormatter()(logRecord),
+    'time=2023-11-14T22:13:20.000Z level=debug logger=counter msg="Count is 123"\n',
+  );
+});
+
+test("getLogfmtFormatter() validates properties option", () => {
+  assert.throws(
+    () => getLogfmtFormatter({ properties: "prepend:" }),
+    TypeError,
+    'Invalid properties option: "prepend:". It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.',
+  );
+});
+
+test("getLogfmtFormatter() emits parseable logfmt lines", () => {
+  fc.assert(
+    fc.property(
+      logLevelArb,
+      fc.array(fc.string()),
+      fc.string(),
+      fc.dictionary(
+        fc.stringMatching(/^[A-Za-z_][A-Za-z0-9_.-]*$/),
+        fc.jsonValue(),
+      ),
+      fc.integer({ min: 0, max: 8_640_000_000_000_000 }),
+      (level, category, message, properties, timestamp) => {
+        const record: LogRecord = {
+          level,
+          category,
+          message: [message],
+          rawMessage: message,
+          timestamp,
+          properties,
+        };
+
+        const line = getLogfmtFormatter()(record);
+        const parsed = parseLogfmt(line);
+
+        assert.strictEqual(line.endsWith("\n"), true);
+        assert.deepStrictEqual(parsed.time, new Date(timestamp).toISOString());
+        assert.deepStrictEqual(parsed.level, level);
+        assert.deepStrictEqual(parsed.logger, category.join("."));
+        assert.deepStrictEqual(parsed.msg, message);
+      },
+    ),
+  );
+});
+
 test("getTextFormatter() with lineEnding option", () => {
   assert.deepStrictEqual(
     getTextFormatter({ lineEnding: "crlf" })(info),
@@ -854,6 +1083,17 @@ test("getJsonLinesFormatter() with lineEnding option", () => {
   assert.deepStrictEqual(defaultOutput.endsWith("\r\n"), false);
 });
 
+test("getLogfmtFormatter() with lineEnding option", () => {
+  assert.deepStrictEqual(
+    getLogfmtFormatter({ lineEnding: "crlf" })(info).endsWith("\r\n"),
+    true,
+  );
+  assert.deepStrictEqual(
+    getLogfmtFormatter({ lineEnding: "lf" })(info).endsWith("\r\n"),
+    false,
+  );
+});
+
 test("getAnsiColorFormatter() with lineEnding option", () => {
   assert.deepStrictEqual(
     getAnsiColorFormatter({ lineEnding: "crlf" })(info).endsWith("\r\n"),
@@ -864,3 +1104,88 @@ test("getAnsiColorFormatter() with lineEnding option", () => {
     false,
   );
 });
+
+function parseLogfmt(line: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  const source: string = line.trimEnd();
+  let index: number = 0;
+
+  while (index < source.length) {
+    const keyEnd: number = source.indexOf("=", index);
+    if (keyEnd < 0) break;
+    const key: string = source.slice(index, keyEnd);
+    const parsed: ParsedLogfmtValue = source[keyEnd + 1] === '"'
+      ? parseQuotedLogfmtValue(source, keyEnd + 2)
+      : parseBareLogfmtValue(source, keyEnd + 1);
+
+    result[key] = parsed.value;
+    index = parsed.nextIndex;
+    if (source[index] === " ") index++;
+  }
+  return result;
+}
+
+interface ParsedLogfmtValue {
+  readonly value: string;
+  readonly nextIndex: number;
+}
+
+function parseBareLogfmtValue(
+  source: string,
+  startIndex: number,
+): ParsedLogfmtValue {
+  const valueEnd: number = source.indexOf(" ", startIndex);
+  const nextIndex: number = valueEnd < 0 ? source.length : valueEnd;
+  return {
+    value: source.slice(startIndex, nextIndex),
+    nextIndex,
+  };
+}
+
+function parseQuotedLogfmtValue(
+  source: string,
+  startIndex: number,
+): ParsedLogfmtValue {
+  let value: string = "";
+  let index: number = startIndex;
+
+  while (index < source.length && source[index] !== '"') {
+    if (source[index] === "\\") {
+      const parsed: ParsedLogfmtValue = parseLogfmtEscape(source, index + 1);
+      value += parsed.value;
+      index = parsed.nextIndex;
+    } else {
+      value += source[index];
+      index++;
+    }
+  }
+
+  return {
+    value,
+    nextIndex: index + 1,
+  };
+}
+
+function parseLogfmtEscape(
+  source: string,
+  escapeIndex: number,
+): ParsedLogfmtValue {
+  const escaped: string = source[escapeIndex];
+  switch (escaped) {
+    case "n":
+      return { value: "\n", nextIndex: escapeIndex + 1 };
+    case "r":
+      return { value: "\r", nextIndex: escapeIndex + 1 };
+    case "t":
+      return { value: "\t", nextIndex: escapeIndex + 1 };
+    case "u":
+      return {
+        value: String.fromCharCode(
+          Number.parseInt(source.slice(escapeIndex + 1, escapeIndex + 5), 16),
+        ),
+        nextIndex: escapeIndex + 5,
+      };
+    default:
+      return { value: escaped, nextIndex: escapeIndex + 1 };
+  }
+}

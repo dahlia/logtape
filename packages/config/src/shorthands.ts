@@ -14,6 +14,7 @@ export const DEFAULT_SHORTHANDS: ShorthandRegistry = {
     text: "@logtape/logtape#getTextFormatter",
     ansiColor: "@logtape/logtape#getAnsiColorFormatter",
     jsonLines: "@logtape/logtape#getJsonLinesFormatter",
+    logfmt: "@logtape/logtape#getLogfmtFormatter",
   },
 };
 

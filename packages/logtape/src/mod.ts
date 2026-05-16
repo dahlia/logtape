@@ -32,9 +32,12 @@ export {
   type FormattedValues,
   getAnsiColorFormatter,
   getJsonLinesFormatter,
+  getLogfmtFormatter,
   getTextFormatter,
   jsonLinesFormatter,
   type JsonLinesFormatterOptions,
+  logfmtFormatter,
+  type LogfmtFormatterOptions,
   type TextFormatter,
   type TextFormatterOptions,
 } from "./formatter.ts";

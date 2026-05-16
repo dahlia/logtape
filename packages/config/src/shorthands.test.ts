@@ -52,6 +52,10 @@ test("mergeShorthands()", () => {
     merged.formatters?.text,
     DEFAULT_SHORTHANDS.formatters?.text,
   );
+  assert.strictEqual(
+    DEFAULT_SHORTHANDS.formatters?.logfmt,
+    "@logtape/logtape#getLogfmtFormatter",
+  );
 });
 
 test("mergeShorthands() lets custom shorthands override defaults", () => {

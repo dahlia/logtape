@@ -33,7 +33,10 @@ const levelAbbreviations: Record<LogLevel, string> = {
  *                If `colors` is `true`, the output will be ANSI-colored.
  * @returns The string representation of the value.
  */
-const inspect: (value: unknown, options?: { colors?: boolean }) => string =
+const platformInspect: (
+  value: unknown,
+  options?: { colors?: boolean },
+) => string | undefined =
   // @ts-ignore: Browser detection
   // dnt-shim-ignore
   typeof document !== "undefined" ||
@@ -67,6 +70,42 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string =
         ...opts,
       })
     : (v) => JSON.stringify(v);
+
+const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
+  value: unknown,
+  options?: { colors?: boolean },
+): string => String(platformInspect(value, options));
+
+const utf8Encoder = new TextEncoder();
+
+function renderMessageParts(
+  msgParts: readonly unknown[],
+  valueRenderer: (value: unknown) => string,
+): string {
+  const msgLen: number = msgParts.length;
+
+  if (msgLen === 1) {
+    return msgParts[0] as string;
+  }
+
+  if (msgLen <= 6) {
+    let message: string = "";
+    for (let i = 0; i < msgLen; i++) {
+      message += (i % 2 === 0)
+        ? msgParts[i] as string
+        : valueRenderer(msgParts[i]);
+    }
+    return message;
+  }
+
+  const parts: string[] = new Array(msgLen);
+  for (let i = 0; i < msgLen; i++) {
+    parts[i] = (i % 2 === 0)
+      ? msgParts[i] as string
+      : valueRenderer(msgParts[i]);
+  }
+  return parts.join("");
+}
 
 /**
  * The formatted values for a log record.
@@ -626,30 +665,7 @@ export function getTextFormatter(
       `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}: ${message}`);
 
   return (record: LogRecord): string => {
-    // Optimized message building
-    const msgParts = record.message;
-    const msgLen = msgParts.length;
-
-    let message: string;
-    if (msgLen === 1) {
-      // Fast path for simple messages with no interpolation
-      message = msgParts[0] as string;
-    } else if (msgLen <= 6) {
-      // Fast path for small messages - direct concatenation
-      message = "";
-      for (let i = 0; i < msgLen; i++) {
-        message += (i % 2 === 0) ? msgParts[i] : valueRenderer(msgParts[i]);
-      }
-    } else {
-      // Optimized path for larger messages - array join
-      const parts: string[] = new Array(msgLen);
-      for (let i = 0; i < msgLen; i++) {
-        parts[i] = (i % 2 === 0)
-          ? msgParts[i] as string
-          : valueRenderer(msgParts[i]);
-      }
-      message = parts.join("");
-    }
+    const message: string = renderMessageParts(record.message, valueRenderer);
 
     const timestamp = timestampRenderer(record.timestamp);
     const level = levelRenderer(record.level);
@@ -1122,6 +1138,303 @@ export function getJsonLinesFormatter(
  * @since 0.11.0
  */
 export const jsonLinesFormatter: TextFormatter = getJsonLinesFormatter();
+
+/**
+ * Options for the {@link getLogfmtFormatter} function.
+ * @since 2.1.0
+ */
+export interface LogfmtFormatterOptions {
+  /**
+   * The separator between category names.  For example, if the separator is
+   * `"."`, the category `["a", "b", "c"]` will be formatted as `"a.b.c"`.
+   * If this is a function, it will be called with the category array and
+   * should return a string, which will be used for rendering the category.
+   *
+   * @default `"."`
+   */
+  readonly categorySeparator?:
+    | string
+    | ((category: readonly string[]) => string);
+
+  /**
+   * The message format.  This can be one of the following:
+   *
+   * - `"template"`: The raw message template is used as the message.
+   * - `"rendered"`: The message is rendered with the values.
+   *
+   * @default `"rendered"`
+   */
+  readonly message?: "template" | "rendered";
+
+  /**
+   * The properties format.  This can be one of the following:
+   *
+   * - `"flatten"`: The properties are flattened into logfmt key-value pairs.
+   * - `"prepend:<prefix>"`: The properties are prepended with the given prefix
+   *   (e.g., `"prepend:ctx_"` will prepend `ctx_` to each property key).
+   *
+   * @default `"flatten"`
+   */
+  readonly properties?: "flatten" | `prepend:${string}`;
+
+  /**
+   * The timezone used for timestamp rendering.
+   *
+   * - `undefined` (default): UTC
+   * - `null`: System local timezone
+   * - IANA timezone name such as `"America/Bogota"` or `"Asia/Seoul"`
+   * - Fixed UTC offset string such as `"+09:00"` or `"-05:00"`
+   *
+   * @since 2.1.0
+   */
+  readonly timeZone?: string | null;
+
+  /**
+   * Line ending style for formatted output.
+   *
+   * - `"lf"`: Unix-style line endings (`\n`)
+   * - `"crlf"`: Windows-style line endings (`\r\n`)
+   *
+   * @default "lf"
+   * @since 2.1.0
+   */
+  readonly lineEnding?: "lf" | "crlf";
+}
+
+function renderStructuredMessage(record: LogRecord, template: boolean): string {
+  if (template) {
+    if (typeof record.rawMessage === "string") return record.rawMessage;
+    return record.rawMessage.join("{}");
+  }
+
+  return renderMessageParts(record.message, stringifyLogfmtValue);
+}
+
+function filterLogfmtKey(key: string): string | null {
+  if (key === "") return null;
+
+  let needsEscape: boolean = false;
+  for (const char of key) {
+    const code: number = char.codePointAt(0)!;
+    if (shouldEscapeLogfmtKeyChar(char, code)) {
+      needsEscape = true;
+      break;
+    }
+  }
+  if (!needsEscape) return key;
+
+  let result: string = "";
+  for (const char of key) {
+    const code: number = char.codePointAt(0)!;
+    if (shouldEscapeLogfmtKeyChar(char, code)) {
+      result += encodeLogfmtKeyChar(char);
+    } else {
+      result += char;
+    }
+  }
+  return result;
+}
+
+function shouldEscapeLogfmtKeyChar(char: string, code: number): boolean {
+  return code <= 0x20 || code === 0x7f || code === 0xfffd ||
+    char === "=" || char === '"' || char === "%";
+}
+
+function encodeLogfmtKeyChar(char: string): string {
+  let result: string = "";
+  for (const byte of utf8Encoder.encode(char)) {
+    result += `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  }
+  return result;
+}
+
+function stringifyLogfmtValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === null) return "null";
+  if (
+    typeof value === "number" || typeof value === "boolean" ||
+    typeof value === "bigint" || typeof value === "undefined" ||
+    typeof value === "symbol" || typeof value === "function"
+  ) {
+    return String(value);
+  }
+
+  try {
+    const json: string | undefined = JSON.stringify(value, jsonReplacer);
+    if (typeof json === "string") return unwrapJsonStringLiteral(json);
+  } catch {
+    // Fall back to inspect below.
+  }
+
+  return inspect(value, { colors: false });
+}
+
+function unwrapJsonStringLiteral(json: string): string {
+  if (json.startsWith('"') && json.endsWith('"')) {
+    return JSON.parse(json) as string;
+  }
+  return json;
+}
+
+function quoteLogfmtValue(value: string, isString: boolean): string {
+  let needsQuote: boolean = value === "" ||
+    isString && shouldQuoteStringLiteral(value);
+
+  for (const char of value) {
+    const code: number = char.codePointAt(0)!;
+    if (shouldQuoteLogfmtValueChar(char, code)) {
+      needsQuote = true;
+      break;
+    }
+  }
+  if (!needsQuote) return value;
+
+  let quoted: string = "";
+  for (const char of value) {
+    const code: number = char.codePointAt(0)!;
+    quoted += escapeLogfmtValueChar(char, code);
+  }
+  return `"${quoted}"`;
+}
+
+function shouldQuoteStringLiteral(value: string): boolean {
+  return value === "null" || value === "undefined" || value === "true" ||
+    value === "false";
+}
+
+function shouldQuoteLogfmtValueChar(char: string, code: number): boolean {
+  return code <= 0x20 || code === 0x7f || code === 0xfffd ||
+    char === "=" || char === '"' || char === "\\";
+}
+
+function escapeLogfmtValueChar(char: string, code: number): string {
+  switch (char) {
+    case "\t":
+      return "\\t";
+    case "\n":
+      return "\\n";
+    case "\r":
+      return "\\r";
+    case '"':
+      return '\\"';
+    case "\\":
+      return "\\\\";
+    default:
+      return code <= 0x1f || code === 0x7f
+        ? `\\u${code.toString(16).padStart(4, "0")}`
+        : char;
+  }
+}
+
+function formatLogfmtValue(value: unknown): string {
+  const stringified = stringifyLogfmtValue(value);
+  return quoteLogfmtValue(stringified, typeof value === "string");
+}
+
+function pushLogfmtPair(
+  pairs: string[],
+  key: string,
+  value: unknown,
+): void {
+  const filteredKey = filterLogfmtKey(key);
+  if (filteredKey == null) return;
+  pairs.push(`${filteredKey}=${formatLogfmtValue(value)}`);
+}
+
+/**
+ * Get a [logfmt] formatter with the specified options.  The log records
+ * will be rendered as space-delimited key-value pairs, one record per line.
+ * It looks like this:
+ *
+ * ```text
+ * time=2023-11-14T22:13:20.000Z level=info logger=my.logger msg="Hello, world!" key=value
+ * ```
+ *
+ * [logfmt]: https://brandur.org/logfmt
+ * @param options The options for the logfmt formatter.
+ * @returns The logfmt formatter.
+ * @since 2.1.0
+ */
+export function getLogfmtFormatter(
+  options: LogfmtFormatterOptions = {},
+): TextFormatter {
+  const prependPrefix: string = "prepend:";
+  const lineEnding: string = getLineEndingValue(options.lineEnding);
+  const timestampRenderer: (ts: number) => string | null =
+    createTimestampFormatter(
+      "rfc3339",
+      resolveTimeZone(options.timeZone),
+    );
+  const isTemplateMessage: boolean = options.message === "template";
+  const propertiesOption: "flatten" | `prepend:${string}` =
+    options.properties ?? "flatten";
+
+  let joinCategory: (category: readonly string[]) => string;
+  if (typeof options.categorySeparator === "function") {
+    joinCategory = options.categorySeparator;
+  } else {
+    const separator = options.categorySeparator ?? ".";
+    joinCategory = (category: readonly string[]): string =>
+      category.join(separator);
+  }
+
+  let propertyPrefix: string = "";
+  if (propertiesOption === "flatten") {
+    propertyPrefix = "";
+  } else if (propertiesOption.startsWith(prependPrefix)) {
+    propertyPrefix = propertiesOption.substring(prependPrefix.length);
+    if (propertyPrefix === "") {
+      throw new TypeError(
+        "Invalid properties option: " + JSON.stringify(propertiesOption) +
+          ". " +
+          'It must be of the form "prepend:<prefix>" where <prefix> is a ' +
+          "non-empty string.",
+      );
+    }
+  } else {
+    throw new TypeError(
+      `Invalid properties option: ${
+        JSON.stringify(propertiesOption)
+      }. It must be "flatten" or "prepend:<prefix>".`,
+    );
+  }
+
+  return (record: LogRecord): string => {
+    const pairs: string[] = [];
+    pushLogfmtPair(pairs, "time", timestampRenderer(record.timestamp));
+    pushLogfmtPair(pairs, "level", record.level);
+    pushLogfmtPair(pairs, "logger", joinCategory(record.category));
+    pushLogfmtPair(
+      pairs,
+      "msg",
+      renderStructuredMessage(
+        record,
+        isTemplateMessage,
+      ),
+    );
+
+    for (const key in record.properties) {
+      if (Object.prototype.hasOwnProperty.call(record.properties, key)) {
+        pushLogfmtPair(
+          pairs,
+          `${propertyPrefix}${key}`,
+          record.properties[key],
+        );
+      }
+    }
+
+    return `${pairs.join(" ")}${lineEnding}`;
+  };
+}
+
+/**
+ * The default [logfmt] formatter.  This formatter formats log records as
+ * space-delimited key-value pairs, one record per line.
+ *
+ * [logfmt]: https://brandur.org/logfmt
+ * @since 2.1.0
+ */
+export const logfmtFormatter: TextFormatter = getLogfmtFormatter();
 
 /**
  * A console formatter is a function that accepts a log record and returns
