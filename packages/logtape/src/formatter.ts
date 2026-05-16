@@ -78,6 +78,35 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
 
 const utf8Encoder = new TextEncoder();
 
+function renderMessageParts(
+  msgParts: readonly unknown[],
+  valueRenderer: (value: unknown) => string,
+): string {
+  const msgLen: number = msgParts.length;
+
+  if (msgLen === 1) {
+    return msgParts[0] as string;
+  }
+
+  if (msgLen <= 6) {
+    let message: string = "";
+    for (let i = 0; i < msgLen; i++) {
+      message += (i % 2 === 0)
+        ? msgParts[i] as string
+        : valueRenderer(msgParts[i]);
+    }
+    return message;
+  }
+
+  const parts: string[] = new Array(msgLen);
+  for (let i = 0; i < msgLen; i++) {
+    parts[i] = (i % 2 === 0)
+      ? msgParts[i] as string
+      : valueRenderer(msgParts[i]);
+  }
+  return parts.join("");
+}
+
 /**
  * The formatted values for a log record.
  * @since 0.6.0
@@ -636,30 +665,7 @@ export function getTextFormatter(
       `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}: ${message}`);
 
   return (record: LogRecord): string => {
-    // Optimized message building
-    const msgParts = record.message;
-    const msgLen = msgParts.length;
-
-    let message: string;
-    if (msgLen === 1) {
-      // Fast path for simple messages with no interpolation
-      message = msgParts[0] as string;
-    } else if (msgLen <= 6) {
-      // Fast path for small messages - direct concatenation
-      message = "";
-      for (let i = 0; i < msgLen; i++) {
-        message += (i % 2 === 0) ? msgParts[i] : valueRenderer(msgParts[i]);
-      }
-    } else {
-      // Optimized path for larger messages - array join
-      const parts: string[] = new Array(msgLen);
-      for (let i = 0; i < msgLen; i++) {
-        parts[i] = (i % 2 === 0)
-          ? msgParts[i] as string
-          : valueRenderer(msgParts[i]);
-      }
-      message = parts.join("");
-    }
+    const message: string = renderMessageParts(record.message, valueRenderer);
 
     const timestamp = timestampRenderer(record.timestamp);
     const level = levelRenderer(record.level);
@@ -1200,16 +1206,7 @@ function renderStructuredMessage(record: LogRecord, template: boolean): string {
     return record.rawMessage.join("{}");
   }
 
-  const msgLen = record.message.length;
-  if (msgLen === 1) return record.message[0] as string;
-
-  const parts: string[] = new Array(msgLen);
-  for (let i = 0; i < msgLen; i++) {
-    parts[i] = (i % 2 === 0)
-      ? record.message[i] as string
-      : stringifyLogfmtValue(record.message[i]);
-  }
-  return parts.join("");
+  return renderMessageParts(record.message, stringifyLogfmtValue);
 }
 
 function filterLogfmtKey(key: string): string | null {

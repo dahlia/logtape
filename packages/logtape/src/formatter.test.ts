@@ -1094,6 +1094,7 @@ function parseLogfmt(line: string): Record<string, string> {
 
   while (index < source.length) {
     const keyEnd: number = source.indexOf("=", index);
+    if (keyEnd < 0) break;
     const key: string = source.slice(index, keyEnd);
     const parsed: ParsedLogfmtValue = source[keyEnd + 1] === '"'
       ? parseQuotedLogfmtValue(source, keyEnd + 2)
