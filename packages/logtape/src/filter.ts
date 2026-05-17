@@ -379,7 +379,7 @@ export function getThrottlingFilter(
     let acceptedAtCount = 0;
     for (let i = 0; i < bucket.acceptedAt.length; i++) {
       const acceptedAt: number = bucket.acceptedAt[i];
-      if (now - acceptedAt < windowMs) {
+      if (acceptedAt <= now && now - acceptedAt < windowMs) {
         bucket.acceptedAt[acceptedAtCount] = acceptedAt;
         acceptedAtCount++;
       }
