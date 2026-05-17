@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import fc from "fast-check";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import {
+  createHmacPseudonymizer,
   type FieldPatterns,
   redactByField,
+  redactByFieldAsync,
   redactProperties,
   shouldFieldRedacted,
 } from "./field.ts";
@@ -918,6 +921,238 @@ test("redactByField()", async () => {
   }
 });
 
+test("createHmacPseudonymizer()", async () => {
+  { // uses HMAC-SHA-256 and base64url output by default
+    const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
+
+    const result = await pseudonymize("user@example.com");
+
+    assert.strictEqual(
+      result,
+      "hmac-sha256:_rymVrH6IjQINijRdPJQ3YVyglkBeJCRbLb_wHEjQN4",
+    );
+  }
+
+  { // supports hex output and custom prefix
+    const pseudonymize = await createHmacPseudonymizer({
+      key: "secret",
+      encoding: "hex",
+      prefix: "user:",
+    });
+
+    const result = await pseudonymize("user@example.com");
+
+    assert.strictEqual(
+      result,
+      "user:febca656b1fa2234083628d174f250dd85728259017890916cb6ffc0712340de",
+    );
+  }
+
+  { // allows disabling the prefix
+    const pseudonymize = await createHmacPseudonymizer({
+      key: "secret",
+      prefix: "",
+    });
+
+    const result = await pseudonymize("user@example.com");
+
+    assert.strictEqual(
+      result,
+      "_rymVrH6IjQINijRdPJQ3YVyglkBeJCRbLb_wHEjQN4",
+    );
+  }
+
+  { // encodes non-string values using String(value)
+    const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
+
+    assert.strictEqual(
+      await pseudonymize(123),
+      await pseudonymize("123"),
+    );
+  }
+
+  { // is deterministic but distinguishes different values
+    const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
+
+    const first = await pseudonymize("alice@example.com");
+    const second = await pseudonymize("alice@example.com");
+    const third = await pseudonymize("bob@example.com");
+
+    assert.strictEqual(first, second);
+    assert.notStrictEqual(first, third);
+    assert.strictEqual(typeof first, "string");
+    assert.ok(!first.includes("alice@example.com"));
+  }
+
+  { // reports a clear error when the Web Crypto API is unavailable
+    const originalCrypto = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "crypto",
+    );
+    try {
+      Object.defineProperty(globalThis, "crypto", {
+        value: undefined,
+        configurable: true,
+      });
+
+      await assert.rejects(
+        createHmacPseudonymizer({ key: "secret" }),
+        new TypeError("The Web Crypto API is not available."),
+      );
+    } finally {
+      if (originalCrypto == null) {
+        delete (globalThis as { crypto?: Crypto }).crypto;
+      } else {
+        Object.defineProperty(globalThis, "crypto", originalCrypto);
+      }
+    }
+  }
+});
+
+test("redactByFieldAsync()", async () => {
+  { // applies async action to properties and string-template messages
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["email"],
+      action: (value) => Promise.resolve(`p:${value}`),
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Email: ", "user@example.com", ""],
+      rawMessage: "Email: {email}",
+      timestamp: Date.now(),
+      properties: { email: "user@example.com" },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].properties.email, "p:user@example.com");
+    assert.strictEqual(records[0].message[1], "p:user@example.com");
+    assert.strictEqual(typeof records[0].message[1], "string");
+  }
+
+  { // redacts nested values and wildcard placeholders
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: [/email/i],
+      action: () => Promise.resolve("[PSEUDONYMIZED]"),
+    });
+
+    const properties = { args: [{ email: "user@example.com" }] };
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["", properties, ""],
+      rawMessage: "{*}",
+      timestamp: Date.now(),
+      properties,
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(records[0].properties, {
+      args: [{ email: "[PSEUDONYMIZED]" }],
+    });
+    assert.deepStrictEqual(records[0].message[1], {
+      args: [{ email: "[PSEUDONYMIZED]" }],
+    });
+  }
+
+  { // redacts tagged-template message values by comparison
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["email"],
+      action: () => Promise.resolve("[PSEUDONYMIZED]"),
+    });
+    const rawMessage = ["Email: ", ""] as unknown as TemplateStringsArray;
+    Object.defineProperty(rawMessage, "raw", { value: rawMessage });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Email: ", "user@example.com", ""],
+      rawMessage,
+      timestamp: Date.now(),
+      properties: { email: "user@example.com" },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.strictEqual(records[0].message[1], "[PSEUDONYMIZED]");
+    assert.strictEqual(records[0].properties.email, "[PSEUDONYMIZED]");
+  }
+
+  { // preserves record order even when actions resolve out of order
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["id"],
+      action: async (value) => {
+        if (value === "first") await delay(10);
+        return `p:${value}`;
+      },
+    });
+
+    wrappedSink(recordWithId("first"));
+    wrappedSink(recordWithId("second"));
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(
+      records.map((record) => record.properties.id),
+      ["p:first", "p:second"],
+    );
+  }
+
+  { // disposes the wrapped sink after pending redaction work
+    const records: LogRecord[] = [];
+    let disposedAfterRecords = false;
+    const sink: Sink & AsyncDisposable = (record) => records.push(record);
+    sink[Symbol.asyncDispose] = () => {
+      disposedAfterRecords = records.length === 1;
+      return Promise.resolve();
+    };
+    const wrappedSink = redactByFieldAsync(sink, {
+      fieldPatterns: ["id"],
+      action: (value) => Promise.resolve(`p:${value}`),
+    });
+
+    wrappedSink(recordWithId("first"));
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.strictEqual(disposedAfterRecords, true);
+  }
+
+  { // rejected actions drop only the failed record
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["id"],
+      action: (value) => {
+        if (value === "bad") return Promise.reject(new Error("boom"));
+        return Promise.resolve(`p:${value}`);
+      },
+    });
+
+    wrappedSink(recordWithId("bad"));
+    wrappedSink(recordWithId("good"));
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(
+      records.map((record) => record.properties.id),
+      ["p:good"],
+    );
+  }
+});
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function recordWithId(id: string): LogRecord {
+  return {
+    level: "info",
+    category: ["test"],
+    message: ["ID: ", id, ""],
+    rawMessage: "ID: {id}",
+    timestamp: Date.now(),
+    properties: { id },
+  };
 }
