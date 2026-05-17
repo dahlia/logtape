@@ -74,34 +74,22 @@ To be released.
 ### @logtape/redaction
 
  -  Added `redactByFieldAsync()` for field-based redaction actions that need
-    asynchronous work, and added `createHmacPseudonymizer()` for replacing
-    sensitive fields with stable keyed HMAC pseudonyms.  [[#160], [#164]]
+    asynchronous work.  It preserves record order while starting independent
+    redaction work concurrently, preserves cyclic arrays, redacts
+    non-sensitive nested message placeholders from redacted properties when
+    sibling fields change, reports redaction failures to the meta logger, and
+    reports wrapped sink errors during asynchronous disposal.  [[#160], [#164]]
+
+ -  Added `createHmacPseudonymizer()` for replacing sensitive fields with stable
+    keyed HMAC pseudonyms.  `CryptoKey` inputs derive the default output prefix
+    from the key's HMAC hash algorithm and reject explicit hash mismatches.
+    [[#160], [#164]]
 
      -  Added `AsyncFieldRedactionAction` type.
      -  Added `AsyncFieldRedactionOptions` interface.
      -  Added `FieldRedactionAction` type.
      -  Added `HmacPseudonymizer` type.
      -  Added `HmacPseudonymizerOptions` interface.
-
- -  Fixed field-based redaction so cyclic arrays are preserved instead of
-    causing recursive redaction to fail.  [[#160], [#164]]
-
- -  Fixed field-based redaction so non-sensitive nested message placeholders
-    keep their path value while sibling fields are redacted.  [[#160], [#164]]
-
- -  Fixed `redactByFieldAsync()` so errors thrown or asynchronously rejected by
-    the wrapped sink are reported during asynchronous disposal instead of being
-    swallowed as redaction failures.  [[#160], [#164]]
-
- -  Fixed `redactByFieldAsync()` so dropped records caused by redaction
-    failures are reported to the meta logger.  [[#160], [#164]]
-
- -  Improved `redactByFieldAsync()` performance by starting independent async
-    redaction work concurrently while preserving output order.  [[#160], [#164]]
-
- -  Fixed `createHmacPseudonymizer()` so `CryptoKey` inputs derive the default
-    output prefix from the key's HMAC hash algorithm and reject explicit hash
-    mismatches.  [[#160], [#164]]
 
  -  Fixed `redactByField()` and `shouldFieldRedacted()` so field patterns using
     global or sticky regular expressions produce consistent results across
