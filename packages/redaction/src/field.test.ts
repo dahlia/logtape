@@ -1426,9 +1426,13 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(disposedAfterRecords, true);
   }
 
-  { // flushes records queued while async disposal is starting
+  { // ignores records queued after async disposal starts
     const records: string[] = [];
     let disposed = false;
+    let releaseFirst = () => {};
+    const firstRedaction = new Promise<string>((resolve) => {
+      releaseFirst = () => resolve("p:first");
+    });
     const sink: Sink & AsyncDisposable = (record) => {
       if (disposed) throw new Error("sink already disposed");
       records.push(String(record.properties.id));
@@ -1439,14 +1443,19 @@ test("redactByFieldAsync()", async () => {
     };
     const wrappedSink = redactByFieldAsync(sink, {
       fieldPatterns: ["id"],
-      action: (value) => Promise.resolve(`p:${value}`),
+      action: (value) => {
+        if (value === "first") return firstRedaction;
+        return Promise.resolve(`p:${value}`);
+      },
     });
 
+    wrappedSink(recordWithId("first"));
     const disposal = wrappedSink[Symbol.asyncDispose]();
     wrappedSink(recordWithId("during"));
+    releaseFirst();
     await disposal;
 
-    assert.deepStrictEqual(records, ["p:during"]);
+    assert.deepStrictEqual(records, ["p:first"]);
     assert.strictEqual(disposed, true);
   }
 

@@ -265,12 +265,12 @@ export function redactByFieldAsync(
     });
   };
   wrapped[Symbol.asyncDispose] = async () => {
+    closed = true;
     for (;;) {
       const pending = lastPromise;
       await pending;
       if (pending === lastPromise) break;
     }
-    closed = true;
 
     let disposeError: unknown;
     try {
