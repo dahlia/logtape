@@ -325,6 +325,21 @@ test("getThrottlingFilter() default keys preserve category and template boundari
   assert.strictEqual(stringifyCalled, false);
 });
 
+test("getThrottlingFilter() default keys handle invalid cooked template parts", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => 0,
+  });
+  const invalidCooked = Object.assign(
+    [undefined, "suffix"],
+    { raw: ["\\unicode", "suffix"] },
+  ) as unknown as TemplateStringsArray;
+
+  assert.doesNotThrow(() => filter(recordWithRawMessage(invalidCooked)));
+  assert.strictEqual(filter(recordWithRawMessage(invalidCooked)), false);
+});
+
 test("getThrottlingFilter() supports custom keys", () => {
   const filter = getThrottlingFilter({
     limit: 1,

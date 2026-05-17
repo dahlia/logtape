@@ -331,21 +331,18 @@ export function getThrottlingFilter(
       bucket.allowed = 0;
       bucket.suppressed = 0;
       bucket.firstRecord = record;
-      bucket.lastRecord = record;
-      bucket.lastTime = now;
     }
 
-    if (bucket.allowed < limit) {
+    const allowed = bucket.allowed < limit;
+    if (allowed) {
       bucket.allowed++;
-      bucket.lastRecord = record;
-      bucket.lastTime = now;
-      return true;
+    } else {
+      bucket.suppressed++;
     }
 
-    bucket.suppressed++;
     bucket.lastRecord = record;
     bucket.lastTime = now;
-    return false;
+    return allowed;
   }
 
   function filterSlidingWindow(
@@ -356,27 +353,24 @@ export function getThrottlingFilter(
   ): boolean {
     pruneExpiredAcceptedAt(bucket, now);
 
-    if (bucket.acceptedAtCount < limit) {
+    const allowed = bucket.acceptedAtCount < limit;
+    if (allowed) {
       if (bucket.suppressed > 0) {
         emitSummary(key, bucket, "window", now);
         bucket.allowed = 0;
         bucket.suppressed = 0;
         bucket.summaryStartTime = now;
         bucket.firstRecord = record;
-        bucket.lastRecord = record;
-        bucket.lastTime = now;
       }
       pushAcceptedAt(bucket, now);
       bucket.allowed++;
-      bucket.lastRecord = record;
-      bucket.lastTime = now;
-      return true;
+    } else {
+      bucket.suppressed++;
     }
 
-    bucket.suppressed++;
     bucket.lastRecord = record;
     bucket.lastTime = now;
-    return false;
+    return allowed;
   }
 
   function pruneExpiredAcceptedAt(
@@ -499,6 +493,10 @@ function getDefaultThrottlingKey(record: LogRecord): string {
 function getRawMessageTemplate(
   rawMessage: string | TemplateStringsArray,
 ): string | readonly string[] {
+  if (typeof rawMessage === "string") return rawMessage;
+  for (const part of rawMessage) {
+    if (typeof part !== "string") return rawMessage.raw;
+  }
   return rawMessage;
 }
 
