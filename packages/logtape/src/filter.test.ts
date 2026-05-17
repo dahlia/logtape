@@ -174,6 +174,19 @@ test("getThrottlingFilter() uses a sliding window when configured", () => {
   assert.strictEqual(filter(record), true);
 });
 
+test("getThrottlingFilter() prunes out-of-order record timestamps", () => {
+  const filter = getThrottlingFilter({
+    limit: 2,
+    windowMs: 100,
+    mode: "sliding",
+    timeSource: "record",
+  });
+
+  assert.strictEqual(filter(recordWithTimestamp(100)), true);
+  assert.strictEqual(filter(recordWithTimestamp(0)), true);
+  assert.strictEqual(filter(recordWithTimestamp(100)), true);
+});
+
 test("getThrottlingFilter() does not shift sliding-window timestamps", () => {
   const filter = getThrottlingFilter({
     limit: 2,

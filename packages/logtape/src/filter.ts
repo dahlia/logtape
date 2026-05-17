@@ -376,16 +376,17 @@ export function getThrottlingFilter(
     bucket: ThrottlingBucket,
     now: number,
   ): void {
-    while (bucket.acceptedAtCount > 0) {
-      const acceptedAt = bucket.acceptedAt[bucket.acceptedAtHead];
-      if (now - acceptedAt < windowMs) break;
-      bucket.acceptedAtHead = (bucket.acceptedAtHead + 1) %
-        bucket.acceptedAt.length;
-      bucket.acceptedAtCount--;
+    let acceptedAtCount = 0;
+    for (let i = 0; i < bucket.acceptedAtCount; i++) {
+      const index = (bucket.acceptedAtHead + i) % bucket.acceptedAt.length;
+      const acceptedAt = bucket.acceptedAt[index];
+      if (now - acceptedAt < windowMs) {
+        bucket.acceptedAt[acceptedAtCount] = acceptedAt;
+        acceptedAtCount++;
+      }
     }
-    if (bucket.acceptedAtCount < 1) {
-      bucket.acceptedAtHead = 0;
-    }
+    bucket.acceptedAtHead = 0;
+    bucket.acceptedAtCount = acceptedAtCount;
   }
 
   function pushAcceptedAt(bucket: ThrottlingBucket, acceptedAt: number): void {

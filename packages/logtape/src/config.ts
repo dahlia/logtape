@@ -434,18 +434,44 @@ export async function dispose(): Promise<void> {
  * @since 0.9.0
  */
 export function disposeSync(): void {
-  disposeSyncFilters();
-  disposeSyncSinks();
+  const errors: unknown[] = [];
+  try {
+    disposeSyncFilters();
+  } catch (error) {
+    errors.push(error);
+  }
+  try {
+    disposeSyncSinks();
+  } catch (error) {
+    errors.push(error);
+  }
+  throwDisposeErrors(errors);
 }
 
 function disposeSyncFilters(): void {
-  for (const disposable of filterDisposables) disposable[Symbol.dispose]();
-  filterDisposables.clear();
+  disposeSyncDisposables(filterDisposables);
 }
 
 function disposeSyncSinks(): void {
-  for (const disposable of sinkDisposables) disposable[Symbol.dispose]();
-  sinkDisposables.clear();
+  disposeSyncDisposables(sinkDisposables);
+}
+
+function disposeSyncDisposables(disposables: Set<Disposable>): void {
+  const errors: unknown[] = [];
+  try {
+    for (const disposable of disposables) {
+      try {
+        disposable[Symbol.dispose]();
+      } catch (error) {
+        errors.push(error);
+      } finally {
+        disposables.delete(disposable);
+      }
+    }
+  } finally {
+    disposables.clear();
+  }
+  throwDisposeErrors(errors);
 }
 
 async function disposeAsyncFilters(): Promise<void> {
