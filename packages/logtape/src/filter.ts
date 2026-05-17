@@ -219,7 +219,6 @@ interface ThrottlingBucket {
   windowStart: number;
   summaryStartTime: number;
   readonly acceptedAt: number[];
-  acceptedAtHead: number;
   acceptedAtCount: number;
   allowed: number;
   suppressed: number;
@@ -285,7 +284,6 @@ export function getThrottlingFilter(
         windowStart: now,
         summaryStartTime: now,
         acceptedAt: [],
-        acceptedAtHead: 0,
         acceptedAtCount: 0,
         allowed: 0,
         suppressed: 0,
@@ -325,7 +323,6 @@ export function getThrottlingFilter(
       emitSummary(key, bucket, "window", now);
       bucket.windowStart = now;
       bucket.summaryStartTime = now;
-      bucket.acceptedAtHead = 0;
       bucket.acceptedAtCount = 0;
       bucket.allowed = 0;
       bucket.suppressed = 0;
@@ -378,23 +375,17 @@ export function getThrottlingFilter(
   ): void {
     let acceptedAtCount = 0;
     for (let i = 0; i < bucket.acceptedAtCount; i++) {
-      const index = (bucket.acceptedAtHead + i) % bucket.acceptedAt.length;
-      const acceptedAt = bucket.acceptedAt[index];
+      const acceptedAt = bucket.acceptedAt[i];
       if (now - acceptedAt < windowMs) {
         bucket.acceptedAt[acceptedAtCount] = acceptedAt;
         acceptedAtCount++;
       }
     }
-    bucket.acceptedAtHead = 0;
     bucket.acceptedAtCount = acceptedAtCount;
   }
 
   function pushAcceptedAt(bucket: ThrottlingBucket, acceptedAt: number): void {
-    const index = bucket.acceptedAtCount < bucket.acceptedAt.length
-      ? (bucket.acceptedAtHead + bucket.acceptedAtCount) %
-        bucket.acceptedAt.length
-      : bucket.acceptedAt.length;
-    bucket.acceptedAt[index] = acceptedAt;
+    bucket.acceptedAt[bucket.acceptedAtCount] = acceptedAt;
     bucket.acceptedAtCount++;
   }
 

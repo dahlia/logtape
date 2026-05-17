@@ -701,6 +701,65 @@ test("dispose() disposes sinks after async filter rejection", async () => {
   }
 });
 
+test("dispose() disposes remaining async resources after sync errors", async () => {
+  const events: string[] = [];
+  const filterError = new Error("filter disposal failed");
+  const sinkError = new Error("sink disposal failed");
+  const filterA: Filter & AsyncDisposable = () => true;
+  filterA[Symbol.asyncDispose] = () => {
+    events.push("filter a");
+    throw filterError;
+  };
+  const filterB: Filter & AsyncDisposable = () => true;
+  filterB[Symbol.asyncDispose] = () => {
+    events.push("filter b");
+    return Promise.resolve();
+  };
+  const sinkA: Sink & AsyncDisposable = () => {};
+  sinkA[Symbol.asyncDispose] = () => {
+    events.push("sink a");
+    throw sinkError;
+  };
+  const sinkB: Sink & AsyncDisposable = () => {};
+  sinkB[Symbol.asyncDispose] = () => {
+    events.push("sink b");
+    return Promise.resolve();
+  };
+
+  try {
+    await configure({
+      sinks: { sinkA, sinkB },
+      filters: { filterA, filterB },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["sinkA", "sinkB"],
+          filters: ["filterA", "filterB"],
+        },
+      ],
+    });
+    events.length = 0;
+
+    await assert.rejects(
+      reset(),
+      (error) => {
+        assert.ok(error instanceof AggregateError);
+        assert.deepStrictEqual(error.errors, [filterError, sinkError]);
+        return true;
+      },
+    );
+
+    assert.deepStrictEqual(events, [
+      "filter a",
+      "filter b",
+      "sink a",
+      "sink b",
+    ]);
+  } finally {
+    await reset();
+  }
+});
+
 test("dispose() deduplicates shared async sink and filter", async () => {
   const events: string[] = [];
   const shared: Sink & Filter & AsyncDisposable = () => true;

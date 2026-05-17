@@ -475,19 +475,29 @@ function disposeSyncDisposables(disposables: Set<Disposable>): void {
 }
 
 async function disposeAsyncFilters(): Promise<void> {
-  const promises: PromiseLike<void>[] = [];
-  for (const disposable of asyncFilterDisposables) {
-    promises.push(disposable[Symbol.asyncDispose]());
-    asyncFilterDisposables.delete(disposable);
-  }
-  await settleDisposePromises(promises);
+  await disposeAsyncDisposables(asyncFilterDisposables);
 }
 
 async function disposeAsyncSinks(): Promise<void> {
+  await disposeAsyncDisposables(asyncSinkDisposables);
+}
+
+async function disposeAsyncDisposables(
+  disposables: Set<AsyncDisposable>,
+): Promise<void> {
   const promises: PromiseLike<void>[] = [];
-  for (const disposable of asyncSinkDisposables) {
-    promises.push(disposable[Symbol.asyncDispose]());
-    asyncSinkDisposables.delete(disposable);
+  try {
+    for (const disposable of disposables) {
+      try {
+        promises.push(Promise.resolve(disposable[Symbol.asyncDispose]()));
+      } catch (error) {
+        promises.push(Promise.reject(error));
+      } finally {
+        disposables.delete(disposable);
+      }
+    }
+  } finally {
+    disposables.clear();
   }
   await settleDisposePromises(promises);
 }
