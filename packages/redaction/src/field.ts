@@ -269,11 +269,7 @@ export function redactByFieldAsync(
   };
   wrapped[Symbol.asyncDispose] = async () => {
     closed = true;
-    for (;;) {
-      const pending = lastPromise;
-      await pending;
-      if (pending === lastPromise) break;
-    }
+    await lastPromise;
 
     let disposeError: unknown;
     try {
@@ -990,7 +986,7 @@ function redactMessageByValues(
 function keyToBytes(key: string | Uint8Array | ArrayBuffer): BufferSource {
   if (typeof key === "string") return new TextEncoder().encode(key);
   if (key instanceof ArrayBuffer) return key;
-  return new Uint8Array(key);
+  return key as Uint8Array<ArrayBuffer>;
 }
 
 function isCryptoKey(
