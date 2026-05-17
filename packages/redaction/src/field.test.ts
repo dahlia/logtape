@@ -1289,6 +1289,31 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(disposedAfterRecords, true);
   }
 
+  { // surfaces wrapped sink failures during disposal
+    const records: LogRecord[] = [];
+    const sinkError = new Error("sink failed");
+    const sink: Sink = (record) => {
+      if (record.properties.id === "p:bad") throw sinkError;
+      records.push(record);
+    };
+    const wrappedSink = redactByFieldAsync(sink, {
+      fieldPatterns: ["id"],
+      action: (value) => Promise.resolve(`p:${value}`),
+    });
+
+    wrappedSink(recordWithId("bad"));
+    wrappedSink(recordWithId("good"));
+
+    await assert.rejects(
+      async () => await wrappedSink[Symbol.asyncDispose](),
+      sinkError,
+    );
+    assert.deepStrictEqual(
+      records.map((record) => record.properties.id),
+      ["p:good"],
+    );
+  }
+
   { // rejected actions drop only the failed record
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {

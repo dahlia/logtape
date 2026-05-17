@@ -237,14 +237,16 @@ export function redactByFieldAsync(
   options: AsyncFieldRedactionOptions,
 ): Sink & AsyncDisposable {
   let lastPromise = Promise.resolve();
+  const sinkErrors: unknown[] = [];
   const wrapped: Sink & AsyncDisposable = (record: LogRecord) => {
-    lastPromise = lastPromise
-      .then(async () => {
-        const redactedProperties = await redactPropertiesAsync(
+    lastPromise = lastPromise.then(async () => {
+      let redactedProperties: Record<string, unknown>;
+      let redactedMessage = record.message;
+      try {
+        redactedProperties = await redactPropertiesAsync(
           record.properties,
           options,
         );
-        let redactedMessage = record.message;
 
         if (typeof record.rawMessage === "string") {
           const placeholders = extractPlaceholderNames(record.rawMessage);
@@ -273,24 +275,48 @@ export function redactByFieldAsync(
             );
           }
         }
+      } catch {
+        // Drop records that cannot be safely redacted, but keep the chain alive
+        // so later records can still be processed.
+        return;
+      }
 
+      try {
         sink({
           ...record,
           message: redactedMessage,
           properties: redactedProperties,
         });
-      })
-      .catch(() => {
-        // Drop records that cannot be safely redacted, but keep the chain alive
-        // so later records can still be processed.
-      });
+      } catch (error) {
+        sinkErrors.push(error);
+      }
+    });
   };
   wrapped[Symbol.asyncDispose] = async () => {
     await lastPromise;
-    if (Symbol.asyncDispose in sink) {
-      await sink[Symbol.asyncDispose]();
-    } else if (Symbol.dispose in sink) {
-      sink[Symbol.dispose]();
+    let disposeError: unknown;
+    try {
+      if (Symbol.asyncDispose in sink) {
+        await sink[Symbol.asyncDispose]();
+      } else if (Symbol.dispose in sink) {
+        sink[Symbol.dispose]();
+      }
+    } catch (error) {
+      disposeError = error;
+    }
+
+    if (sinkErrors.length > 0) {
+      const errors = disposeError == null
+        ? sinkErrors
+        : [...sinkErrors, disposeError];
+      if (errors.length === 1) throw errors[0];
+      throw new AggregateError(
+        errors,
+        "One or more errors occurred while emitting redacted log records.",
+      );
+    }
+    if (disposeError != null) {
+      throw disposeError;
     }
   };
   return wrapped;

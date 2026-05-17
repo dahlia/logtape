@@ -89,6 +89,10 @@ To be released.
  -  Fixed field-based redaction so non-sensitive nested message placeholders
     keep their path value while sibling fields are redacted.  [[#160], [#164]]
 
+ -  Fixed `redactByFieldAsync()` so errors thrown by the wrapped sink are
+    reported during asynchronous disposal instead of being swallowed as
+    redaction failures.  [[#160], [#164]]
+
  -  Fixed `createHmacPseudonymizer()` so `CryptoKey` inputs derive the default
     output prefix from the key's HMAC hash algorithm and reject explicit hash
     mismatches.  [[#160], [#164]]
