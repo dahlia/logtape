@@ -699,6 +699,29 @@ test("redactByField()", async () => {
     });
   }
 
+  { // quoted path placeholders use redacted properties
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+    const profile = { name: "Alice", password: "secret" };
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Profile: ", profile, ""],
+      rawMessage: 'Profile: {user["profile"]}',
+      timestamp: Date.now(),
+      properties: { user: { profile } },
+    });
+
+    assert.deepStrictEqual(records[0].message[1], {
+      name: "Alice",
+      password: "[REDACTED]",
+    });
+  }
+
   { // delete action uses empty string in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
@@ -1158,6 +1181,21 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
+  { // only own properties are redacted
+    const properties = Object.create({ password: "inherited" }) as Record<
+      string,
+      unknown
+    >;
+    properties.name = "Alice";
+
+    const result = await redactPropertiesAsync(properties, {
+      fieldPatterns: ["password"],
+      action: (value) => Promise.resolve(`p:${value}`),
+    });
+
+    assert.deepStrictEqual(result, { name: "Alice" });
+  }
+
   { // applies async action to properties and string-template messages
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
@@ -1275,6 +1313,30 @@ test("redactByFieldAsync()", async () => {
 
     assert.strictEqual(records[0].message[1], "Alice");
     assert.deepStrictEqual(records[0].properties.user, {
+      name: "Alice",
+      password: "[REDACTED]",
+    });
+  }
+
+  { // quoted path placeholders use redacted properties
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => Promise.resolve("[REDACTED]"),
+    });
+    const profile = { name: "Alice", password: "secret" };
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Profile: ", profile, ""],
+      rawMessage: 'Profile: {user["profile"]}',
+      timestamp: Date.now(),
+      properties: { user: { profile } },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(records[0].message[1], {
       name: "Alice",
       password: "[REDACTED]",
     });

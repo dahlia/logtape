@@ -432,7 +432,7 @@ export function redactProperties(
   const copy: Record<string, unknown> = {};
   visited.set(properties, copy);
 
-  for (const field in properties) {
+  for (const field of Object.keys(properties)) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       if (typeof options.action === "function") {
         setProperty(copy, field, options.action(properties[field]));
@@ -486,7 +486,7 @@ export async function redactPropertiesAsync(
 
   const fields: string[] = [];
   const values: Promise<unknown>[] = [];
-  for (const field in properties) {
+  for (const field of Object.keys(properties)) {
     fields.push(field);
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       values.push(Promise.resolve(options.action(properties[field])));
@@ -703,17 +703,52 @@ function extractPlaceholderNames(template: string): string[] {
 function parsePathSegments(path: string): string[] {
   const segments: string[] = [];
   let current = "";
+  let inBracket = false;
+  let quote: '"' | "'" | undefined;
+  let escaped = false;
+
+  const pushCurrent = (): void => {
+    if (current) segments.push(current);
+    current = "";
+  };
+
   for (const char of path) {
-    if (char === "." || char === "[") {
-      if (current) segments.push(current);
-      current = "";
-    } else if (char === "]" || char === "?") {
-      // Skip these characters
-    } else {
-      current += char;
+    if (quote != null) {
+      if (escaped) {
+        current += char;
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === quote) {
+        quote = undefined;
+      } else {
+        current += char;
+      }
+      continue;
     }
+
+    if (inBracket && (char === '"' || char === "'") && current === "") {
+      quote = char;
+      continue;
+    }
+    if (char === "." && !inBracket) {
+      pushCurrent();
+      continue;
+    }
+    if (char === "[") {
+      pushCurrent();
+      inBracket = true;
+      continue;
+    }
+    if (char === "]") {
+      pushCurrent();
+      inBracket = false;
+      continue;
+    }
+    if (char === "?") continue;
+    current += char;
   }
-  if (current) segments.push(current);
+  pushCurrent();
   return segments;
 }
 
