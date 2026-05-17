@@ -190,6 +190,8 @@ and arrays as well.
 
 ### Pseudonymizing fields for correlation
 
+*This API is available since LogTape 2.1.0.*
+
 Sometimes you may want to hide a sensitive identifier while still keeping a
 stable value for correlation.  For example, the same user ID or email address
 can be replaced with the same pseudonym across log records, without writing the
