@@ -1011,6 +1011,9 @@ function getHmacHash(
   hash: HmacPseudonymizerOptions["hash"],
 ): NonNullable<HmacPseudonymizerOptions["hash"]> {
   if (!isCryptoKey(key)) return hash ?? "SHA-256";
+  if (!key.usages.includes("sign")) {
+    throw new TypeError('The HMAC CryptoKey must include the "sign" usage.');
+  }
   const keyHash = getCryptoKeyHmacHash(key);
   if (hash != null && hash !== keyHash) {
     throw new TypeError(

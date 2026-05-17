@@ -1,8 +1,8 @@
+import { configure, type LogRecord, reset, type Sink } from "@logtape/logtape";
+import fc from "fast-check";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import fc from "fast-check";
-import { configure, type LogRecord, reset, type Sink } from "@logtape/logtape";
 import {
   createHmacPseudonymizer,
   type FieldPatterns,
@@ -1198,6 +1198,21 @@ test("createHmacPseudonymizer()", async () => {
       new TypeError(
         'The HMAC CryptoKey uses SHA-512, but the "hash" option is SHA-256.',
       ),
+    );
+  }
+
+  { // rejects a CryptoKey that cannot sign HMAC values
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("secret"),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+
+    await assert.rejects(
+      createHmacPseudonymizer({ key }),
+      new TypeError('The HMAC CryptoKey must include the "sign" usage.'),
     );
   }
 });
