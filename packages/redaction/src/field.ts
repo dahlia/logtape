@@ -1,4 +1,4 @@
-import type { LogRecord, Sink } from "@logtape/logtape";
+import { getLogger, type LogRecord, type Sink } from "@logtape/logtape";
 
 /**
  * The type for a field pattern used in redaction.  A string or a regular
@@ -33,6 +33,9 @@ export type AsyncFieldRedactionAction = (
  * @since 2.1.0
  */
 export type HmacPseudonymizer = (value: unknown) => Promise<string>;
+
+const metaLogger = getLogger(["logtape", "meta"]);
+let reportingRedactionFailure = false;
 
 /**
  * Default field patterns for redaction.  These patterns will match
@@ -239,53 +242,19 @@ export function redactByFieldAsync(
   let lastPromise = Promise.resolve();
   const sinkErrors: unknown[] = [];
   const wrapped: Sink & AsyncDisposable = (record: LogRecord) => {
+    const work = redactLogRecordAsync(record, options).catch((error) => {
+      reportRedactionFailure(error);
+      return null;
+    });
     lastPromise = lastPromise.then(async () => {
-      let redactedProperties: Record<string, unknown>;
-      let redactedMessage = record.message;
-      try {
-        redactedProperties = await redactPropertiesAsync(
-          record.properties,
-          options,
-        );
-
-        if (typeof record.rawMessage === "string") {
-          const placeholders = extractPlaceholderNames(record.rawMessage);
-          const { redactedIndices, wildcardIndices } =
-            getRedactedPlaceholderIndices(
-              placeholders,
-              options.fieldPatterns,
-            );
-          redactedMessage = await redactMessageArrayAsync(
-            record.message,
-            placeholders,
-            redactedIndices,
-            wildcardIndices,
-            redactedProperties,
-            options.action,
-          );
-        } else {
-          const redactedValues = getRedactedValues(
-            record.properties,
-            redactedProperties,
-          );
-          if (redactedValues.size > 0) {
-            redactedMessage = redactMessageByValues(
-              record.message,
-              redactedValues,
-            );
-          }
-        }
-      } catch {
-        // Drop records that cannot be safely redacted, but keep the chain alive
-        // so later records can still be processed.
-        return;
-      }
+      const result = await work;
+      if (result == null) return;
 
       try {
-        sink({
+        await sink({
           ...record,
-          message: redactedMessage,
-          properties: redactedProperties,
+          message: result.message,
+          properties: result.properties,
         });
       } catch (error) {
         sinkErrors.push(error);
@@ -320,6 +289,66 @@ export function redactByFieldAsync(
     }
   };
   return wrapped;
+}
+
+async function redactLogRecordAsync(
+  record: LogRecord,
+  options: AsyncFieldRedactionOptions,
+): Promise<Pick<LogRecord, "message" | "properties">> {
+  const redactedProperties = await redactPropertiesAsync(
+    record.properties,
+    options,
+  );
+
+  if (typeof record.rawMessage === "string") {
+    const placeholders = extractPlaceholderNames(record.rawMessage);
+    const { redactedIndices, wildcardIndices } = getRedactedPlaceholderIndices(
+      placeholders,
+      options.fieldPatterns,
+    );
+    return {
+      message: await redactMessageArrayAsync(
+        record.message,
+        placeholders,
+        redactedIndices,
+        wildcardIndices,
+        redactedProperties,
+        options.action,
+      ),
+      properties: redactedProperties,
+    };
+  }
+
+  let redactedMessage = record.message;
+  const redactedValues = getRedactedValues(
+    record.properties,
+    redactedProperties,
+  );
+  if (redactedValues.size > 0) {
+    redactedMessage = redactMessageByValues(
+      record.message,
+      redactedValues,
+    );
+  }
+  return { message: redactedMessage, properties: redactedProperties };
+}
+
+function reportRedactionFailure(error: unknown): void {
+  if (reportingRedactionFailure || typeof metaLogger.warn !== "function") {
+    return;
+  }
+  try {
+    reportingRedactionFailure = true;
+    metaLogger.warn(
+      "Failed to redact a log record; dropping the record to avoid leaking " +
+        "sensitive data: {error}",
+      { error },
+    );
+  } catch {
+    // Meta logging failures must not make normal logging fail.
+  } finally {
+    reportingRedactionFailure = false;
+  }
 }
 
 /**
@@ -781,6 +810,7 @@ async function redactMessageArrayAsync(
   action: AsyncFieldRedactionAction,
 ): Promise<readonly unknown[]> {
   const result: unknown[] = [];
+  const tasks: Promise<void>[] = [];
   let placeholderIndex = 0;
 
   for (let i = 0; i < message.length; i++) {
@@ -790,7 +820,13 @@ async function redactMessageArrayAsync(
       if (wildcardIndices.has(placeholderIndex)) {
         result.push(redactedProperties);
       } else if (redactedIndices.has(placeholderIndex)) {
-        result.push(await action(message[i]));
+        const index = result.length;
+        result.push(undefined);
+        tasks.push(
+          Promise.resolve(action(message[i])).then((redacted) => {
+            result[index] = redacted;
+          }),
+        );
       } else {
         const placeholderName = placeholders[placeholderIndex];
         const redactedValue = getPathValue(redactedProperties, placeholderName);
@@ -803,6 +839,7 @@ async function redactMessageArrayAsync(
       placeholderIndex++;
     }
   }
+  await Promise.all(tasks);
   return result;
 }
 

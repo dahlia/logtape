@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import fc from "fast-check";
-import type { LogRecord, Sink } from "@logtape/logtape";
+import { configure, type LogRecord, reset, type Sink } from "@logtape/logtape";
 import {
   createHmacPseudonymizer,
   type FieldPatterns,
@@ -1150,6 +1150,53 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(typeof records[0].message[1], "string");
   }
 
+  { // starts string-template message redactions concurrently
+    const records: LogRecord[] = [];
+    const started: string[] = [];
+    let releaseFirstMessage = () => {};
+    const firstMessageRedaction = new Promise<string>((resolve) => {
+      releaseFirstMessage = () => resolve("p:msg:first");
+    });
+    let firstMessageStarted = () => {};
+    const firstMessageStartedPromise = new Promise<void>((resolve) => {
+      firstMessageStarted = resolve;
+    });
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["first", "second"],
+      action: (value) => {
+        started.push(String(value));
+        if (value === "msg:first") {
+          firstMessageStarted();
+          return firstMessageRedaction;
+        }
+        return Promise.resolve(`p:${value}`);
+      },
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["", "msg:first", " ", "msg:second", ""],
+      rawMessage: "{first} {second}",
+      timestamp: Date.now(),
+      properties: { first: "prop:first", second: "prop:second" },
+    });
+    await firstMessageStartedPromise;
+    await Promise.resolve();
+
+    assert.ok(started.includes("msg:second"));
+    releaseFirstMessage();
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(records[0].message, [
+      "",
+      "p:msg:first",
+      " ",
+      "p:msg:second",
+      "",
+    ]);
+  }
+
   { // redacts nested values and wildcard placeholders
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
@@ -1279,6 +1326,36 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(records[0].properties.email, "[PSEUDONYMIZED]");
   }
 
+  { // starts redaction for later records before earlier records are emitted
+    const records: LogRecord[] = [];
+    const started: string[] = [];
+    let releaseFirst = () => {};
+    const firstRedaction = new Promise<string>((resolve) => {
+      releaseFirst = () => resolve("p:first");
+    });
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["id"],
+      action: (value) => {
+        started.push(String(value));
+        if (value === "first") return firstRedaction;
+        return Promise.resolve(`p:${value}`);
+      },
+    });
+
+    wrappedSink(recordWithId("first"));
+    wrappedSink(recordWithId("second"));
+    await Promise.resolve();
+
+    assert.deepStrictEqual(started, ["first", "second"]);
+    releaseFirst();
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(
+      records.map((record) => record.properties.id),
+      ["p:first", "p:second"],
+    );
+  }
+
   { // preserves record order even when actions resolve out of order
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
@@ -1343,6 +1420,34 @@ test("redactByFieldAsync()", async () => {
     );
   }
 
+  { // surfaces wrapped async sink rejections during disposal
+    const records: LogRecord[] = [];
+    const sinkError = new Error("async sink failed");
+    const sink = ((record: LogRecord) => {
+      if (record.properties.id === "p:bad") {
+        return Promise.reject(sinkError);
+      }
+      records.push(record);
+      return Promise.resolve();
+    }) as Sink;
+    const wrappedSink = redactByFieldAsync(sink, {
+      fieldPatterns: ["id"],
+      action: (value) => Promise.resolve(`p:${value}`),
+    });
+
+    wrappedSink(recordWithId("bad"));
+    wrappedSink(recordWithId("good"));
+
+    await assert.rejects(
+      async () => await wrappedSink[Symbol.asyncDispose](),
+      sinkError,
+    );
+    assert.deepStrictEqual(
+      records.map((record) => record.properties.id),
+      ["p:good"],
+    );
+  }
+
   { // rejected actions drop only the failed record
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
@@ -1361,6 +1466,43 @@ test("redactByFieldAsync()", async () => {
       records.map((record) => record.properties.id),
       ["p:good"],
     );
+  }
+
+  { // reports redaction failures to the meta logger
+    const records: LogRecord[] = [];
+    const metaRecords: LogRecord[] = [];
+    const redactionError = new Error("redaction failed");
+    await configure({
+      sinks: { meta: (record) => metaRecords.push(record) },
+      loggers: [
+        {
+          category: ["logtape", "meta"],
+          lowestLevel: "warning",
+          sinks: ["meta"],
+        },
+      ],
+    });
+    try {
+      const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+        fieldPatterns: ["id"],
+        action: (value) => {
+          if (value === "bad") return Promise.reject(redactionError);
+          return Promise.resolve(`p:${value}`);
+        },
+      });
+
+      wrappedSink(recordWithId("bad"));
+      await wrappedSink[Symbol.asyncDispose]();
+
+      assert.deepStrictEqual(records, []);
+      assert.strictEqual(metaRecords.length, 1);
+      assert.strictEqual(metaRecords[0].category[0], "logtape");
+      assert.strictEqual(metaRecords[0].category[1], "meta");
+      assert.strictEqual(metaRecords[0].level, "warning");
+      assert.strictEqual(metaRecords[0].properties.error, redactionError);
+    } finally {
+      await reset();
+    }
   }
 });
 

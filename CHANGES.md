@@ -89,9 +89,12 @@ To be released.
  -  Fixed field-based redaction so non-sensitive nested message placeholders
     keep their path value while sibling fields are redacted.  [[#160], [#164]]
 
- -  Fixed `redactByFieldAsync()` so errors thrown by the wrapped sink are
-    reported during asynchronous disposal instead of being swallowed as
-    redaction failures.  [[#160], [#164]]
+ -  Fixed `redactByFieldAsync()` so errors thrown or asynchronously rejected by
+    the wrapped sink are reported during asynchronous disposal instead of being
+    swallowed as redaction failures.  [[#160], [#164]]
+
+ -  Fixed `redactByFieldAsync()` so dropped records caused by redaction
+    failures are reported to the meta logger.  [[#160], [#164]]
 
  -  Improved `redactByFieldAsync()` performance by starting independent async
     redaction work concurrently while preserving output order.  [[#160], [#164]]
