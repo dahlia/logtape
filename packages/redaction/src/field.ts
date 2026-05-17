@@ -573,35 +573,35 @@ async function redactArrayAsync(
   const copy: unknown[] = [];
   copy.length = array.length;
   visited.set(array, copy);
-  const tasks: Promise<void>[] = [];
+  const itemPromises: Promise<unknown>[] = [];
   for (let i = 0; i < array.length; i++) {
-    if (!(i in array)) continue;
+    if (!(i in array)) {
+      itemPromises.push(Promise.resolve(undefined));
+      continue;
+    }
     const item = array[i];
     if (Array.isArray(item)) {
-      tasks.push(
-        redactArrayAsync(item, options, visited).then((redacted) => {
-          copy[i] = redacted;
-        }),
-      );
+      itemPromises.push(redactArrayAsync(item, options, visited));
     } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
-        copy[i] = item;
+        itemPromises.push(Promise.resolve(item));
       } else {
-        tasks.push(
+        itemPromises.push(
           redactPropertiesAsync(
             item as Record<string, unknown>,
             options,
             visited,
-          ).then((redacted) => {
-            copy[i] = redacted;
-          }),
+          ),
         );
       }
     } else {
-      copy[i] = item;
+      itemPromises.push(Promise.resolve(item));
     }
   }
-  await Promise.all(tasks);
+  const redactedItems = await Promise.all(itemPromises);
+  for (let i = 0; i < redactedItems.length; i++) {
+    if (i in array) copy[i] = redactedItems[i];
+  }
   return copy;
 }
 
