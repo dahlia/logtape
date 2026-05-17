@@ -392,9 +392,7 @@ export function getThrottlingFilter(
     const index = bucket.acceptedAtCount < bucket.acceptedAt.length
       ? (bucket.acceptedAtHead + bucket.acceptedAtCount) %
         bucket.acceptedAt.length
-      : bucket.acceptedAt.length < limit
-      ? bucket.acceptedAt.length
-      : bucket.acceptedAtHead;
+      : bucket.acceptedAt.length;
     bucket.acceptedAt[index] = acceptedAt;
     bucket.acceptedAtCount++;
   }
