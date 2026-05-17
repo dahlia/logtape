@@ -306,8 +306,8 @@ export function getThrottlingFilter(
   }) as Filter & Disposable;
 
   filter[Symbol.dispose] = () => {
-    const endTime = clock();
     for (const [key, bucket] of buckets) {
+      const endTime = timeSource === "record" ? bucket.lastTime : clock();
       emitSummary(key, bucket, "dispose", endTime);
     }
     buckets.clear();

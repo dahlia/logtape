@@ -483,6 +483,37 @@ test("getThrottlingFilter() emits summaries when disposed", () => {
   assert.strictEqual(summaries[0].properties.endTime, 250);
 });
 
+test("getThrottlingFilter() uses record time for disposal summaries", () => {
+  const summaries: LogRecord[] = [];
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      summaries.push(recordWithRawMessage(message, { properties }));
+    },
+  };
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => 100_000,
+    timeSource: "record",
+    summary: { logger },
+  });
+  const firstRecord = recordWithRawMessage("Database failed", {
+    timestamp: 1_000,
+  });
+  const suppressedRecord = recordWithRawMessage("Database failed", {
+    timestamp: 1_025,
+  });
+
+  assert.strictEqual(filter(firstRecord), true);
+  assert.strictEqual(filter(suppressedRecord), false);
+  filter[Symbol.dispose]();
+
+  assert.strictEqual(summaries.length, 1);
+  assert.strictEqual(summaries[0].properties.startTime, 1_000);
+  assert.strictEqual(summaries[0].properties.endTime, 1_025);
+  assert.strictEqual(summaries[0].properties.lastRecord, suppressedRecord);
+});
+
 test("getThrottlingFilter() ignores missing summary logger methods", () => {
   const filter = getThrottlingFilter({
     limit: 1,
