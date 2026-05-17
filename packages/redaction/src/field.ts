@@ -221,7 +221,10 @@ export function redactByField(
  * @example
  * ```ts
  * import { getConsoleSink } from "@logtape/logtape";
- * import { createHmacPseudonymizer, redactByFieldAsync } from "@logtape/redaction";
+ * import {
+ *   createHmacPseudonymizer,
+ *   redactByFieldAsync,
+ * } from "@logtape/redaction";
  *
  * const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
  * const sink = redactByFieldAsync(getConsoleSink(), {
@@ -363,10 +366,10 @@ function reportRedactionFailure(error: unknown): void {
 /**
  * Creates an asynchronous pseudonymizer based on HMAC using the Web Crypto API.
  *
- * The returned function converts each value with `String(value)`, encodes it as
- * UTF-8, and returns a stable pseudonym.  Because HMAC is keyed, this is safer
- * than a plain salted hash for values with small input spaces, such as email
- * addresses or numeric user IDs.
+ * The returned function converts each value with `String(value)`, encodes it
+ * as UTF-8, and returns a stable pseudonym.  Because HMAC is keyed, this is
+ * safer than a plain salted hash for values with small input spaces, such as
+ * email addresses or numeric user IDs.
  *
  * @param options The HMAC pseudonymizer options.
  * @returns An async redaction action.
