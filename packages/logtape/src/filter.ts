@@ -219,7 +219,6 @@ interface ThrottlingBucket {
   windowStart: number;
   summaryStartTime: number;
   readonly acceptedAt: number[];
-  acceptedAtCount: number;
   allowed: number;
   suppressed: number;
   firstRecord: LogRecord;
@@ -274,9 +273,12 @@ export function getThrottlingFilter(
       return true;
     }
 
-    const now = timeSource === "record" ? record.timestamp : clock();
     const key = getKey(record);
     let bucket = buckets.get(key);
+    const observedTime = timeSource === "record" ? record.timestamp : clock();
+    const now = bucket == null || timeSource === "record"
+      ? observedTime
+      : Math.max(observedTime, bucket.lastTime);
 
     if (bucket == null) {
       evictKeysIfNeeded(now);
@@ -284,7 +286,6 @@ export function getThrottlingFilter(
         windowStart: now,
         summaryStartTime: now,
         acceptedAt: [],
-        acceptedAtCount: 0,
         allowed: 0,
         suppressed: 0,
         firstRecord: record,
@@ -305,7 +306,9 @@ export function getThrottlingFilter(
 
   filter[Symbol.dispose] = () => {
     for (const [key, bucket] of buckets) {
-      const endTime = timeSource === "record" ? bucket.lastTime : clock();
+      const endTime = timeSource === "record"
+        ? bucket.lastTime
+        : Math.max(clock(), bucket.lastTime);
       emitSummary(key, bucket, "dispose", endTime);
     }
     buckets.clear();
@@ -323,7 +326,7 @@ export function getThrottlingFilter(
       emitSummary(key, bucket, "window", now);
       bucket.windowStart = now;
       bucket.summaryStartTime = now;
-      bucket.acceptedAtCount = 0;
+      bucket.acceptedAt.length = 0;
       bucket.allowed = 0;
       bucket.suppressed = 0;
       bucket.firstRecord = record;
@@ -349,7 +352,7 @@ export function getThrottlingFilter(
   ): boolean {
     pruneExpiredAcceptedAt(bucket, now);
 
-    const allowed = bucket.acceptedAtCount < limit;
+    const allowed = bucket.acceptedAt.length < limit;
     if (allowed) {
       if (bucket.suppressed > 0) {
         emitSummary(key, bucket, "window", now);
@@ -374,20 +377,18 @@ export function getThrottlingFilter(
     now: number,
   ): void {
     let acceptedAtCount = 0;
-    for (let i = 0; i < bucket.acceptedAtCount; i++) {
-      const acceptedAt = bucket.acceptedAt[i];
+    for (let i = 0; i < bucket.acceptedAt.length; i++) {
+      const acceptedAt: number = bucket.acceptedAt[i];
       if (now - acceptedAt < windowMs) {
         bucket.acceptedAt[acceptedAtCount] = acceptedAt;
         acceptedAtCount++;
       }
     }
     bucket.acceptedAt.length = acceptedAtCount;
-    bucket.acceptedAtCount = acceptedAtCount;
   }
 
   function pushAcceptedAt(bucket: ThrottlingBucket, acceptedAt: number): void {
-    bucket.acceptedAt[bucket.acceptedAtCount] = acceptedAt;
-    bucket.acceptedAtCount++;
+    bucket.acceptedAt.push(acceptedAt);
   }
 
   function evictKeysIfNeeded(now: number): void {
@@ -397,7 +398,9 @@ export function getThrottlingFilter(
       if (keyToEvict === undefined) return;
       const bucket = buckets.get(keyToEvict);
       if (bucket != null) {
-        const endTime = timeSource === "record" ? bucket.lastTime : now;
+        const endTime = timeSource === "record"
+          ? bucket.lastTime
+          : Math.max(now, bucket.lastTime);
         emitSummary(keyToEvict, bucket, "eviction", endTime);
         buckets.delete(keyToEvict);
       }
