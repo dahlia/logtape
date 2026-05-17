@@ -66,6 +66,26 @@ To be released.
 [#162]: https://github.com/dahlia/logtape/pull/162
 [#163]: https://github.com/dahlia/logtape/pull/163
 
+### @logtape/adaptor-bunyan
+
+ -  Initial release of *@logtape/adaptor-bunyan*.  Forwards LogTape log
+    records to [Bunyan] loggers, with structured properties passed through
+    as the bunyan merge-object and a category formatting surface mirroring
+    *@logtape/adaptor-pino*.  [[#58], [#154]]
+
+[Bunyan]: https://github.com/trentm/node-bunyan
+[#58]: https://github.com/dahlia/logtape/issues/58
+[#154]: https://github.com/dahlia/logtape/pull/154
+
+### @logtape/hono
+
+ -  Changed the `HonoContext` interface to extend Hono's `Context` so custom
+    formatter and skip callbacks receive the real runtime context.  Custom
+    formatters can now read context variables via APIs like `c.get()`.
+    [[#150] by Hamza Zia]
+
+[#150]: https://github.com/dahlia/logtape/pull/150
+
 ### @logtape/pretty
 
  -  Added `timeZone` support to `getPrettyFormatter()` for timestamp rendering,
@@ -102,26 +122,6 @@ To be released.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
-
-### @logtape/hono
-
- -  Changed the `HonoContext` interface to extend Hono's `Context` so custom
-    formatter and skip callbacks receive the real runtime context.  Custom
-    formatters can now read context variables via APIs like `c.get()`.
-    [[#150] by Hamza Zia]
-
-[#150]: https://github.com/dahlia/logtape/pull/150
-
-### @logtape/adaptor-bunyan
-
- -  Initial release of *@logtape/adaptor-bunyan*.  Forwards LogTape log
-    records to [Bunyan] loggers, with structured properties passed through
-    as the bunyan merge-object and a category formatting surface mirroring
-    *@logtape/adaptor-pino*.  [[#58], [#154]]
-
-[Bunyan]: https://github.com/trentm/node-bunyan
-[#58]: https://github.com/dahlia/logtape/issues/58
-[#154]: https://github.com/dahlia/logtape/pull/154
 
 
 Version 2.0.9
