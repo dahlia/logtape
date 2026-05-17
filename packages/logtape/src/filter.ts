@@ -219,6 +219,7 @@ interface ThrottlingBucket {
   windowStart: number;
   summaryStartTime: number;
   readonly acceptedAt: number[];
+  acceptedAtHead: number;
   allowed: number;
   suppressed: number;
   firstRecord: LogRecord;
@@ -280,6 +281,7 @@ export function getThrottlingFilter(
         windowStart: now,
         summaryStartTime: now,
         acceptedAt: [],
+        acceptedAtHead: 0,
         allowed: 0,
         suppressed: 0,
         firstRecord: record,
@@ -318,6 +320,7 @@ export function getThrottlingFilter(
       bucket.windowStart = now;
       bucket.summaryStartTime = now;
       bucket.acceptedAt.length = 0;
+      bucket.acceptedAtHead = 0;
       bucket.allowed = 0;
       bucket.suppressed = 0;
       bucket.firstRecord = record;
@@ -346,13 +349,15 @@ export function getThrottlingFilter(
     now: number,
   ): boolean {
     while (
-      bucket.acceptedAt.length > 0 &&
-      now - bucket.acceptedAt[0] >= windowMs
+      bucket.acceptedAtHead < bucket.acceptedAt.length &&
+      now - bucket.acceptedAt[bucket.acceptedAtHead] >= windowMs
     ) {
-      bucket.acceptedAt.shift();
+      bucket.acceptedAtHead++;
     }
 
-    if (bucket.acceptedAt.length < limit) {
+    compactAcceptedAt(bucket);
+
+    if (bucket.acceptedAt.length - bucket.acceptedAtHead < limit) {
       if (bucket.suppressed > 0) {
         emitSummary(key, bucket, "window", now);
         bucket.allowed = 0;
@@ -373,6 +378,17 @@ export function getThrottlingFilter(
     bucket.lastRecord = record;
     bucket.lastTime = now;
     return false;
+  }
+
+  function compactAcceptedAt(bucket: ThrottlingBucket): void {
+    if (
+      bucket.acceptedAtHead < 1 ||
+      bucket.acceptedAtHead * 2 < bucket.acceptedAt.length
+    ) {
+      return;
+    }
+    bucket.acceptedAt.splice(0, bucket.acceptedAtHead);
+    bucket.acceptedAtHead = 0;
   }
 
   function evictKeysIfNeeded(now: number): void {
@@ -448,15 +464,26 @@ function validatePositiveNumber(name: string, value: number): void {
 }
 
 function getDefaultThrottlingKey(record: LogRecord): string {
-  return JSON.stringify({
-    category: record.category,
-    level: record.level,
-    rawMessage: getRawMessageTemplate(record.rawMessage),
-  });
+  const categoryKey = encodeKeyParts(record.category);
+  const rawMessage = getRawMessageTemplate(record.rawMessage);
+  const rawMessageKey = typeof rawMessage === "string"
+    ? `s${encodeKeyPart(rawMessage)}`
+    : `t${encodeKeyParts(rawMessage)}`;
+  return `c${categoryKey}l${encodeKeyPart(record.level)}r${rawMessageKey}`;
 }
 
 function getRawMessageTemplate(
   rawMessage: string | TemplateStringsArray,
 ): string | readonly string[] {
   return typeof rawMessage === "string" ? rawMessage : Array.from(rawMessage);
+}
+
+function encodeKeyParts(parts: readonly string[]): string {
+  let key = `${parts.length}:`;
+  for (const part of parts) key += encodeKeyPart(part);
+  return key;
+}
+
+function encodeKeyPart(part: string): string {
+  return `${part.length}:${part}`;
 }

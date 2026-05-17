@@ -173,6 +173,34 @@ test("getThrottlingFilter() uses a sliding window when configured", () => {
   assert.strictEqual(filter(record), true);
 });
 
+test("getThrottlingFilter() does not shift sliding-window timestamps", () => {
+  const filter = getThrottlingFilter({
+    limit: 2,
+    windowMs: 100,
+    mode: "sliding",
+    timeSource: "record",
+  });
+  const originalShift = Array.prototype.shift;
+  let shiftCalled = false;
+
+  Array.prototype.shift = function shift(
+    this: unknown[],
+  ): unknown | undefined {
+    shiftCalled = true;
+    return originalShift.call(this);
+  };
+  try {
+    assert.strictEqual(filter(recordWithTimestamp(0)), true);
+    assert.strictEqual(filter(recordWithTimestamp(10)), true);
+    assert.strictEqual(filter(recordWithTimestamp(99)), false);
+    assert.strictEqual(filter(recordWithTimestamp(100)), true);
+  } finally {
+    Array.prototype.shift = originalShift;
+  }
+
+  assert.strictEqual(shiftCalled, false);
+});
+
 test("getThrottlingFilter() can use record timestamps", () => {
   const filter = getThrottlingFilter({
     limit: 1,
@@ -215,6 +243,54 @@ test("getThrottlingFilter() groups records by category, level, and template", ()
     true,
   );
   assert.strictEqual(filter(recordWithRawMessage("Other failure")), true);
+});
+
+test("getThrottlingFilter() default keys preserve category and template boundaries", () => {
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => 0,
+  });
+  const originalStringify = JSON.stringify;
+  let stringifyCalled = false;
+
+  JSON.stringify = (function stringify(
+    value: unknown,
+    replacer?:
+      | ((this: unknown, key: string, value: unknown) => unknown)
+      | (string | number)[]
+      | null,
+    space?: string | number,
+  ): string | undefined {
+    stringifyCalled = true;
+    return originalStringify(
+      value,
+      replacer as (string | number)[] | null | undefined,
+      space,
+    );
+  }) as typeof JSON.stringify;
+  try {
+    assert.strictEqual(
+      filter(
+        recordWithRawMessage(["bc", "d"] as unknown as TemplateStringsArray, {
+          category: ["a"],
+        }),
+      ),
+      true,
+    );
+    assert.strictEqual(
+      filter(recordWithRawMessage(["d"] as unknown as TemplateStringsArray, {
+        category: ["a", "bc"],
+      })),
+      true,
+    );
+    assert.strictEqual(filter(recordWithRawMessage("a\u0000b")), true);
+    assert.strictEqual(filter(recordWithRawMessage("a\u0000b")), false);
+  } finally {
+    JSON.stringify = originalStringify;
+  }
+
+  assert.strictEqual(stringifyCalled, false);
 });
 
 test("getThrottlingFilter() supports custom keys", () => {
@@ -319,11 +395,7 @@ test("getThrottlingFilter() emits summaries when suppression ends", () => {
   assert.deepStrictEqual(summary.properties.suppressed, 2);
   assert.deepStrictEqual(
     summary.properties.key,
-    JSON.stringify({
-      category: ["test"],
-      level: "info",
-      rawMessage: "Database failed for {tenant}",
-    }),
+    "c1:4:testl4:infors28:Database failed for {tenant}",
   );
   assert.strictEqual(summary.properties.firstRecord, firstRecord);
   assert.strictEqual(summary.properties.lastRecord, suppressedRecord2);
