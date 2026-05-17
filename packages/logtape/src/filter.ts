@@ -325,7 +325,6 @@ export function getThrottlingFilter(
       emitSummary(key, bucket, "window", now);
       bucket.windowStart = now;
       bucket.summaryStartTime = now;
-      bucket.acceptedAt.length = 0;
       bucket.acceptedAtHead = 0;
       bucket.acceptedAtCount = 0;
       bucket.allowed = 0;
@@ -385,16 +384,17 @@ export function getThrottlingFilter(
       bucket.acceptedAtCount--;
     }
     if (bucket.acceptedAtCount < 1) {
-      bucket.acceptedAt.length = 0;
       bucket.acceptedAtHead = 0;
     }
   }
 
   function pushAcceptedAt(bucket: ThrottlingBucket, acceptedAt: number): void {
-    const index = bucket.acceptedAt.length < limit
+    const index = bucket.acceptedAtCount < bucket.acceptedAt.length
+      ? (bucket.acceptedAtHead + bucket.acceptedAtCount) %
+        bucket.acceptedAt.length
+      : bucket.acceptedAt.length < limit
       ? bucket.acceptedAt.length
-      : (bucket.acceptedAtHead + bucket.acceptedAtCount) %
-        bucket.acceptedAt.length;
+      : bucket.acceptedAtHead;
     bucket.acceptedAt[index] = acceptedAt;
     bucket.acceptedAtCount++;
   }
