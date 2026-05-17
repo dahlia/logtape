@@ -701,6 +701,36 @@ test("dispose() disposes sinks after async filter rejection", async () => {
   }
 });
 
+test("dispose() deduplicates shared async sink and filter", async () => {
+  const events: string[] = [];
+  const shared: Sink & Filter & AsyncDisposable = () => true;
+  shared[Symbol.asyncDispose] = () => {
+    events.push("shared");
+    return Promise.resolve();
+  };
+
+  try {
+    await configure({
+      sinks: { shared },
+      filters: { shared },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["shared"],
+          filters: ["shared"],
+        },
+      ],
+    });
+    events.length = 0;
+
+    await reset();
+
+    assert.deepStrictEqual(events, ["shared"]);
+  } finally {
+    await reset();
+  }
+});
+
 test("disposeSync() disposes sync filters before sync sinks", () => {
   const events: string[] = [];
   const sink: Sink & Disposable = () => {};
@@ -725,6 +755,33 @@ test("disposeSync() disposes sync filters before sync sinks", () => {
     resetSync();
 
     assert.deepStrictEqual(events, ["filter", "sink"]);
+  } finally {
+    resetSync();
+  }
+});
+
+test("disposeSync() deduplicates shared sync sink and filter", () => {
+  const events: string[] = [];
+  const shared: Sink & Filter & Disposable = () => true;
+  shared[Symbol.dispose] = () => events.push("shared");
+
+  try {
+    configureSync({
+      sinks: { shared },
+      filters: { shared },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["shared"],
+          filters: ["shared"],
+        },
+      ],
+    });
+    events.length = 0;
+
+    resetSync();
+
+    assert.deepStrictEqual(events, ["shared"]);
   } finally {
     resetSync();
   }

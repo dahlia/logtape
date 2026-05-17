@@ -339,8 +339,12 @@ function configureInternal<
           "Async disposables cannot be used with configureSync().",
         );
       }
+      asyncSinkDisposables.delete(filter as AsyncDisposable);
     }
-    if (Symbol.dispose in filter) filterDisposables.add(filter as Disposable);
+    if (Symbol.dispose in filter) {
+      filterDisposables.add(filter as Disposable);
+      sinkDisposables.delete(filter as Disposable);
+    }
   }
 
   registerDisposeHook(allowAsync);
