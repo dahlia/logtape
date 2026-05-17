@@ -19,6 +19,11 @@ export {
   type Filter,
   type FilterLike,
   getLevelFilter,
+  getThrottlingFilter,
+  type ThrottlingFilterOptions,
+  type ThrottlingFilterSummary,
+  type ThrottlingFilterSummaryOptions,
+  type ThrottlingSummaryLogger,
   toFilter,
 } from "./filter.ts";
 export {

@@ -131,6 +131,146 @@ await configure({
 ~~~~
 
 
+Throttling filter
+-----------------
+
+*This API is available since LogTape 2.1.0.*
+
+LogTape provides a built-in throttling filter for suppressing repeated log
+records during bursts.  The filter tracks records by category, level, and raw
+message template by default, so records with different substitution values are
+treated as the same pattern:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getThrottlingFilter } from "@logtape/logtape";
+
+await configure({
+  filters: {
+    throttle: getThrottlingFilter({
+      limit: 5,
+      windowMs: 10_000,
+    }),
+  },
+  loggers: [
+    {
+      category: ["my-app"],
+      sinks: ["console"],
+      filters: ["throttle"],
+    }
+  ],
+});
+~~~~
+
+The default `mode` is `"fixed"`.  A fixed window starts when the first record
+for a key arrives, allows up to `limit` records during `windowMs`, and
+suppresses the rest until the window closes.  Use `"sliding"` to count records
+accepted during the most recent `windowMs` instead:
+
+~~~~ typescript twoslash
+import { getThrottlingFilter } from "@logtape/logtape";
+
+const throttle = getThrottlingFilter({
+  limit: 5,
+  windowMs: 10_000,
+  mode: "sliding",
+});
+~~~~
+
+By default, the filter uses `Date.now()` for window calculations.  Set
+`timeSource` to `"record"` to use each record's `timestamp` instead, or pass
+`clock` when you need a custom clock:
+
+~~~~ typescript twoslash
+import { getThrottlingFilter } from "@logtape/logtape";
+
+const throttle = getThrottlingFilter({
+  limit: 5,
+  windowMs: 10_000,
+  timeSource: "record",
+});
+~~~~
+
+Use `key` to define what counts as the same record.  The following filter
+throttles per tenant regardless of message template:
+
+~~~~ typescript twoslash
+import { getThrottlingFilter } from "@logtape/logtape";
+
+const throttle = getThrottlingFilter({
+  limit: 20,
+  windowMs: 60_000,
+  key(record) {
+    return String(record.properties.tenantId);
+  },
+});
+~~~~
+
+The filter keeps up to 1,000 keys by default and evicts the least recently used
+key when the cap is reached.  Use `maxKeys` to change the cap, or `null` to
+disable it:
+
+~~~~ typescript twoslash
+import { getThrottlingFilter } from "@logtape/logtape";
+
+const throttle = getThrottlingFilter({
+  limit: 5,
+  windowMs: 10_000,
+  maxKeys: 10_000,
+});
+~~~~
+
+You can emit a summary when suppressed records are reported.  Summary logging
+is a side effect of the filter: it happens when suppression ends, when a
+suppressed key is evicted, or when the filter is disposed.  Prefer a dedicated
+summary logger so the summary is easy to route separately from application log
+traffic:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import {
+  configure,
+  getConsoleSink,
+  getLogger,
+  getThrottlingFilter,
+} from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  filters: {
+    throttle: getThrottlingFilter({
+      limit: 5,
+      windowMs: 10_000,
+      summary: {
+        logger: getLogger(["my-app", "log-throttle"]),
+        level: "warning",
+        message: "Last log message was suppressed {suppressed} times.",
+      },
+    }),
+  },
+  loggers: [
+    {
+      category: ["my-app"],
+      sinks: ["console"],
+      filters: ["throttle"],
+    },
+    {
+      category: ["my-app", "log-throttle"],
+      sinks: ["console"],
+    },
+  ],
+});
+~~~~
+
+Summary records receive structured properties including `key`, `suppressed`,
+`allowed`, `reason`, `startTime`, `endTime`, `firstRecord`, and `lastRecord`.
+The filter lets summary records pass through reentrantly while it is emitting
+them, but using a separate summary logger still avoids surprising category
+inheritance and routing.
+
+
 Sink filter
 -----------
 

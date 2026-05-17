@@ -12,6 +12,9 @@ import type { Sink } from "./sink.ts";
  * Symbol to identify lazy values.
  */
 const lazySymbol: unique symbol = Symbol.for("logtape.lazy");
+const throttlingSummaryRecordSymbol = Symbol.for(
+  "LogTape.throttlingSummaryRecord",
+);
 
 /**
  * A lazy value that is evaluated at logging time.
@@ -76,6 +79,19 @@ function resolveProperties(
   for (const key in properties) {
     const value = properties[key];
     resolved[key] = isLazy(value) ? value.getter() : value;
+  }
+  const symbolProperties = properties as Record<symbol, unknown>;
+  const symbolResolved = resolved as Record<symbol, unknown>;
+  if (
+    Object.prototype.propertyIsEnumerable.call(
+      properties,
+      throttlingSummaryRecordSymbol,
+    )
+  ) {
+    const value = symbolProperties[throttlingSummaryRecordSymbol];
+    symbolResolved[throttlingSummaryRecordSymbol] = isLazy(value)
+      ? value.getter()
+      : value;
   }
   return resolved;
 }
