@@ -257,7 +257,7 @@ export function getThrottlingFilter(
   const getKey = options.key ?? getDefaultThrottlingKey;
   const maxKeys = options.maxKeys === undefined ? 1000 : options.maxKeys;
   const buckets = new Map<string, ThrottlingBucket>();
-  const summaryRecord = Symbol("LogTape.throttlingSummaryRecord");
+  const summaryRecord = Symbol.for("LogTape.throttlingSummaryRecord");
   let emittingSummary = false;
 
   if (mode !== "fixed" && mode !== "sliding") {
@@ -381,6 +381,7 @@ export function getThrottlingFilter(
         acceptedAtCount++;
       }
     }
+    bucket.acceptedAt.length = acceptedAtCount;
     bucket.acceptedAtCount = acceptedAtCount;
   }
 
@@ -396,7 +397,8 @@ export function getThrottlingFilter(
       if (keyToEvict === undefined) return;
       const bucket = buckets.get(keyToEvict);
       if (bucket != null) {
-        emitSummary(keyToEvict, bucket, "eviction", now);
+        const endTime = timeSource === "record" ? bucket.lastTime : now;
+        emitSummary(keyToEvict, bucket, "eviction", endTime);
         buckets.delete(keyToEvict);
       }
     }

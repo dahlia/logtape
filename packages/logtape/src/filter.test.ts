@@ -527,6 +527,45 @@ test("getThrottlingFilter() uses record time for disposal summaries", () => {
   assert.strictEqual(summaries[0].properties.lastRecord, suppressedRecord);
 });
 
+test("getThrottlingFilter() uses evicted record time for summaries", () => {
+  const summaries: LogRecord[] = [];
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      summaries.push(recordWithRawMessage(message, { properties }));
+    },
+  };
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    timeSource: "record",
+    maxKeys: 1,
+    key: (record) => String(record.properties.key),
+    summary: { logger },
+  });
+  const allowedRecord = recordWithRawMessage("Database failed", {
+    timestamp: 100,
+    properties: { key: "a" },
+  });
+  const suppressedRecord = recordWithRawMessage("Database failed", {
+    timestamp: 110,
+    properties: { key: "a" },
+  });
+  const evictingRecord = recordWithRawMessage("Other database failed", {
+    timestamp: 50,
+    properties: { key: "b" },
+  });
+
+  assert.strictEqual(filter(allowedRecord), true);
+  assert.strictEqual(filter(suppressedRecord), false);
+  assert.strictEqual(filter(evictingRecord), true);
+
+  assert.strictEqual(summaries.length, 1);
+  assert.strictEqual(summaries[0].properties.reason, "eviction");
+  assert.strictEqual(summaries[0].properties.startTime, 100);
+  assert.strictEqual(summaries[0].properties.endTime, 110);
+  assert.strictEqual(summaries[0].properties.lastRecord, suppressedRecord);
+});
+
 test("getThrottlingFilter() ignores missing summary logger methods", () => {
   const filter = getThrottlingFilter({
     limit: 1,
