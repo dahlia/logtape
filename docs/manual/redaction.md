@@ -188,6 +188,55 @@ const customSink = redactByField(getConsoleSink(), {
 Field redaction is recursive and will redact sensitive fields in nested objects
 and arrays as well.
 
+### Pseudonymizing fields for correlation
+
+Sometimes you may want to hide a sensitive identifier while still keeping a
+stable value for correlation.  For example, the same user ID or email address
+can be replaced with the same pseudonym across log records, without writing the
+original value to the log.
+
+Use `createHmacPseudonymizer()` with `redactByFieldAsync()` for this:
+
+~~~~ typescript twoslash
+import { configure, dispose, getConsoleSink } from "@logtape/logtape";
+import {
+  createHmacPseudonymizer,
+  redactByFieldAsync,
+} from "@logtape/redaction";
+
+const pseudonymize = await createHmacPseudonymizer({
+  key: "replace-with-a-secret-key",
+});
+
+const sink = redactByFieldAsync(getConsoleSink(), {
+  fieldPatterns: [/userId/i, /email/i],
+  action: pseudonymize,
+});
+
+await configure({
+  sinks: {
+    console: sink,
+  },
+  loggers: [
+    { category: "my-app", sinks: ["console"] },
+  ],
+});
+
+// Later, before shutdown:
+await dispose();
+~~~~
+
+`createHmacPseudonymizer()` uses keyed HMAC through the [Web Crypto API].
+This is safer than a plain salted hash for values with small input spaces, such
+as email addresses or numeric user IDs.  By default, it returns values prefixed
+with `hmac-sha256:` and encoded as base64url.
+
+Because the [Web Crypto API] is asynchronous, `redactByFieldAsync()` returns a
+sink with asynchronous disposal semantics.  Use it with `configure()` and call
+`dispose()` during shutdown so pending redaction work can finish.
+
+[Web Crypto API]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+
 
 Comparing redaction approaches
 ------------------------------

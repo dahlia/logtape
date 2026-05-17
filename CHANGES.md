@@ -73,6 +73,16 @@ To be released.
 
 ### @logtape/redaction
 
+ -  Added `redactByFieldAsync()` for field-based redaction actions that need
+    asynchronous work, and added `createHmacPseudonymizer()` for replacing
+    sensitive fields with stable keyed HMAC pseudonyms.  [[#160], [#164]]
+
+     -  Added `AsyncFieldRedactionAction` type.
+     -  Added `AsyncFieldRedactionOptions` interface.
+     -  Added `FieldRedactionAction` type.
+     -  Added `HmacPseudonymizer` type.
+     -  Added `HmacPseudonymizerOptions` interface.
+
  -  Fixed `redactByField()` and `shouldFieldRedacted()` so field patterns using
     global or sticky regular expressions produce consistent results across
     repeated records.  [[#155]]
@@ -82,6 +92,8 @@ To be released.
     object.  [[#155]]
 
 [#155]: https://github.com/dahlia/logtape/pull/155
+[#160]: https://github.com/dahlia/logtape/issues/160
+[#164]: https://github.com/dahlia/logtape/pull/164
 
 ### @logtape/hono
 
