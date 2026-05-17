@@ -718,9 +718,9 @@ function redactMessageArray(
         // For non-redacted placeholders, use value from redactedProperties
         // to ensure nested sensitive fields are redacted
         const placeholderName = placeholders[placeholderIndex];
-        const rootKey = parsePathSegments(placeholderName)[0];
-        if (rootKey in redactedProperties) {
-          result.push(redactedProperties[rootKey]);
+        const redactedValue = getPathValue(redactedProperties, placeholderName);
+        if (redactedValue.found) {
+          result.push(redactedValue.value);
         } else {
           result.push(message[i]);
         }
@@ -752,9 +752,9 @@ async function redactMessageArrayAsync(
         result.push(await action(message[i]));
       } else {
         const placeholderName = placeholders[placeholderIndex];
-        const rootKey = parsePathSegments(placeholderName)[0];
-        if (rootKey in redactedProperties) {
-          result.push(redactedProperties[rootKey]);
+        const redactedValue = getPathValue(redactedProperties, placeholderName);
+        if (redactedValue.found) {
+          result.push(redactedValue.value);
         } else {
           result.push(message[i]);
         }
@@ -763,6 +763,27 @@ async function redactMessageArrayAsync(
     }
   }
   return result;
+}
+
+function getPathValue(
+  properties: Record<string, unknown>,
+  path: string,
+): { found: true; value: unknown } | { found: false } {
+  const segments = parsePathSegments(path);
+  if (segments.length < 1) return { found: false };
+
+  let value: unknown = properties;
+  for (const segment of segments) {
+    if (
+      (typeof value !== "object" && typeof value !== "function") ||
+      value == null ||
+      !Object.hasOwn(value, segment)
+    ) {
+      return { found: false };
+    }
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return { found: true, value };
 }
 
 /**

@@ -86,6 +86,9 @@ To be released.
  -  Fixed field-based redaction so cyclic arrays are preserved instead of
     causing recursive redaction to fail.  [[#160], [#164]]
 
+ -  Fixed field-based redaction so non-sensitive nested message placeholders
+    keep their path value while sibling fields are redacted.  [[#160], [#164]]
+
  -  Fixed `createHmacPseudonymizer()` so `CryptoKey` inputs derive the default
     output prefix from the key's HMAC hash algorithm and reject explicit hash
     mismatches.  [[#160], [#164]]

@@ -673,6 +673,31 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
+  { // preserves non-sensitive nested message placeholders
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["User ", "Alice", ""],
+      rawMessage: "User {user.name}",
+      timestamp: Date.now(),
+      properties: {
+        user: { name: "Alice", password: "secret" },
+      },
+    });
+
+    assert.strictEqual(records[0].message[1], "Alice");
+    assert.deepStrictEqual(records[0].properties.user, {
+      name: "Alice",
+      password: "[REDACTED]",
+    });
+  }
+
   { // delete action uses empty string in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
@@ -1119,6 +1144,32 @@ test("redactByFieldAsync()", async () => {
     });
     assert.deepStrictEqual(records[0].message[1], {
       args: [{ email: "[PSEUDONYMIZED]" }],
+    });
+  }
+
+  { // preserves non-sensitive nested message placeholders
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => Promise.resolve("[REDACTED]"),
+    });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["User ", "Alice", ""],
+      rawMessage: "User {user.name}",
+      timestamp: Date.now(),
+      properties: {
+        user: { name: "Alice", password: "secret" },
+      },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.strictEqual(records[0].message[1], "Alice");
+    assert.deepStrictEqual(records[0].properties.user, {
+      name: "Alice",
+      password: "[REDACTED]",
     });
   }
 
