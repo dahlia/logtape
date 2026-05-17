@@ -240,8 +240,11 @@ export function redactByFieldAsync(
   options: AsyncFieldRedactionOptions,
 ): Sink & AsyncDisposable {
   let lastPromise = Promise.resolve();
+  let closed = false;
   const sinkErrors: unknown[] = [];
   const wrapped: Sink & AsyncDisposable = (record: LogRecord) => {
+    if (closed) return;
+
     const work = redactLogRecordAsync(record, options).catch((error) => {
       reportRedactionFailure(error);
       return null;
@@ -262,7 +265,13 @@ export function redactByFieldAsync(
     });
   };
   wrapped[Symbol.asyncDispose] = async () => {
-    await lastPromise;
+    for (;;) {
+      const pending = lastPromise;
+      await pending;
+      if (pending === lastPromise) break;
+    }
+    closed = true;
+
     let disposeError: unknown;
     try {
       if (Symbol.asyncDispose in sink) {
@@ -949,7 +958,8 @@ function keyToBytes(key: string | Uint8Array | ArrayBuffer): BufferSource {
 function isCryptoKey(
   key: string | Uint8Array | ArrayBuffer | CryptoKey,
 ): key is CryptoKey {
-  return typeof CryptoKey !== "undefined" && key instanceof CryptoKey;
+  return typeof key === "object" && key !== null &&
+    Object.prototype.toString.call(key) === "[object CryptoKey]";
 }
 
 function getHmacHash(

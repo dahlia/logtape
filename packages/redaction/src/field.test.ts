@@ -1080,6 +1080,37 @@ test("createHmacPseudonymizer()", async () => {
     assert.match(result, /^hmac-sha512:/u);
   }
 
+  { // recognizes CryptoKey values across constructor boundaries
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("secret"),
+      { name: "HMAC", hash: "SHA-512" },
+      false,
+      ["sign"],
+    );
+    const originalCryptoKey = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "CryptoKey",
+    );
+    try {
+      Object.defineProperty(globalThis, "CryptoKey", {
+        value: class CryptoKey {},
+        configurable: true,
+      });
+
+      const pseudonymize = await createHmacPseudonymizer({ key });
+      const result = await pseudonymize("user@example.com");
+
+      assert.match(result, /^hmac-sha512:/u);
+    } finally {
+      if (originalCryptoKey == null) {
+        delete (globalThis as { CryptoKey?: typeof CryptoKey }).CryptoKey;
+      } else {
+        Object.defineProperty(globalThis, "CryptoKey", originalCryptoKey);
+      }
+    }
+  }
+
   { // rejects a CryptoKey whose HMAC hash does not match the option
     const key = await crypto.subtle.importKey(
       "raw",
@@ -1393,6 +1424,30 @@ test("redactByFieldAsync()", async () => {
     await wrappedSink[Symbol.asyncDispose]();
 
     assert.strictEqual(disposedAfterRecords, true);
+  }
+
+  { // flushes records queued while async disposal is starting
+    const records: string[] = [];
+    let disposed = false;
+    const sink: Sink & AsyncDisposable = (record) => {
+      if (disposed) throw new Error("sink already disposed");
+      records.push(String(record.properties.id));
+    };
+    sink[Symbol.asyncDispose] = () => {
+      disposed = true;
+      return Promise.resolve();
+    };
+    const wrappedSink = redactByFieldAsync(sink, {
+      fieldPatterns: ["id"],
+      action: (value) => Promise.resolve(`p:${value}`),
+    });
+
+    const disposal = wrappedSink[Symbol.asyncDispose]();
+    wrappedSink(recordWithId("during"));
+    await disposal;
+
+    assert.deepStrictEqual(records, ["p:during"]);
+    assert.strictEqual(disposed, true);
   }
 
   { // surfaces wrapped sink failures during disposal
