@@ -700,11 +700,13 @@ function parsePathSegments(path: string): string[] {
   const segments: string[] = [];
   let current = "";
   let inBracket = false;
+  let quotedBracketSegment = false;
   let quote: '"' | "'" | undefined;
   let escaped = false;
 
-  const pushCurrent = (): void => {
-    if (current) segments.push(current);
+  const pushCurrent = (trim = false): void => {
+    const segment = trim ? current.trimEnd() : current;
+    if (segment) segments.push(segment);
     current = "";
   };
 
@@ -723,8 +725,15 @@ function parsePathSegments(path: string): string[] {
       continue;
     }
 
+    if (inBracket && current === "" && /\s/.test(char)) {
+      continue;
+    }
     if (inBracket && (char === '"' || char === "'") && current === "") {
       quote = char;
+      quotedBracketSegment = true;
+      continue;
+    }
+    if (inBracket && quotedBracketSegment && /\s/.test(char)) {
       continue;
     }
     if (char === "." && !inBracket) {
@@ -737,8 +746,9 @@ function parsePathSegments(path: string): string[] {
       continue;
     }
     if (char === "]") {
-      pushCurrent();
+      pushCurrent(!quotedBracketSegment);
       inBracket = false;
+      quotedBracketSegment = false;
       continue;
     }
     if (char === "?") continue;
@@ -916,7 +926,7 @@ function collectRedactedValues(
   redacted: Record<string, unknown>,
   map: Map<unknown, unknown>,
 ): void {
-  for (const key in original) {
+  for (const key of Object.keys(original)) {
     const origVal = original[key];
     const redVal = redacted[key];
 

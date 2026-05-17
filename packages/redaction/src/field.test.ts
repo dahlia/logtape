@@ -722,6 +722,29 @@ test("redactByField()", async () => {
     });
   }
 
+  { // quoted path placeholders allow whitespace inside brackets
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+    const profile = { name: "Alice", password: "secret" };
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Profile: ", profile, ""],
+      rawMessage: 'Profile: {user[ "profile" ]}',
+      timestamp: Date.now(),
+      properties: { user: { profile } },
+    });
+
+    assert.deepStrictEqual(records[0].message[1], {
+      name: "Alice",
+      password: "[REDACTED]",
+    });
+  }
+
   { // delete action uses empty string in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
@@ -827,6 +850,33 @@ test("redactByField()", async () => {
     // Message should be redacted by value comparison
     assert.strictEqual(records[0].message[1], "[REDACTED]");
     assert.strictEqual(records[0].properties.password, "[REDACTED]");
+  }
+
+  { // tagged template ignores inherited property values
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+    });
+    const properties = Object.create({ inherited: "from-prototype" }) as Record<
+      string,
+      unknown
+    >;
+    properties.name = "Alice";
+    const rawMessage = ["Value: ", ""] as unknown as TemplateStringsArray;
+    Object.defineProperty(rawMessage, "raw", { value: rawMessage });
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Value: ", "from-prototype", ""],
+      rawMessage,
+      timestamp: Date.now(),
+      properties,
+    });
+
+    assert.strictEqual(records[0].message[1], "from-prototype");
+    assert.deepStrictEqual(records[0].properties, { name: "Alice" });
   }
 
   { // array access path in message
