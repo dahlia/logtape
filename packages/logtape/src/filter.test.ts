@@ -9,6 +9,7 @@ import {
 } from "./filter.ts";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
+import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
 const logLevelArb: fc.Arbitrary<LogLevel> = fc.constantFrom<LogLevel>(
@@ -549,6 +550,51 @@ test("getThrottlingFilter() recognizes copied summary properties reentrantly", (
   now = 100;
   assert.strictEqual(filter(record), true);
   assert.strictEqual(summaryCalls, 1);
+});
+
+test("getThrottlingFilter() recognizes standard logger summary records", () => {
+  const root = LoggerImpl.getLogger();
+  const summaryLogger = getLogger("summary");
+  const sourceLogger = getLogger("source");
+  const records: LogRecord[] = [];
+  let now = 0;
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => now,
+    summary: { logger: summaryLogger },
+  });
+
+  try {
+    root.filters.push(filter);
+    root.sinks.push((record) => records.push(record));
+
+    summaryLogger.warning(
+      "Last log message was suppressed {suppressed} times.",
+      { suppressed: 0 },
+    );
+    summaryLogger.warning(
+      "Last log message was suppressed {suppressed} times.",
+      { suppressed: 1 },
+    );
+    sourceLogger.info("Database failed");
+    sourceLogger.info("Database failed");
+
+    now = 100;
+    assert.doesNotThrow(() => sourceLogger.info("Database failed"));
+  } finally {
+    root.resetDescendants();
+  }
+
+  const generatedSummaries = records.filter((record) =>
+    record.properties.key != null
+  );
+  assert.strictEqual(generatedSummaries.length, 1);
+  assert.strictEqual(generatedSummaries[0].properties.suppressed, 1);
+  assert.strictEqual(
+    generatedSummaries[0].properties.key,
+    "c1:6:sourcel4:infors15:Database failed",
+  );
 });
 
 test("getThrottlingFilter() throttles non-summary reentrant records", () => {

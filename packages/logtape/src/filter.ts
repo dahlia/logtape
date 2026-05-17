@@ -294,7 +294,7 @@ export function getThrottlingFilter(
         lastTime: now,
       };
       buckets.set(key, bucket);
-    } else {
+    } else if (maxKeys != null) {
       buckets.delete(key);
       buckets.set(key, bucket);
     }
@@ -337,7 +337,6 @@ export function getThrottlingFilter(
 
     if (bucket.allowed < limit) {
       bucket.allowed++;
-      pushAcceptedAt(bucket, now);
       bucket.lastRecord = record;
       bucket.lastTime = now;
       return true;
@@ -500,7 +499,7 @@ function getDefaultThrottlingKey(record: LogRecord): string {
 function getRawMessageTemplate(
   rawMessage: string | TemplateStringsArray,
 ): string | readonly string[] {
-  return typeof rawMessage === "string" ? rawMessage : Array.from(rawMessage);
+  return rawMessage;
 }
 
 function encodeKeyParts(parts: readonly string[]): string {

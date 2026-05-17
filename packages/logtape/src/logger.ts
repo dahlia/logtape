@@ -77,6 +77,13 @@ function resolveProperties(
     const value = properties[key];
     resolved[key] = isLazy(value) ? value.getter() : value;
   }
+  const symbolProperties = properties as Record<symbol, unknown>;
+  const symbolResolved = resolved as Record<symbol, unknown>;
+  for (const key of Object.getOwnPropertySymbols(properties)) {
+    if (!Object.prototype.propertyIsEnumerable.call(properties, key)) continue;
+    const value = symbolProperties[key];
+    symbolResolved[key] = isLazy(value) ? value.getter() : value;
+  }
   return resolved;
 }
 
