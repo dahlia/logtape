@@ -443,23 +443,24 @@ export async function redactPropertiesAsync(
   const copy: Record<string, unknown> = {};
   visited.set(properties, copy);
 
+  const fields: string[] = [];
+  const values: Promise<unknown>[] = [];
   for (const field in properties) {
+    fields.push(field);
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
-      setProperty(copy, field, await options.action(properties[field]));
+      values.push(Promise.resolve(options.action(properties[field])));
       continue;
     }
 
     const value = properties[field];
     if (Array.isArray(value)) {
-      setProperty(copy, field, await redactArrayAsync(value, options, visited));
+      values.push(redactArrayAsync(value, options, visited));
     } else if (typeof value === "object" && value !== null) {
       if (isBuiltInObject(value)) {
-        setProperty(copy, field, value);
+        values.push(Promise.resolve(value));
       } else {
-        setProperty(
-          copy,
-          field,
-          await redactPropertiesAsync(
+        values.push(
+          redactPropertiesAsync(
             value as Record<string, unknown>,
             options,
             visited,
@@ -467,8 +468,12 @@ export async function redactPropertiesAsync(
         );
       }
     } else {
-      setProperty(copy, field, value);
+      values.push(Promise.resolve(value));
     }
+  }
+  const redactedValues = await Promise.all(values);
+  for (let i = 0; i < fields.length; i++) {
+    setProperty(copy, fields[i], redactedValues[i]);
   }
   return copy;
 }
@@ -541,25 +546,35 @@ async function redactArrayAsync(
   const copy: unknown[] = [];
   copy.length = array.length;
   visited.set(array, copy);
+  const tasks: Promise<void>[] = [];
   for (let i = 0; i < array.length; i++) {
     if (!(i in array)) continue;
     const item = array[i];
     if (Array.isArray(item)) {
-      copy[i] = await redactArrayAsync(item, options, visited);
+      tasks.push(
+        redactArrayAsync(item, options, visited).then((redacted) => {
+          copy[i] = redacted;
+        }),
+      );
     } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
         copy[i] = item;
       } else {
-        copy[i] = await redactPropertiesAsync(
-          item as Record<string, unknown>,
-          options,
-          visited,
+        tasks.push(
+          redactPropertiesAsync(
+            item as Record<string, unknown>,
+            options,
+            visited,
+          ).then((redacted) => {
+            copy[i] = redacted;
+          }),
         );
       }
     } else {
       copy[i] = item;
     }
   }
+  await Promise.all(tasks);
   return copy;
 }
 

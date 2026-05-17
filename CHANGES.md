@@ -93,6 +93,9 @@ To be released.
     reported during asynchronous disposal instead of being swallowed as
     redaction failures.  [[#160], [#164]]
 
+ -  Improved `redactByFieldAsync()` performance by starting independent async
+    redaction work concurrently while preserving output order.  [[#160], [#164]]
+
  -  Fixed `createHmacPseudonymizer()` so `CryptoKey` inputs derive the default
     output prefix from the key's HMAC hash algorithm and reject explicit hash
     mismatches.  [[#160], [#164]]

@@ -9,6 +9,7 @@ import {
   redactByField,
   redactByFieldAsync,
   redactProperties,
+  redactPropertiesAsync,
   shouldFieldRedacted,
 } from "./field.ts";
 
@@ -1098,6 +1099,34 @@ test("createHmacPseudonymizer()", async () => {
 });
 
 test("redactByFieldAsync()", async () => {
+  { // starts async property redactions concurrently
+    const started: string[] = [];
+    let releaseFirst = () => {};
+    const firstRedaction = new Promise<string>((resolve) => {
+      releaseFirst = () => resolve("p:first");
+    });
+
+    const redaction = redactPropertiesAsync(
+      { first: "first", second: "second" },
+      {
+        fieldPatterns: ["first", "second"],
+        action: (value) => {
+          started.push(String(value));
+          if (value === "first") return firstRedaction;
+          return Promise.resolve("p:second");
+        },
+      },
+    );
+    await Promise.resolve();
+
+    assert.deepStrictEqual(started, ["first", "second"]);
+    releaseFirst();
+    assert.deepStrictEqual(await redaction, {
+      first: "p:first",
+      second: "p:second",
+    });
+  }
+
   { // applies async action to properties and string-template messages
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
