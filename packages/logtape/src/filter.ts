@@ -220,6 +220,7 @@ interface ThrottlingBucket {
   summaryStartTime: number;
   readonly acceptedAt: number[];
   acceptedAtHead: number;
+  acceptedAtCount: number;
   allowed: number;
   suppressed: number;
   firstRecord: LogRecord;
@@ -257,6 +258,7 @@ export function getThrottlingFilter(
   const getKey = options.key ?? getDefaultThrottlingKey;
   const maxKeys = options.maxKeys === undefined ? 1000 : options.maxKeys;
   const buckets = new Map<string, ThrottlingBucket>();
+  const summaryProperties = new WeakSet<Record<string, unknown>>();
   let emittingSummary = false;
 
   if (mode !== "fixed" && mode !== "sliding") {
@@ -269,7 +271,9 @@ export function getThrottlingFilter(
   }
 
   const filter = ((record: LogRecord): boolean => {
-    if (emittingSummary) return true;
+    if (emittingSummary && summaryProperties.has(record.properties)) {
+      return true;
+    }
 
     const now = timeSource === "record" ? record.timestamp : clock();
     const key = getKey(record);
@@ -282,6 +286,7 @@ export function getThrottlingFilter(
         summaryStartTime: now,
         acceptedAt: [],
         acceptedAtHead: 0,
+        acceptedAtCount: 0,
         allowed: 0,
         suppressed: 0,
         firstRecord: record,
@@ -301,8 +306,9 @@ export function getThrottlingFilter(
   }) as Filter & Disposable;
 
   filter[Symbol.dispose] = () => {
+    const endTime = clock();
     for (const [key, bucket] of buckets) {
-      emitSummary(key, bucket, "dispose", bucket.lastTime);
+      emitSummary(key, bucket, "dispose", endTime);
     }
     buckets.clear();
   };
@@ -321,6 +327,7 @@ export function getThrottlingFilter(
       bucket.summaryStartTime = now;
       bucket.acceptedAt.length = 0;
       bucket.acceptedAtHead = 0;
+      bucket.acceptedAtCount = 0;
       bucket.allowed = 0;
       bucket.suppressed = 0;
       bucket.firstRecord = record;
@@ -330,7 +337,7 @@ export function getThrottlingFilter(
 
     if (bucket.allowed < limit) {
       bucket.allowed++;
-      bucket.acceptedAt.push(now);
+      pushAcceptedAt(bucket, now);
       bucket.lastRecord = record;
       bucket.lastTime = now;
       return true;
@@ -348,16 +355,9 @@ export function getThrottlingFilter(
     record: LogRecord,
     now: number,
   ): boolean {
-    while (
-      bucket.acceptedAtHead < bucket.acceptedAt.length &&
-      now - bucket.acceptedAt[bucket.acceptedAtHead] >= windowMs
-    ) {
-      bucket.acceptedAtHead++;
-    }
+    pruneExpiredAcceptedAt(bucket, now);
 
-    compactAcceptedAt(bucket);
-
-    if (bucket.acceptedAt.length - bucket.acceptedAtHead < limit) {
+    if (bucket.acceptedAtCount < limit) {
       if (bucket.suppressed > 0) {
         emitSummary(key, bucket, "window", now);
         bucket.allowed = 0;
@@ -367,7 +367,7 @@ export function getThrottlingFilter(
         bucket.lastRecord = record;
         bucket.lastTime = now;
       }
-      bucket.acceptedAt.push(now);
+      pushAcceptedAt(bucket, now);
       bucket.allowed++;
       bucket.lastRecord = record;
       bucket.lastTime = now;
@@ -380,15 +380,30 @@ export function getThrottlingFilter(
     return false;
   }
 
-  function compactAcceptedAt(bucket: ThrottlingBucket): void {
-    if (
-      bucket.acceptedAtHead < 1 ||
-      bucket.acceptedAtHead * 2 < bucket.acceptedAt.length
-    ) {
-      return;
+  function pruneExpiredAcceptedAt(
+    bucket: ThrottlingBucket,
+    now: number,
+  ): void {
+    while (bucket.acceptedAtCount > 0) {
+      const acceptedAt = bucket.acceptedAt[bucket.acceptedAtHead];
+      if (now - acceptedAt < windowMs) break;
+      bucket.acceptedAtHead = (bucket.acceptedAtHead + 1) %
+        bucket.acceptedAt.length;
+      bucket.acceptedAtCount--;
     }
-    bucket.acceptedAt.splice(0, bucket.acceptedAtHead);
-    bucket.acceptedAtHead = 0;
+    if (bucket.acceptedAtCount < 1) {
+      bucket.acceptedAt.length = 0;
+      bucket.acceptedAtHead = 0;
+    }
+  }
+
+  function pushAcceptedAt(bucket: ThrottlingBucket, acceptedAt: number): void {
+    const index = bucket.acceptedAt.length < limit
+      ? bucket.acceptedAt.length
+      : (bucket.acceptedAtHead + bucket.acceptedAtCount) %
+        bucket.acceptedAt.length;
+    bucket.acceptedAt[index] = acceptedAt;
+    bucket.acceptedAtCount++;
   }
 
   function evictKeysIfNeeded(now: number): void {
@@ -432,21 +447,24 @@ export function getThrottlingFilter(
         "Last log message was suppressed {suppressed} times.";
     const log = summaryOptions.logger[level];
     if (typeof log !== "function") return;
+    const properties = {
+      key: summary.key,
+      suppressed: summary.suppressed,
+      allowed: summary.allowed,
+      reason: summary.reason,
+      startTime: summary.startTime,
+      endTime: summary.endTime,
+      firstRecord: summary.firstRecord,
+      lastRecord: summary.lastRecord,
+    };
 
+    summaryProperties.add(properties);
     emittingSummary = true;
     try {
-      log.call(summaryOptions.logger, message, {
-        key: summary.key,
-        suppressed: summary.suppressed,
-        allowed: summary.allowed,
-        reason: summary.reason,
-        startTime: summary.startTime,
-        endTime: summary.endTime,
-        firstRecord: summary.firstRecord,
-        lastRecord: summary.lastRecord,
-      });
+      log.call(summaryOptions.logger, message, properties);
     } finally {
       emittingSummary = false;
+      summaryProperties.delete(properties);
     }
   }
 }

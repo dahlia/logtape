@@ -201,6 +201,37 @@ test("getThrottlingFilter() does not shift sliding-window timestamps", () => {
   assert.strictEqual(shiftCalled, false);
 });
 
+test("getThrottlingFilter() does not splice sliding-window timestamps", () => {
+  const filter = getThrottlingFilter({
+    limit: 2,
+    windowMs: 100,
+    mode: "sliding",
+    timeSource: "record",
+  });
+  const originalSplice = Array.prototype.splice;
+  let spliceCalled = false;
+
+  Array.prototype.splice = function splice(
+    this: unknown[],
+    start: number,
+    deleteCount?: number,
+    ...items: unknown[]
+  ): unknown[] {
+    spliceCalled = true;
+    return originalSplice.call(this, start, deleteCount ?? 0, ...items);
+  };
+  try {
+    assert.strictEqual(filter(recordWithTimestamp(0)), true);
+    assert.strictEqual(filter(recordWithTimestamp(10)), true);
+    assert.strictEqual(filter(recordWithTimestamp(100)), true);
+    assert.strictEqual(filter(recordWithTimestamp(110)), true);
+  } finally {
+    Array.prototype.splice = originalSplice;
+  }
+
+  assert.strictEqual(spliceCalled, false);
+});
+
 test("getThrottlingFilter() can use record timestamps", () => {
   const filter = getThrottlingFilter({
     limit: 1,
@@ -404,6 +435,7 @@ test("getThrottlingFilter() emits summaries when suppression ends", () => {
 });
 
 test("getThrottlingFilter() emits summaries when disposed", () => {
+  let now = 0;
   const summaries: LogRecord[] = [];
   const logger = {
     error(message: string, properties: Record<string, unknown>) {
@@ -415,7 +447,7 @@ test("getThrottlingFilter() emits summaries when disposed", () => {
   const filter = getThrottlingFilter({
     limit: 1,
     windowMs: 100,
-    clock: () => 0,
+    clock: () => now,
     summary: {
       logger,
       level: "error",
@@ -426,11 +458,13 @@ test("getThrottlingFilter() emits summaries when disposed", () => {
 
   assert.strictEqual(filter(record), true);
   assert.strictEqual(filter(record), false);
+  now = 250;
   filter[Symbol.dispose]();
 
   assert.strictEqual(summaries.length, 1);
   assert.deepStrictEqual(summaries[0].message, ["Suppressed 1 records"]);
   assert.strictEqual(summaries[0].level, "error");
+  assert.strictEqual(summaries[0].properties.endTime, 250);
 });
 
 test("getThrottlingFilter() ignores missing summary logger methods", () => {
@@ -455,6 +489,39 @@ test("getThrottlingFilter() lets summary records pass through reentrantly", () =
   const logger = {
     warning(message: string, properties: Record<string, unknown>) {
       assert.ok(filterRef.current != null);
+      assert.strictEqual(
+        filterRef.current(recordWithRawMessage(message, { properties })),
+        true,
+      );
+    },
+  };
+  let now = 0;
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => now,
+    summary: { logger },
+  });
+  filterRef.current = filter;
+  const record = recordWithRawMessage("Database failed");
+
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+
+  now = 100;
+  assert.strictEqual(filter(record), true);
+});
+
+test("getThrottlingFilter() throttles non-summary reentrant records", () => {
+  const filterRef: { current?: ReturnType<typeof getThrottlingFilter> } = {};
+  const nestedRecord = recordWithRawMessage("nested", {
+    category: ["nested"],
+  });
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      assert.ok(filterRef.current != null);
+      assert.strictEqual(filterRef.current(nestedRecord), true);
+      assert.strictEqual(filterRef.current(nestedRecord), false);
       assert.strictEqual(
         filterRef.current(recordWithRawMessage(message, { properties })),
         true,
