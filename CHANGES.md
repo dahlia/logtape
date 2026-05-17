@@ -83,6 +83,13 @@ To be released.
      -  Added `HmacPseudonymizer` type.
      -  Added `HmacPseudonymizerOptions` interface.
 
+ -  Fixed field-based redaction so cyclic arrays are preserved instead of
+    causing recursive redaction to fail.  [[#160], [#164]]
+
+ -  Fixed `createHmacPseudonymizer()` so `CryptoKey` inputs derive the default
+    output prefix from the key's HMAC hash algorithm and reject explicit hash
+    mismatches.  [[#160], [#164]]
+
  -  Fixed `redactByField()` and `shouldFieldRedacted()` so field patterns using
     global or sticky regular expressions produce consistent results across
     repeated records.  [[#155]]

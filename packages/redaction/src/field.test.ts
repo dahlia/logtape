@@ -294,6 +294,37 @@ test("redactProperties()", () => {
     assert.ok(result.self === result, "Circular reference should be preserved");
   }
 
+  { // handles circular arrays to prevent stack overflow
+    const array: unknown[] = [{ password: "some-password" }];
+    array.push(array);
+
+    const result = redactProperties({ array }, {
+      fieldPatterns: ["password"],
+      action: () => "REDACTED",
+    });
+
+    const redactedArray = result.array as unknown[];
+    assert.deepStrictEqual(redactedArray[0], { password: "REDACTED" });
+    assert.strictEqual(redactedArray[1], redactedArray);
+  }
+
+  { // preserves holes in sparse arrays
+    const array: unknown[] = [];
+    array.length = 3;
+    array[1] = { password: "some-password" };
+
+    const result = redactProperties({ array }, {
+      fieldPatterns: ["password"],
+      action: () => "REDACTED",
+    });
+
+    const redactedArray = result.array as unknown[];
+    assert.strictEqual(redactedArray.length, 3);
+    assert.ok(!Object.hasOwn(redactedArray, 0));
+    assert.deepStrictEqual(redactedArray[1], { password: "REDACTED" });
+    assert.ok(!Object.hasOwn(redactedArray, 2));
+  }
+
   { // redacts fields in class instances
     class User {
       constructor(public name: string, public password: string) {}
@@ -1007,6 +1038,38 @@ test("createHmacPseudonymizer()", async () => {
       }
     }
   }
+
+  { // derives the default prefix from a supplied CryptoKey
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("secret"),
+      { name: "HMAC", hash: "SHA-512" },
+      false,
+      ["sign"],
+    );
+    const pseudonymize = await createHmacPseudonymizer({ key });
+
+    const result = await pseudonymize("user@example.com");
+
+    assert.match(result, /^hmac-sha512:/u);
+  }
+
+  { // rejects a CryptoKey whose HMAC hash does not match the option
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("secret"),
+      { name: "HMAC", hash: "SHA-512" },
+      false,
+      ["sign"],
+    );
+
+    await assert.rejects(
+      createHmacPseudonymizer({ key, hash: "SHA-256" }),
+      new TypeError(
+        'The HMAC CryptoKey uses SHA-512, but the "hash" option is SHA-256.',
+      ),
+    );
+  }
 });
 
 test("redactByFieldAsync()", async () => {
@@ -1057,6 +1120,60 @@ test("redactByFieldAsync()", async () => {
     assert.deepStrictEqual(records[0].message[1], {
       args: [{ email: "[PSEUDONYMIZED]" }],
     });
+  }
+
+  { // preserves circular arrays instead of dropping the record
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => Promise.resolve("REDACTED"),
+    });
+    const array: unknown[] = [{ password: "some-password" }];
+    array.push(array);
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["", array, ""],
+      rawMessage: "{array}",
+      timestamp: Date.now(),
+      properties: { array },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.strictEqual(records.length, 1);
+    const redactedArray = records[0].properties.array as unknown[];
+    assert.deepStrictEqual(redactedArray[0], { password: "REDACTED" });
+    assert.strictEqual(redactedArray[1], redactedArray);
+    assert.strictEqual(records[0].message[1], redactedArray);
+  }
+
+  { // preserves sparse arrays
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => Promise.resolve("REDACTED"),
+    });
+    const array: unknown[] = [];
+    array.length = 3;
+    array[1] = { password: "some-password" };
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["", array, ""],
+      rawMessage: "{array}",
+      timestamp: Date.now(),
+      properties: { array },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    const redactedArray = records[0].properties.array as unknown[];
+    assert.strictEqual(redactedArray.length, 3);
+    assert.ok(!Object.hasOwn(redactedArray, 0));
+    assert.deepStrictEqual(redactedArray[1], { password: "REDACTED" });
+    assert.ok(!Object.hasOwn(redactedArray, 2));
+    assert.strictEqual(records[0].message[1], redactedArray);
   }
 
   { // redacts tagged-template message values by comparison

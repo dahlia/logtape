@@ -315,7 +315,7 @@ export async function createHmacPseudonymizer(
   if (subtle == null) {
     throw new TypeError("The Web Crypto API is not available.");
   }
-  const hash = options.hash ?? "SHA-256";
+  const hash = getHmacHash(options.key, options.hash);
   const encoding = options.encoding ?? "base64url";
   const prefix = options.prefix ??
     `hmac-${hash.toLowerCase().replaceAll("-", "")}:`;
@@ -476,22 +476,33 @@ function redactArray(
   options: FieldRedactionOptions,
   visited: Map<object, object>,
 ): unknown[] {
-  return array.map((item) => {
+  if (visited.has(array)) return visited.get(array) as unknown[];
+
+  const copy: unknown[] = [];
+  copy.length = array.length;
+  visited.set(array, copy);
+  for (let i = 0; i < array.length; i++) {
+    if (!(i in array)) continue;
+    const item = array[i];
     if (Array.isArray(item)) {
-      return redactArray(item, options, visited);
+      copy[i] = redactArray(item, options, visited);
+      continue;
     }
     if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
-        return item;
+        copy[i] = item;
+      } else {
+        copy[i] = redactProperties(
+          item as Record<string, unknown>,
+          options,
+          visited,
+        );
       }
-      return redactProperties(
-        item as Record<string, unknown>,
-        options,
-        visited,
-      );
+      continue;
     }
-    return item;
-  });
+    copy[i] = item;
+  }
+  return copy;
 }
 
 async function redactArrayAsync(
@@ -499,25 +510,28 @@ async function redactArrayAsync(
   options: AsyncFieldRedactionOptions,
   visited: Map<object, object>,
 ): Promise<unknown[]> {
+  if (visited.has(array)) return visited.get(array) as unknown[];
+
   const copy: unknown[] = [];
+  copy.length = array.length;
   visited.set(array, copy);
-  for (const item of array) {
+  for (let i = 0; i < array.length; i++) {
+    if (!(i in array)) continue;
+    const item = array[i];
     if (Array.isArray(item)) {
-      copy.push(await redactArrayAsync(item, options, visited));
+      copy[i] = await redactArrayAsync(item, options, visited);
     } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
-        copy.push(item);
+        copy[i] = item;
       } else {
-        copy.push(
-          await redactPropertiesAsync(
-            item as Record<string, unknown>,
-            options,
-            visited,
-          ),
+        copy[i] = await redactPropertiesAsync(
+          item as Record<string, unknown>,
+          options,
+          visited,
         );
       }
     } else {
-      copy.push(item);
+      copy[i] = item;
     }
   }
   return copy;
@@ -839,6 +853,45 @@ function isCryptoKey(
   key: string | Uint8Array | ArrayBuffer | CryptoKey,
 ): key is CryptoKey {
   return typeof CryptoKey !== "undefined" && key instanceof CryptoKey;
+}
+
+function getHmacHash(
+  key: string | Uint8Array | ArrayBuffer | CryptoKey,
+  hash: HmacPseudonymizerOptions["hash"],
+): NonNullable<HmacPseudonymizerOptions["hash"]> {
+  if (!isCryptoKey(key)) return hash ?? "SHA-256";
+  const keyHash = getCryptoKeyHmacHash(key);
+  if (hash != null && hash !== keyHash) {
+    throw new TypeError(
+      `The HMAC CryptoKey uses ${keyHash}, but the "hash" option is ${hash}.`,
+    );
+  }
+  return keyHash;
+}
+
+function getCryptoKeyHmacHash(
+  key: CryptoKey,
+): NonNullable<HmacPseudonymizerOptions["hash"]> {
+  const algorithm = key.algorithm;
+  if (algorithm.name !== "HMAC" || !("hash" in algorithm)) {
+    throw new TypeError("The CryptoKey must be an HMAC key.");
+  }
+  const hashAlgorithm = algorithm.hash;
+  if (
+    typeof hashAlgorithm !== "object" || hashAlgorithm == null ||
+    !("name" in hashAlgorithm) || typeof hashAlgorithm.name !== "string"
+  ) {
+    throw new TypeError("The CryptoKey must specify an HMAC hash algorithm.");
+  }
+  const hash = hashAlgorithm.name;
+  switch (hash) {
+    case "SHA-256":
+    case "SHA-384":
+    case "SHA-512":
+      return hash;
+    default:
+      throw new TypeError(`Unsupported HMAC hash algorithm: ${hash}.`);
+  }
 }
 
 function encodeBytes(bytes: Uint8Array, encoding: "base64url" | "hex"): string {
