@@ -1,4 +1,4 @@
-import type { LogRecord, Sink } from "@logtape/logtape";
+import { getLogger, type LogRecord, type Sink } from "@logtape/logtape";
 
 /**
  * The type for a field pattern used in redaction.  A string or a regular
@@ -13,6 +13,29 @@ export type FieldPattern = string | RegExp;
  * @since 0.10.0
  */
 export type FieldPatterns = FieldPattern[];
+
+/**
+ * The synchronous action to perform on a redacted field value.
+ * @since 0.10.0
+ */
+export type FieldRedactionAction = "delete" | ((value: unknown) => unknown);
+
+/**
+ * The asynchronous action to perform on a redacted field value.
+ * @since 2.1.0
+ */
+export type AsyncFieldRedactionAction = (
+  value: unknown,
+) => PromiseLike<unknown>;
+
+/**
+ * A pseudonymizer created by {@link createHmacPseudonymizer}.
+ * @since 2.1.0
+ */
+export type HmacPseudonymizer = (value: unknown) => Promise<string>;
+
+const metaLogger = getLogger(["logtape", "meta"]);
+let reportingRedactionFailure = false;
 
 /**
  * Default field patterns for redaction.  These patterns will match
@@ -60,7 +83,56 @@ export interface FieldRedactionOptions {
    * properties.
    * @default `"delete"`
    */
-  readonly action?: "delete" | ((value: unknown) => unknown);
+  readonly action?: FieldRedactionAction;
+}
+
+/**
+ * Options for asynchronously redacting fields in a {@link LogRecord}.  Used by
+ * the {@link redactByFieldAsync} function.
+ * @since 2.1.0
+ */
+export interface AsyncFieldRedactionOptions {
+  /**
+   * The field patterns to match against.  This can be an array of
+   * strings or regular expressions.  If a field matches any of the
+   * patterns, it will be redacted.
+   */
+  readonly fieldPatterns: FieldPatterns;
+
+  /**
+   * The asynchronous action to perform on the matched fields.
+   */
+  readonly action: AsyncFieldRedactionAction;
+}
+
+/**
+ * Options for the {@link createHmacPseudonymizer} function.
+ * @since 2.1.0
+ */
+export interface HmacPseudonymizerOptions {
+  /**
+   * The secret key to use for HMAC.  Strings are encoded as UTF-8.
+   */
+  readonly key: string | Uint8Array | ArrayBuffer | CryptoKey;
+
+  /**
+   * The HMAC hash algorithm.
+   * @default `"SHA-256"`
+   */
+  readonly hash?: "SHA-256" | "SHA-384" | "SHA-512";
+
+  /**
+   * The digest encoding.
+   * @default `"base64url"`
+   */
+  readonly encoding?: "base64url" | "hex";
+
+  /**
+   * The string prefix to prepend to each pseudonym.  If omitted, a prefix based
+   * on the hash algorithm is used, such as `"hmac-sha256:"`.  Set this to an
+   * empty string to disable the prefix.
+   */
+  readonly prefix?: string;
 }
 
 /**
@@ -139,6 +211,196 @@ export function redactByField(
 }
 
 /**
+ * Redacts properties and message values in a {@link LogRecord} based on the
+ * provided field patterns and asynchronous action.
+ *
+ * The returned sink preserves record ordering by processing redaction work in
+ * sequence and implements {@link AsyncDisposable} so callers can wait for all
+ * pending redaction work before shutdown.
+ *
+ * @example
+ * ```ts
+ * import { getConsoleSink } from "@logtape/logtape";
+ * import {
+ *   createHmacPseudonymizer,
+ *   redactByFieldAsync,
+ * } from "@logtape/redaction";
+ *
+ * const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
+ * const sink = redactByFieldAsync(getConsoleSink(), {
+ *   fieldPatterns: [/userId/i, /email/i],
+ *   action: pseudonymize,
+ * });
+ * ```
+ *
+ * @param sink The sink to wrap.
+ * @param options The async redaction options.
+ * @returns The wrapped sink.
+ * @since 2.1.0
+ */
+export function redactByFieldAsync(
+  sink: Sink | Sink & Disposable | Sink & AsyncDisposable,
+  options: AsyncFieldRedactionOptions,
+): Sink & AsyncDisposable {
+  let lastPromise = Promise.resolve();
+  let closed = false;
+  const sinkErrors: unknown[] = [];
+  const wrapped: Sink & AsyncDisposable = (record: LogRecord) => {
+    if (closed) return;
+
+    const work = redactLogRecordAsync(record, options).catch((error) => {
+      reportRedactionFailure(error);
+      return null;
+    });
+    lastPromise = lastPromise.then(async () => {
+      const result = await work;
+      if (result == null) return;
+
+      try {
+        await sink({
+          ...record,
+          message: result.message,
+          properties: result.properties,
+        });
+      } catch (error) {
+        sinkErrors.push(error);
+      }
+    });
+  };
+  wrapped[Symbol.asyncDispose] = async () => {
+    closed = true;
+    await lastPromise;
+
+    let disposeError: unknown;
+    try {
+      if (Symbol.asyncDispose in sink) {
+        await sink[Symbol.asyncDispose]();
+      } else if (Symbol.dispose in sink) {
+        sink[Symbol.dispose]();
+      }
+    } catch (error) {
+      disposeError = error;
+    }
+
+    if (sinkErrors.length > 0) {
+      const errors = disposeError == null
+        ? sinkErrors
+        : [...sinkErrors, disposeError];
+      if (errors.length === 1) throw errors[0];
+      throw new AggregateError(
+        errors,
+        "One or more errors occurred while emitting redacted log records.",
+      );
+    }
+    if (disposeError != null) {
+      throw disposeError;
+    }
+  };
+  return wrapped;
+}
+
+async function redactLogRecordAsync(
+  record: LogRecord,
+  options: AsyncFieldRedactionOptions,
+): Promise<Pick<LogRecord, "message" | "properties">> {
+  const redactedProperties = await redactPropertiesAsync(
+    record.properties,
+    options,
+  );
+
+  if (typeof record.rawMessage === "string") {
+    const placeholders = extractPlaceholderNames(record.rawMessage);
+    const { redactedIndices, wildcardIndices } = getRedactedPlaceholderIndices(
+      placeholders,
+      options.fieldPatterns,
+    );
+    return {
+      message: await redactMessageArrayAsync(
+        record.message,
+        placeholders,
+        redactedIndices,
+        wildcardIndices,
+        redactedProperties,
+        options.action,
+      ),
+      properties: redactedProperties,
+    };
+  }
+
+  let redactedMessage = record.message;
+  const redactedValues = getRedactedValues(
+    record.properties,
+    redactedProperties,
+  );
+  if (redactedValues.size > 0) {
+    redactedMessage = redactMessageByValues(
+      record.message,
+      redactedValues,
+    );
+  }
+  return { message: redactedMessage, properties: redactedProperties };
+}
+
+function reportRedactionFailure(error: unknown): void {
+  if (reportingRedactionFailure || typeof metaLogger.warn !== "function") {
+    return;
+  }
+  try {
+    reportingRedactionFailure = true;
+    metaLogger.warn(
+      "Failed to redact a log record; dropping the record to avoid leaking " +
+        "sensitive data: {error}",
+      { error },
+    );
+  } catch {
+    // Meta logging failures must not make normal logging fail.
+  } finally {
+    reportingRedactionFailure = false;
+  }
+}
+
+/**
+ * Creates an asynchronous pseudonymizer based on HMAC using the Web Crypto API.
+ *
+ * The returned function converts each value with `String(value)`, encodes it
+ * as UTF-8, and returns a stable pseudonym.  Because HMAC is keyed, this is
+ * safer than a plain salted hash for values with small input spaces, such as
+ * email addresses or numeric user IDs.
+ *
+ * @param options The HMAC pseudonymizer options.
+ * @returns An async redaction action.
+ * @since 2.1.0
+ */
+export async function createHmacPseudonymizer(
+  options: HmacPseudonymizerOptions,
+): Promise<HmacPseudonymizer> {
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle == null) {
+    throw new TypeError("The Web Crypto API is not available.");
+  }
+  const hash = getHmacHash(options.key, options.hash);
+  const encoding = options.encoding ?? "base64url";
+  const prefix = options.prefix ??
+    `hmac-${hash.toLowerCase().replaceAll("-", "")}:`;
+  const key = isCryptoKey(options.key) ? options.key : await subtle.importKey(
+    "raw",
+    keyToBytes(options.key),
+    { name: "HMAC", hash },
+    false,
+    ["sign"],
+  );
+  const encoder = new TextEncoder();
+
+  return async (value: unknown): Promise<string> => {
+    const data = encoder.encode(String(value));
+    const signature = new Uint8Array(
+      await subtle.sign("HMAC", key, data),
+    );
+    return prefix + encodeBytes(signature, encoding);
+  };
+}
+
+/**
  * Redacts properties from an object based on specified field patterns.
  *
  * This function creates a shallow copy of the input object and applies
@@ -166,7 +428,7 @@ export function redactProperties(
   const copy: Record<string, unknown> = {};
   visited.set(properties, copy);
 
-  for (const field in properties) {
+  for (const field of Object.keys(properties)) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       if (typeof options.action === "function") {
         setProperty(copy, field, options.action(properties[field]));
@@ -194,6 +456,61 @@ export function redactProperties(
     } else {
       setProperty(copy, field, value);
     }
+  }
+  return copy;
+}
+
+/**
+ * Redacts properties from an object using an asynchronous action.
+ * @param properties The properties to redact.
+ * @param options The async redaction options.
+ * @param visited Map of visited objects to prevent circular reference issues.
+ * @returns The redacted properties.
+ * @since 2.1.0
+ */
+export async function redactPropertiesAsync(
+  properties: Record<string, unknown>,
+  options: AsyncFieldRedactionOptions,
+  visited = new Map<object, object>(),
+): Promise<Record<string, unknown>> {
+  if (visited.has(properties)) {
+    return visited.get(properties) as Record<string, unknown>;
+  }
+
+  const copy: Record<string, unknown> = {};
+  visited.set(properties, copy);
+
+  const fields: string[] = [];
+  const values: Promise<unknown>[] = [];
+  for (const field of Object.keys(properties)) {
+    fields.push(field);
+    if (shouldFieldRedacted(field, options.fieldPatterns)) {
+      values.push(Promise.resolve(options.action(properties[field])));
+      continue;
+    }
+
+    const value = properties[field];
+    if (Array.isArray(value)) {
+      values.push(redactArrayAsync(value, options, visited));
+    } else if (typeof value === "object" && value !== null) {
+      if (isBuiltInObject(value)) {
+        values.push(Promise.resolve(value));
+      } else {
+        values.push(
+          redactPropertiesAsync(
+            value as Record<string, unknown>,
+            options,
+            visited,
+          ),
+        );
+      }
+    } else {
+      values.push(Promise.resolve(value));
+    }
+  }
+  const redactedValues = await Promise.all(values);
+  for (let i = 0; i < fields.length; i++) {
+    setProperty(copy, fields[i], redactedValues[i]);
   }
   return copy;
 }
@@ -227,22 +544,73 @@ function redactArray(
   options: FieldRedactionOptions,
   visited: Map<object, object>,
 ): unknown[] {
-  return array.map((item) => {
+  if (visited.has(array)) return visited.get(array) as unknown[];
+
+  const copy: unknown[] = [];
+  copy.length = array.length;
+  visited.set(array, copy);
+  for (let i = 0; i < array.length; i++) {
+    if (!(i in array)) continue;
+    const item = array[i];
     if (Array.isArray(item)) {
-      return redactArray(item, options, visited);
-    }
-    if (typeof item === "object" && item !== null) {
+      copy[i] = redactArray(item, options, visited);
+    } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
-        return item;
+        copy[i] = item;
+      } else {
+        copy[i] = redactProperties(
+          item as Record<string, unknown>,
+          options,
+          visited,
+        );
       }
-      return redactProperties(
-        item as Record<string, unknown>,
-        options,
-        visited,
-      );
+    } else {
+      copy[i] = item;
     }
-    return item;
-  });
+  }
+  return copy;
+}
+
+async function redactArrayAsync(
+  array: unknown[],
+  options: AsyncFieldRedactionOptions,
+  visited: Map<object, object>,
+): Promise<unknown[]> {
+  if (visited.has(array)) return visited.get(array) as unknown[];
+
+  const copy: unknown[] = [];
+  copy.length = array.length;
+  visited.set(array, copy);
+  const itemPromises: Promise<unknown>[] = [];
+  for (let i = 0; i < array.length; i++) {
+    if (!(i in array)) {
+      itemPromises.push(Promise.resolve(undefined));
+      continue;
+    }
+    const item = array[i];
+    if (Array.isArray(item)) {
+      itemPromises.push(redactArrayAsync(item, options, visited));
+    } else if (typeof item === "object" && item !== null) {
+      if (isBuiltInObject(item)) {
+        itemPromises.push(Promise.resolve(item));
+      } else {
+        itemPromises.push(
+          redactPropertiesAsync(
+            item as Record<string, unknown>,
+            options,
+            visited,
+          ),
+        );
+      }
+    } else {
+      itemPromises.push(Promise.resolve(item));
+    }
+  }
+  const redactedItems = await Promise.all(itemPromises);
+  for (let i = 0; i < redactedItems.length; i++) {
+    if (i in array) copy[i] = redactedItems[i];
+  }
+  return copy;
 }
 
 /**
@@ -331,17 +699,62 @@ function extractPlaceholderNames(template: string): string[] {
 function parsePathSegments(path: string): string[] {
   const segments: string[] = [];
   let current = "";
+  let inBracket = false;
+  let quotedBracketSegment = false;
+  let quote: '"' | "'" | undefined;
+  let escaped = false;
+
+  const pushCurrent = (trim = false): void => {
+    const segment = trim ? current.trimEnd() : current;
+    if (segment) segments.push(segment);
+    current = "";
+  };
+
   for (const char of path) {
-    if (char === "." || char === "[") {
-      if (current) segments.push(current);
-      current = "";
-    } else if (char === "]" || char === "?") {
-      // Skip these characters
-    } else {
-      current += char;
+    if (quote != null) {
+      if (escaped) {
+        current += char;
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === quote) {
+        quote = undefined;
+      } else {
+        current += char;
+      }
+      continue;
     }
+
+    if (inBracket && current === "" && /\s/.test(char)) {
+      continue;
+    }
+    if (inBracket && (char === '"' || char === "'") && current === "") {
+      quote = char;
+      quotedBracketSegment = true;
+      continue;
+    }
+    if (inBracket && quotedBracketSegment && /\s/.test(char)) {
+      continue;
+    }
+    if (char === "." && !inBracket) {
+      pushCurrent();
+      continue;
+    }
+    if (char === "[") {
+      pushCurrent();
+      inBracket = true;
+      continue;
+    }
+    if (char === "]") {
+      pushCurrent(!quotedBracketSegment);
+      inBracket = false;
+      quotedBracketSegment = false;
+      continue;
+    }
+    if (char === "?") continue;
+    current += char;
   }
-  if (current) segments.push(current);
+  pushCurrent();
   return segments;
 }
 
@@ -426,9 +839,9 @@ function redactMessageArray(
         // For non-redacted placeholders, use value from redactedProperties
         // to ensure nested sensitive fields are redacted
         const placeholderName = placeholders[placeholderIndex];
-        const rootKey = parsePathSegments(placeholderName)[0];
-        if (rootKey in redactedProperties) {
-          result.push(redactedProperties[rootKey]);
+        const redactedValue = getPathValue(redactedProperties, placeholderName);
+        if (redactedValue.found) {
+          result.push(redactedValue.value);
         } else {
           result.push(message[i]);
         }
@@ -437,6 +850,69 @@ function redactMessageArray(
     }
   }
   return result;
+}
+
+async function redactMessageArrayAsync(
+  message: readonly unknown[],
+  placeholders: string[],
+  redactedIndices: Set<number>,
+  wildcardIndices: Set<number>,
+  redactedProperties: Record<string, unknown>,
+  action: AsyncFieldRedactionAction,
+): Promise<readonly unknown[]> {
+  const result: unknown[] = [];
+  const tasks: Promise<void>[] = [];
+  let placeholderIndex = 0;
+
+  for (let i = 0; i < message.length; i++) {
+    if (i % 2 === 0) {
+      result.push(message[i]);
+    } else {
+      if (wildcardIndices.has(placeholderIndex)) {
+        result.push(redactedProperties);
+      } else if (redactedIndices.has(placeholderIndex)) {
+        const index = result.length;
+        result.push(undefined);
+        tasks.push(
+          Promise.resolve(action(message[i])).then((redacted) => {
+            result[index] = redacted;
+          }),
+        );
+      } else {
+        const placeholderName = placeholders[placeholderIndex];
+        const redactedValue = getPathValue(redactedProperties, placeholderName);
+        if (redactedValue.found) {
+          result.push(redactedValue.value);
+        } else {
+          result.push(message[i]);
+        }
+      }
+      placeholderIndex++;
+    }
+  }
+  await Promise.all(tasks);
+  return result;
+}
+
+function getPathValue(
+  properties: Record<string, unknown>,
+  path: string,
+): { found: true; value: unknown } | { found: false } {
+  const segments = parsePathSegments(path);
+  if (segments.length < 1) return { found: false };
+
+  let value: unknown = properties;
+  for (const segment of segments) {
+    if (
+      (typeof value !== "object" && typeof value !== "function") ||
+      value == null ||
+      !Object.hasOwn(value, segment)
+    ) {
+      return { found: false };
+    }
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return { found: true, value };
 }
 
 /**
@@ -450,7 +926,7 @@ function collectRedactedValues(
   redacted: Record<string, unknown>,
   map: Map<unknown, unknown>,
 ): void {
-  for (const key in original) {
+  for (const key of Object.keys(original)) {
     const origVal = original[key];
     const redVal = redacted[key];
 
@@ -513,6 +989,87 @@ function redactMessageByValues(
         result.push(val);
       }
     }
+  }
+  return result;
+}
+
+function keyToBytes(key: string | Uint8Array | ArrayBuffer): BufferSource {
+  if (typeof key === "string") return new TextEncoder().encode(key);
+  if (key instanceof ArrayBuffer) return key;
+  return key as Uint8Array<ArrayBuffer>;
+}
+
+function isCryptoKey(
+  key: string | Uint8Array | ArrayBuffer | CryptoKey,
+): key is CryptoKey {
+  return typeof key === "object" && key !== null &&
+    Object.prototype.toString.call(key) === "[object CryptoKey]";
+}
+
+function getHmacHash(
+  key: string | Uint8Array | ArrayBuffer | CryptoKey,
+  hash: HmacPseudonymizerOptions["hash"],
+): NonNullable<HmacPseudonymizerOptions["hash"]> {
+  if (!isCryptoKey(key)) return hash ?? "SHA-256";
+  if (!key.usages.includes("sign")) {
+    throw new TypeError('The HMAC CryptoKey must include the "sign" usage.');
+  }
+  const keyHash = getCryptoKeyHmacHash(key);
+  if (hash != null && hash !== keyHash) {
+    throw new TypeError(
+      `The HMAC CryptoKey uses ${keyHash}, but the "hash" option is ${hash}.`,
+    );
+  }
+  return keyHash;
+}
+
+function getCryptoKeyHmacHash(
+  key: CryptoKey,
+): NonNullable<HmacPseudonymizerOptions["hash"]> {
+  const algorithm = key.algorithm;
+  if (algorithm.name !== "HMAC" || !("hash" in algorithm)) {
+    throw new TypeError("The CryptoKey must be an HMAC key.");
+  }
+  const hashAlgorithm = algorithm.hash;
+  if (
+    typeof hashAlgorithm !== "object" || hashAlgorithm == null ||
+    !("name" in hashAlgorithm) || typeof hashAlgorithm.name !== "string"
+  ) {
+    throw new TypeError("The CryptoKey must specify an HMAC hash algorithm.");
+  }
+  const hash = hashAlgorithm.name;
+  switch (hash) {
+    case "SHA-256":
+    case "SHA-384":
+    case "SHA-512":
+      return hash;
+    default:
+      throw new TypeError(`Unsupported HMAC hash algorithm: ${hash}.`);
+  }
+}
+
+function encodeBytes(bytes: Uint8Array, encoding: "base64url" | "hex"): string {
+  switch (encoding) {
+    case "base64url":
+      return encodeBase64Url(bytes);
+    case "hex":
+      return encodeHex(bytes);
+  }
+}
+
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+}
+
+function encodeHex(bytes: Uint8Array): string {
+  let result = "";
+  for (const byte of bytes) {
+    result += byte.toString(16).padStart(2, "0");
   }
   return result;
 }

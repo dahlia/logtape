@@ -66,32 +66,6 @@ To be released.
 [#162]: https://github.com/dahlia/logtape/pull/162
 [#163]: https://github.com/dahlia/logtape/pull/163
 
-### @logtape/pretty
-
- -  Added `timeZone` support to `getPrettyFormatter()` for timestamp rendering,
-    aligned with `@logtape/logtape` formatter semantics.  [[#140]]
-
-### @logtape/redaction
-
- -  Fixed `redactByField()` and `shouldFieldRedacted()` so field patterns using
-    global or sticky regular expressions produce consistent results across
-    repeated records.  [[#155]]
-
- -  Fixed `redactByField()` so public fields named `__proto__` are preserved as
-    own properties instead of changing the prototype of the redacted properties
-    object.  [[#155]]
-
-[#155]: https://github.com/dahlia/logtape/pull/155
-
-### @logtape/hono
-
- -  Changed the `HonoContext` interface to extend Hono's `Context` so custom
-    formatter and skip callbacks receive the real runtime context.  Custom
-    formatters can now read context variables via APIs like `c.get()`.
-    [[#150] by Hamza Zia]
-
-[#150]: https://github.com/dahlia/logtape/pull/150
-
 ### @logtape/adaptor-bunyan
 
  -  Initial release of *@logtape/adaptor-bunyan*.  Forwards LogTape log
@@ -102,6 +76,52 @@ To be released.
 [Bunyan]: https://github.com/trentm/node-bunyan
 [#58]: https://github.com/dahlia/logtape/issues/58
 [#154]: https://github.com/dahlia/logtape/pull/154
+
+### @logtape/hono
+
+ -  Changed the `HonoContext` interface to extend Hono's `Context` so custom
+    formatter and skip callbacks receive the real runtime context.  Custom
+    formatters can now read context variables via APIs like `c.get()`.
+    [[#150] by Hamza Zia]
+
+[#150]: https://github.com/dahlia/logtape/pull/150
+
+### @logtape/pretty
+
+ -  Added `timeZone` support to `getPrettyFormatter()` for timestamp rendering,
+    aligned with `@logtape/logtape` formatter semantics.  [[#140]]
+
+### @logtape/redaction
+
+ -  Added `redactByFieldAsync()` for field-based redaction actions that need
+    asynchronous work.  It preserves record order while starting independent
+    redaction work concurrently, preserves cyclic arrays, redacts
+    non-sensitive nested message placeholders from redacted properties when
+    sibling fields change, reports redaction failures to the meta logger, and
+    reports wrapped sink errors during asynchronous disposal.  [[#160], [#164]]
+
+ -  Added `createHmacPseudonymizer()` for replacing sensitive fields with stable
+    keyed HMAC pseudonyms.  `CryptoKey` inputs derive the default output prefix
+    from the key's HMAC hash algorithm and reject explicit hash mismatches.
+    [[#160], [#164]]
+
+     -  Added `AsyncFieldRedactionAction` type.
+     -  Added `AsyncFieldRedactionOptions` interface.
+     -  Added `FieldRedactionAction` type.
+     -  Added `HmacPseudonymizer` type.
+     -  Added `HmacPseudonymizerOptions` interface.
+
+ -  Fixed `redactByField()` and `shouldFieldRedacted()` so field patterns using
+    global or sticky regular expressions produce consistent results across
+    repeated records.  [[#155]]
+
+ -  Fixed `redactByField()` so public fields named `__proto__` are preserved as
+    own properties instead of changing the prototype of the redacted properties
+    object.  [[#155]]
+
+[#155]: https://github.com/dahlia/logtape/pull/155
+[#160]: https://github.com/dahlia/logtape/issues/160
+[#164]: https://github.com/dahlia/logtape/pull/164
 
 
 Version 2.0.9
