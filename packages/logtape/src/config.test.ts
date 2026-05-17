@@ -659,6 +659,48 @@ test("dispose() disposes filters before sinks", async () => {
   }
 });
 
+test("dispose() disposes sinks after async filter rejection", async () => {
+  const events: string[] = [];
+  const error = new Error("filter disposal failed");
+  const syncSink: Sink & Disposable = () => {};
+  syncSink[Symbol.dispose] = () => events.push("sync sink");
+  const asyncSink: Sink & AsyncDisposable = () => {};
+  asyncSink[Symbol.asyncDispose] = () => {
+    events.push("async sink");
+    return Promise.resolve();
+  };
+  const asyncFilter: Filter & AsyncDisposable = () => true;
+  asyncFilter[Symbol.asyncDispose] = () => {
+    events.push("async filter");
+    return Promise.reject(error);
+  };
+
+  try {
+    await configure({
+      sinks: { asyncSink, syncSink },
+      filters: { asyncFilter },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["asyncSink", "syncSink"],
+          filters: ["asyncFilter"],
+        },
+      ],
+    });
+    events.length = 0;
+
+    await assert.rejects(reset(), error);
+
+    assert.deepStrictEqual(events, [
+      "async filter",
+      "sync sink",
+      "async sink",
+    ]);
+  } finally {
+    await reset();
+  }
+});
+
 test("disposeSync() disposes sync filters before sync sinks", () => {
   const events: string[] = [];
   const sink: Sink & Disposable = () => {};

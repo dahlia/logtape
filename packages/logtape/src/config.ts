@@ -400,10 +400,28 @@ function resetInternal(): void {
  * Dispose of the disposables.
  */
 export async function dispose(): Promise<void> {
-  disposeSyncFilters();
-  await disposeAsyncFilters();
-  disposeSyncSinks();
-  await disposeAsyncSinks();
+  const errors: unknown[] = [];
+  try {
+    disposeSyncFilters();
+  } catch (error) {
+    errors.push(error);
+  }
+  try {
+    await disposeAsyncFilters();
+  } catch (error) {
+    errors.push(error);
+  }
+  try {
+    disposeSyncSinks();
+  } catch (error) {
+    errors.push(error);
+  }
+  try {
+    await disposeAsyncSinks();
+  } catch (error) {
+    errors.push(error);
+  }
+  throwDisposeErrors(errors);
 }
 
 /**
@@ -432,7 +450,7 @@ async function disposeAsyncFilters(): Promise<void> {
     promises.push(disposable[Symbol.asyncDispose]());
     asyncFilterDisposables.delete(disposable);
   }
-  await Promise.all(promises);
+  await settleDisposePromises(promises);
 }
 
 async function disposeAsyncSinks(): Promise<void> {
@@ -441,7 +459,29 @@ async function disposeAsyncSinks(): Promise<void> {
     promises.push(disposable[Symbol.asyncDispose]());
     asyncSinkDisposables.delete(disposable);
   }
-  await Promise.all(promises);
+  await settleDisposePromises(promises);
+}
+
+async function settleDisposePromises(
+  promises: readonly PromiseLike<void>[],
+): Promise<void> {
+  const results = await Promise.allSettled(promises);
+  throwDisposeErrors(
+    results
+      .filter((result): result is PromiseRejectedResult =>
+        result.status === "rejected"
+      )
+      .map((result) => result.reason),
+  );
+}
+
+function throwDisposeErrors(errors: readonly unknown[]): void {
+  if (errors.length < 1) return;
+  if (errors.length === 1) throw errors[0];
+  throw new AggregateError(
+    errors,
+    "Multiple errors occurred while disposing LogTape resources.",
+  );
 }
 
 /**
