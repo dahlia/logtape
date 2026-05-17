@@ -546,9 +546,7 @@ function redactArray(
     const item = array[i];
     if (Array.isArray(item)) {
       copy[i] = redactArray(item, options, visited);
-      continue;
-    }
-    if (typeof item === "object" && item !== null) {
+    } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
         copy[i] = item;
       } else {
@@ -558,9 +556,9 @@ function redactArray(
           visited,
         );
       }
-      continue;
+    } else {
+      copy[i] = item;
     }
-    copy[i] = item;
   }
   return copy;
 }
