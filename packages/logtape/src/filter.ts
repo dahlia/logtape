@@ -258,7 +258,7 @@ export function getThrottlingFilter(
   const getKey = options.key ?? getDefaultThrottlingKey;
   const maxKeys = options.maxKeys === undefined ? 1000 : options.maxKeys;
   const buckets = new Map<string, ThrottlingBucket>();
-  const summaryProperties = new WeakSet<Record<string, unknown>>();
+  const summaryRecord = Symbol("LogTape.throttlingSummaryRecord");
   let emittingSummary = false;
 
   if (mode !== "fixed" && mode !== "sliding") {
@@ -271,7 +271,7 @@ export function getThrottlingFilter(
   }
 
   const filter = ((record: LogRecord): boolean => {
-    if (emittingSummary && summaryProperties.has(record.properties)) {
+    if (emittingSummary && isSummaryRecord(record)) {
       return true;
     }
 
@@ -456,16 +456,23 @@ export function getThrottlingFilter(
       endTime: summary.endTime,
       firstRecord: summary.firstRecord,
       lastRecord: summary.lastRecord,
-    };
+      [summaryRecord]: true,
+    } as Record<string, unknown> & Record<typeof summaryRecord, true>;
 
-    summaryProperties.add(properties);
     emittingSummary = true;
     try {
       log.call(summaryOptions.logger, message, properties);
     } finally {
       emittingSummary = false;
-      summaryProperties.delete(properties);
     }
+  }
+
+  function isSummaryRecord(record: LogRecord): boolean {
+    const properties = record.properties;
+    return properties != null &&
+      typeof properties === "object" &&
+      (properties as Record<typeof summaryRecord, unknown>)[summaryRecord] ===
+        true;
   }
 }
 

@@ -512,6 +512,45 @@ test("getThrottlingFilter() lets summary records pass through reentrantly", () =
   assert.strictEqual(filter(record), true);
 });
 
+test("getThrottlingFilter() recognizes copied summary properties reentrantly", () => {
+  const filterRef: { current?: ReturnType<typeof getThrottlingFilter> } = {};
+  let summaryCalls = 0;
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      summaryCalls++;
+      if (summaryCalls > 1) throw new Error("recursive summary");
+      assert.ok(filterRef.current != null);
+      assert.strictEqual(
+        filterRef.current(recordWithRawMessage(message, {
+          properties: { ...properties },
+        })),
+        true,
+      );
+    },
+  };
+  let now = 0;
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => now,
+    summary: { logger },
+  });
+  filterRef.current = filter;
+  const summaryRecord = recordWithRawMessage(
+    "Last log message was suppressed {suppressed} times.",
+  );
+  const record = recordWithRawMessage("Database failed");
+
+  assert.strictEqual(filter(summaryRecord), true);
+  assert.strictEqual(filter(summaryRecord), false);
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+
+  now = 100;
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(summaryCalls, 1);
+});
+
 test("getThrottlingFilter() throttles non-summary reentrant records", () => {
   const filterRef: { current?: ReturnType<typeof getThrottlingFilter> } = {};
   const nestedRecord = recordWithRawMessage("nested", {
@@ -543,6 +582,37 @@ test("getThrottlingFilter() throttles non-summary reentrant records", () => {
 
   now = 100;
   assert.strictEqual(filter(record), true);
+});
+
+test("getThrottlingFilter() handles malformed summary record properties", () => {
+  const filterRef: { current?: ReturnType<typeof getThrottlingFilter> } = {};
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      assert.ok(filterRef.current != null);
+      assert.strictEqual(
+        filterRef.current({
+          ...recordWithRawMessage(message, { properties }),
+          properties: null as unknown as Record<string, unknown>,
+        }),
+        true,
+      );
+    },
+  };
+  let now = 0;
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    clock: () => now,
+    summary: { logger },
+  });
+  filterRef.current = filter;
+  const record = recordWithRawMessage("Database failed");
+
+  assert.strictEqual(filter(record), true);
+  assert.strictEqual(filter(record), false);
+
+  now = 100;
+  assert.doesNotThrow(() => filter(record));
 });
 
 function recordWithLevel(level: LogLevel): LogRecord {
