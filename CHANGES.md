@@ -8,6 +8,19 @@ Version 2.0.10
 
 To be released.
 
+### @logtape/otel
+
+ -  Fixed a build error that occurred when bundling `@logtape/otel` for browser
+    environments (e.g., Nuxt, Vite, Webpack).  Vite and Webpack statically
+    analyzed the dynamic imports of Node.js-only OTLP exporter packages and
+    failed because `@opentelemetry/otlp-exporter-base` references Node.js
+    built-ins (`stream`, `zlib`).  Added `/* @vite-ignore */` and
+    `/* webpackIgnore: true */` magic comments to the dynamic imports so those
+    bundlers skip static analysis of packages that are only used in server-side
+    auto-exporter creation.  [[#166]]
+
+[#166]: https://github.com/dahlia/logtape/issues/166
+
 
 Version 2.0.9
 -------------

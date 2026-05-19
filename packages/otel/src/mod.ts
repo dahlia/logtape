@@ -139,12 +139,16 @@ async function createOtlpExporter(
   switch (protocol) {
     case "grpc": {
       const { OTLPLogExporter } = await import(
+        /* @vite-ignore */
+        /* webpackIgnore: true */
         "@opentelemetry/exporter-logs-otlp-grpc"
       );
       return new OTLPLogExporter(config);
     }
     case "http/protobuf": {
       const { OTLPLogExporter } = await import(
+        /* @vite-ignore */
+        /* webpackIgnore: true */
         "@opentelemetry/exporter-logs-otlp-proto"
       );
       return new OTLPLogExporter(config);
@@ -152,6 +156,8 @@ async function createOtlpExporter(
     case "http/json":
     default: {
       const { OTLPLogExporter } = await import(
+        /* @vite-ignore */
+        /* webpackIgnore: true */
         "@opentelemetry/exporter-logs-otlp-http"
       );
       return new OTLPLogExporter(config);
