@@ -124,6 +124,15 @@ function detectOtlpProtocol(): OtlpProtocol {
   return "http/json";
 }
 
+// Indirect import wrapper prevents bundlers from statically analyzing the
+// specifier and including Node.js-only packages in browser bundles.
+// - Vite/Rollup: a variable specifier defeats static analysis; /* @vite-ignore
+//   */ suppresses the resulting "cannot be analyzed" warning.
+// - Webpack: /* webpackIgnore: true */ disables bundling of this import.
+// deno-lint-ignore no-explicit-any
+const _importModule = (specifier: string): Promise<any> =>
+  import(/* @vite-ignore */ /* webpackIgnore: true */ specifier);
+
 /**
  * Creates an OTLP log exporter based on the detected protocol.
  * Uses dynamic imports to maintain browser compatibility when gRPC is not used.
@@ -138,27 +147,21 @@ async function createOtlpExporter(
 
   switch (protocol) {
     case "grpc": {
-      const { OTLPLogExporter } = await import(
-        /* @vite-ignore */
-        /* webpackIgnore: true */
-        "@opentelemetry/exporter-logs-otlp-grpc"
+      const { OTLPLogExporter } = await _importModule(
+        "@opentelemetry/exporter-logs-otlp-grpc",
       );
       return new OTLPLogExporter(config);
     }
     case "http/protobuf": {
-      const { OTLPLogExporter } = await import(
-        /* @vite-ignore */
-        /* webpackIgnore: true */
-        "@opentelemetry/exporter-logs-otlp-proto"
+      const { OTLPLogExporter } = await _importModule(
+        "@opentelemetry/exporter-logs-otlp-proto",
       );
       return new OTLPLogExporter(config);
     }
     case "http/json":
     default: {
-      const { OTLPLogExporter } = await import(
-        /* @vite-ignore */
-        /* webpackIgnore: true */
-        "@opentelemetry/exporter-logs-otlp-http"
+      const { OTLPLogExporter } = await _importModule(
+        "@opentelemetry/exporter-logs-otlp-http",
       );
       return new OTLPLogExporter(config);
     }
