@@ -1,6 +1,6 @@
 {
   "name": "@logtape/logtape",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Unobtrusive logging library with zero dependencies—library-first design for Deno/Node.js/Bun/browsers/edge",
   "keywords": [
     "logging",
