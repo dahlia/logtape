@@ -8,6 +8,19 @@ Version 2.1.1
 
 To be released.
 
+### @logtape/otel
+
+ -  Fixed a build error that occurred when bundling `@logtape/otel` for browser
+    environments (e.g., Nuxt, Vite, Webpack).  Bundlers statically analyzed
+    the dynamic imports of Node.js-only OTLP exporter packages and failed
+    because `@opentelemetry/otlp-exporter-base` references Node.js built-ins
+    (`stream`, `zlib`).  The dynamic imports are now routed through an
+    indirect wrapper function so bundlers cannot statically resolve the
+    specifiers and will not attempt to bundle Node.js-only packages for the
+    browser.  [[#166]]
+
+[#166]: https://github.com/dahlia/logtape/issues/166
+
 
 Version 2.1.0
 -------------
@@ -128,6 +141,23 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.10
+--------------
+
+Released on May 20, 2026.
+
+### @logtape/otel
+
+ -  Fixed a build error that occurred when bundling `@logtape/otel` for browser
+    environments (e.g., Nuxt, Vite, Webpack).  Bundlers statically analyzed
+    the dynamic imports of Node.js-only OTLP exporter packages and failed
+    because `@opentelemetry/otlp-exporter-base` references Node.js built-ins
+    (`stream`, `zlib`).  The dynamic imports are now routed through an
+    indirect wrapper function so bundlers cannot statically resolve the
+    specifiers and will not attempt to bundle Node.js-only packages for the
+    browser.  [[#166]]
 
 
 Version 2.0.9
