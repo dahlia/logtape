@@ -12,13 +12,6 @@ import type {
 } from "@sentry/core";
 // Import namespace to safely check for public logger API (added in v9.41.0)
 import * as SentryCore from "@sentry/core";
-import {
-  captureException as globalCaptureException,
-  captureMessage as globalCaptureMessage,
-  getActiveSpan as globalGetActiveSpan,
-  getClient as globalGetClient,
-  getIsolationScope as globalGetIsolationScope,
-} from "@sentry/core";
 
 /**
  * Converts a LogTape {@link LogRecord} into a Sentry {@link ParameterizedString}.
@@ -122,10 +115,109 @@ export interface SentryInstance {
 }
 
 /**
+ * A Sentry SDK namespace object.
+ *
+ * Pass the namespace imported by your application when *@logtape/sentry* should
+ * use the same Sentry module instance that initialized your app, for example
+ * `import * as Sentry from "@sentry/node"`.
+ *
+ * @since 2.2.0
+ */
+export interface SentryNamespace {
+  /**
+   * Captures a message event and sends it to Sentry.
+   */
+  captureMessage(
+    message: ParameterizedString,
+    captureContext?: SeverityLevel | unknown,
+  ): string;
+
+  /**
+   * Captures an exception event and sends it to Sentry.
+   */
+  captureException(exception: unknown, hint?: unknown): string;
+
+  /**
+   * Gets the currently active span, if any.
+   */
+  getActiveSpan():
+    | {
+      spanContext: () => {
+        traceId: string;
+        spanId: string;
+        parentSpanId?: string;
+      };
+    }
+    | undefined;
+
+  /**
+   * Gets the currently active Sentry client, if any.
+   */
+  getClient():
+    | {
+      getOptions: () => {
+        enableLogs?: boolean;
+        _experiments?: {
+          enableLogs?: boolean;
+        };
+      };
+    }
+    | undefined;
+
+  /**
+   * Gets the current isolation scope.
+   */
+  getIsolationScope():
+    | {
+      addBreadcrumb: (breadcrumb: {
+        category: string;
+        level: SeverityLevel;
+        message: string;
+        timestamp: number;
+        data: Record<string, unknown>;
+      }) => void;
+    }
+    | undefined;
+
+  /**
+   * Sentry's structured logging API, available in Sentry SDK 9.41.0+.
+   */
+  logger?: Partial<
+    Record<
+      LogSeverityLevel,
+      (
+        message: ParameterizedString,
+        attributes: Record<string, unknown>,
+      ) => void
+    >
+  >;
+}
+
+/**
  * Options for configuring the Sentry sink.
  * @since 1.3.0
  */
 export interface SentrySinkOptions {
+  /**
+   * Sentry SDK namespace to use for capture, scope, span, and structured log
+   * APIs.
+   *
+   * This is useful when your application initializes Sentry through a framework
+   * SDK such as `@sentry/nextjs` or `@sentry/react-native`, and
+   * *@logtape/sentry* resolves a different `@sentry/core` module instance.
+   *
+   * @example
+   * ```typescript
+   * import * as Sentry from "@sentry/node";
+   *
+   * getSentrySink({ sentry: Sentry });
+   * ```
+   *
+   * @default `@sentry/core`
+   * @since 2.2.0
+   */
+  sentry?: SentryNamespace;
+
   /**
    * Enable automatic breadcrumb creation for log events.
    *
@@ -150,13 +242,15 @@ export interface SentrySinkOptions {
 /**
  * Gets a LogTape sink that sends logs to Sentry.
  *
- * This sink uses Sentry's global capture functions from `@sentry/core`,
- * following Sentry v8+ best practices. Simply call `Sentry.init()` before
- * creating the sink, and it will automatically use your initialized client.
+ * This sink uses Sentry's global capture functions from `@sentry/core` by
+ * default, following Sentry v8+ best practices. Simply call `Sentry.init()`
+ * before creating the sink, and it will automatically use your initialized
+ * client when both packages resolve the same Sentry module instance.
  *
  * @param optionsOrClient Optional configuration. Can be:
  *   - Omitted: Uses global Sentry functions (recommended)
  *   - Object with options: Configure sink behavior
+ *   - Object with `sentry`: Use an application-provided Sentry SDK namespace
  *   - Sentry client instance: Backward compatibility (deprecated)
  * @returns A LogTape sink that sends logs to Sentry.
  *
@@ -171,6 +265,24 @@ export interface SentrySinkOptions {
  * await configure({
  *   sinks: {
  *     sentry: getSentrySink(),  // That's it!
+ *   },
+ *   loggers: [
+ *     { category: [], sinks: ["sentry"], lowestLevel: "error" },
+ *   ],
+ * });
+ * ```
+ *
+ * @example With an application-provided Sentry namespace
+ * ```typescript
+ * import { configure } from "@logtape/logtape";
+ * import { getSentrySink } from "@logtape/sentry";
+ * import * as Sentry from "@sentry/nextjs";
+ *
+ * Sentry.init({ dsn: process.env.SENTRY_DSN });
+ *
+ * await configure({
+ *   sinks: {
+ *     sentry: getSentrySink({ sentry: Sentry }),
  *   },
  *   loggers: [
  *     { category: [], sinks: ["sentry"], lowestLevel: "error" },
@@ -219,7 +331,7 @@ export interface SentrySinkOptions {
 export function getSentrySink(
   optionsOrClient?: SentrySinkOptions | SentryInstance,
 ): Sink {
-  let sentry: SentryInstance | undefined;
+  let legacyClient: SentryInstance | undefined;
   let options: SentrySinkOptions = {};
 
   // Detect which API pattern is being used
@@ -233,10 +345,10 @@ export function getSentrySink(
   ) {
     // Pattern: getSentrySink(client) - DEPRECATED (v1.1.x backward compatibility)
     getLogger(["logtape", "meta", "sentry"]).warn(
-      "Passing a client directly is deprecated and will be removed in v2.0.0. " +
-        "Use getSentrySink() instead - simpler and recommended!",
+      "Passing a client directly is deprecated. " +
+        "Use getSentrySink({ sentry: Sentry }) instead.",
     );
-    sentry = optionsOrClient as SentryInstance;
+    legacyClient = optionsOrClient as SentryInstance;
   } else if (typeof optionsOrClient === "object") {
     // Pattern: getSentrySink({ options }) - options object
     options = optionsOrClient as SentrySinkOptions;
@@ -246,21 +358,26 @@ export function getSentrySink(
         "Expected one of:\n" +
         "  getSentrySink()              // Recommended\n" +
         "  getSentrySink({ options })   // With options\n" +
+        "  getSentrySink({ sentry })    // With a Sentry SDK namespace\n" +
         "  getSentrySink(client)        // Deprecated (v1.1.x compat)\n",
     );
   }
 
+  const sentry = options.sentry ?? SentryCore;
+
   // Choose which Sentry functions to use:
-  // - For capture functions: use client if provided (v1.1.x compat), otherwise globals
-  // - For scope operations: ALWAYS use globals (client doesn't have these methods)
-  const captureMessage = sentry
+  // - For capture functions: use client if provided (v1.1.x compat),
+  //   otherwise the configured SDK namespace.
+  // - For scope operations: use the configured SDK namespace because clients
+  //   don't expose current scope/span APIs.
+  const captureMessage = legacyClient
     ? (msg: ParameterizedString, ctx?: unknown) =>
-      sentry.captureMessage(String(msg), ctx)
-    : globalCaptureMessage;
-  const captureException = sentry
+      legacyClient.captureMessage(String(msg), ctx)
+    : sentry.captureMessage;
+  const captureException = legacyClient
     ? (exception: unknown, hint?: unknown) =>
-      sentry.captureException(exception, hint)
-    : globalCaptureException;
+      legacyClient.captureException(exception, hint)
+    : sentry.captureException;
 
   return (record: LogRecord) => {
     try {
@@ -295,7 +412,7 @@ export function getSentrySink(
       } as Record<string, unknown>;
 
       // After enriched attributes
-      const activeSpan = globalGetActiveSpan();
+      const activeSpan = sentry.getActiveSpan();
       if (activeSpan) {
         const spanCtx = activeSpan.spanContext();
         attributes.trace_id = spanCtx.traceId;
@@ -307,20 +424,15 @@ export function getSentrySink(
 
       // Send structured log if Sentry logging is enabled (v9.41.0+)
       // Uses public logger API when available (SDK 9.41.0+)
-      const client = globalGetClient();
+      const client = sentry.getClient();
       if (client) {
         const { enableLogs, _experiments } = client.getOptions();
         const loggingEnabled = enableLogs ?? _experiments?.enableLogs;
 
-        if (loggingEnabled && "logger" in SentryCore) {
+        const sentryLogger = sentry.logger as SentryNamespace["logger"];
+        if (loggingEnabled && sentryLogger != null) {
           const logLevel = mapLevelForLogs(transformed.level);
-          const sentryLogger = SentryCore.logger as unknown as
-            | Record<
-              string,
-              ((msg: ParameterizedString, attrs: unknown) => void)
-            >
-            | undefined;
-          const logFn = sentryLogger?.[logLevel];
+          const logFn = sentryLogger[logLevel];
           if (typeof logFn === "function") {
             logFn(paramMessage, attributes);
           }
@@ -346,7 +458,7 @@ export function getSentrySink(
         });
       } else if (options.enableBreadcrumbs) {
         // Non-error levels -> breadcrumbs only (if enabled)
-        const isolationScope = globalGetIsolationScope();
+        const isolationScope = sentry.getIsolationScope();
         isolationScope?.addBreadcrumb({
           category: transformed.category.join("."),
           level: eventLevel,

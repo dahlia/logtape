@@ -8,6 +8,16 @@ Version 2.2.0
 
 To be released.
 
+### @logtape/sentry
+
+ -  Added `SentrySinkOptions.sentry` option for passing the Sentry SDK
+    namespace initialized by the application.  This lets the sink use the same
+    Sentry module instance for captures, active spans, isolation scopes, and
+    structured logs in apps where *@logtape/sentry* may otherwise resolve a
+    different `@sentry/core` version.  [[#167]]
+
+[#167]: https://github.com/dahlia/logtape/issues/167
+
 
 Version 2.1.1
 -------------

@@ -58,6 +58,39 @@ await configure({
 By default, only `error` and `fatal` level logs are captured as Sentry events.
 
 
+Using your Sentry SDK namespace
+-------------------------------
+
+*This feature is available since LogTape 2.2.0.*
+
+If your application initializes Sentry through a framework SDK such as
+`@sentry/nextjs` or `@sentry/react-native`, pass the same namespace object to
+`getSentrySink()`:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/nextjs";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({ sentry: Sentry }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+This ensures LogTape uses the same Sentry module instance for captures, active
+spans, isolation scopes, and structured logs. It is useful in monorepos or
+multi-platform apps where package resolution can install multiple
+`@sentry/core` versions.
+
+
 Trace correlation
 -----------------
 

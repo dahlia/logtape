@@ -47,6 +47,19 @@ deno add npm:@sentry/deno npm:@sentry/core
 bun add @sentry/bun
 ~~~~
 
+If your application initializes Sentry through a framework SDK such as
+`@sentry/nextjs` or `@sentry/react-native`, pass the same namespace object to
+the sink:
+
+~~~~ typescript
+import * as Sentry from "@sentry/nextjs";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+getSentrySink({ sentry: Sentry });
+~~~~
+
 
 Docs
 ----

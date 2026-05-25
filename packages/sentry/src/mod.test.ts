@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
-import { getSentrySink } from "./mod.ts";
+import { getSentrySink, type SentryNamespace } from "./mod.ts";
 
 // Helper to create a mock log record
 function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
@@ -12,6 +12,19 @@ function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
     rawMessage: "Hello, {name}!",
     timestamp: Date.now(),
     properties: {},
+    ...overrides,
+  };
+}
+
+function createMockSentryNamespace(
+  overrides: Partial<SentryNamespace> = {},
+): SentryNamespace {
+  return {
+    captureMessage: () => "message-id",
+    captureException: () => "exception-id",
+    getActiveSpan: () => undefined,
+    getClient: () => undefined,
+    getIsolationScope: () => undefined,
     ...overrides,
   };
 }
@@ -32,6 +45,11 @@ test("getSentrySink() accepts deprecated client parameter", () => {
     captureException: () => "id",
   };
   const sink = getSentrySink(mockClient);
+  assert.strictEqual(typeof sink, "function");
+});
+
+test("getSentrySink() accepts Sentry SDK namespace option", () => {
+  const sink = getSentrySink({ sentry: createMockSentryNamespace() });
   assert.strictEqual(typeof sink, "function");
 });
 
@@ -203,6 +221,95 @@ test("sink accepts enableBreadcrumbs option", () => {
   // Should not throw
   sink(createMockLogRecord({ level: "info" }));
   sink(createMockLogRecord({ level: "debug" }));
+});
+
+test("sink uses configured Sentry namespace for error messages", () => {
+  const capturedMessages: string[] = [];
+  const sentry = createMockSentryNamespace({
+    captureMessage: (message) => {
+      capturedMessages.push(message.toString());
+      return "message-id";
+    },
+  });
+  const sink = getSentrySink({ sentry });
+
+  sink(createMockLogRecord({
+    level: "error",
+    message: ["Error from ", "namespace"],
+  }));
+
+  assert.deepStrictEqual(capturedMessages, ['Error from "namespace"']);
+});
+
+test("sink uses configured Sentry namespace for exceptions", () => {
+  const capturedExceptions: unknown[] = [];
+  const error = new Error("Test");
+  const sentry = createMockSentryNamespace({
+    captureException: (exception) => {
+      capturedExceptions.push(exception);
+      return "exception-id";
+    },
+  });
+  const sink = getSentrySink({ sentry });
+
+  sink(createMockLogRecord({
+    level: "error",
+    properties: { error },
+  }));
+
+  assert.deepStrictEqual(capturedExceptions, [error]);
+});
+
+test("sink uses configured Sentry namespace for spans and structured logs", () => {
+  const logs: Record<string, unknown>[] = [];
+  const sentry = createMockSentryNamespace({
+    getActiveSpan: () => ({
+      spanContext: () => ({
+        traceId: "trace-id",
+        spanId: "span-id",
+        parentSpanId: "parent-span-id",
+      }),
+    }),
+    getClient: () => ({
+      getOptions: () => ({ enableLogs: true }),
+    }),
+    logger: {
+      info: (_message, attributes) => logs.push(attributes),
+    },
+  });
+  const sink = getSentrySink({ sentry });
+
+  sink(createMockLogRecord({ level: "info" }));
+
+  assert.strictEqual(logs.length, 1);
+  assert.strictEqual(logs[0].trace_id, "trace-id");
+  assert.strictEqual(logs[0].span_id, "span-id");
+  assert.strictEqual(logs[0].parent_span_id, "parent-span-id");
+});
+
+test("sink uses configured Sentry namespace for breadcrumbs", () => {
+  const breadcrumbs: unknown[] = [];
+  const sentry = createMockSentryNamespace({
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb),
+    }),
+  });
+  const sink = getSentrySink({ sentry, enableBreadcrumbs: true });
+
+  sink(createMockLogRecord({ level: "info", timestamp: 1000 }));
+
+  assert.strictEqual(breadcrumbs.length, 1);
+  assert.deepStrictEqual(breadcrumbs[0], {
+    category: "test.category",
+    level: "info",
+    message: 'Hello, "world"!',
+    timestamp: 1,
+    data: {
+      "sentry.origin": "auto.logging.logtape",
+      category: "test.category",
+      timestamp: 1000,
+    },
+  });
 });
 
 // =============================================================================
