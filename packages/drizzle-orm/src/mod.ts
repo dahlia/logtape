@@ -93,7 +93,9 @@ export class DrizzleLogger implements Logger {
    * @param params The parameter values.
    */
   logQuery(query: string, params: unknown[]): void {
-    const stringifiedParams = params.map(serialize);
+    const stringifiedParams = params.map((param) =>
+      serialize(param, this.#dialect)
+    );
     let formattedQuery: string;
     switch (this.#dialect) {
       case "pg": {
@@ -129,47 +131,82 @@ export class DrizzleLogger implements Logger {
  * Serializes a parameter value to a SQL-safe string representation.
  *
  * @param value The value to serialize.
+ * @param dialect The SQL dialect to format for. Defaults to PostgreSQL.
  * @returns The serialized string representation.
  * @since 1.3.0
  */
-export function serialize(value: unknown): string {
+export function serialize(
+  value: unknown,
+  dialect: DrizzleDialects = "pg",
+): string {
   if (typeof value === "undefined" || value === null) return "NULL";
-  if (typeof value === "string") return stringLiteral(value);
+  if (typeof value === "string") return stringLiteral(value, dialect);
   if (typeof value === "number" || typeof value === "bigint") {
     return value.toString();
   }
-  if (typeof value === "boolean") return value ? "'t'" : "'f'";
-  if (value instanceof Date) return stringLiteral(value.toISOString());
+  if (typeof value === "boolean") {
+    switch (dialect) {
+      case "sqlite":
+        return value ? "1" : "0";
+      case "pg":
+        return value ? "'t'" : "'f'";
+      default:
+        throw new Error(`${dialect satisfies never} is not supported`);
+    }
+  }
+  if (value instanceof Date) {
+    return stringLiteral(value.toISOString(), dialect);
+  }
   if (Array.isArray(value)) {
-    return `ARRAY[${value.map(serialize).join(", ")}]`;
+    switch (dialect) {
+      case "sqlite":
+        return stringLiteral(JSON.stringify(value), dialect);
+      case "pg":
+        return `ARRAY[${
+          value.map((item) => serialize(item, dialect)).join(", ")
+        }]`;
+      default:
+        throw new Error(`${dialect satisfies never} is not supported`);
+    }
   }
   if (typeof value === "object") {
-    // Assume it's a JSON object
-    return stringLiteral(JSON.stringify(value));
+    return stringLiteral(JSON.stringify(value), dialect);
   }
-  return stringLiteral(String(value));
+  return stringLiteral(String(value), dialect);
 }
 
 /**
  * Converts a string to a SQL string literal with proper escaping.
  *
  * @param str The string to convert.
+ * @param dialect The SQL dialect to format for. Defaults to PostgreSQL.
  * @returns The escaped SQL string literal.
  * @since 1.3.0
  */
-export function stringLiteral(str: string): string {
-  if (/[\\'\n\r\t\b\f]/.test(str)) {
-    let escaped = str;
-    escaped = escaped.replaceAll("\\", "\\\\");
-    escaped = escaped.replaceAll("'", "\\'");
-    escaped = escaped.replaceAll("\n", "\\n");
-    escaped = escaped.replaceAll("\r", "\\r");
-    escaped = escaped.replaceAll("\t", "\\t");
-    escaped = escaped.replaceAll("\b", "\\b");
-    escaped = escaped.replaceAll("\f", "\\f");
-    return `E'${escaped}'`;
+export function stringLiteral(
+  str: string,
+  dialect: DrizzleDialects = "pg",
+): string {
+  switch (dialect) {
+    case "sqlite":
+      return `'${str.replaceAll("'", "''")}'`;
+    case "pg": {
+      if (/[\\'\n\r\t\b\f]/.test(str)) {
+        let escaped = str;
+        escaped = escaped.replaceAll("\\", "\\\\");
+        escaped = escaped.replaceAll("'", "\\'");
+        escaped = escaped.replaceAll("\n", "\\n");
+        escaped = escaped.replaceAll("\r", "\\r");
+        escaped = escaped.replaceAll("\t", "\\t");
+        escaped = escaped.replaceAll("\b", "\\b");
+        escaped = escaped.replaceAll("\f", "\\f");
+        return `E'${escaped}'`;
+      }
+      return `'${str}'`;
+    }
+    default:
+      throw new Error(`${dialect satisfies never} is not supported`);
   }
-  return `'${str}'`;
 }
 
 /**

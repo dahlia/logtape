@@ -323,8 +323,62 @@ test("logQuery({ dialect: 'sqlite' }): log message contains formatted query", as
   }
 });
 
+test("logQuery({ dialect: 'sqlite' }): handles boolean parameters", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery(
+      "SELECT * FROM users WHERE active = ? AND verified = ?",
+      [true, false],
+    );
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users WHERE active = 1 AND verified = 0",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("logQuery({ dialect: 'sqlite' }): handles array parameter as JSON", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery(
+      "SELECT * FROM users WHERE ids = ?",
+      [[1, 2, 3]],
+    );
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users WHERE ids = '[1,2,3]'",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("logQuery({ dialect: 'sqlite' }): escapes single quotes in strings", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery("SELECT * FROM users WHERE name = ?", ["O'Brien"]);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users WHERE name = 'O''Brien'",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 // ============================================
-// Parameter Serialization Tests
+// Parameter Serialization Tests (pg)
 // ============================================
 
 test("serialize(): handles null", () => {
@@ -391,7 +445,72 @@ test("serialize(): handles mixed arrays", () => {
 });
 
 // ============================================
-// String Literal Tests
+// Parameter Serialization Tests (sqlite)
+// ============================================
+
+test("serialize({ dialect: 'sqlite' }): handles null", () => {
+  assert.strictEqual(serialize(null, "sqlite"), "NULL");
+});
+
+test("serialize({ dialect: 'sqlite' }): handles strings", () => {
+  assert.strictEqual(serialize("hello", "sqlite"), "'hello'");
+});
+
+test("serialize({ dialect: 'sqlite' }): doubles single quotes", () => {
+  assert.strictEqual(serialize("it's", "sqlite"), "'it''s'");
+  assert.strictEqual(serialize("O'Brien", "sqlite"), "'O''Brien'");
+});
+
+test("serialize({ dialect: 'sqlite' }): leaves backslashes literal", () => {
+  assert.strictEqual(serialize("back\\slash", "sqlite"), "'back\\slash'");
+});
+
+test("serialize({ dialect: 'sqlite' }): leaves control characters literal", () => {
+  assert.strictEqual(serialize("hello\nworld", "sqlite"), "'hello\nworld'");
+  assert.strictEqual(serialize("tab\there", "sqlite"), "'tab\there'");
+});
+
+test("serialize({ dialect: 'sqlite' }): handles booleans as integers", () => {
+  assert.strictEqual(serialize(true, "sqlite"), "1");
+  assert.strictEqual(serialize(false, "sqlite"), "0");
+});
+
+test("serialize({ dialect: 'sqlite' }): handles arrays as JSON", () => {
+  assert.strictEqual(serialize([1, 2, 3], "sqlite"), "'[1,2,3]'");
+  assert.strictEqual(serialize(["a", "b"], "sqlite"), `'["a","b"]'`);
+  assert.strictEqual(serialize([], "sqlite"), "'[]'");
+});
+
+test("serialize({ dialect: 'sqlite' }): handles nested arrays as JSON", () => {
+  assert.strictEqual(
+    serialize([[1, 2], [3, 4]], "sqlite"),
+    "'[[1,2],[3,4]]'",
+  );
+});
+
+test("serialize({ dialect: 'sqlite' }): handles objects as JSON", () => {
+  assert.strictEqual(
+    serialize({ key: "value" }, "sqlite"),
+    '\'{"key":"value"}\'',
+  );
+});
+
+test("serialize({ dialect: 'sqlite' }): handles mixed arrays as JSON", () => {
+  assert.strictEqual(
+    serialize([1, "two", true], "sqlite"),
+    `'[1,"two",true]'`,
+  );
+});
+
+test("serialize({ dialect: 'sqlite' }): handles array with null", () => {
+  assert.strictEqual(
+    serialize([1, null, undefined, 2], "sqlite"),
+    "'[1,null,null,2]'",
+  );
+});
+
+// ============================================
+// String Literal Tests (pg)
 // ============================================
 
 test("stringLiteral(): wraps simple strings", () => {
@@ -429,6 +548,26 @@ test("stringLiteral(): escapes multiple special characters", () => {
 
 test("stringLiteral(): handles empty string", () => {
   assert.strictEqual(stringLiteral(""), "''");
+});
+
+// ============================================
+// String Literal Tests (sqlite)
+// ============================================
+
+test("stringLiteral({ dialect: 'sqlite' }): wraps simple strings", () => {
+  assert.strictEqual(stringLiteral("hello", "sqlite"), "'hello'");
+});
+
+test("stringLiteral({ dialect: 'sqlite' }): doubles single quotes", () => {
+  assert.strictEqual(stringLiteral("it's", "sqlite"), "'it''s'");
+});
+
+test("stringLiteral({ dialect: 'sqlite' }): leaves backslashes literal", () => {
+  assert.strictEqual(stringLiteral("back\\slash", "sqlite"), "'back\\slash'");
+});
+
+test("stringLiteral({ dialect: 'sqlite' }): leaves newlines literal", () => {
+  assert.strictEqual(stringLiteral("line1\nline2", "sqlite"), "'line1\nline2'");
 });
 
 // ============================================
