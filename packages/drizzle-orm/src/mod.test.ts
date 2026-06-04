@@ -144,7 +144,7 @@ test("getLogger(): supports all log levels", async () => {
 });
 
 // ============================================
-// Query Logging Tests
+// Query Logging Tests (pg)
 // ============================================
 
 test("logQuery(): logs query with structured data", async () => {
@@ -224,6 +224,96 @@ test("logQuery(): log message contains formatted query", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
+    logger.logQuery("SELECT 1", []);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "Query: {formattedQuery}");
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Query Logging Tests (sqlite)
+// ============================================
+
+test("logQuery({ dialect: 'sqlite' }): logs query with structured data", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery("SELECT * FROM users WHERE id = ?", ["123"]);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.query,
+      "SELECT * FROM users WHERE id = ?",
+    );
+    assert.deepStrictEqual(logs[0].properties.params, ["123"]);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users WHERE id = '123'",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("logQuery({ dialect: 'sqlite' }): formats query with multiple parameters", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery(
+      "SELECT * FROM users WHERE name = ? AND age > ?",
+      ["Alice", 25],
+    );
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users WHERE name = 'Alice' AND age > 25",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("logQuery({ dialect: 'sqlite' }): handles empty parameters", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery("SELECT * FROM users", []);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users",
+    );
+    assert.deepStrictEqual(logs[0].properties.params, []);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("logQuery({ dialect: 'sqlite' }): handles unmatched placeholders", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
+    logger.logQuery("SELECT * FROM users WHERE id = ? AND name = ?", ["123"]);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].properties.formattedQuery,
+      "SELECT * FROM users WHERE id = '123' AND name = ?",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("logQuery({ dialect: 'sqlite' }): log message contains formatted query", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogger({ dialect: "sqlite" });
     logger.logQuery("SELECT 1", []);
 
     assert.strictEqual(logs.length, 1);

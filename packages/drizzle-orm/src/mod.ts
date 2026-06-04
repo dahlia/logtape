@@ -7,6 +7,11 @@ import {
 export type { LogLevel } from "@logtape/logtape";
 
 /**
+ * Supported Drizzle Dialects
+ */
+export type DrizzleDialects = "pg" | "sqlite";
+
+/**
  * Options for configuring the Drizzle ORM LogTape logger.
  * @since 1.3.0
  */
@@ -22,6 +27,12 @@ export interface DrizzleLoggerOptions {
    * @default "debug"
    */
   readonly level?: LogLevel;
+
+  /**
+   * The dialect used in drizzle-orm
+   * @default "pg"
+   */
+  readonly dialect?: DrizzleDialects;
 }
 
 /**
@@ -52,15 +63,21 @@ export interface Logger {
 export class DrizzleLogger implements Logger {
   readonly #logger: LogTapeLogger;
   readonly #level: LogLevel;
+  readonly #dialect: DrizzleDialects;
 
   /**
    * Creates a new DrizzleLogger instance.
    * @param logger The LogTape logger to use.
    * @param level The log level to use for query logging.
    */
-  constructor(logger: LogTapeLogger, level: LogLevel = "debug") {
+  constructor(
+    logger: LogTapeLogger,
+    level: LogLevel = "debug",
+    dialect: DrizzleDialects = "pg",
+  ) {
     this.#logger = logger;
     this.#level = level;
+    this.#dialect = dialect;
   }
 
   /**
@@ -77,10 +94,27 @@ export class DrizzleLogger implements Logger {
    */
   logQuery(query: string, params: unknown[]): void {
     const stringifiedParams = params.map(serialize);
-    const formattedQuery = query.replace(/\$(\d+)/g, (match) => {
-      const index = Number.parseInt(match.slice(1), 10);
-      return stringifiedParams[index - 1] ?? match;
-    });
+    let formattedQuery: string;
+    switch (this.#dialect) {
+      case "pg": {
+        formattedQuery = query.replace(/\$(\d+)/g, (match) => {
+          const index = Number.parseInt(match.slice(1), 10);
+          return stringifiedParams[index - 1] ?? match;
+        });
+        break;
+      }
+      case "sqlite": {
+        let index = -1;
+        formattedQuery = query.replace(/\?/g, (match) => {
+          index += 1;
+          return stringifiedParams[index] ?? match;
+        });
+        break;
+      }
+      default: {
+        throw new Error(`${this.#dialect satisfies never} is not supported`);
+      }
+    }
 
     const logMethod = this.#logger[this.#level].bind(this.#logger);
     logMethod("Query: {formattedQuery}", {
@@ -184,5 +218,9 @@ function normalizeCategory(
 export function getLogger(options: DrizzleLoggerOptions = {}): DrizzleLogger {
   const category = normalizeCategory(options.category ?? ["drizzle-orm"]);
   const logger = getLogTapeLogger(category);
-  return new DrizzleLogger(logger, options.level ?? "debug");
+  return new DrizzleLogger(
+    logger,
+    options.level ?? "debug",
+    options.dialect ?? "pg",
+  );
 }
