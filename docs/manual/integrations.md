@@ -87,6 +87,18 @@ const logger = getLogger({
 });
 ~~~~
 
+### Dialects
+
+By default, the PostgreSQL dialect (`"pg"`) is used. You can change this:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/drizzle-orm";
+// ---cut-before---
+const logger = getLogger({
+  dialect: "sqlite",  // "pg" | "sqlite"
+});
+~~~~
+
 ### Structured logging output
 
 The adapter logs queries with structured data that includes:

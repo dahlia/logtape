@@ -7,6 +7,11 @@ import {
 export type { LogLevel } from "@logtape/logtape";
 
 /**
+ * Supported Drizzle Dialects
+ */
+export type DrizzleDialects = "pg" | "sqlite";
+
+/**
  * Options for configuring the Drizzle ORM LogTape logger.
  * @since 1.3.0
  */
@@ -22,6 +27,12 @@ export interface DrizzleLoggerOptions {
    * @default "debug"
    */
   readonly level?: LogLevel;
+
+  /**
+   * The dialect used for drizzle-orm
+   * @default "pg"
+   */
+  readonly dialect?: DrizzleDialects;
 }
 
 /**
@@ -52,15 +63,22 @@ export interface Logger {
 export class DrizzleLogger implements Logger {
   readonly #logger: LogTapeLogger;
   readonly #level: LogLevel;
+  readonly #dialect: DrizzleDialects;
 
   /**
    * Creates a new DrizzleLogger instance.
    * @param logger The LogTape logger to use.
    * @param level The log level to use for query logging.
+   * @param dialect The dialect used for drizzle-orm
    */
-  constructor(logger: LogTapeLogger, level: LogLevel = "debug") {
+  constructor(
+    logger: LogTapeLogger,
+    level: LogLevel = "debug",
+    dialect: DrizzleDialects = "pg",
+  ) {
     this.#logger = logger;
     this.#level = level;
+    this.#dialect = dialect;
   }
 
   /**
@@ -76,11 +94,30 @@ export class DrizzleLogger implements Logger {
    * @param params The parameter values.
    */
   logQuery(query: string, params: unknown[]): void {
-    const stringifiedParams = params.map(serialize);
-    const formattedQuery = query.replace(/\$(\d+)/g, (match) => {
-      const index = Number.parseInt(match.slice(1), 10);
-      return stringifiedParams[index - 1] ?? match;
-    });
+    const stringifiedParams = params.map((param) =>
+      serialize(param, this.#dialect)
+    );
+    let formattedQuery: string;
+    switch (this.#dialect) {
+      case "pg": {
+        formattedQuery = query.replace(/\$(\d+)/g, (match) => {
+          const index = Number.parseInt(match.slice(1), 10);
+          return stringifiedParams[index - 1] ?? match;
+        });
+        break;
+      }
+      case "sqlite": {
+        let index = -1;
+        formattedQuery = query.replace(/\?/g, (match) => {
+          index += 1;
+          return stringifiedParams[index] ?? match;
+        });
+        break;
+      }
+      default: {
+        throw new Error(`${this.#dialect satisfies never} is not supported`);
+      }
+    }
 
     const logMethod = this.#logger[this.#level].bind(this.#logger);
     logMethod("Query: {formattedQuery}", {
@@ -95,47 +132,82 @@ export class DrizzleLogger implements Logger {
  * Serializes a parameter value to a SQL-safe string representation.
  *
  * @param value The value to serialize.
+ * @param dialect The SQL dialect to format for. Defaults to PostgreSQL.
  * @returns The serialized string representation.
  * @since 1.3.0
  */
-export function serialize(value: unknown): string {
+export function serialize(
+  value: unknown,
+  dialect: DrizzleDialects = "pg",
+): string {
   if (typeof value === "undefined" || value === null) return "NULL";
-  if (typeof value === "string") return stringLiteral(value);
+  if (typeof value === "string") return stringLiteral(value, dialect);
   if (typeof value === "number" || typeof value === "bigint") {
     return value.toString();
   }
-  if (typeof value === "boolean") return value ? "'t'" : "'f'";
-  if (value instanceof Date) return stringLiteral(value.toISOString());
+  if (typeof value === "boolean") {
+    switch (dialect) {
+      case "sqlite":
+        return value ? "1" : "0";
+      case "pg":
+        return value ? "'t'" : "'f'";
+      default:
+        throw new Error(`${dialect satisfies never} is not supported`);
+    }
+  }
+  if (value instanceof Date) {
+    return stringLiteral(value.toISOString(), dialect);
+  }
   if (Array.isArray(value)) {
-    return `ARRAY[${value.map(serialize).join(", ")}]`;
+    switch (dialect) {
+      case "sqlite":
+        return stringLiteral(JSON.stringify(value), dialect);
+      case "pg":
+        return `ARRAY[${
+          value.map((item) => serialize(item, dialect)).join(", ")
+        }]`;
+      default:
+        throw new Error(`${dialect satisfies never} is not supported`);
+    }
   }
   if (typeof value === "object") {
-    // Assume it's a JSON object
-    return stringLiteral(JSON.stringify(value));
+    return stringLiteral(JSON.stringify(value), dialect);
   }
-  return stringLiteral(String(value));
+  return stringLiteral(String(value), dialect);
 }
 
 /**
  * Converts a string to a SQL string literal with proper escaping.
  *
  * @param str The string to convert.
+ * @param dialect The SQL dialect to format for. Defaults to PostgreSQL.
  * @returns The escaped SQL string literal.
  * @since 1.3.0
  */
-export function stringLiteral(str: string): string {
-  if (/[\\'\n\r\t\b\f]/.test(str)) {
-    let escaped = str;
-    escaped = escaped.replaceAll("\\", "\\\\");
-    escaped = escaped.replaceAll("'", "\\'");
-    escaped = escaped.replaceAll("\n", "\\n");
-    escaped = escaped.replaceAll("\r", "\\r");
-    escaped = escaped.replaceAll("\t", "\\t");
-    escaped = escaped.replaceAll("\b", "\\b");
-    escaped = escaped.replaceAll("\f", "\\f");
-    return `E'${escaped}'`;
+export function stringLiteral(
+  str: string,
+  dialect: DrizzleDialects = "pg",
+): string {
+  switch (dialect) {
+    case "sqlite":
+      return `'${str.replaceAll("'", "''")}'`;
+    case "pg": {
+      if (/[\\'\n\r\t\b\f]/.test(str)) {
+        let escaped = str;
+        escaped = escaped.replaceAll("\\", "\\\\");
+        escaped = escaped.replaceAll("'", "\\'");
+        escaped = escaped.replaceAll("\n", "\\n");
+        escaped = escaped.replaceAll("\r", "\\r");
+        escaped = escaped.replaceAll("\t", "\\t");
+        escaped = escaped.replaceAll("\b", "\\b");
+        escaped = escaped.replaceAll("\f", "\\f");
+        return `E'${escaped}'`;
+      }
+      return `'${str}'`;
+    }
+    default:
+      throw new Error(`${dialect satisfies never} is not supported`);
   }
-  return `'${str}'`;
 }
 
 /**
@@ -184,5 +256,9 @@ function normalizeCategory(
 export function getLogger(options: DrizzleLoggerOptions = {}): DrizzleLogger {
   const category = normalizeCategory(options.category ?? ["drizzle-orm"]);
   const logger = getLogTapeLogger(category);
-  return new DrizzleLogger(logger, options.level ?? "debug");
+  return new DrizzleLogger(
+    logger,
+    options.level ?? "debug",
+    options.dialect ?? "pg",
+  );
 }
