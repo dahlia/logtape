@@ -87,16 +87,15 @@ const logger = getLogger({
 });
 ~~~~
 
-### Different SQL Dialects
+### Dialects
 
-By default, the Postgres Dialect is used. You can change this:
+By default, the PostgreSQL dialect (`"pg"`) is used. You can change this:
 
 ~~~~ typescript twoslash
 import { getLogger } from "@logtape/drizzle-orm";
 // ---cut-before---
 const logger = getLogger({
-  // "pg" | "sqlite"
-    dialect: "sqlite",
+  dialect: "sqlite",  // "pg" | "sqlite"
 });
 ~~~~
 
