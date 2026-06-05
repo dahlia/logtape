@@ -29,7 +29,7 @@ export interface DrizzleLoggerOptions {
   readonly level?: LogLevel;
 
   /**
-   * The dialect used in drizzle-orm
+   * The dialect used for drizzle-orm
    * @default "pg"
    */
   readonly dialect?: DrizzleDialects;
@@ -69,6 +69,7 @@ export class DrizzleLogger implements Logger {
    * Creates a new DrizzleLogger instance.
    * @param logger The LogTape logger to use.
    * @param level The log level to use for query logging.
+   * @param dialect The dialect used for drizzle-orm
    */
   constructor(
     logger: LogTapeLogger,

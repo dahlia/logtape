@@ -18,6 +18,18 @@ To be released.
 
 [#167]: https://github.com/dahlia/logtape/issues/167
 
+### @logtape/drizzle=orm
+
+ -  Added SQLite support to drizzle-orm logger [[#168], [#169] by Van-sh]
+     -  Added `type DrizzleDialects = "pg" | "sqlite"`
+     -  Added `DrizzleLoggerOptions.dialect?: DrizzleDialects` option which
+        defaults to `"pg"`
+     -  Updated `serialize`, `stringLiteral` functions and `DrizzleLogger`
+        constructor to take in a `dialect?: DrizzleDialect` parameter
+
+[#168]: https://github.com/dahlia/logtape/issues/168
+[#169]: https://github.com/dahlia/logtape/pull/169
+
 
 Version 2.1.1
 -------------

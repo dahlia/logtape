@@ -84,6 +84,21 @@ const db = drizzle(client, {
 ~~~~
 
 
+Different SQL Dialects
+----------------------
+
+By default, the Postgres Dialect is used. You can change this:
+
+~~~~ typescript
+const db = drizzle(client, {
+  logger: getLogger({
+    // "pg" | "sqlite"
+    dialect: "sqlite",
+  }),
+});
+~~~~
+
+
 Structured logging
 ------------------
 
