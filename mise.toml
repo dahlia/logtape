@@ -5,7 +5,7 @@ deno = "2"
 pnpm = "10.33.1"
 
 [tools."github:dahlia/hongdown"]
-version = "0.3.11"
+version = "0.4.3"
 
 [tools."github:dahlia/hongdown".platforms]
 linux-x64 = "hongdown-*-x86_64-unknown-linux-musl.tar.bz2"
