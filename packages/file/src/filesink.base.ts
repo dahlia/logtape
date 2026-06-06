@@ -259,7 +259,7 @@ class ByteRingBuffer {
 /**
  * Options for the {@link getBaseFileSink} function.
  */
-export type FileSinkOptions = StreamSinkOptions & {
+export interface FileSinkOptions extends StreamSinkOptions {
   /**
    * If `true`, the file is not opened until the first write.  Defaults to `false`.
    */
@@ -292,7 +292,7 @@ export type FileSinkOptions = StreamSinkOptions & {
    * @since 1.0.0
    */
   nonBlocking?: boolean;
-};
+}
 
 /**
  * A platform-specific file sink driver.
