@@ -478,7 +478,7 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
         };
         const connectPromise = Deno.connectTls(tlsConnectOptions);
         if (this.timeout > 0) {
-          let timeoutId: number;
+          let timeoutId: ReturnType<typeof setTimeout>;
           let timedOut = false;
           const timeoutPromise = new Promise<never>((_, reject) => {
             timeoutId = setTimeout(() => {

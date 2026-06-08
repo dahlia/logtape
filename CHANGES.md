@@ -14,6 +14,11 @@ To be released.
     `category: "logtape"` as a meta logger configuration even though it is
     equivalent to `category: ["logtape"]`.
 
+### @logtape/syslog
+
+ -  Fixed a type error in Deno 2.8 and TypeScript 6.0 or later caused by the
+    changed return type of `setTimeout()`.
+
 
 Version 2.0.10
 --------------
