@@ -116,11 +116,12 @@ const asyncSinkDisposables: Set<AsyncDisposable> = new Set();
 function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
   cfg: LoggerConfig<TSinkId, TFilterId>,
 ): boolean {
-  return cfg.category.length === 0 ||
-    (cfg.category.length === 1 && cfg.category[0] === "logtape") ||
-    (cfg.category.length === 2 &&
-      cfg.category[0] === "logtape" &&
-      cfg.category[1] === "meta");
+  const category = Array.isArray(cfg.category) ? cfg.category : [cfg.category];
+  return category.length === 0 ||
+    (category.length === 1 && category[0] === "logtape") ||
+    (category.length === 2 &&
+      category[0] === "logtape" &&
+      category[1] === "meta");
 }
 
 function registerDisposeHook(allowAsync: boolean): void {
