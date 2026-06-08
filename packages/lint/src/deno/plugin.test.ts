@@ -1532,3 +1532,54 @@ async function handler(items: unknown[]) {
     );
   },
 );
+
+test(
+  "deno lint: a logger declared in a namespace does not leak to the outer scope",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["app"]);
+namespace N {
+  const logger = makeOther();
+  void logger;
+}
+logger.info(\`v=\${x}\`);`,
+      ["logtape/no-message-interpolation"],
+    );
+    // The namespace-local `logger` must not leak; after it, `logger` is the
+    // outer LogTape logger, so the template literal is flagged.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
+      `Expected a violation after the namespace, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);
+
+test(
+  "deno lint: a configure declared in a namespace does not leak to the outer scope",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { configure } from "@logtape/logtape";
+namespace N {
+  const configure = (_cfg: unknown) => {};
+  void configure;
+}
+configure({ loggers: [] });`,
+      ["logtape/require-meta-sink"],
+    );
+    // The namespace-local `configure` must not leak; the outer call resolves to
+    // the import and is flagged for a missing meta sink.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
+      `Expected a violation after the namespace, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);

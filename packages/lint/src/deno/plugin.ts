@@ -354,6 +354,12 @@ function makeLoggerScope(): {
       "Program:exit": popScope,
       BlockStatement: handleBlockEnter,
       "BlockStatement:exit": popScope,
+      // A TypeScript namespace body (TSModuleBlock) is a lexical scope whose
+      // statements are not wrapped in a block statement, so track it like a
+      // block.  A class static block needs no separate handling: its body is
+      // itself a BlockStatement, already covered above.
+      TSModuleBlock: handleBlockEnter,
+      "TSModuleBlock:exit": popScope,
       ForStatement: pushScope,
       "ForStatement:exit": popScope,
       ForInStatement: pushScope,
@@ -617,6 +623,12 @@ const logtapePlugin: { name: string; rules: Record<string, unknown> } = {
           "Program:exit": popConfigScope,
           BlockStatement: handleBlockEnter,
           "BlockStatement:exit": popConfigScope,
+          // A TypeScript namespace body (TSModuleBlock) is a lexical scope
+          // whose statements are not wrapped in a block statement.  A class
+          // static block needs no separate handling: its body is itself a
+          // BlockStatement, already covered above.
+          TSModuleBlock: handleBlockEnter,
+          "TSModuleBlock:exit": popConfigScope,
           // A switch block is a single lexical scope for its let/const
           // declarations, so push/pop one for it like a block.
           SwitchStatement: pushConfigScope,
