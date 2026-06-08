@@ -1583,3 +1583,74 @@ configure({ loggers: [] });`,
     );
   },
 );
+
+test(
+  "deno lint: require-meta-sink reads a template-literal loggers key",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      'import { configure } from "@logtape/logtape";\n' +
+        'await configure({ [`loggers`]: [{ category: ["logtape", "meta"], sinks: ["c"] }] });',
+      ["logtape/require-meta-sink"],
+    );
+    // The loggers key is a no-interpolation template literal; it must resolve
+    // to "loggers" so the meta entry inside is found and no warning is raised.
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/require-meta-sink",
+    );
+    assert.strictEqual(
+      violations.length,
+      0,
+      `Expected no violations (template-literal loggers key), got: ${
+        JSON.stringify(violations)
+      }`,
+    );
+  },
+);
+
+test(
+  "deno lint: no-message-interpolation sees through a type assertion on the message",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+logger.info(\`User \${userId} logged in.\` as string);`,
+      ["logtape/no-message-interpolation"],
+    );
+    // The interpolated template is wrapped in \`as string\`; the rule must still
+    // unwrap and flag it.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
+      `Expected a violation through the assertion, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);
+
+test(
+  "deno lint: no-unawaited-log sees through a type assertion on the callback",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler() {
+  logger.debug("m", (async () => ({ data: await fetchData() })) as unknown as () => unknown);
+}`,
+      ["logtape/no-unawaited-log"],
+    );
+    // The async callback is wrapped in a type assertion; the rule must still
+    // unwrap and flag the unawaited log.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
+      `Expected a violation through the assertion, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);

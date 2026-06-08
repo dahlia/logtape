@@ -1,5 +1,9 @@
 import type { Rule } from "eslint";
-import { LOG_METHODS, logMethodName } from "../core/ast.ts";
+import {
+  LOG_METHODS,
+  logMethodName,
+  unwrapTypeAssertion,
+} from "../core/ast.ts";
 import { createLogtapeScope } from "../utils.ts";
 
 /**
@@ -45,7 +49,7 @@ export const noMessageInterpolation: Rule.RuleModule = {
         const propertyName = logMethodName(callee);
         if (!propertyName || !LOG_METHODS.has(propertyName)) return;
 
-        const firstArg = node.arguments[0];
+        const firstArg = unwrapTypeAssertion(node.arguments[0]);
         if (!firstArg || firstArg.type !== "TemplateLiteral") return;
         if (firstArg.expressions.length === 0) return;
 

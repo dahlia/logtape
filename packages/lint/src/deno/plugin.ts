@@ -401,7 +401,7 @@ const logtapePlugin: { name: string; rules: Record<string, unknown> } = {
             if (!scope.isLogtapeCallee(node.callee)) return;
             const methodName = logMethodName(node.callee);
             if (!methodName || !LOG_METHODS.has(methodName)) return;
-            const firstArg = node.arguments?.[0];
+            const firstArg = unwrapTypeAssertion(node.arguments?.[0]);
             if (!firstArg || firstArg.type !== "TemplateLiteral") return;
             if (!firstArg.expressions?.length) return;
             ctx.report({
@@ -477,7 +477,7 @@ const logtapePlugin: { name: string; rules: Record<string, unknown> } = {
             if (!scope.isLogtapeCallee(node.callee)) return;
             const methodName = logMethodName(node.callee);
             if (!methodName || !LOG_METHODS.has(methodName)) return;
-            const secondArg = node.arguments?.[1];
+            const secondArg = unwrapTypeAssertion(node.arguments?.[1]);
             if (!secondArg) return;
             const isAsyncCallback = isAsyncFunctionExpr(secondArg) ||
               isPromiseReturningCallback(secondArg) ||

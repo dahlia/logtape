@@ -6,6 +6,7 @@ import {
   isPromiseReturningCallback,
   LOG_METHODS,
   logMethodName,
+  unwrapTypeAssertion,
 } from "../core/ast.ts";
 import { createLogtapeScope } from "../utils.ts";
 
@@ -84,7 +85,7 @@ export const noUnawaitedLog: Rule.RuleModule = {
         const propertyName = logMethodName(callee);
         if (!propertyName || !LOG_METHODS.has(propertyName)) return;
 
-        const secondArg = node.arguments[1];
+        const secondArg = unwrapTypeAssertion(node.arguments[1]);
         if (!secondArg) return;
 
         const isAsyncCallback = isAsyncFunctionExpr(secondArg) ||

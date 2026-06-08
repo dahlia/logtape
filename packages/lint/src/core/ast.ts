@@ -670,11 +670,22 @@ export function staticKeyName(prop: any): string | null {
     if (typeof prop.key?.value === "string") return prop.key.value;
     return null;
   }
-  // A computed key must be a string literal; a numeric literal ({ [0]: ... })
-  // is not a static name.
-  return prop.key?.type === "Literal" && typeof prop.key.value === "string"
-    ? prop.key.value
-    : null;
+  // A computed key must be a string literal or a no-interpolation template
+  // literal ([`category`]); a numeric literal ({ [0]: ... }) is not a static
+  // name.
+  if (prop.key?.type === "Literal" && typeof prop.key.value === "string") {
+    return prop.key.value;
+  }
+  if (
+    prop.key?.type === "TemplateLiteral" &&
+    prop.key.expressions?.length === 0 &&
+    prop.key.quasis?.length === 1
+  ) {
+    const cooked = prop.key.quasis[0]?.value?.cooked ??
+      prop.key.quasis[0]?.cooked;
+    return typeof cooked === "string" ? cooked : null;
+  }
+  return null;
 }
 
 /**
