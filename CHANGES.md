@@ -8,6 +8,16 @@ Version 2.2.0
 
 To be released.
 
+### @logtape/config
+
+ -  Added `ConfigureOptions.contextLocalStorage` option to
+    `configureFromObject()`, enabling [implicit context] support when loading
+    configuration from external files.  This mirrors the
+    `Config.contextLocalStorage` option available in `configure()` and
+    `configureSync()`.
+
+[implicit context]: https://logtape.org/manual/contexts#implicit-contexts
+
 ### @logtape/lint
 
  -  New package *@logtape/lint* providing lint rules for ESLint (v8 and v9),

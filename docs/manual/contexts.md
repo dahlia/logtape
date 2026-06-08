@@ -155,6 +155,9 @@ await configure({
 > from the parent context.  Also, it will log a warning message to the meta
 > logger (`["logtape", "meta"]`) about the missing
 > `~Config.contextLocalStorage` option.
+>
+> If you are using `configureFromObject()` from *@logtape/config*, you can pass
+> `contextLocalStorage` through its options parameter instead.
 
 [`node:async_hooks`]: https://nodejs.org/api/async_context.html
 [TC39 Async Context proposal]: https://tc39.es/proposal-async-context/

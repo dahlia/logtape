@@ -126,6 +126,10 @@ export async function configureFromObject(
     logTapeConfig.reset = true;
   }
 
+  if (options?.contextLocalStorage) {
+    logTapeConfig.contextLocalStorage = options.contextLocalStorage;
+  }
+
   await configure(logTapeConfig);
 
   // 4. Log warnings to meta logger

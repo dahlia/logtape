@@ -688,6 +688,24 @@ In `"warn"` mode:
 This is useful in production environments where you'd rather have *some*
 logging working than have the application crash due to a configuration error.
 
+### Implicit context support
+
+*This API is available since LogTape 2.2.0.*
+
+To enable [implicit contexts](./contexts.md) with `configureFromObject()`, pass
+the `contextLocalStorage` option:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configureFromObject } from "@logtape/config";
+const config = {};
+// ---cut-before---
+await configureFromObject(config, {
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+~~~~
+
 ### Reconfiguration
 
 To reset the existing configuration before applying the new one, you can use

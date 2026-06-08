@@ -1,4 +1,4 @@
-import type { LogLevel } from "@logtape/logtape";
+import type { ContextLocalStorage, LogLevel } from "@logtape/logtape";
 
 /**
  * Configuration object schema for `configureFromObject()`.
@@ -122,6 +122,24 @@ export interface ConfigureOptions {
    * Custom shorthand mappings to extend or override defaults.
    */
   shorthands?: ShorthandRegistry;
+
+  /**
+   * The context-local storage to use for implicit contexts.
+   *
+   * In Node.js, Deno, and Bun, you can use `AsyncLocalStorage` from
+   * the `node:async_hooks` module.
+   *
+   * @example
+   * ```typescript
+   * import { AsyncLocalStorage } from "node:async_hooks";
+   * import { configureFromObject } from "@logtape/config";
+   *
+   * await configureFromObject(config, {
+   *   contextLocalStorage: new AsyncLocalStorage(),
+   * });
+   * ```
+   */
+  contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
 
   /**
    * How to handle invalid configuration entries.
