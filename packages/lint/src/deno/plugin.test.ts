@@ -1677,3 +1677,60 @@ async function handler(other: unknown) {
     );
   },
 );
+
+test(
+  "deno lint: a top-level function declaration shadows the imported getLogger",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+getLogger("x").info(\`v=\${y}\`);
+function getLogger() {
+  return console;
+}`,
+      ["logtape/no-message-interpolation"],
+    );
+    // The hoisted top-level `function getLogger` shadows the import, so the
+    // call is not a LogTape logger and must not be flagged.
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-message-interpolation",
+    );
+    assert.strictEqual(
+      violations.length,
+      0,
+      `Expected no violations (getLogger shadowed by a top-level function), got: ${
+        JSON.stringify(violations)
+      }`,
+    );
+  },
+);
+
+test(
+  "deno lint: a function declaration shadows a logger name in its block",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["app"]);
+function scope() {
+  logger.info(\`v=\${x}\`);
+  function logger() {}
+}`,
+      ["logtape/no-message-interpolation"],
+    );
+    // The hoisted `function logger` shadows the outer logger for the whole
+    // block, including the earlier call, so it must not be flagged.
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-message-interpolation",
+    );
+    assert.strictEqual(
+      violations.length,
+      0,
+      `Expected no violations (logger shadowed by a block function), got: ${
+        JSON.stringify(violations)
+      }`,
+    );
+  },
+);

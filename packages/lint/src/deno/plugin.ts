@@ -156,15 +156,16 @@ function makeLoggerScope(): {
     return false;
   }
 
-  // Record that `name`, a local binding in the current scope, shadows an
-  // imported getLogger and/or lazy of the same name.
+  // Record that `name`, a local binding in the current scope, shadows the
+  // imported getLogger and/or lazy.  Names are recorded unconditionally rather
+  // than gated on getterNames/lazyNames: this also runs during the Program
+  // pre-scan, before the ImportDeclaration visitor has populated those sets, so
+  // gating would miss a top-level shadow.  Recording extra names is harmless,
+  // since the stacks are only ever queried for the imported getLogger/lazy
+  // names.
   function recordImportShadow(name: string) {
-    if (getterNames.has(name)) {
-      shadowedGetterStack[shadowedGetterStack.length - 1].add(name);
-    }
-    if (lazyNames.has(name)) {
-      shadowedLazyStack[shadowedLazyStack.length - 1].add(name);
-    }
+    shadowedGetterStack[shadowedGetterStack.length - 1].add(name);
+    shadowedLazyStack[shadowedLazyStack.length - 1].add(name);
   }
 
   // The subset of lazyNames not shadowed by a local binding in the current
@@ -190,6 +191,9 @@ function makeLoggerScope(): {
       node.id?.type === "Identifier"
     ) {
       recordImportShadow(node.id.name);
+      // A function declaration named like a logger shadows it: it is a
+      // function, never a LogTape logger.
+      scopeStack[scopeStack.length - 1].set(node.id.name, false);
       asyncFnStack[asyncFnStack.length - 1].set(
         node.id.name,
         node.async === true || isPromiseReturningCallback(node),
@@ -225,6 +229,9 @@ function makeLoggerScope(): {
         stmt?.type === "FunctionDeclaration" && stmt.id?.type === "Identifier"
       ) {
         recordImportShadow(stmt.id.name);
+        // A hoisted function declaration named like a logger shadows it for the
+        // whole block, including earlier statements; it is never a logger.
+        scopeStack[scopeStack.length - 1].set(stmt.id.name, false);
         // Hoist promise-returning-ness too, so a callback referencing a
         // function declared later in the block is still recognized.
         asyncFnStack[asyncFnStack.length - 1].set(
