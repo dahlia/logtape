@@ -103,28 +103,29 @@ LogTape is a monorepo that contains several packages.  The main package is
 packages provide additional features and integrations.  The following is a
 list of the packages in the LogTape monorepo:
 
-| Package                                                    | JSR                                  | npm                                  | Description                |
-| ---------------------------------------------------------- | ------------------------------------ | ------------------------------------ | -------------------------- |
-| [*@logtape/logtape*](/packages/logtape/)                   | [JSR][jsr:@logtape/logtape]          | [npm][npm:@logtape/logtape]          | Core logging functionality |
-| [*@logtape/adaptor-bunyan*](/packages/adaptor-bunyan/)     | [JSR][jsr:@logtape/adaptor-bunyan]   | [npm][npm:@logtape/adaptor-bunyan]   | [Bunyan] adapter           |
-| [*@logtape/adaptor-log4js*](/packages/adaptor-log4js/)     | [JSR][jsr:@logtape/adaptor-log4js]   | [npm][npm:@logtape/adaptor-log4js]   | [log4js] adapter           |
-| [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter             |
-| [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter          |
-| [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink |
-| [*@logtape/config*](/packages/config/)                     | [JSR][jsr:@logtape/config]           | [npm][npm:@logtape/config]           | Object-based configuration |
-| [*@logtape/drizzle-orm*](/packages/drizzle-orm/)           | [JSR][jsr:@logtape/drizzle-orm]      | [npm][npm:@logtape/drizzle-orm]      | [Drizzle ORM] integration  |
-| [*@logtape/elysia*](/packages/elysia/)                     | [JSR][jsr:@logtape/elysia]           | [npm][npm:@logtape/elysia]           | [Elysia] integration       |
-| [*@logtape/express*](/packages/express/)                   | [JSR][jsr:@logtape/express]          | [npm][npm:@logtape/express]          | [Express] integration      |
-| [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration      |
-| [*@logtape/hono*](/packages/hono/)                         | [JSR][jsr:@logtape/hono]             | [npm][npm:@logtape/hono]             | [Hono] integration         |
-| [*@logtape/koa*](/packages/koa/)                           | [JSR][jsr:@logtape/koa]              | [npm][npm:@logtape/koa]              | [Koa] integration          |
-| [*@logtape/file*](/packages/file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                 |
-| [*@logtape/otel*](/packages/otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink       |
-| [*@logtape/pretty*](/packages/pretty/)                     | [JSR][jsr:@logtape/pretty]           | [npm][npm:@logtape/pretty]           | Beautiful text formatter   |
-| [*@logtape/redaction*](/packages/redaction/)               | [JSR][jsr:@logtape/redaction]        | [npm][npm:@logtape/redaction]        | Data redaction             |
-| [*@logtape/sentry*](/packages/sentry/)                     | [JSR][jsr:@logtape/sentry]           | [npm][npm:@logtape/sentry]           | [Sentry] sink              |
-| [*@logtape/syslog*](/packages/syslog/)                     | [JSR][jsr:@logtape/syslog]           | [npm][npm:@logtape/syslog]           | Syslog sink                |
-| [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink     |
+| Package                                                    | JSR                                  | npm                                  | Description                   |
+| ---------------------------------------------------------- | ------------------------------------ | ------------------------------------ | ----------------------------- |
+| [*@logtape/logtape*](/packages/logtape/)                   | [JSR][jsr:@logtape/logtape]          | [npm][npm:@logtape/logtape]          | Core logging functionality    |
+| [*@logtape/adaptor-bunyan*](/packages/adaptor-bunyan/)     | [JSR][jsr:@logtape/adaptor-bunyan]   | [npm][npm:@logtape/adaptor-bunyan]   | [Bunyan] adapter              |
+| [*@logtape/adaptor-log4js*](/packages/adaptor-log4js/)     | [JSR][jsr:@logtape/adaptor-log4js]   | [npm][npm:@logtape/adaptor-log4js]   | [log4js] adapter              |
+| [*@logtape/adaptor-pino*](/packages/adaptor-pino/)         | [JSR][jsr:@logtape/adaptor-pino]     | [npm][npm:@logtape/adaptor-pino]     | [Pino] adapter                |
+| [*@logtape/adaptor-winston*](/packages/adaptor-winston/)   | [JSR][jsr:@logtape/adaptor-winston]  | [npm][npm:@logtape/adaptor-winston]  | [winston] adapter             |
+| [*@logtape/cloudwatch-logs*](/packages/cloudwatch-logs/)   | [JSR][jsr:@logtape/cloudwatch-logs]  | [npm][npm:@logtape/cloudwatch-logs]  | [AWS CloudWatch Logs] sink    |
+| [*@logtape/config*](/packages/config/)                     | [JSR][jsr:@logtape/config]           | [npm][npm:@logtape/config]           | Object-based configuration    |
+| [*@logtape/drizzle-orm*](/packages/drizzle-orm/)           | [JSR][jsr:@logtape/drizzle-orm]      | [npm][npm:@logtape/drizzle-orm]      | [Drizzle ORM] integration     |
+| [*@logtape/elysia*](/packages/elysia/)                     | [JSR][jsr:@logtape/elysia]           | [npm][npm:@logtape/elysia]           | [Elysia] integration          |
+| [*@logtape/express*](/packages/express/)                   | [JSR][jsr:@logtape/express]          | [npm][npm:@logtape/express]          | [Express] integration         |
+| [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration         |
+| [*@logtape/hono*](/packages/hono/)                         | [JSR][jsr:@logtape/hono]             | [npm][npm:@logtape/hono]             | [Hono] integration            |
+| [*@logtape/koa*](/packages/koa/)                           | [JSR][jsr:@logtape/koa]              | [npm][npm:@logtape/koa]              | [Koa] integration             |
+| [*@logtape/lint*](/packages/lint/)                         | [JSR][jsr:@logtape/lint]             | [npm][npm:@logtape/lint]             | ESLint/Oxlint/Deno Lint rules |
+| [*@logtape/file*](/packages/file/)                         | [JSR][jsr:@logtape/file]             | [npm][npm:@logtape/file]             | File sinks                    |
+| [*@logtape/otel*](/packages/otel/)                         | [JSR][jsr:@logtape/otel]             | [npm][npm:@logtape/otel]             | [OpenTelemetry] sink          |
+| [*@logtape/pretty*](/packages/pretty/)                     | [JSR][jsr:@logtape/pretty]           | [npm][npm:@logtape/pretty]           | Beautiful text formatter      |
+| [*@logtape/redaction*](/packages/redaction/)               | [JSR][jsr:@logtape/redaction]        | [npm][npm:@logtape/redaction]        | Data redaction                |
+| [*@logtape/sentry*](/packages/sentry/)                     | [JSR][jsr:@logtape/sentry]           | [npm][npm:@logtape/sentry]           | [Sentry] sink                 |
+| [*@logtape/syslog*](/packages/syslog/)                     | [JSR][jsr:@logtape/syslog]           | [npm][npm:@logtape/syslog]           | Syslog sink                   |
+| [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink        |
 
 [jsr:@logtape/logtape]: https://jsr.io/@logtape/logtape
 [npm:@logtape/logtape]: https://www.npmjs.com/package/@logtape/logtape
@@ -158,6 +159,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/hono]: https://www.npmjs.com/package/@logtape/hono
 [jsr:@logtape/koa]: https://jsr.io/@logtape/koa
 [npm:@logtape/koa]: https://www.npmjs.com/package/@logtape/koa
+[jsr:@logtape/lint]: https://jsr.io/@logtape/lint
+[npm:@logtape/lint]: https://www.npmjs.com/package/@logtape/lint
 [jsr:@logtape/file]: https://jsr.io/@logtape/file
 [npm:@logtape/file]: https://www.npmjs.com/package/@logtape/file
 [jsr:@logtape/otel]: https://jsr.io/@logtape/otel
