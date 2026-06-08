@@ -11,6 +11,7 @@ packages:
 - packages/hono
 - packages/koa
 - packages/elysia
+- packages/lint
 - packages/otel
 - packages/pretty
 - packages/redaction
@@ -49,6 +50,7 @@ catalog:
   "@types/koa": ^2.15.0
   consolemock: ^1.1.0
   elysia: ^1.4.0
+  eslint: ^9.0.0
   express: ^5.2.1
   fast-check: ^4.7.0
   fastify: ^5.0.0
