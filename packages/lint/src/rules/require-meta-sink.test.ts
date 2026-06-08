@@ -306,6 +306,21 @@ async function setup() {
   assert.strictEqual(messages.length, 0);
 });
 
+test("require-meta-sink: no false positive when a logger entry uses an object spread", () => {
+  const messages = lint(
+    `${BASE_IMPORT}
+async function setup() {
+  await configure({
+    sinks: { console: getConsoleSink(), main: getMainSink() },
+    loggers: [{ ...metaLogger, sinks: ["console"] }, { category: [], sinks: ["main"] }],
+  });
+}`,
+  );
+  // The spread entry might be the meta logger; the rule cannot see into it, so
+  // it must not warn.
+  assert.strictEqual(messages.length, 0);
+});
+
 test("require-meta-sink: no false positive when configure() has spread elements", () => {
   const messages = lint(
     `${BASE_IMPORT}

@@ -559,6 +559,19 @@ function handler(items) {
   assert.strictEqual(messages.length, 1);
 });
 
+test("no-unawaited-log: flags a log returned from a reduce callback", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(items) {
+  await items.reduce(() => logger.debug("msg", async () => ({ data: await fetchData() })), undefined);
+}`,
+  );
+  // reduce threads each callback result into the next accumulator rather than
+  // awaiting it, so the per-item log promises are dropped.
+  assert.strictEqual(messages.length, 1);
+});
+
 test("no-unawaited-log: flags a log promise returned from a setTimeout callback", () => {
   const messages = lint(
     `import { getLogger } from "@logtape/logtape";

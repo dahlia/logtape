@@ -293,8 +293,10 @@ export function isCallArgumentFunction(fn: any): boolean {
 }
 
 /**
- * Array iteration methods that ignore or coerce their callback's return value,
- * so a promise returned from the callback is dropped.
+ * Array iteration methods that ignore, coerce, or merely thread the callback's
+ * return value, so a promise returned from the callback is not awaited per
+ * call.  `reduce`/`reduceRight` pass it on as the next accumulator (only the
+ * final accumulator is the result), so earlier per-item promises are dropped.
  */
 const DISCARDING_ARRAY_METHODS: Set<string> = new Set([
   "forEach",
@@ -305,6 +307,8 @@ const DISCARDING_ARRAY_METHODS: Set<string> = new Set([
   "findLastIndex",
   "some",
   "every",
+  "reduce",
+  "reduceRight",
 ]);
 
 /**
@@ -711,6 +715,13 @@ export function isLogtapeMetaArray(node: any): boolean {
  */
 export function isMetaLoggerEntry(entry: any): boolean {
   if (!entry || entry.type !== "ObjectExpression") return false;
+
+  // A spread element (e.g. { ...metaLogger }) makes the entry impossible to
+  // analyze statically; assume it may configure the meta logger so the rule
+  // does not warn on a config it cannot see into.
+  if (entry.properties?.some((p: any) => p.type === "SpreadElement")) {
+    return true;
+  }
 
   let categoryNode: any = null;
   let sinksNode: any = null;

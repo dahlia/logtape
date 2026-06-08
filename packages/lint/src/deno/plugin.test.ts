@@ -1481,3 +1481,54 @@ async function handler(other: Promise<void>) {
     );
   },
 );
+
+test(
+  "deno lint: require-meta-sink ignores a logger entry with an object spread",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { configure } from "@logtape/logtape";
+await configure({
+  sinks: { console: getConsoleSink(), main: getMainSink() },
+  loggers: [{ ...metaLogger, sinks: ["console"] }, { category: [], sinks: ["main"] }],
+});`,
+      ["logtape/require-meta-sink"],
+    );
+    // The spread entry might be the meta logger; the rule cannot see into it.
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/require-meta-sink",
+    );
+    assert.strictEqual(
+      violations.length,
+      0,
+      `Expected no violations (object spread entry), got: ${
+        JSON.stringify(violations)
+      }`,
+    );
+  },
+);
+
+test(
+  "deno lint: no-unawaited-log flags a log returned from a reduce callback",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(items: unknown[]) {
+  await items.reduce(() => logger.debug("m", async () => ({ data: await fetchData() })), undefined);
+}`,
+      ["logtape/no-unawaited-log"],
+    );
+    // reduce threads the callback result into the next accumulator rather than
+    // awaiting it, so the per-item log promises are dropped.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
+      `Expected no-unawaited-log violation, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);
