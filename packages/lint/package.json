@@ -1,0 +1,91 @@
+{
+  "name": "@logtape/lint",
+  "version": "2.2.0",
+  "description": "Lint rules for LogTape usage patterns (ESLint, Oxlint, Deno Lint)",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "logtape",
+    "lint",
+    "eslint",
+    "eslint-plugin",
+    "oxlint",
+    "deno"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/lint/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs"
+    },
+    "./eslint": {
+      "types": {
+        "import": "./dist/eslint/plugin.d.ts",
+        "require": "./dist/eslint/plugin.d.cts"
+      },
+      "import": "./dist/eslint/plugin.js",
+      "require": "./dist/eslint/plugin.cjs"
+    },
+    "./deno": {
+      "types": {
+        "import": "./dist/deno/plugin.d.ts",
+        "require": "./dist/deno/plugin.d.cts"
+      },
+      "import": "./dist/deno/plugin.js",
+      "require": "./dist/deno/plugin.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/"
+  ],
+  "sideEffects": false,
+  "peerDependencies": {
+    "eslint": ">=8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "eslint": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test --allow-run --allow-write --allow-read --allow-env",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test --allow-run --allow-write --allow-read --allow-env"
+  }
+}

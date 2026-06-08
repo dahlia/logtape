@@ -1,0 +1,28 @@
+{
+  "name": "@logtape/lint",
+  "version": "2.2.0",
+  "license": "MIT",
+  "imports": {
+    "eslint": "npm:eslint@^9.0.0"
+  },
+  "exports": {
+    ".": "./src/mod.ts",
+    "./eslint": "./src/eslint/plugin.ts",
+    "./deno": "./src/deno/plugin.ts"
+  },
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-run --allow-write --allow-read --allow-env",
+    "test:node": {
+      "dependencies": ["build"],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": ["build"],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": ["test", "test:node", "test:bun"]
+    }
+  }
+}

@@ -30,6 +30,7 @@ const jsrRefPackages: readonly (readonly [string, string])[] = [
   ["@logtape/file", ".jsr-cache-file.json"],
   ["@logtape/hono", ".jsr-cache-hono.json"],
   ["@logtape/koa", ".jsr-cache-koa.json"],
+  ["@logtape/lint", ".jsr-cache-lint.json"],
   ["@logtape/otel", ".jsr-cache-otel.json"],
   ["@logtape/pretty", ".jsr-cache-pretty.json"],
   ["@logtape/redaction", ".jsr-cache-redaction.json"],
@@ -124,6 +125,20 @@ const SINKS = {
   ],
 };
 
+const LINT = {
+  text: "Lint rules",
+  items: [
+    { text: "Overview", link: "/lint/" },
+    {
+      text: "no-message-interpolation",
+      link: "/lint/no-message-interpolation",
+    },
+    { text: "prefer-lazy-evaluation", link: "/lint/prefer-lazy-evaluation" },
+    { text: "no-unawaited-log", link: "/lint/no-unawaited-log" },
+    { text: "require-meta-sink", link: "/lint/require-meta-sink" },
+  ],
+};
+
 const REFERENCES = {
   text: "References",
   items: [
@@ -159,6 +174,7 @@ const REFERENCES = {
     { text: "@logtape/hono", link: "https://jsr.io/@logtape/hono/doc" },
     { text: "@logtape/koa", link: "https://jsr.io/@logtape/koa/doc" },
     { text: "@logtape/file", link: "https://jsr.io/@logtape/file/doc" },
+    { text: "@logtape/lint", link: "https://jsr.io/@logtape/lint/doc" },
     { text: "@logtape/otel", link: "https://jsr.io/@logtape/otel/doc" },
     { text: "@logtape/pretty", link: "https://jsr.io/@logtape/pretty/doc" },
     {
@@ -189,6 +205,7 @@ export default defineConfig({
       { text: "Comparison", link: "/comparison" },
       MANUAL,
       SINKS,
+      LINT,
       REFERENCES,
       ...extraNav,
     ],
@@ -199,6 +216,7 @@ export default defineConfig({
       { text: "Changelog", link: "/changelog" },
       MANUAL,
       SINKS,
+      LINT,
       REFERENCES,
     ],
 

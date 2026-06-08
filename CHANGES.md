@@ -8,6 +8,27 @@ Version 2.2.0
 
 To be released.
 
+### @logtape/lint
+
+ -  New package *@logtape/lint* providing lint rules for ESLint (v8 and v9),
+    Oxlint, and Deno Lint that detect common LogTape usage mistakes.
+    [[#170], [#171]]
+
+     -  Added `no-message-interpolation` rule: flags template literals with
+        `${}` expressions passed as a log method's message argument.
+     -  Added `prefer-lazy-evaluation` rule: flags eager `ObjectExpression`
+        property values that contain function calls, and provides an auto-fix
+        that wraps the object in an arrow function callback.
+     -  Added `no-unawaited-log` rule: flags async arrow or function callbacks
+        passed to log methods without `await`; provides a conditional auto-fix
+        when the enclosing function is `async`.
+     -  Added `require-meta-sink` rule: warns when `configure()` or
+        `configureSync()` is called without a logger entry for the meta
+        category (`["logtape"]` or `["logtape", "meta"]`).
+
+[#170]: https://github.com/dahlia/logtape/issues/170
+[#171]: https://github.com/dahlia/logtape/pull/171
+
 ### @logtape/sentry
 
  -  Added `SentrySinkOptions.sentry` option for passing the Sentry SDK
