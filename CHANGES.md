@@ -8,6 +8,12 @@ Version 2.0.11
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed a bug where `configure()` and `configureSync()` did not recognize
+    `category: "logtape"` as a meta logger configuration even though it is
+    equivalent to `category: ["logtape"]`.
+
 
 Version 2.0.10
 --------------

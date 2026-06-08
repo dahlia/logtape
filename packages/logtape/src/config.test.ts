@@ -264,7 +264,7 @@ test("configure()", async () => {
     assert.strictEqual(getConfig(), null);
   }
 
-  const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
+  const metaCategories = [[], "logtape", ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
     try { // meta configuration
       const config = {
@@ -280,7 +280,7 @@ test("configure()", async () => {
       await configure(config);
 
       assert.deepStrictEqual(
-        LoggerImpl.getLogger(["logger", "meta"]).sinks,
+        LoggerImpl.getLogger(["logtape", "meta"]).sinks,
         [],
       );
       assert.strictEqual(getConfig(), config);
@@ -508,7 +508,7 @@ test("configureSync()", async () => {
     assert.strictEqual(getConfig(), null);
   }
 
-  const metaCategories = [[], ["logtape"], ["logtape", "meta"]];
+  const metaCategories = [[], "logtape", ["logtape"], ["logtape", "meta"]];
   for (const metaCategory of metaCategories) {
     try { // meta configuration
       const config = {
@@ -524,7 +524,7 @@ test("configureSync()", async () => {
       configureSync(config);
 
       assert.deepStrictEqual(
-        LoggerImpl.getLogger(["logger", "meta"]).sinks,
+        LoggerImpl.getLogger(["logtape", "meta"]).sinks,
         [],
       );
       assert.strictEqual(getConfig(), config);
