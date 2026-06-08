@@ -724,10 +724,11 @@ export function isStringLiteral(node: any, value: string): boolean {
 }
 
 /**
- * Whether an AST node is the array literal `["logtape"]` or
+ * Whether an AST node is the category literal `"logtape"`, `["logtape"]`, or
  * `["logtape", "meta"]`.
  */
-export function isLogtapeMetaArray(node: any): boolean {
+export function isLogtapeMetaCategory(node: any): boolean {
+  if (isStringLiteral(node, "logtape")) return true;
   if (node?.type !== "ArrayExpression") return false;
   const elems = node.elements;
   if (!isStringLiteral(elems[0], "logtape")) return false;
@@ -737,10 +738,8 @@ export function isLogtapeMetaArray(node: any): boolean {
 
 /**
  * Whether a logger entry covers the meta category with at least one non-empty
- * sinks list.  Only the array form (`["logtape"]` or `["logtape", "meta"]`)
- * configures the meta logger: core's `configureInternal()` meta check inspects
- * the category as an array, so a bare string `category: "logtape"` leaves the
- * meta logger unconfigured and must not satisfy the rule.
+ * sinks list.  The string form (`"logtape"`) is equivalent to `["logtape"]`,
+ * and both configure the meta logger.
  */
 export function isMetaLoggerEntry(entry: any): boolean {
   if (!entry || entry.type !== "ObjectExpression") return false;
@@ -765,7 +764,7 @@ export function isMetaLoggerEntry(entry: any): boolean {
   }
 
   if (!categoryNode) return false;
-  if (!isLogtapeMetaArray(categoryNode)) return false;
+  if (!isLogtapeMetaCategory(categoryNode)) return false;
 
   if (!sinksNode) return false;
   // Non-literal (e.g. variable reference): assume non-empty to avoid false

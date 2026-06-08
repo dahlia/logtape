@@ -73,7 +73,7 @@ function setup() {
   assert.strictEqual(messages.length, 1);
 });
 
-test('require-meta-sink: flags a bare string "logtape" category', () => {
+test('require-meta-sink: passes with bare string "logtape" category', () => {
   const messages = lint(
     `${BASE_IMPORT}
 async function setup() {
@@ -86,9 +86,7 @@ async function setup() {
   });
 }`,
   );
-  // core's meta check inspects category as an array, so a bare string does not
-  // configure the meta logger; the rule must still warn.
-  assert.strictEqual(messages.length, 1);
+  assert.strictEqual(messages.length, 0);
 });
 
 test('require-meta-sink: passes with ["logtape"] single-string array category', () => {
@@ -123,7 +121,7 @@ async function setup() {
   assert.strictEqual(messages.length, 0);
 });
 
-test("require-meta-sink: flags a bare backtick category (still a bare string)", () => {
+test("require-meta-sink: accepts a bare backtick category", () => {
   const messages = lint(
     `${BASE_IMPORT}
 async function setup() {
@@ -133,9 +131,7 @@ async function setup() {
   });
 }`,
   );
-  // A bare backtick string is still a string category, which core does not
-  // treat as configuring the meta logger; the rule must warn.
-  assert.strictEqual(messages.length, 1);
+  assert.strictEqual(messages.length, 0);
 });
 
 test("require-meta-sink: accepts a backtick element inside the array category", () => {

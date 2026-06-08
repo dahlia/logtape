@@ -34,7 +34,7 @@ To be released.
         when the enclosing function is `async`.
      -  Added `require-meta-sink` rule: warns when `configure()` or
         `configureSync()` is called without a logger entry for the meta
-        category (`["logtape"]` or `["logtape", "meta"]`).
+        category (`"logtape"`, `["logtape"]`, or `["logtape", "meta"]`).
 
 [#170]: https://github.com/dahlia/logtape/issues/170
 [#171]: https://github.com/dahlia/logtape/pull/171

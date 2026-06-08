@@ -532,7 +532,7 @@ await configure({
 );
 
 test(
-  "deno lint: require-meta-sink flags a bare backtick category",
+  "deno lint: require-meta-sink accepts a bare backtick category",
   { skip: skipIfNotDeno },
   async () => {
     if (skipIfNotDeno) return;
@@ -544,12 +544,14 @@ await configure({
 });`,
       ["logtape/require-meta-sink"],
     );
-    // A bare backtick string is still a string category, which core does not
-    // treat as configuring the meta logger; the rule must warn.
-    assert.ok(
-      diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected require-meta-sink violation, got: ${
-        JSON.stringify(diagnostics)
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/require-meta-sink",
+    );
+    assert.strictEqual(
+      violations.length,
+      0,
+      `Expected no require-meta-sink violation, got: ${
+        JSON.stringify(violations)
       }`,
     );
   },
