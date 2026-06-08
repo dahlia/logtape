@@ -431,6 +431,43 @@ async function handler(items) {
   assert.strictEqual(messages.length, 1);
 });
 
+test("no-unawaited-log: flags a map() result chained through array methods", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(items) {
+  await items.map(() => logger.debug("msg", async () => ({ data: await fetchData() }))).filter(Boolean);
+}`,
+  );
+  // The map() result is chained through filter(); awaiting that array still
+  // does not await the element promises.
+  assert.strictEqual(messages.length, 1);
+});
+
+test("no-unawaited-log: flags a log dropped by a comma operator", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(other) {
+  await (logger.debug("msg", async () => ({ data: await fetchData() })), other);
+}`,
+  );
+  // The comma operator yields only `other`; the log promise is dropped.
+  assert.strictEqual(messages.length, 1);
+});
+
+test("no-unawaited-log: does not flag a log that is the last comma operand", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(other) {
+  await (other, logger.debug("msg", async () => ({ data: await fetchData() })));
+}`,
+  );
+  // The log call is the last operand, so it is the awaited value.
+  assert.strictEqual(messages.length, 0);
+});
+
 test("no-unawaited-log: flags block-bodied callback whose returned promise is discarded", () => {
   const messages = lint(
     `import { getLogger } from "@logtape/logtape";

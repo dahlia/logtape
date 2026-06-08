@@ -1434,3 +1434,50 @@ function f(lazy: (cb: () => unknown) => unknown) {
     );
   },
 );
+
+test(
+  "deno lint: no-unawaited-log flags a map() result chained through array methods",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(items: unknown[]) {
+  await items.map(() => logger.debug("m", async () => ({ data: await fetchData() }))).filter(Boolean);
+}`,
+      ["logtape/no-unawaited-log"],
+    );
+    // The map() result is chained through filter(); awaiting that array still
+    // does not await the element promises.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
+      `Expected no-unawaited-log violation, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);
+
+test(
+  "deno lint: no-unawaited-log flags a log dropped by a comma operator",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(other: Promise<void>) {
+  await (logger.debug("m", async () => ({ data: await fetchData() })), other);
+}`,
+      ["logtape/no-unawaited-log"],
+    );
+    // The comma operator yields only `other`; the log promise is dropped.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
+      `Expected no-unawaited-log violation, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);

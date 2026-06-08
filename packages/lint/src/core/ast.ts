@@ -362,6 +362,46 @@ export function isMapResult(node: any): boolean {
 }
 
 /**
+ * Array methods that return a new array holding the same elements, so a
+ * `map()`/`flatMap()` result chained through them is still an array of the
+ * original promises (e.g. `arr.map(cb).filter(Boolean)`).  Methods that unwrap
+ * to a single element (`find`, `at`) or transform the elements (`map`,
+ * `reduce`) are deliberately excluded.
+ */
+const ELEMENT_PRESERVING_ARRAY_METHODS: Set<string> = new Set([
+  "filter",
+  "slice",
+  "concat",
+  "flat",
+  "reverse",
+  "sort",
+  "toSorted",
+  "toReversed",
+  "with",
+]);
+
+/**
+ * Whether `node` evaluates to an array of the promises produced by a
+ * `map()`/`flatMap()`, either directly or chained through element-preserving
+ * array methods (`arr.map(cb).filter(...).slice(...)`).  Awaiting or returning
+ * such an array awaits the array, not the element promises.
+ */
+export function isMapResultChain(node: any, depth = 0): boolean {
+  if (depth > MAX_RECURSION_DEPTH || !node) return false;
+  if (isMapResult(node)) return true;
+  if (
+    node.type === "CallExpression" &&
+    node.callee?.type === "MemberExpression" &&
+    !node.callee.computed &&
+    node.callee.property?.type === "Identifier" &&
+    ELEMENT_PRESERVING_ARRAY_METHODS.has(node.callee.property.name)
+  ) {
+    return isMapResultChain(node.callee.object, depth + 1);
+  }
+  return false;
+}
+
+/**
  * Whether `node` is an expression that is syntactically a promise.  Recognizes
  * `x.then(...)` / `.catch(...)` / `.finally(...)`, `new Promise(...)`, and
  * `Promise.resolve/reject/all/allSettled/race/any(...)`.  This cannot see a
@@ -498,9 +538,10 @@ export function isLogPromiseHandled(node: any): boolean {
     const ancestor: any = current.parent;
     if (!ancestor) break;
     if (ancestor.type === "AwaitExpression") {
-      // Awaiting a map()/flatMap() result awaits the array, not the element
-      // promises inside it; only a Promise combinator does.
-      if (isMapResult(current)) break;
+      // Awaiting a map()/flatMap() result (or such a result chained through
+      // array methods) awaits the array, not the element promises inside it;
+      // only a Promise combinator does.
+      if (isMapResultChain(current)) break;
       return true;
     }
     // A return makes the promise the enclosing function's return value.  If
@@ -509,9 +550,9 @@ export function isLogPromiseHandled(node: any): boolean {
     // promise is awaited or discarded; if it is a normal or stored function,
     // trust its caller and treat it as propagated.
     if (ancestor.type === "ReturnStatement") {
-      // Returning a map()/flatMap() result propagates the array, not the
-      // element promises.
-      if (isMapResult(current)) break;
+      // Returning a map()/flatMap() result (or one chained through array
+      // methods) propagates the array, not the element promises.
+      if (isMapResultChain(current)) break;
       const fn = findEnclosingFunction(ancestor);
       if (fn && isCallArgumentFunction(fn)) {
         // A discarder (forEach etc.) drops the returned promise, so the walk
@@ -564,7 +605,27 @@ export function isLogPromiseHandled(node: any): boolean {
       // only when the element we came through is itself a promise: if it is a
       // map()/flatMap() result (an array of promises), the combinator awaits
       // that array, not its inner promises, so the log promise stays unhandled.
-      if (!isPromiseCombinatorArrayArg(ancestor) || isMapResult(current)) break;
+      if (!isPromiseCombinatorArrayArg(ancestor) || isMapResultChain(current)) {
+        break;
+      }
+    }
+    // A sequence (comma) operator yields only its last operand; a log call in
+    // an earlier position is evaluated for its side effect and its promise is
+    // dropped.
+    if (
+      ancestor.type === "SequenceExpression" &&
+      ancestor.expressions?.[ancestor.expressions.length - 1] !== current
+    ) {
+      break;
+    }
+    // A unary or binary operator consumes the promise as a plain value
+    // (coercion, negation, etc.), so the awaited result is never the log
+    // promise itself.
+    if (
+      ancestor.type === "UnaryExpression" ||
+      ancestor.type === "BinaryExpression"
+    ) {
+      break;
     }
     // Stop at statement boundaries.
     if (
