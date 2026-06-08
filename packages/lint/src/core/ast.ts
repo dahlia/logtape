@@ -631,6 +631,24 @@ export function isLogPromiseHandled(node: any): boolean {
     ) {
       break;
     }
+    // `a && b` yields its right operand when the left is truthy, and a promise
+    // is always truthy, so a log promise in the left of && is discarded.  (||
+    // and ?? in the left position propagate it, so they are left handled.)
+    if (
+      ancestor.type === "LogicalExpression" &&
+      ancestor.operator === "&&" &&
+      ancestor.left === current
+    ) {
+      break;
+    }
+    // A conditional's test is coerced to a boolean and discarded; only the
+    // taken branch propagates its value.
+    if (
+      ancestor.type === "ConditionalExpression" &&
+      ancestor.test === current
+    ) {
+      break;
+    }
     // Stop at statement boundaries.
     if (
       ancestor.type === "ExpressionStatement" ||

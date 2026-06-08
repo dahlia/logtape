@@ -1654,3 +1654,26 @@ async function handler() {
     );
   },
 );
+
+test(
+  "deno lint: no-unawaited-log flags a log discarded by && as the left operand",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(other: unknown) {
+  await (logger.debug("m", async () => ({ data: await fetchData() })) && other);
+}`,
+      ["logtape/no-unawaited-log"],
+    );
+    // A promise is truthy, so && yields `other`; the log promise is dropped.
+    assert.ok(
+      diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
+      `Expected no-unawaited-log violation, got: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  },
+);

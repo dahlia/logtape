@@ -468,6 +468,42 @@ async function handler(other) {
   assert.strictEqual(messages.length, 0);
 });
 
+test("no-unawaited-log: flags a log discarded by && as the left operand", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(other) {
+  await (logger.debug("msg", async () => ({ data: await fetchData() })) && other);
+}`,
+  );
+  // A promise is truthy, so && yields `other`; the log promise is discarded.
+  assert.strictEqual(messages.length, 1);
+});
+
+test("no-unawaited-log: does not flag a log as the right operand of &&", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(cond) {
+  await (cond && logger.debug("msg", async () => ({ data: await fetchData() })));
+}`,
+  );
+  // When cond is truthy, && yields the log promise, which is then awaited.
+  assert.strictEqual(messages.length, 0);
+});
+
+test("no-unawaited-log: flags a log discarded as a ternary test", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+async function handler(a, b) {
+  await (logger.debug("msg", async () => ({ data: await fetchData() })) ? a : b);
+}`,
+  );
+  // The log promise is coerced to a boolean test and discarded.
+  assert.strictEqual(messages.length, 1);
+});
+
 test("no-unawaited-log: flags block-bodied callback whose returned promise is discarded", () => {
   const messages = lint(
     `import { getLogger } from "@logtape/logtape";
