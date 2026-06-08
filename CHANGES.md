@@ -8,6 +8,17 @@ Version 2.1.2
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed a bug where `configure()` and `configureSync()` did not recognize
+    `category: "logtape"` as a meta logger configuration even though it is
+    equivalent to `category: ["logtape"]`.
+
+### @logtape/syslog
+
+ -  Fixed a type error in Deno 2.8 and TypeScript 6.0 or later caused by the
+    changed return type of `setTimeout()`.
+
 
 Version 2.1.1
 -------------
@@ -147,6 +158,23 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.11
+--------------
+
+Released on June 8, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `configure()` and `configureSync()` did not recognize
+    `category: "logtape"` as a meta logger configuration even though it is
+    equivalent to `category: ["logtape"]`.
+
+### @logtape/syslog
+
+ -  Fixed a type error in Deno 2.8 and TypeScript 6.0 or later caused by the
+    changed return type of `setTimeout()`.
 
 
 Version 2.0.10
