@@ -20,6 +20,10 @@ To be released.
     the error, the async sink function, and the log record that was being
     processed when the error occurred.
 
+ -  Fixed a bug where triggered context states in `fingersCrossed()` were not
+    removed by TTL cleanup.  This could cause memory usage to grow over time in
+    long-running applications with dynamically generated context values.
+
 
 Version 2.0.11
 --------------

@@ -2408,6 +2408,118 @@ test("fingersCrossed() - TTL-based buffer cleanup", async () => {
   }
 });
 
+test("fingersCrossed() - TTL cleanup expires triggered contexts", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 50,
+      cleanupIntervalMs: 10,
+    },
+  }) as Sink & Disposable;
+
+  try {
+    const req1Debug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+
+    sink(req1Debug);
+    sink(req1Error);
+    assert.deepStrictEqual(buffer, [req1Debug, req1Error]);
+
+    await delay(120);
+    buffer.length = 0;
+
+    const req1SecondDebug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1SecondDebug);
+
+    assert.deepStrictEqual(buffer, []);
+
+    const req1SecondError: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1SecondError);
+
+    assert.deepStrictEqual(buffer, [req1SecondDebug, req1SecondError]);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - TTL cleanup preserves active triggered contexts", async () => {
+  const buffer: LogRecord[] = [];
+  const originalDateNow = Date.now;
+  let now = 1_000;
+  Date.now = () => now;
+
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 100,
+      cleanupIntervalMs: 10,
+    },
+  }) as Sink & Disposable;
+
+  try {
+    const req1Debug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+
+    sink(req1Debug);
+    sink(req1Error);
+    assert.deepStrictEqual(buffer, [req1Debug, req1Error]);
+
+    now += 50;
+    const req1PassThrough: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+    sink(req1PassThrough);
+    assert.deepStrictEqual(buffer, [
+      req1Debug,
+      req1Error,
+      req1PassThrough,
+    ]);
+
+    buffer.length = 0;
+    now += 70;
+    await delay(50);
+
+    const req1StillActive: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+    sink(req1StillActive);
+
+    assert.deepStrictEqual(buffer, [req1StillActive]);
+  } finally {
+    sink[Symbol.dispose]();
+    Date.now = originalDateNow;
+  }
+});
+
 test("fingersCrossed() - TTL disabled when bufferTtlMs is zero", () => {
   const buffer: LogRecord[] = [];
   const sink = fingersCrossed(buffer.push.bind(buffer), {

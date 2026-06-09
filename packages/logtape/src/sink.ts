@@ -833,7 +833,10 @@ export function fingersCrossed(
   }
 
   // TTL-based cleanup function
-  function cleanupExpiredBuffers(buffers: Map<string, BufferMetadata>): void {
+  function cleanupExpiredBuffers(
+    buffers: Map<string, BufferMetadata>,
+    triggered: Map<string, number>,
+  ): void {
     if (!hasTtl) return;
 
     const now = Date.now();
@@ -853,6 +856,15 @@ export function fingersCrossed(
     // Remove expired buffers
     for (const key of expiredKeys) {
       buffers.delete(key);
+      triggered.delete(key);
+    }
+
+    // Triggered buffers no longer have buffer metadata, so they must be
+    // expired separately to avoid unbounded growth for dynamic contexts.
+    for (const [key, triggeredAt] of triggered) {
+      if (now - triggeredAt > bufferTtlMs!) {
+        triggered.delete(key);
+      }
     }
   }
 
@@ -922,14 +934,14 @@ export function fingersCrossed(
   } else {
     // Category and/or context-isolated buffers
     const buffers = new Map<string, BufferMetadata>();
-    const triggered = new Set<string>();
+    const triggered = new Map<string, number>();
     let accessCounter = 0;
 
     // Set up TTL cleanup timer if enabled
     let cleanupTimer: ReturnType<typeof setInterval> | null = null;
     if (hasTtl) {
       cleanupTimer = setInterval(() => {
-        cleanupExpiredBuffers(buffers);
+        cleanupExpiredBuffers(buffers, triggered);
       }, cleanupIntervalMs);
     }
 
@@ -938,6 +950,7 @@ export function fingersCrossed(
 
       // Check if this buffer is already triggered
       if (triggered.has(bufferKey)) {
+        triggered.set(bufferKey, Date.now());
         sink(record);
         return;
       }
@@ -990,12 +1003,13 @@ export function fingersCrossed(
 
         // Flush matching buffers
         const allRecordsToFlush: LogRecord[] = [];
+        const triggeredAt = Date.now();
         for (const key of keysToFlush) {
           const metadata = buffers.get(key);
           if (metadata) {
             allRecordsToFlush.push(...metadata.buffer);
             buffers.delete(key);
-            triggered.add(key);
+            triggered.set(key, triggeredAt);
           }
         }
 
@@ -1008,7 +1022,7 @@ export function fingersCrossed(
         }
 
         // Mark trigger buffer as triggered and send trigger record
-        triggered.add(bufferKey);
+        triggered.set(bufferKey, triggeredAt);
         sink(record);
       } else if (
         bufferLevel != null &&
