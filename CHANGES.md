@@ -8,8 +8,17 @@ Version 2.0.12
 
 To be released.
 
+### @logtape/logtape
+
  -  Fixed a bug where `ConfigError.name` was incorrectly set to
     `"ConfigureError"` instead of `"ConfigError"`.
+
+ -  Fixed a bug where errors thrown by asynchronous sinks created with
+    `fromAsyncSink()` were silently swallowed and never reported.
+    Now errors from async sinks are logged to the meta logger
+    (`["logtape", "meta"]`) with error level.  The meta log record includes
+    the error, the async sink function, and the log record that was being
+    processed when the error occurred.
 
 
 Version 2.0.11

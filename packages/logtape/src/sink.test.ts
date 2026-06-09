@@ -5,6 +5,7 @@ import makeConsoleMock from "consolemock";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
+import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import {
   type AsyncSink,
@@ -870,6 +871,140 @@ test("fromAsyncSink() - empty async sink", async () => {
 
   // Test passes if no errors thrown
   assert.ok(true);
+});
+
+test("fromAsyncSink() - errors are logged to meta logger", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+
+  try {
+    const asyncSink: AsyncSink = async (_record) => {
+      await Promise.resolve();
+      throw new Error("Async sink error");
+    };
+
+    const sink = fromAsyncSink(asyncSink);
+    sink(error);
+
+    // Wait for the async promise chain to settle
+    await sink[Symbol.asyncDispose]();
+
+    // Verify error was logged to meta logger
+    assert.strictEqual(metaBuffer.length, 1);
+    const metaRecord = metaBuffer[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "error");
+    const errorProp = metaRecord.properties.error as Error;
+    assert.strictEqual(errorProp.message, "Async sink error");
+    assert.strictEqual(metaRecord.properties.sink, asyncSink);
+    assert.deepStrictEqual(metaRecord.properties.record, error);
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - does not recursively call failing sink via meta logger", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+
+  let callCount = 0;
+  const asyncSink: AsyncSink = async (_record) => {
+    callCount++;
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  // Simulate the failing sink being attached to the meta logger
+  // (which inherits sinks from ancestor loggers by default)
+  metaLogger.sinks.push(sink);
+
+  try {
+    sink(error);
+    await sink[Symbol.asyncDispose]();
+
+    // The bypass set prevents the meta logger from calling the
+    // failing sink with the error report, avoiding recursion
+    assert.strictEqual(callCount, 1);
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - suppresses error reporting for meta-logger records", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+
+  let callCount = 0;
+  const asyncSink: AsyncSink = async (_record) => {
+    callCount++;
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  };
+
+  const rawSink = fromAsyncSink(asyncSink);
+  const wrappedSink = withFilter(rawSink, "error");
+  metaLogger.sinks.push(wrappedSink);
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+
+  try {
+    wrappedSink(error);
+    await rawSink[Symbol.asyncDispose]();
+
+    // The error should be logged exactly once to the meta buffer
+    assert.strictEqual(metaBuffer.length, 1);
+    // The async sink is called twice: once for the original record
+    // and once for the meta record (which is suppressed by the guard)
+    assert.strictEqual(callCount, 2);
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - meta-child records are not suppressed by marker", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+
+  const asyncSink: AsyncSink = async (_record) => {
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  // Create a record with a meta-child category
+  const metaChildRecord: LogRecord = {
+    ...error,
+    category: ["logtape", "meta", "child"],
+  };
+
+  try {
+    sink(metaChildRecord);
+    await sink[Symbol.asyncDispose]();
+
+    // Errors from meta-child records should still be reported
+    assert.strictEqual(metaBuffer.length, 1);
+    const metaRecord = metaBuffer[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "error");
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
 });
 
 test("fingersCrossed() - basic functionality", () => {

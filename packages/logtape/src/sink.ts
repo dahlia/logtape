@@ -6,6 +6,7 @@ import {
   type TextFormatter,
 } from "./formatter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
+import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
 /**
@@ -436,15 +437,39 @@ export function fromAsyncSink(asyncSink: AsyncSink): Sink & AsyncDisposable {
   const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     lastPromise = lastPromise
       .then(() => asyncSink(record))
-      .catch(() => {
-        // Errors are handled by the sink infrastructure
+      .catch((error) => {
+        try {
+          if (_asyncSinkError in record) return;
+
+          const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+          const errorRecord = {
+            category: ["logtape", "meta"],
+            level: "error",
+            timestamp: Date.now(),
+            rawMessage: "Async sink error: {error}",
+            message: ["Async sink error: ", error, ""],
+            properties: { error, sink: asyncSink, record },
+            [_asyncSinkError]: true,
+          } as LogRecord;
+          metaLogger.emit(errorRecord, new Set([sink]));
+        } catch {
+          // Last resort – cannot log at all
+        }
       });
   };
   sink[Symbol.asyncDispose] = async () => {
-    await lastPromise;
+    // Drain the promise chain until it settles – catch handlers
+    // may enqueue additional async work (e.g., meta-logger writes)
+    for (;;) {
+      const promise = lastPromise;
+      await promise;
+      if (promise === lastPromise) break;
+    }
   };
   return sink;
 }
+
+const _asyncSinkError = Symbol.for("logtape.asyncSinkError");
 
 /**
  * Options for the {@link fingersCrossed} function.
