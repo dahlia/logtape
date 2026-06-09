@@ -28,6 +28,10 @@ To be released.
     `AsyncDisposable` cleanup methods from the wrapped sink, making filtered
     sinks impossible to dispose directly.
 
+ -  Fixed a bug where `getConsoleSink()` with non-blocking mode could leave a
+    scheduled flush pending after disposal.  The sink now cancels any pending
+    scheduled flush and writes buffered records during disposal.
+
 ### @logtape/file
 
  -  Fixed `getFileSink()` and related base file sinks so the small-record fast

@@ -360,6 +360,7 @@ export function getConsoleSink(
 
   const buffer: LogRecord[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
+  let scheduledFlushTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
   let flushScheduled = false;
   const maxBufferSize = bufferSize * 2; // Overflow protection
@@ -381,7 +382,8 @@ export function getConsoleSink(
     if (flushScheduled) return;
 
     flushScheduled = true;
-    setTimeout(() => {
+    scheduledFlushTimer = setTimeout(() => {
+      scheduledFlushTimer = null;
       flushScheduled = false;
       flush();
     }, 0);
@@ -417,6 +419,11 @@ export function getConsoleSink(
     if (flushTimer !== null) {
       clearInterval(flushTimer);
       flushTimer = null;
+    }
+    if (scheduledFlushTimer !== null) {
+      clearTimeout(scheduledFlushTimer);
+      scheduledFlushTimer = null;
+      flushScheduled = false;
     }
     flush();
   };

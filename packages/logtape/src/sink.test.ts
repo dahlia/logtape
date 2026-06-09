@@ -599,6 +599,47 @@ test("getConsoleSink() with nonBlocking - custom buffer config", async () => {
   assert.strictEqual(mock.history().length, 6); // All records flushed on dispose
 });
 
+test("getConsoleSink() with nonBlocking - cancels scheduled flush on dispose", () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const timeoutId = 12345 as unknown as ReturnType<typeof setTimeout>;
+  let scheduledCallback: (() => void) | undefined;
+  let clearedTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  globalThis.setTimeout = ((callback: () => void) => {
+    scheduledCallback = callback;
+    return timeoutId;
+  }) as typeof globalThis.setTimeout;
+  globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
+    clearedTimeout = id;
+  }) as typeof globalThis.clearTimeout;
+
+  try {
+    const sink = getConsoleSink({
+      console: mock,
+      nonBlocking: {
+        bufferSize: 1,
+        flushInterval: 5000,
+      },
+    });
+
+    sink(info);
+    assert.strictEqual(mock.history().length, 0);
+
+    (sink as Sink & Disposable)[Symbol.dispose]();
+    assert.strictEqual(clearedTimeout, timeoutId);
+    assert.strictEqual(mock.history().length, 1);
+
+    scheduledCallback?.();
+    assert.strictEqual(mock.history().length, 1);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("getConsoleSink() with nonBlocking - no operations after dispose", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
