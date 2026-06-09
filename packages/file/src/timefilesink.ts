@@ -193,6 +193,17 @@ function getRotationKey(date: Date, interval: TimeRotationInterval): string {
   }
 }
 
+function getRotationIntervalMs(interval: TimeRotationInterval): number {
+  switch (interval) {
+    case "hourly":
+      return 60 * 60 * 1000;
+    case "daily":
+      return 24 * 60 * 60 * 1000;
+    case "weekly":
+      return 7 * 24 * 60 * 60 * 1000;
+  }
+}
+
 /**
  * Get a platform-independent time-rotating file sink.
  *
@@ -225,6 +236,9 @@ export function getBaseTimeRotatingFileSink<TFile>(
   const interval = options.interval ?? "daily";
   const filenameGenerator = options.filename ?? getDefaultFilename(interval);
   const maxAgeMs = options.maxAgeMs;
+  const cleanupInterval = maxAgeMs === undefined
+    ? getRotationIntervalMs(interval)
+    : Math.min(getRotationIntervalMs(interval), maxAgeMs);
   const bufferSize = options.bufferSize ?? 1024 * 8;
   const flushInterval = options.flushInterval ?? 5000;
   const directory = options.directory;
@@ -241,6 +255,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
   let currentRotationKey: string = getRotationKey(new Date(), interval);
   let fd: TFile = options.openSync(currentPath);
   let lastFlushTimestamp: number = Date.now();
+  let lastCleanupTimestamp: number | undefined;
   let buffer: string = "";
 
   function shouldRotate(): boolean {
@@ -262,6 +277,14 @@ export function getBaseTimeRotatingFileSink<TFile>(
     if (maxAgeMs === undefined) return;
 
     const now = Date.now();
+    if (
+      lastCleanupTimestamp !== undefined && cleanupInterval > 0 &&
+      now - lastCleanupTimestamp < cleanupInterval
+    ) {
+      return;
+    }
+    lastCleanupTimestamp = now;
+
     let files: string[];
     try {
       files = options.readdirSync(directory);
@@ -272,8 +295,6 @@ export function getBaseTimeRotatingFileSink<TFile>(
     for (const file of files) {
       if (!file.endsWith(".log")) continue;
       if (file === currentFilename) continue;
-
-      const filePath = options.joinPath(directory, file);
 
       // Try to parse the date from the filename
       const dateMatch = file.match(
@@ -303,6 +324,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
       }
 
       if (fileDate && now - fileDate.getTime() > maxAgeMs) {
+        const filePath = options.joinPath(directory, file);
         try {
           options.unlinkSync(filePath);
         } catch {
