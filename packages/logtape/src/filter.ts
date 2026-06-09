@@ -224,6 +224,7 @@ interface ThrottlingBucket {
   firstRecord: LogRecord;
   lastRecord: LogRecord;
   lastTime: number;
+  lastAccess: number;
 }
 
 /**
@@ -257,6 +258,7 @@ export function getThrottlingFilter(
   const maxKeys = options.maxKeys === undefined ? 1000 : options.maxKeys;
   const buckets = new Map<string, ThrottlingBucket>();
   const summaryRecord = Symbol.for("LogTape.throttlingSummaryRecord");
+  let accessCounter = 0;
   let emittingSummary = false;
 
   if (mode !== "fixed" && mode !== "sliding") {
@@ -291,11 +293,12 @@ export function getThrottlingFilter(
         firstRecord: record,
         lastRecord: record,
         lastTime: now,
+        lastAccess: ++accessCounter,
       };
       buckets.set(key, bucket);
-    } else if (maxKeys != null) {
-      buckets.delete(key);
-      buckets.set(key, bucket);
+      evictKeysIfNeeded(now);
+    } else {
+      bucket.lastAccess = ++accessCounter;
     }
 
     if (mode === "fixed") {
@@ -393,8 +396,15 @@ export function getThrottlingFilter(
 
   function evictKeysIfNeeded(now: number): void {
     if (maxKeys == null) return;
-    while (buckets.size >= maxKeys) {
-      const keyToEvict = buckets.keys().next().value;
+    while (buckets.size > maxKeys) {
+      let keyToEvict: string | undefined;
+      let oldestAccess = Infinity;
+      for (const [key, bucket] of buckets) {
+        if (bucket.lastAccess < oldestAccess) {
+          keyToEvict = key;
+          oldestAccess = bucket.lastAccess;
+        }
+      }
       if (keyToEvict === undefined) return;
       const bucket = buckets.get(keyToEvict);
       if (bucket != null) {

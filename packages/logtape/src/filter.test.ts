@@ -422,6 +422,50 @@ test("getThrottlingFilter() evicts least recently used keys", () => {
   assert.strictEqual(filter(b), true);
 });
 
+test("getThrottlingFilter() preserves active keys when evicting", () => {
+  const summaries: LogRecord[] = [];
+  const logger = {
+    warning(message: string, properties: Record<string, unknown>) {
+      summaries.push(recordWithRawMessage(message, { properties }));
+    },
+  };
+  const filter = getThrottlingFilter({
+    limit: 1,
+    windowMs: 100,
+    maxKeys: 2,
+    key: (record) => String(record.properties.key),
+    clock: () => 0,
+    summary: { logger },
+  });
+
+  assert.strictEqual(
+    filter(recordWithRawMessage("a", { properties: { key: "a" } })),
+    true,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("b", { properties: { key: "b" } })),
+    true,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("a again", { properties: { key: "a" } })),
+    false,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("c", { properties: { key: "c" } })),
+    true,
+  );
+
+  assert.strictEqual(summaries.length, 0);
+  assert.strictEqual(
+    filter(recordWithRawMessage("b again", { properties: { key: "b" } })),
+    true,
+  );
+  assert.strictEqual(
+    filter(recordWithRawMessage("a once more", { properties: { key: "a" } })),
+    true,
+  );
+});
+
 test("getThrottlingFilter() emits summaries when suppression ends", () => {
   let now = 0;
   const summaries: LogRecord[] = [];

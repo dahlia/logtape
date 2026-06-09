@@ -8,6 +8,11 @@ Version 2.1.3
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed `getThrottlingFilter()` so `maxKeys` evicts the least recently used
+    key instead of relying on `Map` insertion order.
+
 
 Version 2.1.2
 -------------
