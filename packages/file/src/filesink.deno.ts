@@ -40,6 +40,7 @@ export const denoDriver: RotatingFileSinkDriver<Deno.FsFile> = {
   },
   statSync: globalThis?.Deno.statSync,
   renameSync: globalThis?.Deno.renameSync,
+  unlinkSync: globalThis?.Deno.removeSync,
 };
 
 /**

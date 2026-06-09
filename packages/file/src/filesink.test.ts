@@ -14,10 +14,29 @@ import {
   info,
   warning,
 } from "../../logtape/src/fixtures.ts";
-import { type FileSinkDriver, getBaseFileSink } from "./filesink.base.ts";
+import {
+  type FileSinkDriver,
+  getBaseFileSink,
+  getBaseRotatingFileSink,
+  type RotatingFileSinkDriver,
+} from "./filesink.base.ts";
 
 function makeTempFileSync(): string {
   return join(fs.mkdtempSync(join(tmpdir(), "logtape-")), "logtape.txt");
+}
+
+function makeNodeRotatingFileDriver(): RotatingFileSinkDriver<number> {
+  return {
+    openSync(path: string) {
+      return fs.openSync(path, "a");
+    },
+    writeSync: fs.writeSync,
+    flushSync: fs.fsyncSync,
+    closeSync: fs.closeSync,
+    statSync: fs.statSync,
+    renameSync: fs.renameSync,
+    unlinkSync: fs.unlinkSync,
+  };
 }
 
 test("getBaseFileSink()", () => {
@@ -427,6 +446,74 @@ test("getRotatingFileSink()", () => {
     "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
   );
   sink2[Symbol.dispose]();
+});
+
+test("getRotatingFileSink() with maxFiles <= 0", () => {
+  for (const maxFiles of [0, -1]) {
+    const path = makeTempFileSync();
+    const sink: Sink & Disposable = getRotatingFileSink(path, {
+      maxSize: 150,
+      maxFiles,
+      bufferSize: 0,
+    });
+
+    sink(debug);
+    sink(info);
+    sink(warning);
+    sink(error);
+    sink(fatal);
+    sink[Symbol.dispose]();
+
+    assert.deepStrictEqual(
+      fs.readFileSync(path, { encoding: "utf-8" }),
+      "2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!\n",
+    );
+    assert.strictEqual(fs.existsSync(`${path}.1`), false);
+  }
+});
+
+test("getBaseRotatingFileSink() requires deletion support for maxFiles <= 0", () => {
+  const path = makeTempFileSync();
+  const { unlinkSync: _unlinkSync, ...driver } = makeNodeRotatingFileDriver();
+
+  assert.throws(
+    () =>
+      getBaseRotatingFileSink(path, {
+        ...driver,
+        maxFiles: 0,
+      }),
+    /unlinkSync/,
+  );
+});
+
+test("getBaseRotatingFileSink() propagates deletion failures", () => {
+  const path = makeTempFileSync();
+  const driver = makeNodeRotatingFileDriver();
+  const unlinkError = Object.assign(new Error("permission denied"), {
+    code: "EACCES",
+  });
+  const sink: Sink & Disposable = getBaseRotatingFileSink(path, {
+    ...driver,
+    maxSize: 150,
+    maxFiles: 0,
+    bufferSize: 0,
+    unlinkSync() {
+      throw unlinkError;
+    },
+  });
+
+  sink(debug);
+  sink(info);
+  assert.throws(() => sink(warning), unlinkError);
+  sink[Symbol.dispose]();
+
+  assert.deepStrictEqual(
+    fs.readFileSync(path, { encoding: "utf-8" }),
+    `\
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
+`,
+  );
 });
 
 test("getBaseFileSink() with buffer edge cases", () => {

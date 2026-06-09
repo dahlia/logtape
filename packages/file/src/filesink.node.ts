@@ -38,6 +38,7 @@ export const nodeDriver: RotatingFileSinkDriver<number | void> = {
   closeSync: fs.closeSync,
   statSync: fs.statSync,
   renameSync: fs.renameSync,
+  unlinkSync: fs.unlinkSync,
 };
 
 /**

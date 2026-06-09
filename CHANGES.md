@@ -18,6 +18,16 @@ To be released.
 
 [implicit context]: https://logtape.org/manual/contexts#implicit-contexts
 
+### @logtape/file
+
+ -  Fixed a bug where `getRotatingFileSink()` with `maxFiles: 0` or a negative
+    `maxFiles` still renamed the current file to `path.1` during rollover,
+    leaving stale backup files behind even though no backups should be kept.
+    This adds optional `unlinkSync(path: string): void` methods to the
+    `RotatingFileSinkDriver` and `AsyncRotatingFileSinkDriver` interfaces;
+    custom base rotating file drivers must provide them when `maxFiles` is
+    `0` or negative.
+
 ### @logtape/lint
 
  -  New package *@logtape/lint* providing lint rules for ESLint (v8 and v9),

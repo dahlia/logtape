@@ -623,6 +623,12 @@ export interface RotatingFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
    * @param newPath A path to be renamed to.
    */
   renameSync(oldPath: string, newPath: string): void;
+
+  /**
+   * Delete a file.
+   * @param path A path to the file to delete.
+   */
+  unlinkSync?(path: string): void;
 }
 
 /**
@@ -644,6 +650,18 @@ export interface AsyncRotatingFileSinkDriver<TFile>
    * @param newPath A path to be renamed to.
    */
   renameSync(oldPath: string, newPath: string): void;
+
+  /**
+   * Delete a file.
+   * @param path A path to the file to delete.
+   */
+  unlinkSync?(path: string): void;
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const errorWithCode = error as Error & { code?: unknown };
+  return errorWithCode.code === "ENOENT" || error.name === "NotFound";
 }
 
 /**
@@ -680,6 +698,9 @@ export function getBaseRotatingFileSink<TFile>(
   const maxFiles = options.maxFiles ?? 5;
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
   const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
+  if (maxFiles <= 0 && options.unlinkSync == null) {
+    throw new TypeError("maxFiles <= 0 requires unlinkSync support.");
+  }
   let offset: number = 0;
   try {
     const stat = options.statSync(path);
@@ -695,7 +716,31 @@ export function getBaseRotatingFileSink<TFile>(
     return offset + bytes.length > maxSize;
   }
   function performRollover(): void {
+    if (maxFiles <= 0) {
+      const unlinkSync = options.unlinkSync;
+      if (unlinkSync == null) return;
+
+      options.closeSync(fd);
+      try {
+        unlinkSync(path);
+      } catch (error) {
+        if (!isFileNotFoundError(error)) {
+          try {
+            offset = options.statSync(path).size;
+          } catch {
+            offset = 0;
+          }
+          fd = options.openSync(path);
+          throw error;
+        }
+      }
+      offset = 0;
+      fd = options.openSync(path);
+      return;
+    }
+
     options.closeSync(fd);
+
     for (let i = maxFiles - 1; i > 0; i--) {
       const oldPath = `${path}.${i}`;
       const newPath = `${path}.${i + 1}`;
