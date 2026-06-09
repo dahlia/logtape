@@ -29,6 +29,47 @@ test("withFilter()", () => {
   assert.deepStrictEqual(buffer, [warning, error, fatal]);
 });
 
+test("withFilter() forwards Symbol.dispose", () => {
+  const buffer: LogRecord[] = [];
+  const rawSink = ((record: LogRecord) => {
+    buffer.push(record);
+  }) as Sink & Disposable & { disposed: boolean };
+  rawSink.disposed = false;
+  rawSink[Symbol.dispose] = function (this: typeof rawSink) {
+    assert.strictEqual(this, rawSink);
+    this.disposed = true;
+  };
+
+  const sink = withFilter(rawSink, "warning");
+
+  sink(info);
+  sink(warning);
+  (sink as Sink & Partial<Disposable>)[Symbol.dispose]?.();
+  assert.deepStrictEqual(buffer, [warning]);
+  assert.strictEqual(rawSink.disposed, true);
+});
+
+test("withFilter() forwards Symbol.asyncDispose", async () => {
+  const buffer: LogRecord[] = [];
+  const rawSink = ((record: LogRecord) => {
+    buffer.push(record);
+  }) as Sink & AsyncDisposable & { disposed: boolean };
+  rawSink.disposed = false;
+  rawSink[Symbol.asyncDispose] = async function (this: typeof rawSink) {
+    await Promise.resolve();
+    assert.strictEqual(this, rawSink);
+    this.disposed = true;
+  };
+
+  const sink = withFilter(rawSink, "warning");
+
+  sink(info);
+  sink(warning);
+  await (sink as Sink & Partial<AsyncDisposable>)[Symbol.asyncDispose]?.();
+  assert.deepStrictEqual(buffer, [warning]);
+  assert.strictEqual(rawSink.disposed, true);
+});
+
 interface ConsoleMock extends Console {
   history(): unknown[];
 }
@@ -958,7 +999,8 @@ test("fromAsyncSink() - suppresses error reporting for meta-logger records", asy
 
   try {
     wrappedSink(error);
-    await rawSink[Symbol.asyncDispose]();
+    const disposableSink = wrappedSink as Sink & Partial<AsyncDisposable>;
+    await disposableSink[Symbol.asyncDispose]?.();
 
     // The error should be logged exactly once to the meta buffer
     assert.strictEqual(metaBuffer.length, 1);

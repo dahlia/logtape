@@ -24,6 +24,10 @@ To be released.
     removed by TTL cleanup.  This could cause memory usage to grow over time in
     long-running applications with dynamically generated context values.
 
+ -  Fixed a bug where `withFilter()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from the wrapped sink, making filtered
+    sinks impossible to dispose directly.
+
 ### @logtape/file
 
  -  Fixed `getFileSink()` and related base file sinks so the small-record fast

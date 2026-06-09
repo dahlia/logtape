@@ -47,9 +47,21 @@ export type AsyncSink = (record: LogRecord) => Promise<void>;
  */
 export function withFilter(sink: Sink, filter: FilterLike): Sink {
   const filterFunc = toFilter(filter);
-  return (record: LogRecord) => {
+  const filtered: Sink & Partial<Disposable & AsyncDisposable> = (
+    record: LogRecord,
+  ) => {
     if (filterFunc(record)) sink(record);
   };
+  const disposableSink = sink as Sink & Partial<Disposable & AsyncDisposable>;
+  if (Symbol.dispose in disposableSink) {
+    filtered[Symbol.dispose] = disposableSink[Symbol.dispose]?.bind(sink);
+  }
+  if (Symbol.asyncDispose in disposableSink) {
+    filtered[Symbol.asyncDispose] = disposableSink[Symbol.asyncDispose]?.bind(
+      sink,
+    );
+  }
+  return filtered;
 }
 
 /**
