@@ -298,6 +298,106 @@ test("getBaseTimeRotatingFileSink() with maxAgeMs cleans up old files", () => {
   assert.strictEqual(files.includes(recentFilename), true);
 });
 
+test("getBaseTimeRotatingFileSink() throttles cleanup scans", () => {
+  const directory = makeTempDirSync();
+  const driver = getDriver();
+  let readdirCount = 0;
+  const readdirSync = (path: string): string[] => {
+    readdirCount++;
+    return driver.readdirSync(path);
+  };
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+
+  try {
+    const sink = getBaseTimeRotatingFileSink({
+      ...driver,
+      readdirSync,
+      directory,
+      interval: "hourly",
+      maxAgeMs: 5 * 24 * 60 * 60 * 1000,
+      bufferSize: 0,
+    });
+
+    sink(debug);
+    sink(info);
+    assert.strictEqual(readdirCount, 1);
+
+    now += 60 * 60 * 1000;
+    sink(warning);
+    assert.strictEqual(readdirCount, 2);
+
+    sink[Symbol.dispose]();
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("getBaseTimeRotatingFileSink() does not cleanup on every flush by default", () => {
+  const directory = makeTempDirSync();
+  const driver = getDriver();
+  let readdirCount = 0;
+  const readdirSync = (path: string): string[] => {
+    readdirCount++;
+    return driver.readdirSync(path);
+  };
+
+  const sink = getBaseTimeRotatingFileSink({
+    ...driver,
+    readdirSync,
+    directory,
+    interval: "hourly",
+    maxAgeMs: 5 * 24 * 60 * 60 * 1000,
+    bufferSize: 0,
+  });
+
+  sink(debug);
+  sink(info);
+  sink(warning);
+  sink[Symbol.dispose]();
+
+  assert.strictEqual(readdirCount, 1);
+});
+
+test("getBaseTimeRotatingFileSink() cleans up when maxAgeMs elapses", () => {
+  const directory = makeTempDirSync();
+  const driver = getDriver();
+  let readdirCount = 0;
+  const readdirSync = (path: string): string[] => {
+    readdirCount++;
+    return driver.readdirSync(path);
+  };
+  const realNow = Date.now;
+  let now = new Date(2025, 0, 1, 10, 30).getTime();
+  Date.now = () => now;
+  const filename = "2025-01-01-10.log";
+  fs.writeFileSync(join(directory, filename), "old content");
+
+  try {
+    const sink = getBaseTimeRotatingFileSink({
+      ...driver,
+      readdirSync,
+      directory,
+      interval: "weekly",
+      maxAgeMs: 60 * 60 * 1000,
+      bufferSize: 0,
+    });
+
+    sink(debug);
+    assert.strictEqual(fs.existsSync(join(directory, filename)), true);
+
+    now += 60 * 60 * 1000;
+    sink(info);
+    assert.strictEqual(readdirCount, 2);
+    assert.strictEqual(fs.existsSync(join(directory, filename)), false);
+
+    sink[Symbol.dispose]();
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test("getBaseTimeRotatingFileSink() with bufferSize: 0", () => {
   const directory = makeTempDirSync();
   const driver = getDriver();

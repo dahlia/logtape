@@ -34,6 +34,10 @@ To be released.
 
 ### @logtape/file
 
+ -  Fixed a performance issue where time-rotating file sinks scanned the log
+    directory on every flush when `maxAgeMs` was set.  Old-file cleanup now runs
+    at most once per rotation interval.
+
  -  Fixed `getFileSink()` and related base file sinks so the small-record fast
     path is used when the internal buffer is empty regardless of the configured
     `bufferSize`.  Previously, custom buffer sizes such as `16384` disabled the
