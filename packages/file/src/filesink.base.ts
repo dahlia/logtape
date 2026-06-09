@@ -1,9 +1,16 @@
 import {
   defaultTextFormatter,
+  getLogger,
   type LogRecord,
   type Sink,
   type StreamSinkOptions,
 } from "@logtape/logtape";
+
+function isMetaLoggerRecord(record: LogRecord): boolean {
+  return record.category.length === 2 &&
+    record.category[0] === "logtape" &&
+    record.category[1] === "meta";
+}
 
 /**
  * Adaptive flush strategy that dynamically adjusts buffer thresholds
@@ -491,6 +498,18 @@ export function getBaseFileSink<TFile>(
   let disposed = false;
   let activeFlush: Promise<void> | null = null;
   let flushTimer: ReturnType<typeof setInterval> | null = null;
+  let bufferedNonMetaRecord = false;
+
+  function reportFlushError(error: unknown): void {
+    try {
+      getLogger(["logtape", "meta"]).warn(
+        "Non-blocking file sink flush failed for {path}: {error}",
+        { error, path },
+      );
+    } catch {
+      // Last resort: keep non-blocking file sinks from throwing.
+    }
+  }
 
   async function flushBuffer(): Promise<void> {
     if (fd == null || byteBuffer.isEmpty()) return;
@@ -500,6 +519,8 @@ export function getBaseFileSink<TFile>(
     const timeSinceLastFlush = currentTime - lastFlushTimestamp;
 
     const chunks = byteBuffer.flush();
+    const suppressErrorReport = !bufferedNonMetaRecord;
+    bufferedNonMetaRecord = false;
     try {
       if (asyncOptions.writeMany && chunks.length > 1) {
         // Use async batch write if available
@@ -515,8 +536,8 @@ export function getBaseFileSink<TFile>(
       // Record flush for adaptive strategy
       adaptiveStrategy.recordFlush(flushSize, timeSinceLastFlush);
       lastFlushTimestamp = currentTime;
-    } catch {
-      // Silently ignore errors in non-blocking mode
+    } catch (error) {
+      if (!suppressErrorReport) reportFlushError(error);
     }
   }
 
@@ -529,7 +550,10 @@ export function getBaseFileSink<TFile>(
     });
   }
 
-  function scheduleDirectFlush(flushSize: number): void {
+  function scheduleDirectFlush(
+    flushSize: number,
+    suppressErrorReport: boolean,
+  ): void {
     if (activeFlush || disposed || fd == null) return;
 
     const flushFd = fd;
@@ -541,8 +565,8 @@ export function getBaseFileSink<TFile>(
         adaptiveStrategy.recordFlush(flushSize, timeSinceLastFlush);
         lastFlushTimestamp = Date.now();
       })
-      .catch(() => {
-        // Silently ignore errors in non-blocking mode
+      .catch((error) => {
+        if (!suppressErrorReport) reportFlushError(error);
       })
       .finally(() => {
         activeFlush = null;
@@ -574,7 +598,7 @@ export function getBaseFileSink<TFile>(
       if (encodedRecord.length < 200) {
         // Write directly for small logs - no complex buffering logic
         asyncOptions.writeSync(fd, encodedRecord);
-        scheduleDirectFlush(encodedRecord.length);
+        scheduleDirectFlush(encodedRecord.length, isMetaLoggerRecord(record));
         return;
       }
     }
@@ -583,6 +607,7 @@ export function getBaseFileSink<TFile>(
     formattedRecord ??= formatter(record);
     encodedRecord ??= encoder.encode(formattedRecord);
     byteBuffer.append(encodedRecord);
+    bufferedNonMetaRecord ||= !isMetaLoggerRecord(record);
 
     // Check for immediate flush conditions
     if (bufferSize <= 0) {
@@ -783,12 +808,26 @@ export function getBaseRotatingFileSink<TFile>(
   let disposed = false;
   let activeFlush: Promise<void> | null = null;
   let flushTimer: ReturnType<typeof setInterval> | null = null;
+  let bufferedNonMetaRecord = false;
+
+  function reportFlushError(error: unknown): void {
+    try {
+      getLogger(["logtape", "meta"]).warn(
+        "Non-blocking rotating file sink flush failed for {path}: {error}",
+        { error, path },
+      );
+    } catch {
+      // Last resort: keep non-blocking file sinks from throwing.
+    }
+  }
 
   async function flushBuffer(): Promise<void> {
     if (buffer.length === 0) return;
 
     const data = buffer;
     buffer = "";
+    const suppressErrorReport = !bufferedNonMetaRecord;
+    bufferedNonMetaRecord = false;
     try {
       const bytes = encoder.encode(data);
       if (shouldRollover(bytes)) performRollover();
@@ -796,8 +835,8 @@ export function getBaseRotatingFileSink<TFile>(
       await asyncOptions.flush(fd);
       offset += bytes.length;
       lastFlushTimestamp = Date.now();
-    } catch {
-      // Silently ignore errors in non-blocking mode
+    } catch (error) {
+      if (!suppressErrorReport) reportFlushError(error);
     }
   }
 
@@ -820,6 +859,7 @@ export function getBaseRotatingFileSink<TFile>(
   const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
     buffer += formatter(record);
+    bufferedNonMetaRecord ||= !isMetaLoggerRecord(record);
 
     const shouldFlushBySize = buffer.length >= bufferSize;
     const shouldFlushByTime = flushInterval > 0 &&
@@ -838,6 +878,7 @@ export function getBaseRotatingFileSink<TFile>(
       clearInterval(flushTimer);
       flushTimer = null;
     }
+    if (activeFlush !== null) await activeFlush;
     await flushBuffer();
     try {
       await asyncOptions.close(fd);

@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { isDeno } from "@david/which-runtime";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { join } from "@std/path/join";
+import { LoggerImpl } from "../../logtape/src/logger.ts";
 import {
   debug,
   error,
@@ -16,8 +17,10 @@ import {
 } from "../../logtape/src/fixtures.ts";
 import {
   type AsyncFileSinkDriver,
+  type AsyncRotatingFileSinkDriver,
   type FileSinkDriver,
   getBaseFileSink,
+  getBaseRotatingFileSink,
 } from "./filesink.base.ts";
 
 function makeTempFileSync(): string {
@@ -74,6 +77,43 @@ function makeAsyncMemoryFileDriver(): {
         fd.closed = true;
         return Promise.resolve();
       },
+    },
+  };
+}
+
+function makeAsyncRotatingMemoryFileDriver(): {
+  readonly driver: AsyncRotatingFileSinkDriver<MemoryFile>;
+  readonly file: MemoryFile;
+} {
+  const { driver, file } = makeAsyncMemoryFileDriver();
+  return {
+    file,
+    driver: {
+      ...driver,
+      statSync() {
+        return { size: 0 };
+      },
+      renameSync() {
+      },
+    },
+  };
+}
+
+function captureMetaWarnings(): {
+  readonly records: LogRecord[];
+  readonly dispose: () => void;
+} {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const records: LogRecord[] = [];
+  const sink = records.push.bind(records);
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.sinks.push(sink);
+  metaLogger.lowestLevel = "warning";
+  return {
+    records,
+    dispose() {
+      metaLogger.sinks.splice(metaLogger.sinks.indexOf(sink), 1);
+      metaLogger.lowestLevel = originalLowestLevel;
     },
   };
 }
@@ -425,8 +465,9 @@ test("getBaseFileSink() non-blocking does not reformat large fast path fallbacks
   await sink[Symbol.asyncDispose]();
 });
 
-test("getBaseFileSink() non-blocking fast path ignores flush errors", async () => {
+test("getBaseFileSink() non-blocking fast path reports flush errors", async () => {
   const { driver } = makeAsyncMemoryFileDriver();
+  const meta = captureMetaWarnings();
   const sink = getBaseFileSink("memory.log", {
     ...driver,
     flush() {
@@ -435,8 +476,110 @@ test("getBaseFileSink() non-blocking fast path ignores flush errors", async () =
     nonBlocking: true,
   }) as unknown as Sink & AsyncDisposable;
 
-  assert.doesNotThrow(() => sink(debug));
-  await sink[Symbol.asyncDispose]();
+  try {
+    assert.doesNotThrow(() => sink(debug));
+    await sink[Symbol.asyncDispose]();
+
+    assert.strictEqual(meta.records.length, 1);
+    const metaRecord = meta.records[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "warning");
+    const errorProp = metaRecord.properties.error as Error;
+    assert.strictEqual(errorProp.message, "flush failed");
+    assert.strictEqual(metaRecord.properties.path, "memory.log");
+  } finally {
+    meta.dispose();
+  }
+});
+
+test("getBaseFileSink() non-blocking reports buffered flush errors", async () => {
+  const { driver } = makeAsyncMemoryFileDriver();
+  const meta = captureMetaWarnings();
+  const sink = getBaseFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    flush() {
+      throw new Error("buffered flush failed");
+    },
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+  const largeRecord: LogRecord = {
+    ...debug,
+    message: ["x".repeat(300)],
+    rawMessage: "x".repeat(300),
+  };
+
+  try {
+    assert.doesNotThrow(() => sink(largeRecord));
+    await sink[Symbol.asyncDispose]();
+
+    assert.strictEqual(meta.records.length, 1);
+    const metaRecord = meta.records[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "warning");
+    const errorProp = metaRecord.properties.error as Error;
+    assert.strictEqual(errorProp.message, "buffered flush failed");
+    assert.strictEqual(metaRecord.properties.path, "memory.log");
+  } finally {
+    meta.dispose();
+  }
+});
+
+test("getBaseRotatingFileSink() non-blocking reports flush errors", async () => {
+  const { driver } = makeAsyncRotatingMemoryFileDriver();
+  const meta = captureMetaWarnings();
+  const sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    flush() {
+      throw new Error("rotating flush failed");
+    },
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+
+  try {
+    assert.doesNotThrow(() => sink(debug));
+    await sink[Symbol.asyncDispose]();
+
+    assert.strictEqual(meta.records.length, 1);
+    const metaRecord = meta.records[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "warning");
+    const errorProp = metaRecord.properties.error as Error;
+    assert.strictEqual(errorProp.message, "rotating flush failed");
+    assert.strictEqual(metaRecord.properties.path, "memory.log");
+  } finally {
+    meta.dispose();
+  }
+});
+
+test("getBaseRotatingFileSink() non-blocking disposal waits for flush errors", async () => {
+  const { driver } = makeAsyncRotatingMemoryFileDriver();
+  const meta = captureMetaWarnings();
+  const sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    async flush() {
+      await delay(10);
+      throw new Error("delayed rotating flush failed");
+    },
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+
+  try {
+    sink(debug);
+    await sink[Symbol.asyncDispose]();
+
+    assert.strictEqual(meta.records.length, 1);
+    const metaRecord = meta.records[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "warning");
+    const errorProp = metaRecord.properties.error as Error;
+    assert.strictEqual(errorProp.message, "delayed rotating flush failed");
+    assert.strictEqual(metaRecord.properties.path, "memory.log");
+  } finally {
+    meta.dispose();
+  }
 });
 
 test("getRotatingFileSink() with bufferSize: 0 (no buffering)", () => {

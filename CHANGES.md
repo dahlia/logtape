@@ -40,6 +40,10 @@ To be released.
     fast path unnecessarily.  Fast-path writes are now also recorded in the
     adaptive flush strategy statistics.
 
+ -  Fixed a bug where non-blocking `getFileSink()` and `getRotatingFileSink()`
+    silently ignored background flush errors.  These failures are now reported
+    to the meta logger (`["logtape", "meta"]`) with warning level.
+
 
 Version 2.0.11
 --------------
