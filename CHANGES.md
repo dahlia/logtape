@@ -24,6 +24,14 @@ To be released.
     removed by TTL cleanup.  This could cause memory usage to grow over time in
     long-running applications with dynamically generated context values.
 
+### @logtape/file
+
+ -  Fixed `getFileSink()` and related base file sinks so the small-record fast
+    path is used when the internal buffer is empty regardless of the configured
+    `bufferSize`.  Previously, custom buffer sizes such as `16384` disabled the
+    fast path unnecessarily.  Fast-path writes are now also recorded in the
+    adaptive flush strategy statistics.
+
 
 Version 2.0.11
 --------------

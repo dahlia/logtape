@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { isDeno } from "@david/which-runtime";
-import type { Sink } from "@logtape/logtape";
+import type { LogRecord, Sink } from "@logtape/logtape";
 import { join } from "@std/path/join";
 import {
   debug,
@@ -14,10 +14,79 @@ import {
   info,
   warning,
 } from "../../logtape/src/fixtures.ts";
-import { type FileSinkDriver, getBaseFileSink } from "./filesink.base.ts";
+import {
+  type AsyncFileSinkDriver,
+  type FileSinkDriver,
+  getBaseFileSink,
+} from "./filesink.base.ts";
 
 function makeTempFileSync(): string {
   return join(fs.mkdtempSync(join(tmpdir(), "logtape-")), "logtape.txt");
+}
+
+interface MemoryFile {
+  readonly chunks: Uint8Array[];
+  closed: boolean;
+  flushCount: number;
+}
+
+function makeMemoryFileDriver(): {
+  readonly driver: FileSinkDriver<MemoryFile>;
+  readonly file: MemoryFile;
+} {
+  const file: MemoryFile = { chunks: [], closed: false, flushCount: 0 };
+  return {
+    file,
+    driver: {
+      openSync() {
+        return file;
+      },
+      writeSync(fd, chunk) {
+        fd.chunks.push(chunk.slice());
+      },
+      writeManySync(fd, chunks) {
+        for (const chunk of chunks) fd.chunks.push(chunk.slice());
+      },
+      flushSync(fd) {
+        fd.flushCount++;
+      },
+      closeSync(fd) {
+        fd.closed = true;
+      },
+    },
+  };
+}
+
+function makeAsyncMemoryFileDriver(): {
+  readonly driver: AsyncFileSinkDriver<MemoryFile>;
+  readonly file: MemoryFile;
+} {
+  const { driver, file } = makeMemoryFileDriver();
+  return {
+    file,
+    driver: {
+      ...driver,
+      flush(fd) {
+        fd.flushCount++;
+        return Promise.resolve();
+      },
+      close(fd) {
+        fd.closed = true;
+        return Promise.resolve();
+      },
+    },
+  };
+}
+
+function readMemoryFile(file: MemoryFile): string {
+  const size = file.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of file.chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 test("getBaseFileSink()", () => {
@@ -189,17 +258,18 @@ test("getFileSink() with bufferSize: 0 (no buffering)", () => {
 
 test("getFileSink() with small buffer size", () => {
   const path = makeTempFileSync();
-  // Use a small buffer size (100 characters) to test buffering behavior
+  // Use a small buffer size (100 characters) to test flush behavior.
   const sink: Sink & Disposable = getFileSink(path, { bufferSize: 100 });
 
-  // Write first log entry (about 65 characters)
   sink(debug);
-  // Should be buffered, not yet written to file
-  assert.deepStrictEqual(fs.readFileSync(path, { encoding: "utf-8" }), "");
+  assert.deepStrictEqual(
+    fs.readFileSync(path, { encoding: "utf-8" }),
+    `\
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+`,
+  );
 
-  // Write second log entry - this should exceed buffer size and trigger flush
   sink(info);
-  // Both entries should now be written to file
   assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
@@ -208,18 +278,16 @@ test("getFileSink() with small buffer size", () => {
 `,
   );
 
-  // Write third log entry - should be buffered again
   sink(warning);
-  // Should still only have the first two entries
   assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
     `\
 2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
 2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 `,
   );
 
-  // Dispose should flush remaining buffer content
   sink[Symbol.dispose]();
   assert.deepStrictEqual(
     fs.readFileSync(path, { encoding: "utf-8" }),
@@ -229,6 +297,146 @@ test("getFileSink() with small buffer size", () => {
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 `,
   );
+});
+
+test("getBaseFileSink() fast path works with a custom buffer size", () => {
+  const { driver, file } = makeMemoryFileDriver();
+  const sink: Sink & Disposable = getBaseFileSink("memory.log", {
+    ...driver,
+    bufferSize: 16 * 1024,
+  });
+
+  sink(debug);
+
+  assert.deepStrictEqual(
+    readMemoryFile(file),
+    "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assert.strictEqual(file.flushCount, 1);
+  sink[Symbol.dispose]();
+});
+
+test("getBaseFileSink() records fast path flushes", () => {
+  const { driver, file } = makeMemoryFileDriver();
+  const sink: Sink & Disposable = getBaseFileSink("memory.log", driver);
+  const message = "x".repeat(5000);
+  const largeRecord: LogRecord = {
+    ...debug,
+    message: [message],
+    rawMessage: message,
+  };
+
+  sink(debug);
+  sink(largeRecord);
+
+  assert.strictEqual(
+    readMemoryFile(file).includes(message),
+    true,
+    "large records should flush after the fast path updates adaptive stats",
+  );
+  sink[Symbol.dispose]();
+});
+
+test("getBaseFileSink() keeps time-based flushing after zero-interval fast path", () => {
+  const { driver, file } = makeMemoryFileDriver();
+  const originalDateNow = Date.now;
+  const message = "x".repeat(300);
+  const largeRecord: LogRecord = {
+    ...debug,
+    message: [message],
+    rawMessage: message,
+    timestamp: 1100,
+  };
+
+  try {
+    Date.now = () => 1000;
+    const sink: Sink & Disposable = getBaseFileSink("memory.log", {
+      ...driver,
+      bufferSize: 10_000,
+      flushInterval: 100,
+    });
+
+    sink(debug);
+    sink(largeRecord);
+
+    assert.strictEqual(
+      readMemoryFile(file).includes(message),
+      true,
+      "positive flushInterval should still flush after a 0 ms fast path flush",
+    );
+    sink[Symbol.dispose]();
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
+test("getBaseFileSink() does not reformat large fast path fallbacks", () => {
+  const { driver } = makeMemoryFileDriver();
+  let formatCount = 0;
+  const sink: Sink & Disposable = getBaseFileSink("memory.log", {
+    ...driver,
+    bufferSize: 10_000,
+    formatter() {
+      formatCount++;
+      return "x".repeat(300);
+    },
+  });
+
+  sink(debug);
+
+  assert.strictEqual(formatCount, 1);
+  sink[Symbol.dispose]();
+});
+
+test("getBaseFileSink() non-blocking fast path flushes direct writes", async () => {
+  const { driver, file } = makeAsyncMemoryFileDriver();
+  const sink = getBaseFileSink("memory.log", {
+    ...driver,
+    bufferSize: 16 * 1024,
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+
+  sink(debug);
+  await sink[Symbol.asyncDispose]();
+
+  assert.deepStrictEqual(
+    readMemoryFile(file),
+    "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
+  );
+  assert.strictEqual(file.flushCount, 1);
+});
+
+test("getBaseFileSink() non-blocking does not reformat large fast path fallbacks", async () => {
+  const { driver } = makeAsyncMemoryFileDriver();
+  let formatCount = 0;
+  const sink = getBaseFileSink("memory.log", {
+    ...driver,
+    bufferSize: 10_000,
+    formatter() {
+      formatCount++;
+      return "x".repeat(300);
+    },
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+
+  sink(debug);
+
+  assert.strictEqual(formatCount, 1);
+  await sink[Symbol.asyncDispose]();
+});
+
+test("getBaseFileSink() non-blocking fast path ignores flush errors", async () => {
+  const { driver } = makeAsyncMemoryFileDriver();
+  const sink = getBaseFileSink("memory.log", {
+    ...driver,
+    flush() {
+      throw new Error("flush failed");
+    },
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+
+  assert.doesNotThrow(() => sink(debug));
+  await sink[Symbol.asyncDispose]();
 });
 
 test("getRotatingFileSink() with bufferSize: 0 (no buffering)", () => {
@@ -539,15 +747,10 @@ test("getBaseFileSink() with buffer edge cases", () => {
     sink3 = getBaseFileSink(path3, { ...driver, bufferSize: 10000 });
   }
 
-  // Write multiple entries that shouldn't exceed the large buffer
+  // Small entries use the empty-buffer fast path even with a large buffer.
   sink3(debug);
   sink3(info);
   sink3(warning);
-  // Should still be buffered (file empty)
-  assert.deepStrictEqual(fs.readFileSync(path3, { encoding: "utf-8" }), "");
-
-  // Dispose should flush all buffered content
-  sink3[Symbol.dispose]();
   assert.deepStrictEqual(
     fs.readFileSync(path3, { encoding: "utf-8" }),
     `\
@@ -556,6 +759,7 @@ test("getBaseFileSink() with buffer edge cases", () => {
 2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!
 `,
   );
+  sink3[Symbol.dispose]();
 });
 
 test("getBaseFileSink() with time-based flushing", async () => {
@@ -597,8 +801,14 @@ test("getBaseFileSink() with time-based flushing", async () => {
     });
   }
 
-  // Create a log record with current timestamp
-  const record1 = { ...debug, timestamp: Date.now() };
+  // Create a log record large enough to skip the small-record fast path.
+  const message = "x".repeat(300);
+  const record1: LogRecord = {
+    ...debug,
+    message: [message],
+    rawMessage: message,
+    timestamp: Date.now(),
+  };
   sink(record1);
 
   // Should be buffered (file empty initially)
@@ -606,12 +816,17 @@ test("getBaseFileSink() with time-based flushing", async () => {
 
   // Wait for flush interval to pass and write another record
   await new Promise((resolve) => setTimeout(resolve, 150));
-  const record2 = { ...info, timestamp: Date.now() };
+  const record2: LogRecord = {
+    ...info,
+    message: [message],
+    rawMessage: message,
+    timestamp: Date.now(),
+  };
   sink(record2);
 
   // First record should now be flushed due to time interval
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert.strictEqual(content.includes("Hello, 123 & 456!"), true);
+  assert.strictEqual(content.includes(message), true);
 
   sink[Symbol.dispose]();
 });
@@ -682,10 +897,21 @@ test("getBaseFileSink() with flushInterval disabled", () => {
     });
   }
 
-  // Create log records with simulated time gap
+  // Create log records large enough to skip the small-record fast path.
   const now = Date.now();
-  const record1 = { ...debug, timestamp: now };
-  const record2 = { ...info, timestamp: now + 10000 }; // 10 seconds later
+  const message = "x".repeat(300);
+  const record1: LogRecord = {
+    ...debug,
+    message: [message],
+    rawMessage: message,
+    timestamp: now,
+  };
+  const record2: LogRecord = {
+    ...info,
+    message: [message],
+    rawMessage: message,
+    timestamp: now + 10000,
+  };
 
   sink(record1);
   sink(record2);
@@ -696,7 +922,7 @@ test("getBaseFileSink() with flushInterval disabled", () => {
   // Only disposal should flush
   sink[Symbol.dispose]();
   const content = fs.readFileSync(path, { encoding: "utf-8" });
-  assert.strictEqual(content.includes("Hello, 123 & 456!"), true);
+  assert.strictEqual(content.includes(message), true);
 });
 
 test("getFileSink() with nonBlocking mode", async () => {

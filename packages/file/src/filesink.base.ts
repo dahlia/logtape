@@ -16,9 +16,11 @@ class AdaptiveFlushStrategy {
   private avgFlushInterval: number;
   private readonly maxHistorySize = 10;
   private readonly baseThreshold: number;
+  private readonly baseInterval: number;
 
   constructor(baseThreshold: number, baseInterval: number) {
     this.baseThreshold = baseThreshold;
+    this.baseInterval = baseInterval;
     this.avgFlushSize = baseThreshold;
     this.avgFlushInterval = baseInterval;
   }
@@ -84,7 +86,9 @@ class AdaptiveFlushStrategy {
 
   private calculateAdaptiveInterval(): number {
     // If base interval is 0, time-based flushing is disabled
-    if (this.avgFlushInterval <= 0) return 0;
+    if (this.baseInterval <= 0) return 0;
+
+    if (this.avgFlushInterval <= 0) return this.baseInterval;
 
     // Adjust interval based on recent flush frequency
     // More frequent flushes suggest lower latency is preferred
@@ -425,26 +429,33 @@ export function getBaseFileSink<TFile>(
 
     const sink: Sink & Disposable = (record: LogRecord) => {
       if (fd == null) fd = options.openSync(path);
+      let formattedRecord: string | undefined;
+      let encodedRecord: Uint8Array | undefined;
 
-      // ULTRA FAST PATH: Direct write when buffer is empty and using default buffer settings
-      if (byteBuffer.isEmpty() && bufferSize === 8192) {
+      // ULTRA FAST PATH: Direct write when buffer is empty
+      if (byteBuffer.isEmpty()) {
         // Inline everything for maximum speed - avoid all function calls
-        const formattedRecord = formatter(record);
-        const encodedRecord = encoder.encode(formattedRecord);
+        formattedRecord = formatter(record);
+        encodedRecord = encoder.encode(formattedRecord);
 
         // Only use fast path for typical log sizes to avoid breaking edge cases
         if (encodedRecord.length < 200) {
           // Write directly for small logs - no complex buffering logic
           options.writeSync(fd, encodedRecord);
           options.flushSync(fd);
-          lastFlushTimestamp = Date.now();
+          const currentTime = Date.now();
+          adaptiveStrategy.recordFlush(
+            encodedRecord.length,
+            currentTime - lastFlushTimestamp,
+          );
+          lastFlushTimestamp = currentTime;
           return;
         }
       }
 
       // STANDARD PATH: Complex logic for edge cases
-      const formattedRecord = formatter(record);
-      const encodedRecord = encoder.encode(formattedRecord);
+      formattedRecord ??= formatter(record);
+      encodedRecord ??= encoder.encode(formattedRecord);
       byteBuffer.append(encodedRecord);
 
       // Check for immediate flush conditions
@@ -514,7 +525,29 @@ export function getBaseFileSink<TFile>(
 
     activeFlush = flushBuffer().finally(() => {
       activeFlush = null;
+      if (!disposed && !byteBuffer.isEmpty()) scheduleFlush();
     });
+  }
+
+  function scheduleDirectFlush(flushSize: number): void {
+    if (activeFlush || disposed || fd == null) return;
+
+    const flushFd = fd;
+    const startedAt = Date.now();
+    const timeSinceLastFlush = startedAt - lastFlushTimestamp;
+    activeFlush = Promise.resolve()
+      .then(() => asyncOptions.flush(flushFd))
+      .then(() => {
+        adaptiveStrategy.recordFlush(flushSize, timeSinceLastFlush);
+        lastFlushTimestamp = Date.now();
+      })
+      .catch(() => {
+        // Silently ignore errors in non-blocking mode
+      })
+      .finally(() => {
+        activeFlush = null;
+        if (!disposed && !byteBuffer.isEmpty()) scheduleFlush();
+      });
   }
 
   function startFlushTimer(): void {
@@ -528,26 +561,27 @@ export function getBaseFileSink<TFile>(
   const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
     if (fd == null) fd = asyncOptions.openSync(path);
+    let formattedRecord: string | undefined;
+    let encodedRecord: Uint8Array | undefined;
 
-    // ULTRA FAST PATH: Direct write when buffer is empty and using default buffer settings
-    if (byteBuffer.isEmpty() && !activeFlush && bufferSize === 8192) {
+    // ULTRA FAST PATH: Direct write when buffer is empty
+    if (byteBuffer.isEmpty() && !activeFlush) {
       // Inline everything for maximum speed - avoid all function calls
-      const formattedRecord = formatter(record);
-      const encodedRecord = encoder.encode(formattedRecord);
+      formattedRecord = formatter(record);
+      encodedRecord = encoder.encode(formattedRecord);
 
       // Only use fast path for typical log sizes to avoid breaking edge cases
       if (encodedRecord.length < 200) {
         // Write directly for small logs - no complex buffering logic
         asyncOptions.writeSync(fd, encodedRecord);
-        scheduleFlush(); // Async flush
-        lastFlushTimestamp = Date.now();
+        scheduleDirectFlush(encodedRecord.length);
         return;
       }
     }
 
     // STANDARD PATH: Complex logic for edge cases
-    const formattedRecord = formatter(record);
-    const encodedRecord = encoder.encode(formattedRecord);
+    formattedRecord ??= formatter(record);
+    encodedRecord ??= encoder.encode(formattedRecord);
     byteBuffer.append(encodedRecord);
 
     // Check for immediate flush conditions
@@ -576,6 +610,7 @@ export function getBaseFileSink<TFile>(
       clearInterval(flushTimer);
       flushTimer = null;
     }
+    if (activeFlush !== null) await activeFlush;
     await flushBuffer();
     if (fd !== null) {
       try {
