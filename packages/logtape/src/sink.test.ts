@@ -6,6 +6,7 @@ import fc from "fast-check";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
+import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import {
   type AsyncSink,
@@ -59,6 +60,47 @@ test("withFilter() forwards generated records accepted by level filters", () => 
       },
     ),
   );
+});
+
+test("withFilter() forwards Symbol.dispose", () => {
+  const buffer: LogRecord[] = [];
+  const rawSink = ((record: LogRecord) => {
+    buffer.push(record);
+  }) as Sink & Disposable & { disposed: boolean };
+  rawSink.disposed = false;
+  rawSink[Symbol.dispose] = function (this: typeof rawSink) {
+    assert.strictEqual(this, rawSink);
+    this.disposed = true;
+  };
+
+  const sink = withFilter(rawSink, "warning");
+
+  sink(info);
+  sink(warning);
+  (sink as Sink & Partial<Disposable>)[Symbol.dispose]?.();
+  assert.deepStrictEqual(buffer, [warning]);
+  assert.strictEqual(rawSink.disposed, true);
+});
+
+test("withFilter() forwards Symbol.asyncDispose", async () => {
+  const buffer: LogRecord[] = [];
+  const rawSink = ((record: LogRecord) => {
+    buffer.push(record);
+  }) as Sink & AsyncDisposable & { disposed: boolean };
+  rawSink.disposed = false;
+  rawSink[Symbol.asyncDispose] = async function (this: typeof rawSink) {
+    await Promise.resolve();
+    assert.strictEqual(this, rawSink);
+    this.disposed = true;
+  };
+
+  const sink = withFilter(rawSink, "warning");
+
+  sink(info);
+  sink(warning);
+  await (sink as Sink & Partial<AsyncDisposable>)[Symbol.asyncDispose]?.();
+  assert.deepStrictEqual(buffer, [warning]);
+  assert.strictEqual(rawSink.disposed, true);
 });
 
 interface ConsoleMock extends Console {
@@ -590,6 +632,47 @@ test("getConsoleSink() with nonBlocking - custom buffer config", async () => {
   assert.strictEqual(mock.history().length, 6); // All records flushed on dispose
 });
 
+test("getConsoleSink() with nonBlocking - cancels scheduled flush on dispose", () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const timeoutId = 12345 as unknown as ReturnType<typeof setTimeout>;
+  let scheduledCallback: (() => void) | undefined;
+  let clearedTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  globalThis.setTimeout = ((callback: () => void) => {
+    scheduledCallback = callback;
+    return timeoutId;
+  }) as typeof globalThis.setTimeout;
+  globalThis.clearTimeout = ((id?: ReturnType<typeof setTimeout>) => {
+    clearedTimeout = id;
+  }) as typeof globalThis.clearTimeout;
+
+  try {
+    const sink = getConsoleSink({
+      console: mock,
+      nonBlocking: {
+        bufferSize: 1,
+        flushInterval: 5000,
+      },
+    });
+
+    sink(info);
+    assert.strictEqual(mock.history().length, 0);
+
+    (sink as Sink & Disposable)[Symbol.dispose]();
+    assert.strictEqual(clearedTimeout, timeoutId);
+    assert.strictEqual(mock.history().length, 1);
+
+    scheduledCallback?.();
+    assert.strictEqual(mock.history().length, 1);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("getConsoleSink() with nonBlocking - no operations after dispose", () => {
   // @ts-ignore: consolemock is not typed
   const mock: ConsoleMock = makeConsoleMock();
@@ -903,6 +986,141 @@ test("fromAsyncSink() - empty async sink", async () => {
 
   // Test passes if no errors thrown
   assert.ok(true);
+});
+
+test("fromAsyncSink() - errors are logged to meta logger", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+
+  try {
+    const asyncSink: AsyncSink = async (_record) => {
+      await Promise.resolve();
+      throw new Error("Async sink error");
+    };
+
+    const sink = fromAsyncSink(asyncSink);
+    sink(error);
+
+    // Wait for the async promise chain to settle
+    await sink[Symbol.asyncDispose]();
+
+    // Verify error was logged to meta logger
+    assert.strictEqual(metaBuffer.length, 1);
+    const metaRecord = metaBuffer[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "error");
+    const errorProp = metaRecord.properties.error as Error;
+    assert.strictEqual(errorProp.message, "Async sink error");
+    assert.strictEqual(metaRecord.properties.sink, asyncSink);
+    assert.deepStrictEqual(metaRecord.properties.record, error);
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - does not recursively call failing sink via meta logger", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+
+  let callCount = 0;
+  const asyncSink: AsyncSink = async (_record) => {
+    callCount++;
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  // Simulate the failing sink being attached to the meta logger
+  // (which inherits sinks from ancestor loggers by default)
+  metaLogger.sinks.push(sink);
+
+  try {
+    sink(error);
+    await sink[Symbol.asyncDispose]();
+
+    // The bypass set prevents the meta logger from calling the
+    // failing sink with the error report, avoiding recursion
+    assert.strictEqual(callCount, 1);
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - suppresses error reporting for meta-logger records", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+
+  let callCount = 0;
+  const asyncSink: AsyncSink = async (_record) => {
+    callCount++;
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  };
+
+  const rawSink = fromAsyncSink(asyncSink);
+  const wrappedSink = withFilter(rawSink, "error");
+  metaLogger.sinks.push(wrappedSink);
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+
+  try {
+    wrappedSink(error);
+    const disposableSink = wrappedSink as Sink & Partial<AsyncDisposable>;
+    await disposableSink[Symbol.asyncDispose]?.();
+
+    // The error should be logged exactly once to the meta buffer
+    assert.strictEqual(metaBuffer.length, 1);
+    // The async sink is called twice: once for the original record
+    // and once for the meta record (which is suppressed by the guard)
+    assert.strictEqual(callCount, 2);
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - meta-child records are not suppressed by marker", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+
+  const asyncSink: AsyncSink = async (_record) => {
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  };
+
+  const sink = fromAsyncSink(asyncSink);
+
+  // Create a record with a meta-child category
+  const metaChildRecord: LogRecord = {
+    ...error,
+    category: ["logtape", "meta", "child"],
+  };
+
+  try {
+    sink(metaChildRecord);
+    await sink[Symbol.asyncDispose]();
+
+    // Errors from meta-child records should still be reported
+    assert.strictEqual(metaBuffer.length, 1);
+    const metaRecord = metaBuffer[0];
+    assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
+    assert.strictEqual(metaRecord.level, "error");
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
 });
 
 test("fingersCrossed() - basic functionality", () => {
@@ -2303,6 +2521,118 @@ test("fingersCrossed() - TTL-based buffer cleanup", async () => {
   } finally {
     // Clean up timer
     sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - TTL cleanup expires triggered contexts", async () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 50,
+      cleanupIntervalMs: 10,
+    },
+  }) as Sink & Disposable;
+
+  try {
+    const req1Debug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+
+    sink(req1Debug);
+    sink(req1Error);
+    assert.deepStrictEqual(buffer, [req1Debug, req1Error]);
+
+    await delay(120);
+    buffer.length = 0;
+
+    const req1SecondDebug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1SecondDebug);
+
+    assert.deepStrictEqual(buffer, []);
+
+    const req1SecondError: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    };
+    sink(req1SecondError);
+
+    assert.deepStrictEqual(buffer, [req1SecondDebug, req1SecondError]);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - TTL cleanup preserves active triggered contexts", async () => {
+  const buffer: LogRecord[] = [];
+  const originalDateNow = Date.now;
+  let now = 1_000;
+  Date.now = () => now;
+
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 100,
+      cleanupIntervalMs: 10,
+    },
+  }) as Sink & Disposable;
+
+  try {
+    const req1Debug: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+    const req1Error: LogRecord = {
+      ...error,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+
+    sink(req1Debug);
+    sink(req1Error);
+    assert.deepStrictEqual(buffer, [req1Debug, req1Error]);
+
+    now += 50;
+    const req1PassThrough: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+    sink(req1PassThrough);
+    assert.deepStrictEqual(buffer, [
+      req1Debug,
+      req1Error,
+      req1PassThrough,
+    ]);
+
+    buffer.length = 0;
+    now += 70;
+    await delay(50);
+
+    const req1StillActive: LogRecord = {
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: now,
+    };
+    sink(req1StillActive);
+
+    assert.deepStrictEqual(buffer, [req1StillActive]);
+  } finally {
+    sink[Symbol.dispose]();
+    Date.now = originalDateNow;
   }
 });
 

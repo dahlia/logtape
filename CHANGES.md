@@ -74,6 +74,55 @@ To be released.
 [#169]: https://github.com/dahlia/logtape/pull/169
 
 
+Version 2.1.3
+-------------
+
+Released on June 9, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `getThrottlingFilter()` so `maxKeys` evicts the least recently used
+    key instead of relying on `Map` insertion order.
+
+ -  Fixed a bug where `ConfigError.name` was incorrectly set to
+    `"ConfigureError"` instead of `"ConfigError"`.
+
+ -  Fixed a bug where errors thrown by asynchronous sinks created with
+    `fromAsyncSink()` were silently swallowed and never reported.
+    Now errors from async sinks are logged to the meta logger
+    (`["logtape", "meta"]`) with error level.  The meta log record includes
+    the error, the async sink function, and the log record that was being
+    processed when the error occurred.
+
+ -  Fixed a bug where triggered context states in `fingersCrossed()` were not
+    removed by TTL cleanup.  This could cause memory usage to grow over time in
+    long-running applications with dynamically generated context values.
+
+ -  Fixed a bug where `withFilter()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from the wrapped sink, making filtered
+    sinks impossible to dispose directly.
+
+ -  Fixed a bug where `getConsoleSink()` with non-blocking mode could leave a
+    scheduled flush pending after disposal.  The sink now cancels any pending
+    scheduled flush and writes buffered records during disposal.
+
+### @logtape/file
+
+ -  Fixed a performance issue where time-rotating file sinks scanned the log
+    directory on every flush when `maxAgeMs` was set.  Old-file cleanup now runs
+    at most once per rotation interval.
+
+ -  Fixed `getFileSink()` and related base file sinks so the small-record fast
+    path is used when the internal buffer is empty regardless of the configured
+    `bufferSize`.  Previously, custom buffer sizes such as `16384` disabled the
+    fast path unnecessarily.  Fast-path writes are now also recorded in the
+    adaptive flush strategy statistics.
+
+ -  Fixed a bug where non-blocking `getFileSink()` and `getRotatingFileSink()`
+    silently ignored background flush errors.  These failures are now reported
+    to the meta logger (`["logtape", "meta"]`) with warning level.
+
+
 Version 2.1.2
 -------------
 
@@ -229,6 +278,52 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.12
+--------------
+
+Released on June 9, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `ConfigError.name` was incorrectly set to
+    `"ConfigureError"` instead of `"ConfigError"`.
+
+ -  Fixed a bug where errors thrown by asynchronous sinks created with
+    `fromAsyncSink()` were silently swallowed and never reported.
+    Now errors from async sinks are logged to the meta logger
+    (`["logtape", "meta"]`) with error level.  The meta log record includes
+    the error, the async sink function, and the log record that was being
+    processed when the error occurred.
+
+ -  Fixed a bug where triggered context states in `fingersCrossed()` were not
+    removed by TTL cleanup.  This could cause memory usage to grow over time in
+    long-running applications with dynamically generated context values.
+
+ -  Fixed a bug where `withFilter()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from the wrapped sink, making filtered
+    sinks impossible to dispose directly.
+
+ -  Fixed a bug where `getConsoleSink()` with non-blocking mode could leave a
+    scheduled flush pending after disposal.  The sink now cancels any pending
+    scheduled flush and writes buffered records during disposal.
+
+### @logtape/file
+
+ -  Fixed a performance issue where time-rotating file sinks scanned the log
+    directory on every flush when `maxAgeMs` was set.  Old-file cleanup now runs
+    at most once per rotation interval.
+
+ -  Fixed `getFileSink()` and related base file sinks so the small-record fast
+    path is used when the internal buffer is empty regardless of the configured
+    `bufferSize`.  Previously, custom buffer sizes such as `16384` disabled the
+    fast path unnecessarily.  Fast-path writes are now also recorded in the
+    adaptive flush strategy statistics.
+
+ -  Fixed a bug where non-blocking `getFileSink()` and `getRotatingFileSink()`
+    silently ignored background flush errors.  These failures are now reported
+    to the meta logger (`["logtape", "meta"]`) with warning level.
 
 
 Version 2.0.11

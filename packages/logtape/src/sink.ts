@@ -6,6 +6,7 @@ import {
   type TextFormatter,
 } from "./formatter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
+import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
 /**
@@ -46,9 +47,21 @@ export type AsyncSink = (record: LogRecord) => Promise<void>;
  */
 export function withFilter(sink: Sink, filter: FilterLike): Sink {
   const filterFunc = toFilter(filter);
-  return (record: LogRecord) => {
+  const filtered: Sink & Partial<Disposable & AsyncDisposable> = (
+    record: LogRecord,
+  ) => {
     if (filterFunc(record)) sink(record);
   };
+  const disposableSink = sink as Sink & Partial<Disposable & AsyncDisposable>;
+  if (Symbol.dispose in disposableSink) {
+    filtered[Symbol.dispose] = disposableSink[Symbol.dispose]?.bind(sink);
+  }
+  if (Symbol.asyncDispose in disposableSink) {
+    filtered[Symbol.asyncDispose] = disposableSink[Symbol.asyncDispose]?.bind(
+      sink,
+    );
+  }
+  return filtered;
 }
 
 /**
@@ -347,6 +360,7 @@ export function getConsoleSink(
 
   const buffer: LogRecord[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
+  let scheduledFlushTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
   let flushScheduled = false;
   const maxBufferSize = bufferSize * 2; // Overflow protection
@@ -368,7 +382,8 @@ export function getConsoleSink(
     if (flushScheduled) return;
 
     flushScheduled = true;
-    setTimeout(() => {
+    scheduledFlushTimer = setTimeout(() => {
+      scheduledFlushTimer = null;
       flushScheduled = false;
       flush();
     }, 0);
@@ -405,6 +420,11 @@ export function getConsoleSink(
       clearInterval(flushTimer);
       flushTimer = null;
     }
+    if (scheduledFlushTimer !== null) {
+      clearTimeout(scheduledFlushTimer);
+      scheduledFlushTimer = null;
+      flushScheduled = false;
+    }
     flush();
   };
 
@@ -436,15 +456,39 @@ export function fromAsyncSink(asyncSink: AsyncSink): Sink & AsyncDisposable {
   const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     lastPromise = lastPromise
       .then(() => asyncSink(record))
-      .catch(() => {
-        // Errors are handled by the sink infrastructure
+      .catch((error) => {
+        try {
+          if (_asyncSinkError in record) return;
+
+          const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+          const errorRecord = {
+            category: ["logtape", "meta"],
+            level: "error",
+            timestamp: Date.now(),
+            rawMessage: "Async sink error: {error}",
+            message: ["Async sink error: ", error, ""],
+            properties: { error, sink: asyncSink, record },
+            [_asyncSinkError]: true,
+          } as LogRecord;
+          metaLogger.emit(errorRecord, new Set([sink]));
+        } catch {
+          // Last resort – cannot log at all
+        }
       });
   };
   sink[Symbol.asyncDispose] = async () => {
-    await lastPromise;
+    // Drain the promise chain until it settles – catch handlers
+    // may enqueue additional async work (e.g., meta-logger writes)
+    for (;;) {
+      const promise = lastPromise;
+      await promise;
+      if (promise === lastPromise) break;
+    }
   };
   return sink;
 }
+
+const _asyncSinkError = Symbol.for("logtape.asyncSinkError");
 
 /**
  * Options for the {@link fingersCrossed} function.
@@ -808,7 +852,10 @@ export function fingersCrossed(
   }
 
   // TTL-based cleanup function
-  function cleanupExpiredBuffers(buffers: Map<string, BufferMetadata>): void {
+  function cleanupExpiredBuffers(
+    buffers: Map<string, BufferMetadata>,
+    triggered: Map<string, number>,
+  ): void {
     if (!hasTtl) return;
 
     const now = Date.now();
@@ -828,6 +875,15 @@ export function fingersCrossed(
     // Remove expired buffers
     for (const key of expiredKeys) {
       buffers.delete(key);
+      triggered.delete(key);
+    }
+
+    // Triggered buffers no longer have buffer metadata, so they must be
+    // expired separately to avoid unbounded growth for dynamic contexts.
+    for (const [key, triggeredAt] of triggered) {
+      if (now - triggeredAt > bufferTtlMs!) {
+        triggered.delete(key);
+      }
     }
   }
 
@@ -897,14 +953,14 @@ export function fingersCrossed(
   } else {
     // Category and/or context-isolated buffers
     const buffers = new Map<string, BufferMetadata>();
-    const triggered = new Set<string>();
+    const triggered = new Map<string, number>();
     let accessCounter = 0;
 
     // Set up TTL cleanup timer if enabled
     let cleanupTimer: ReturnType<typeof setInterval> | null = null;
     if (hasTtl) {
       cleanupTimer = setInterval(() => {
-        cleanupExpiredBuffers(buffers);
+        cleanupExpiredBuffers(buffers, triggered);
       }, cleanupIntervalMs);
     }
 
@@ -913,6 +969,7 @@ export function fingersCrossed(
 
       // Check if this buffer is already triggered
       if (triggered.has(bufferKey)) {
+        triggered.set(bufferKey, Date.now());
         sink(record);
         return;
       }
@@ -965,12 +1022,13 @@ export function fingersCrossed(
 
         // Flush matching buffers
         const allRecordsToFlush: LogRecord[] = [];
+        const triggeredAt = Date.now();
         for (const key of keysToFlush) {
           const metadata = buffers.get(key);
           if (metadata) {
             allRecordsToFlush.push(...metadata.buffer);
             buffers.delete(key);
-            triggered.add(key);
+            triggered.set(key, triggeredAt);
           }
         }
 
@@ -983,7 +1041,7 @@ export function fingersCrossed(
         }
 
         // Mark trigger buffer as triggered and send trigger record
-        triggered.add(bufferKey);
+        triggered.set(bufferKey, triggeredAt);
         sink(record);
       } else if (
         bufferLevel != null &&
