@@ -8,6 +8,9 @@ Version 2.0.12
 
 To be released.
 
+ -  Fixed a bug where `ConfigError.name` was incorrectly set to
+    `"ConfigureError"` instead of `"ConfigError"`.
+
 
 Version 2.0.11
 --------------
