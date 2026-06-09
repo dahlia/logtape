@@ -85,6 +85,27 @@ const sink = getConsoleSink({ formatter });
 When a log is formatted, any text matching the provided patterns is replaced
 with a redacted value.
 
+For console formatters that return arrays containing objects, pattern-based
+redaction recursively scans object and array values.  To keep malformed or very
+large records from consuming unbounded resources, recursive traversal is capped
+at 20 levels and 1,000 properties or array elements per object by default.  You
+can override these limits:
+
+~~~~ typescript {5-8} twoslash
+import { defaultConsoleFormatter } from "@logtape/logtape";
+import { EMAIL_ADDRESS_PATTERN, redactByPattern } from "@logtape/redaction";
+
+const formatter = redactByPattern(defaultConsoleFormatter, [
+  EMAIL_ADDRESS_PATTERN,
+], {
+  maxDepth: 10,
+  maxProperties: 200,
+});
+~~~~
+
+When a limit is exceeded, LogTape emits a warning through the meta logger and
+truncates or omits the unprocessed portion of the formatted output.
+
 ### Built-in patterns
 
 The `@logtape/redaction` package includes several built-in patterns:
@@ -186,7 +207,26 @@ const customSink = redactByField(getConsoleSink(), {
 ~~~~
 
 Field redaction is recursive and will redact sensitive fields in nested objects
-and arrays as well.
+and arrays as well.  To keep malformed or very large records from consuming
+unbounded resources, recursive traversal is capped at 20 levels and 1,000
+properties or array elements per object by default.  You can override these
+limits with `maxDepth` and `maxProperties`:
+
+~~~~ typescript {6-7} twoslash
+import { getConsoleSink } from "@logtape/logtape";
+import { redactByField } from "@logtape/redaction";
+
+const sink = redactByField(getConsoleSink(), {
+  fieldPatterns: [/password/i, /secret/i],
+  maxDepth: 10,
+  maxProperties: 200,
+});
+~~~~
+
+When a limit is exceeded, LogTape emits a warning through the meta logger and
+truncates or omits the unprocessed portion of the properties.  For tagged
+template messages, interpolated values that cannot be matched safely after
+truncation are replaced with `"[truncated]"`.
 
 ### Pseudonymizing fields for correlation
 

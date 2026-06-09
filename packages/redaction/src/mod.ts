@@ -13,3 +13,4 @@ export {
   redactByFieldAsync,
 } from "./field.ts";
 export * from "./pattern.ts";
+export type { RedactionTraversalOptions } from "./traversal.ts";

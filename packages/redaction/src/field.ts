@@ -1,4 +1,12 @@
 import { getLogger, type LogRecord, type Sink } from "@logtape/logtape";
+import {
+  createRedactionTraversalContext,
+  type RedactionLimit,
+  type RedactionTraversalContext,
+  type RedactionTraversalLimits,
+  type RedactionTraversalOptions,
+  redactionTruncatedValue,
+} from "./traversal.ts";
 
 /**
  * The type for a field pattern used in redaction.  A string or a regular
@@ -36,6 +44,7 @@ export type HmacPseudonymizer = (value: unknown) => Promise<string>;
 
 const metaLogger = getLogger(["logtape", "meta"]);
 let reportingRedactionFailure = false;
+let reportingRedactionLimit = false;
 
 /**
  * Default field patterns for redaction.  These patterns will match
@@ -64,7 +73,7 @@ export const DEFAULT_REDACT_FIELDS: FieldPatterns = [
  * the {@link redactByField} function.
  * @since 0.10.0
  */
-export interface FieldRedactionOptions {
+export interface FieldRedactionOptions extends RedactionTraversalOptions {
   /**
    * The field patterns to match against.  This can be an array of
    * strings or regular expressions.  If a field matches any of the
@@ -84,6 +93,20 @@ export interface FieldRedactionOptions {
    * @default `"delete"`
    */
   readonly action?: FieldRedactionAction;
+
+  /**
+   * Maximum recursion depth for object and array traversal.
+   * @default `20`
+   * @since 2.2.0
+   */
+  readonly maxDepth?: number;
+
+  /**
+   * Maximum number of properties or array elements to process per object.
+   * @default `1000`
+   * @since 2.2.0
+   */
+  readonly maxProperties?: number;
 }
 
 /**
@@ -91,7 +114,7 @@ export interface FieldRedactionOptions {
  * the {@link redactByFieldAsync} function.
  * @since 2.1.0
  */
-export interface AsyncFieldRedactionOptions {
+export interface AsyncFieldRedactionOptions extends RedactionTraversalOptions {
   /**
    * The field patterns to match against.  This can be an array of
    * strings or regular expressions.  If a field matches any of the
@@ -103,6 +126,20 @@ export interface AsyncFieldRedactionOptions {
    * The asynchronous action to perform on the matched fields.
    */
   readonly action: AsyncFieldRedactionAction;
+
+  /**
+   * Maximum recursion depth for object and array traversal.
+   * @default `20`
+   * @since 2.2.0
+   */
+  readonly maxDepth?: number;
+
+  /**
+   * Maximum number of properties or array elements to process per object.
+   * @default `1000`
+   * @since 2.2.0
+   */
+  readonly maxProperties?: number;
 }
 
 /**
@@ -167,7 +204,14 @@ export function redactByField(
 ): Sink | Sink & Disposable | Sink & AsyncDisposable {
   const opts = Array.isArray(options) ? { fieldPatterns: options } : options;
   const wrapped = (record: LogRecord) => {
-    const redactedProperties = redactProperties(record.properties, opts);
+    const context = createFieldRedactionContext(opts);
+    const redactedProperties = redactProperties(
+      record.properties,
+      opts,
+      context.visited,
+      0,
+      context,
+    );
     let redactedMessage = record.message;
 
     if (typeof record.rawMessage === "string") {
@@ -185,6 +229,7 @@ export function redactByField(
         wildcardIndices,
         redactedProperties,
         opts.action,
+        context.exceededLimits.size > 0,
       );
     } else {
       // Tagged template: redact by comparing values
@@ -192,8 +237,12 @@ export function redactByField(
         record.properties,
         redactedProperties,
       );
-      if (redactedValues.size > 0) {
-        redactedMessage = redactMessageByValues(record.message, redactedValues);
+      if (redactedValues.size > 0 || context.exceededLimits.size > 0) {
+        redactedMessage = redactMessageByValues(
+          record.message,
+          redactedValues,
+          context.exceededLimits.size > 0,
+        );
       }
     }
 
@@ -303,9 +352,13 @@ async function redactLogRecordAsync(
   record: LogRecord,
   options: AsyncFieldRedactionOptions,
 ): Promise<Pick<LogRecord, "message" | "properties">> {
+  const context = createFieldRedactionContext(options);
   const redactedProperties = await redactPropertiesAsync(
     record.properties,
     options,
+    context.visited,
+    0,
+    context,
   );
 
   if (typeof record.rawMessage === "string") {
@@ -322,6 +375,7 @@ async function redactLogRecordAsync(
         wildcardIndices,
         redactedProperties,
         options.action,
+        context.exceededLimits.size > 0,
       ),
       properties: redactedProperties,
     };
@@ -332,10 +386,11 @@ async function redactLogRecordAsync(
     record.properties,
     redactedProperties,
   );
-  if (redactedValues.size > 0) {
+  if (redactedValues.size > 0 || context.exceededLimits.size > 0) {
     redactedMessage = redactMessageByValues(
       record.message,
       redactedValues,
+      context.exceededLimits.size > 0,
     );
   }
   return { message: redactedMessage, properties: redactedProperties };
@@ -357,6 +412,46 @@ function reportRedactionFailure(error: unknown): void {
   } finally {
     reportingRedactionFailure = false;
   }
+}
+
+function reportRedactionLimitExceeded(
+  limit: RedactionLimit,
+  limits: RedactionTraversalLimits,
+): void {
+  if (reportingRedactionLimit || typeof metaLogger.warn !== "function") {
+    return;
+  }
+  try {
+    reportingRedactionLimit = true;
+    metaLogger.warn(
+      "Redaction traversal exceeded {limit}; replacing or omitting " +
+        "remaining data to keep logging bounded.",
+      { limit, ...limits },
+    );
+  } catch {
+    // Meta logging failures must not make normal logging fail.
+  } finally {
+    reportingRedactionLimit = false;
+  }
+}
+
+function createFieldRedactionContext(
+  options: RedactionTraversalOptions,
+  visited = new Map<object, object>(),
+): RedactionTraversalContext {
+  return createRedactionTraversalContext(
+    options,
+    reportRedactionLimitExceeded,
+    visited,
+  );
+}
+
+function reportLimitOnce(
+  context: RedactionTraversalContext,
+  limit: RedactionLimit,
+): void {
+  if (context.exceededLimits.has(limit)) return;
+  context.reportLimitExceeded(limit);
 }
 
 /**
@@ -420,6 +515,8 @@ export function redactProperties(
   properties: Record<string, unknown>,
   options: FieldRedactionOptions,
   visited = new Map<object, object>(),
+  depth = 0,
+  context = createFieldRedactionContext(options, visited),
 ): Record<string, unknown> {
   if (visited.has(properties)) {
     return visited.get(properties) as Record<string, unknown>;
@@ -428,7 +525,12 @@ export function redactProperties(
   const copy: Record<string, unknown> = {};
   visited.set(properties, copy);
 
-  for (const field of Object.keys(properties)) {
+  const fields = Object.keys(properties);
+  if (fields.length > context.limits.maxProperties) {
+    reportLimitOnce(context, "maxProperties");
+  }
+
+  for (const field of fields.slice(0, context.limits.maxProperties)) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       if (typeof options.action === "function") {
         setProperty(copy, field, options.action(properties[field]));
@@ -438,10 +540,22 @@ export function redactProperties(
 
     const value = properties[field];
     if (Array.isArray(value)) {
-      setProperty(copy, field, redactArray(value, options, visited));
+      if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        setProperty(copy, field, redactionTruncatedValue);
+      } else {
+        setProperty(
+          copy,
+          field,
+          redactArray(value, options, visited, depth + 1, context),
+        );
+      }
     } else if (typeof value === "object" && value !== null) {
       if (isBuiltInObject(value)) {
         setProperty(copy, field, value);
+      } else if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        setProperty(copy, field, redactionTruncatedValue);
       } else {
         setProperty(
           copy,
@@ -450,6 +564,8 @@ export function redactProperties(
             value as Record<string, unknown>,
             options,
             visited,
+            depth + 1,
+            context,
           ),
         );
       }
@@ -472,6 +588,8 @@ export async function redactPropertiesAsync(
   properties: Record<string, unknown>,
   options: AsyncFieldRedactionOptions,
   visited = new Map<object, object>(),
+  depth = 0,
+  context = createFieldRedactionContext(options, visited),
 ): Promise<Record<string, unknown>> {
   if (visited.has(properties)) {
     return visited.get(properties) as Record<string, unknown>;
@@ -482,7 +600,11 @@ export async function redactPropertiesAsync(
 
   const fields: string[] = [];
   const values: Promise<unknown>[] = [];
-  for (const field of Object.keys(properties)) {
+  const propertyFields = Object.keys(properties);
+  if (propertyFields.length > context.limits.maxProperties) {
+    reportLimitOnce(context, "maxProperties");
+  }
+  for (const field of propertyFields.slice(0, context.limits.maxProperties)) {
     fields.push(field);
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       values.push(Promise.resolve(options.action(properties[field])));
@@ -491,16 +613,28 @@ export async function redactPropertiesAsync(
 
     const value = properties[field];
     if (Array.isArray(value)) {
-      values.push(redactArrayAsync(value, options, visited));
+      if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        values.push(Promise.resolve(redactionTruncatedValue));
+      } else {
+        values.push(
+          redactArrayAsync(value, options, visited, depth + 1, context),
+        );
+      }
     } else if (typeof value === "object" && value !== null) {
       if (isBuiltInObject(value)) {
         values.push(Promise.resolve(value));
+      } else if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        values.push(Promise.resolve(redactionTruncatedValue));
       } else {
         values.push(
           redactPropertiesAsync(
             value as Record<string, unknown>,
             options,
             visited,
+            depth + 1,
+            context,
           ),
         );
       }
@@ -543,25 +677,41 @@ function redactArray(
   array: unknown[],
   options: FieldRedactionOptions,
   visited: Map<object, object>,
+  depth: number,
+  context: RedactionTraversalContext,
 ): unknown[] {
   if (visited.has(array)) return visited.get(array) as unknown[];
 
   const copy: unknown[] = [];
-  copy.length = array.length;
+  const length = Math.min(array.length, context.limits.maxProperties);
+  copy.length = length;
   visited.set(array, copy);
-  for (let i = 0; i < array.length; i++) {
+  if (array.length > context.limits.maxProperties) {
+    reportLimitOnce(context, "maxProperties");
+  }
+  for (let i = 0; i < length; i++) {
     if (!(i in array)) continue;
     const item = array[i];
     if (Array.isArray(item)) {
-      copy[i] = redactArray(item, options, visited);
+      if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        copy[i] = redactionTruncatedValue;
+      } else {
+        copy[i] = redactArray(item, options, visited, depth + 1, context);
+      }
     } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
         copy[i] = item;
+      } else if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        copy[i] = redactionTruncatedValue;
       } else {
         copy[i] = redactProperties(
           item as Record<string, unknown>,
           options,
           visited,
+          depth + 1,
+          context,
         );
       }
     } else {
@@ -575,30 +725,48 @@ async function redactArrayAsync(
   array: unknown[],
   options: AsyncFieldRedactionOptions,
   visited: Map<object, object>,
+  depth: number,
+  context: RedactionTraversalContext,
 ): Promise<unknown[]> {
   if (visited.has(array)) return visited.get(array) as unknown[];
 
   const copy: unknown[] = [];
-  copy.length = array.length;
+  const length = Math.min(array.length, context.limits.maxProperties);
+  copy.length = length;
   visited.set(array, copy);
   const itemPromises: Promise<unknown>[] = [];
-  for (let i = 0; i < array.length; i++) {
+  if (array.length > context.limits.maxProperties) {
+    reportLimitOnce(context, "maxProperties");
+  }
+  for (let i = 0; i < length; i++) {
     if (!(i in array)) {
       itemPromises.push(Promise.resolve(undefined));
       continue;
     }
     const item = array[i];
     if (Array.isArray(item)) {
-      itemPromises.push(redactArrayAsync(item, options, visited));
+      if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        itemPromises.push(Promise.resolve(redactionTruncatedValue));
+      } else {
+        itemPromises.push(
+          redactArrayAsync(item, options, visited, depth + 1, context),
+        );
+      }
     } else if (typeof item === "object" && item !== null) {
       if (isBuiltInObject(item)) {
         itemPromises.push(Promise.resolve(item));
+      } else if (depth + 1 > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        itemPromises.push(Promise.resolve(redactionTruncatedValue));
       } else {
         itemPromises.push(
           redactPropertiesAsync(
             item as Record<string, unknown>,
             options,
             visited,
+            depth + 1,
+            context,
           ),
         );
       }
@@ -816,6 +984,7 @@ function redactMessageArray(
   wildcardIndices: Set<number>,
   redactedProperties: Record<string, unknown>,
   action: "delete" | ((value: unknown) => unknown) | undefined,
+  truncateUnmappedValues = false,
 ): readonly unknown[] {
   const result: unknown[] = [];
   let placeholderIndex = 0;
@@ -842,6 +1011,8 @@ function redactMessageArray(
         const redactedValue = getPathValue(redactedProperties, placeholderName);
         if (redactedValue.found) {
           result.push(redactedValue.value);
+        } else if (truncateUnmappedValues) {
+          result.push(redactionTruncatedValue);
         } else {
           result.push(message[i]);
         }
@@ -859,6 +1030,7 @@ async function redactMessageArrayAsync(
   wildcardIndices: Set<number>,
   redactedProperties: Record<string, unknown>,
   action: AsyncFieldRedactionAction,
+  truncateUnmappedValues = false,
 ): Promise<readonly unknown[]> {
   const result: unknown[] = [];
   const tasks: Promise<void>[] = [];
@@ -883,6 +1055,8 @@ async function redactMessageArrayAsync(
         const redactedValue = getPathValue(redactedProperties, placeholderName);
         if (redactedValue.found) {
           result.push(redactedValue.value);
+        } else if (truncateUnmappedValues) {
+          result.push(redactionTruncatedValue);
         } else {
           result.push(message[i]);
         }
@@ -926,7 +1100,7 @@ function collectRedactedValues(
   redacted: Record<string, unknown>,
   map: Map<unknown, unknown>,
 ): void {
-  for (const key of Object.keys(original)) {
+  for (const key of Object.keys(redacted)) {
     const origVal = original[key];
     const redVal = redacted[key];
 
@@ -974,8 +1148,9 @@ function getRedactedValues(
 function redactMessageByValues(
   message: readonly unknown[],
   redactedValues: Map<unknown, unknown>,
+  truncateUnmappedValues = false,
 ): readonly unknown[] {
-  if (redactedValues.size === 0) return message;
+  if (redactedValues.size === 0 && !truncateUnmappedValues) return message;
 
   const result: unknown[] = [];
   for (let i = 0; i < message.length; i++) {
@@ -985,6 +1160,8 @@ function redactMessageByValues(
       const val = message[i];
       if (redactedValues.has(val)) {
         result.push(redactedValues.get(val));
+      } else if (truncateUnmappedValues) {
+        result.push(redactionTruncatedValue);
       } else {
         result.push(val);
       }

@@ -73,6 +73,17 @@ To be released.
 [#168]: https://github.com/dahlia/logtape/issues/168
 [#169]: https://github.com/dahlia/logtape/pull/169
 
+### @logtape/redaction
+
+ -  Added `maxDepth` and `maxProperties` options to field-based and
+    pattern-based redaction so very deep or very large log records cannot cause
+    unbounded recursive traversal.  When a limit is exceeded, redaction now
+    emits a warning through the meta logger and truncates or omits the
+    unprocessed portion of the record.
+
+     -  Added `PatternRedactionOptions` interface.
+     -  Added `RedactionTraversalOptions` interface.
+
 
 Version 2.1.3
 -------------

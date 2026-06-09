@@ -1,8 +1,20 @@
-import type {
-  ConsoleFormatter,
-  LogRecord,
-  TextFormatter,
+import {
+  type ConsoleFormatter,
+  getLogger,
+  type LogRecord,
+  type TextFormatter,
 } from "@logtape/logtape";
+import {
+  createRedactionTraversalContext,
+  type RedactionLimit,
+  type RedactionTraversalContext,
+  type RedactionTraversalLimits,
+  type RedactionTraversalOptions,
+  redactionTruncatedValue,
+} from "./traversal.ts";
+
+const metaLogger = getLogger(["logtape", "meta"]);
+let reportingRedactionLimit = false;
 
 /**
  * A redaction pattern, which is a pair of regular expression and replacement
@@ -81,6 +93,24 @@ export const JWT_PATTERN: RedactionPattern = {
 export type RedactionPatterns = readonly RedactionPattern[];
 
 /**
+ * Options for pattern-based redaction.
+ * @since 2.2.0
+ */
+export interface PatternRedactionOptions extends RedactionTraversalOptions {
+  /**
+   * Maximum recursion depth for object and array traversal.
+   * @default `20`
+   */
+  readonly maxDepth?: number;
+
+  /**
+   * Maximum number of properties or array elements to process per object.
+   * @default `1000`
+   */
+  readonly maxProperties?: number;
+}
+
+/**
  * Checks if a value is a built-in object that should not be recursively
  * processed (e.g., Error, Date, RegExp, Map, Set, etc.).
  * @param value The value to check.
@@ -132,12 +162,14 @@ function isBuiltInObject(value: object): boolean {
  * ```
  * @param formatter The text formatter to apply redaction to.
  * @param patterns The redaction patterns to apply.
+ * @param options Options for bounding recursive traversal of formatter output.
  * @returns The redacted text formatter.
  * @since 0.10.0
  */
 export function redactByPattern(
   formatter: TextFormatter,
   patterns: RedactionPatterns,
+  options?: PatternRedactionOptions,
 ): TextFormatter;
 
 /**
@@ -170,17 +202,20 @@ export function redactByPattern(
  * ```
  * @param formatter The console formatter to apply redaction to.
  * @param patterns The redaction patterns to apply.
+ * @param options Options for bounding recursive traversal of formatter output.
  * @returns The redacted console formatter.
  * @since 0.10.0
  */
 export function redactByPattern(
   formatter: ConsoleFormatter,
   patterns: RedactionPatterns,
+  options?: PatternRedactionOptions,
 ): ConsoleFormatter;
 
 export function redactByPattern(
   formatter: TextFormatter | ConsoleFormatter,
   patterns: RedactionPatterns,
+  options: PatternRedactionOptions = {},
 ): (record: LogRecord) => string | readonly unknown[] {
   for (const { pattern } of patterns) {
     if (!pattern.global) {
@@ -203,19 +238,36 @@ export function redactByPattern(
 
   function replaceObject(
     object: unknown,
-    visited: Map<object, object>,
+    context: RedactionTraversalContext,
+    depth: number,
   ): unknown {
     if (typeof object === "object" && object !== null) {
-      if (visited.has(object)) {
-        return visited.get(object)!; // Circular reference detected
+      if (context.visited.has(object)) {
+        return context.visited.get(object)!; // Circular reference detected
       }
     }
 
     if (typeof object === "string") return replaceString(object);
     if (Array.isArray(object)) {
       const copy: unknown[] = [];
-      visited.set(object, copy);
-      object.forEach((item) => copy.push(replaceObject(item, visited)));
+      const length = Math.min(object.length, context.limits.maxProperties);
+      copy.length = length;
+      context.visited.set(object, copy);
+      if (object.length > context.limits.maxProperties) {
+        reportLimitOnce(context, "maxProperties");
+      }
+      for (let i = 0; i < length; i++) {
+        if (!(i in object)) continue;
+        const item = object[i];
+        if (
+          shouldTraverseValue(item) && depth + 1 > context.limits.maxDepth
+        ) {
+          reportLimitOnce(context, "maxDepth");
+          copy[i] = redactionTruncatedValue;
+        } else {
+          copy[i] = replaceObject(item, context, depth + 1);
+        }
+      }
       return copy;
     }
     if (typeof object === "object" && object !== null) {
@@ -223,13 +275,20 @@ export function redactByPattern(
         return object;
       }
       const redacted: Record<string, unknown> = {};
-      visited.set(object, redacted);
-      for (const key in object) {
-        if (Object.prototype.hasOwnProperty.call(object, key)) {
-          redacted[key] = replaceObject(
-            (object as Record<string, unknown>)[key],
-            visited,
-          );
+      context.visited.set(object, redacted);
+      const keys = Object.keys(object);
+      if (keys.length > context.limits.maxProperties) {
+        reportLimitOnce(context, "maxProperties");
+      }
+      for (const key of keys.slice(0, context.limits.maxProperties)) {
+        const value = (object as Record<string, unknown>)[key];
+        if (
+          shouldTraverseValue(value) && depth + 1 > context.limits.maxDepth
+        ) {
+          reportLimitOnce(context, "maxDepth");
+          redacted[key] = redactionTruncatedValue;
+        } else {
+          redacted[key] = replaceObject(value, context, depth + 1);
         }
       }
       return redacted;
@@ -240,6 +299,55 @@ export function redactByPattern(
   return (record: LogRecord) => {
     const output = formatter(record);
     if (typeof output === "string") return replaceString(output);
-    return output.map((obj) => replaceObject(obj, new Map()));
+    const context = createPatternRedactionContext(options);
+    if (output.length > context.limits.maxProperties) {
+      reportLimitOnce(context, "maxProperties");
+    }
+    return output
+      .slice(0, context.limits.maxProperties)
+      .map((obj) => replaceObject(obj, context, 0));
   };
+}
+
+function reportRedactionLimitExceeded(
+  limit: RedactionLimit,
+  limits: RedactionTraversalLimits,
+): void {
+  if (reportingRedactionLimit || typeof metaLogger.warn !== "function") {
+    return;
+  }
+  try {
+    reportingRedactionLimit = true;
+    metaLogger.warn(
+      "Redaction traversal exceeded {limit}; replacing or omitting " +
+        "remaining data to keep logging bounded.",
+      { limit, ...limits },
+    );
+  } catch {
+    // Meta logging failures must not make normal logging fail.
+  } finally {
+    reportingRedactionLimit = false;
+  }
+}
+
+function shouldTraverseValue(value: unknown): boolean {
+  return (typeof value === "object" && value !== null) &&
+    !isBuiltInObject(value);
+}
+
+function createPatternRedactionContext(
+  options: RedactionTraversalOptions,
+): RedactionTraversalContext {
+  return createRedactionTraversalContext(
+    options,
+    reportRedactionLimitExceeded,
+  );
+}
+
+function reportLimitOnce(
+  context: RedactionTraversalContext,
+  limit: RedactionLimit,
+): void {
+  if (context.exceededLimits.has(limit)) return;
+  context.reportLimitExceeded(limit);
 }

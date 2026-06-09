@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fc from "fast-check";
-import type {
-  ConsoleFormatter,
-  LogRecord,
-  TextFormatter,
+import {
+  configure,
+  type ConsoleFormatter,
+  type LogRecord,
+  reset,
+  type TextFormatter,
 } from "@logtape/logtape";
 import {
   CREDIT_CARD_NUMBER_PATTERN,
@@ -362,7 +364,7 @@ test("redactByPattern(TextFormatter) redacts generated text output", () => {
   );
 });
 
-test("redactByPattern(ConsoleFormatter)", () => {
+test("redactByPattern(ConsoleFormatter)", async () => {
   { // redacts sensitive information in console formatter arrays
     // Create a simple ConsoleFormatter that returns an array of values
     const formatter: ConsoleFormatter = (record: LogRecord) => {
@@ -598,6 +600,129 @@ test("redactByPattern(ConsoleFormatter)", () => {
       (items[2] as { email: string }).email,
       "REDACTED@EMAIL.ADDRESS",
     );
+  }
+
+  { // truncates nested console output beyond the configured maximum depth
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: [
+        "Profile:",
+        {
+          user: {
+            profile: {
+              email: "user@example.com",
+            },
+          },
+        },
+      ],
+      rawMessage: "Profile: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(
+      formatter,
+      [EMAIL_ADDRESS_PATTERN],
+      { maxDepth: 2 },
+    );
+    const output = redactedFormatter(record);
+
+    const result = ((output as readonly unknown[])[0] as unknown[])[1] as {
+      user: { profile: unknown };
+    };
+    assert.deepStrictEqual(result, {
+      user: {
+        profile: "[truncated]",
+      },
+    });
+  }
+
+  { // omits console output properties beyond the configured maximum count
+    const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
+    const record: LogRecord = {
+      level: "info",
+      category: ["test"],
+      message: [
+        "Data:",
+        {
+          first: "visible",
+          second: "also visible",
+          email: "user@example.com",
+        },
+      ],
+      rawMessage: "Data: [object Object]",
+      timestamp: Date.now(),
+      properties: {},
+    };
+
+    const redactedFormatter = redactByPattern(
+      formatter,
+      [EMAIL_ADDRESS_PATTERN],
+      { maxProperties: 2 },
+    );
+    const output = redactedFormatter(record);
+
+    const result =
+      ((output as readonly unknown[])[0] as unknown[])[1] as Record<
+        string,
+        unknown
+      >;
+    assert.deepStrictEqual(result, {
+      first: "visible",
+      second: "also visible",
+    });
+  }
+
+  { // omits top-level console output elements beyond the configured maximum count
+    const formatter: ConsoleFormatter = () => [
+      "first",
+      "second",
+      "user@example.com",
+    ];
+
+    const redactedFormatter = redactByPattern(
+      formatter,
+      [EMAIL_ADDRESS_PATTERN],
+      { maxProperties: 2 },
+    );
+
+    assert.deepStrictEqual(redactedFormatter(record()), ["first", "second"]);
+  }
+
+  { // reports traversal limit warnings to the meta logger
+    const metaRecords: LogRecord[] = [];
+
+    await configure({
+      sinks: { meta: (record) => metaRecords.push(record) },
+      loggers: [
+        {
+          category: ["logtape", "meta"],
+          lowestLevel: "warning",
+          sinks: ["meta"],
+        },
+      ],
+    });
+    try {
+      const formatter: ConsoleFormatter = () => ["first", "second"];
+      const redactedFormatter = redactByPattern(
+        formatter,
+        [EMAIL_ADDRESS_PATTERN],
+        { maxProperties: 1 },
+      );
+
+      redactedFormatter(record());
+
+      assert.strictEqual(metaRecords.length, 1);
+      assert.strictEqual(metaRecords[0].category[0], "logtape");
+      assert.strictEqual(metaRecords[0].category[1], "meta");
+      assert.strictEqual(metaRecords[0].level, "warning");
+      assert.strictEqual(metaRecords[0].properties.limit, "maxProperties");
+      assert.strictEqual(metaRecords[0].properties.maxProperties, 1);
+    } finally {
+      await reset();
+    }
   }
 });
 

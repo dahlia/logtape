@@ -442,6 +442,48 @@ test("redactProperties()", () => {
       Object.prototype,
     );
   }
+
+  { // truncates nested objects beyond the configured maximum depth
+    const properties = {
+      user: {
+        profile: {
+          password: "secret",
+          name: "Alice",
+        },
+      },
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+      maxDepth: 1,
+    });
+
+    assert.deepStrictEqual(result, {
+      user: {
+        profile: "[truncated]",
+      },
+    });
+  }
+
+  { // omits object properties beyond the configured maximum property count
+    const properties = {
+      first: "visible",
+      second: "also visible",
+      password: "secret",
+    };
+
+    const result = redactProperties(properties, {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+      maxProperties: 2,
+    });
+
+    assert.deepStrictEqual(result, {
+      first: "visible",
+      second: "also visible",
+    });
+  }
 });
 
 test("redactProperties() deletes generated matching fields", () => {
@@ -781,6 +823,31 @@ test("redactByField()", async () => {
     });
 
     assert.strictEqual(records[0].message[1], "johndoe");
+  }
+
+  { // truncates message placeholders omitted by traversal limits
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByField((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => "[REDACTED]",
+      maxProperties: 1,
+    });
+    const data = { password: "secret", name: "Alice" };
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Data: ", data, ""],
+      rawMessage: "Data: {data}",
+      timestamp: Date.now(),
+      properties: {
+        kept: "visible",
+        data,
+      },
+    });
+
+    assert.deepStrictEqual(records[0].properties, { kept: "visible" });
+    assert.strictEqual(records[0].message[1], "[truncated]");
   }
 
   { // wildcard {*} in message uses redacted properties
@@ -1261,6 +1328,50 @@ test("redactByFieldAsync()", async () => {
     assert.deepStrictEqual(result, { name: "Alice" });
   }
 
+  { // truncates nested objects beyond the configured maximum depth
+    const result = await redactPropertiesAsync(
+      {
+        user: {
+          profile: {
+            password: "secret",
+            name: "Alice",
+          },
+        },
+      },
+      {
+        fieldPatterns: ["password"],
+        action: () => Promise.resolve("[REDACTED]"),
+        maxDepth: 1,
+      },
+    );
+
+    assert.deepStrictEqual(result, {
+      user: {
+        profile: "[truncated]",
+      },
+    });
+  }
+
+  { // omits object properties beyond the configured maximum property count
+    const result = await redactPropertiesAsync(
+      {
+        first: "visible",
+        second: "also visible",
+        password: "secret",
+      },
+      {
+        fieldPatterns: ["password"],
+        action: () => Promise.resolve("[REDACTED]"),
+        maxProperties: 2,
+      },
+    );
+
+    assert.deepStrictEqual(result, {
+      first: "visible",
+      second: "also visible",
+    });
+  }
+
   { // applies async action to properties and string-template messages
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
@@ -1355,6 +1466,32 @@ test("redactByFieldAsync()", async () => {
     assert.deepStrictEqual(records[0].message[1], {
       args: [{ email: "[PSEUDONYMIZED]" }],
     });
+  }
+
+  { // truncates message placeholders omitted by traversal limits
+    const records: LogRecord[] = [];
+    const wrappedSink = redactByFieldAsync((r) => records.push(r), {
+      fieldPatterns: ["password"],
+      action: () => Promise.resolve("[REDACTED]"),
+      maxProperties: 1,
+    });
+    const data = { password: "secret", name: "Alice" };
+
+    wrappedSink({
+      level: "info",
+      category: ["test"],
+      message: ["Data: ", data, ""],
+      rawMessage: "Data: {data}",
+      timestamp: Date.now(),
+      properties: {
+        kept: "visible",
+        data,
+      },
+    });
+    await wrappedSink[Symbol.asyncDispose]();
+
+    assert.deepStrictEqual(records[0].properties, { kept: "visible" });
+    assert.strictEqual(records[0].message[1], "[truncated]");
   }
 
   { // preserves non-sensitive nested message placeholders
@@ -1691,6 +1828,40 @@ test("redactByFieldAsync()", async () => {
       assert.strictEqual(metaRecords[0].category[1], "meta");
       assert.strictEqual(metaRecords[0].level, "warning");
       assert.strictEqual(metaRecords[0].properties.error, redactionError);
+    } finally {
+      await reset();
+    }
+  }
+
+  { // reports traversal limit warnings to the meta logger
+    const metaRecords: LogRecord[] = [];
+
+    await configure({
+      sinks: { meta: (record) => metaRecords.push(record) },
+      loggers: [
+        {
+          category: ["logtape", "meta"],
+          lowestLevel: "warning",
+          sinks: ["meta"],
+        },
+      ],
+    });
+    try {
+      redactProperties(
+        { nested: { password: "secret" } },
+        {
+          fieldPatterns: ["password"],
+          action: () => "[REDACTED]",
+          maxDepth: 0,
+        },
+      );
+
+      assert.strictEqual(metaRecords.length, 1);
+      assert.strictEqual(metaRecords[0].category[0], "logtape");
+      assert.strictEqual(metaRecords[0].category[1], "meta");
+      assert.strictEqual(metaRecords[0].level, "warning");
+      assert.strictEqual(metaRecords[0].properties.limit, "maxDepth");
+      assert.strictEqual(metaRecords[0].properties.maxDepth, 0);
     } finally {
       await reset();
     }
