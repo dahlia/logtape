@@ -125,7 +125,7 @@ jobs:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     steps:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
@@ -156,10 +156,19 @@ jobs:
         fi
       env:
         NPM_CONFIG_PROVENANCE: "true"
-    - if: github.event_name == 'pull_request'
-      run: deno publish --dry-run --allow-dirty
-    - if: github.event_name == 'push'
-      run: deno publish --allow-dirty
+    # jsr.io is unstable these days and deno publish often hangs, so cap
+    # each attempt at 1 minute and retry up to 30 times.
+    - run: |
+        set -x
+        for i in $(seq 1 30); do
+          if timeout 1m deno publish --allow-dirty; then
+            exit 0
+          fi
+          echo "deno publish failed or timed out (attempt $i/30); retrying..." >&2
+          sleep 5
+        done
+        echo "deno publish failed after 30 attempts" >&2
+        exit 1
 
   publish-docs:
     if: github.event_name == 'push'
