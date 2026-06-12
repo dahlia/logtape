@@ -601,6 +601,7 @@ export function honoLogger(
       requestContextState: HonoRequestContextState,
     ): Promise<void> => {
       const requestContext = requestContextState.context;
+      applyResponseHeaders(honoContext, requestContextState);
       // For immediate logging, log when request arrives
       if (logRequest) {
         if (!skip(honoContext)) {

@@ -18,10 +18,10 @@ To be released.
 
 [implicit context]: https://logtape.org/manual/contexts#implicit-contexts
 
-### @logtape/express, @logtape/hono, @logtape/koa, and @logtape/elysia
+### @logtape/elysia, @logtape/express, @logtape/hono, and @logtape/koa
 
- -  Added opt-in request-scoped context support to `expressLogger()`,
-    `honoLogger()`, `koaLogger()`, and `elysiaLogger()`.  Set
+ -  Added opt-in request-scoped context support to `elysiaLogger()`,
+    `expressLogger()`, `honoLogger()`, and `koaLogger()`.  Set
     `context: true` to read the incoming `x-request-id` header, generate a
     request ID when the header is missing, write the resolved ID to the
     `x-request-id` response header, and add `requestId` to request log records
@@ -29,8 +29,8 @@ To be released.
     handling the request.  [[#172], [#174]]
 
      -  Added `context?: boolean | RequestContextOptions` to
-        `ExpressLogTapeOptions`, `HonoLogTapeOptions`, `KoaLogTapeOptions`,
-        and `ElysiaLogTapeOptions`.
+        `ElysiaLogTapeOptions`, `ExpressLogTapeOptions`, `HonoLogTapeOptions`,
+        and `KoaLogTapeOptions`.
      -  Added `RequestContextOptions` with
         `requestId?: boolean | RequestIdOptions`,
         `include?: readonly RequestContextField[]`, and
