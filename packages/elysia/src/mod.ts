@@ -231,6 +231,7 @@ const defaultRequestIdHeader = "x-request-id";
  */
 interface ElysiaRequestContextState {
   readonly context: Record<string, unknown>;
+  readonly startTime?: number;
   readonly responseHeader?: {
     readonly name: string;
     readonly value: string;
@@ -679,11 +680,15 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     // to keep AsyncLocalStorage active for the whole route execution.
     plugin = plugin.wrap((handle) => {
       return async (request: Request) => {
+        const startTime = performance.now();
         const requestContext = await buildRequestContext(
           request,
           contextOptions,
         );
-        requestContextStates.set(request, requestContext);
+        requestContextStates.set(request, {
+          ...requestContext,
+          startTime,
+        });
         return await withContext(
           requestContext.context,
           () => handle(request),
@@ -695,8 +700,9 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   plugin = plugin
     .state("startTime", 0)
     .onRequest(({ request, set, store }) => {
-      (store as LoggerStore).startTime = performance.now();
       const requestContext = requestContextStates.get(request);
+      (store as LoggerStore).startTime = requestContext?.startTime ??
+        performance.now();
       if (requestContext?.responseHeader != null) {
         set.headers[requestContext.responseHeader.name] =
           requestContext.responseHeader.value;

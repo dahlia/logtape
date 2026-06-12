@@ -588,6 +588,35 @@ test("elysiaLogger(): context supports custom options", async () => {
   }
 });
 
+test("elysiaLogger(): async context enrich counts in response time", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: {
+          requestId: { generate: () => "async-enrich-123" },
+          enrich: async () => {
+            await delay(25);
+            return { enriched: true };
+          },
+        },
+      }))
+      .get("/test", () => "Hello");
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "async-enrich-123");
+    assert.strictEqual(logs[0].properties.enriched, true);
+    assert.strictEqual(typeof logs[0].properties.responseTime, "number");
+    assert.ok((logs[0].properties.responseTime as number) >= 20);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("elysiaLogger(): context keeps implicit context when skipped", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,
