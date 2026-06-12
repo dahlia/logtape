@@ -280,7 +280,8 @@ function matchesCategoryPrefix(
 function parseCategory(
   category: string | readonly string[],
 ): readonly string[] {
-  return typeof category === "string" ? category.split(".") : category;
+  if (typeof category !== "string") return category;
+  return category === "" ? [] : category.split(".");
 }
 
 function matchesMessage(
@@ -299,21 +300,24 @@ function matchesText(text: string, matcher: string | RegExp): boolean {
 }
 
 function matchesProperties(
-  properties: Readonly<Record<string, unknown>>,
+  properties: Readonly<Record<string, unknown>> | null | undefined,
   record: LogRecord,
   matcher: Readonly<Record<string, unknown>> | PropertyMatcher,
 ): boolean {
-  if (typeof matcher === "function") return matcher(properties, record);
+  const props = properties ?? {};
+  if (typeof matcher === "function") return matcher(props, record);
   for (const key of Object.keys(matcher)) {
-    if (!Object.hasOwn(properties, key)) return false;
-    if (!Object.is(properties[key], matcher[key])) return false;
+    if (!Object.hasOwn(props, key)) return false;
+    if (!Object.is(props[key], matcher[key])) return false;
   }
   return true;
 }
 
 function testRegExp(pattern: RegExp, text: string): boolean {
-  const flags = pattern.flags;
-  const clone = new RegExp(pattern.source, flags);
+  if (!pattern.global && !pattern.sticky) {
+    return pattern.test(text);
+  }
+  const clone = new RegExp(pattern.source, pattern.flags);
   return clone.test(text);
 }
 
@@ -332,7 +336,7 @@ function renderMessage(message: readonly unknown[]): string {
 function renderMessagePart(part: unknown): string {
   if (typeof part === "string") return part;
   if (typeof part === "bigint") return `${part}n`;
-  if (part instanceof Error) return part.message;
+  if (part instanceof Error) return `${part.name}: ${part.message}`;
   if (part instanceof RegExp) return String(part);
   if (part instanceof Date) {
     try {
@@ -435,12 +439,13 @@ function formatCategory(category: readonly string[]): string {
 }
 
 function formatProperties(
-  properties: Readonly<Record<string, unknown>>,
+  properties: Readonly<Record<string, unknown>> | null | undefined,
 ): string {
-  const entries = Object.keys(properties);
+  const props = properties ?? {};
+  const entries = Object.keys(props);
   if (entries.length < 1) return "";
   const summary = entries.slice(0, 3).map((key) =>
-    `${key}: ${formatValue(properties[key])}`
+    `${key}: ${formatValue(props[key])}`
   );
   if (entries.length > 3) summary.push(`... ${entries.length - 3} more`);
   return ` {${summary.join(", ")}}`;

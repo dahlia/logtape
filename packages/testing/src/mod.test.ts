@@ -101,6 +101,11 @@ test("LogRecorder.find() and LogRecorder.filter()", () => {
     authRecord,
     dbRecord,
   ]);
+  assert.deepStrictEqual(recorder.filter({ categoryPrefix: "" }), [
+    authRecord,
+    dbRecord,
+    rootRecord,
+  ]);
   assert.deepStrictEqual(recorder.filter({ category: /^app\.d/ }), [dbRecord]);
 
   const categoryPattern = /app\.auth/g;
@@ -135,18 +140,57 @@ test("LogRecorder supports predicate matchers", () => {
   assert.strictEqual(recorder.find(match), record);
 });
 
-test("LogRecorder matches rendered RegExp and Date message values", () => {
+test("LogRecorder handles nullish record properties", () => {
   const recorder = createLogRecorder();
+  const record = {
+    ...logRecord({ message: ["nullish properties"] }),
+    properties: null,
+  } as unknown as LogRecord;
+  recorder.sink(record);
+
+  assert.strictEqual(
+    recorder.find({ properties: { userId: "u-123" } }),
+    undefined,
+  );
+  assert.strictEqual(
+    recorder.find({
+      properties: (props) => Object.keys(props).length === 0,
+    }),
+    record,
+  );
+  assert.throws(
+    () => recorder.assertLogged({ properties: { userId: "u-123" } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Expected a LogTape record matching:/);
+      assert.match(error.message, /\[info\] app: nullish properties/);
+      return true;
+    },
+  );
+});
+
+test("LogRecorder matches rendered object message values", () => {
+  const recorder = createLogRecorder();
+  const error = new TypeError("Bad input");
   const pattern = /failed login/i;
   const timestamp = new Date("2026-06-09T00:00:00.000Z");
   const record = logRecord({
-    message: ["Pattern ", pattern, " matched at ", timestamp, "."],
-    rawMessage: "Pattern {pattern} matched at {timestamp}.",
+    message: [
+      "Pattern ",
+      pattern,
+      " failed with ",
+      error,
+      " at ",
+      timestamp,
+      ".",
+    ],
+    rawMessage: "Pattern {pattern} failed with {error} at {timestamp}.",
   });
   recorder.sink(record);
 
   recorder.assertLogged({
-    message: "Pattern /failed login/i matched at 2026-06-09T00:00:00.000Z.",
+    message:
+      "Pattern /failed login/i failed with TypeError: Bad input at 2026-06-09T00:00:00.000Z.",
   });
 });
 
