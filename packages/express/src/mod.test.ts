@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { EventEmitter } from "node:events";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
 import {
   expressLogger,
@@ -766,6 +767,40 @@ test("expressLogger(): forwards synchronous context enrich errors", async () => 
     });
 
     assert.strictEqual(nextError, enrichError);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): forwards errors after async context enrich", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const formatError = new Error("format failed");
+    const middleware = expressLogger({
+      context: {
+        enrich: async () => {
+          await delay(0);
+          return { enriched: true };
+        },
+      },
+      format: () => {
+        throw formatError;
+      },
+      immediate: true,
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let nextError: unknown;
+
+    middleware(req, res, (err) => {
+      nextError = err;
+    });
+    await delay(0);
+
+    assert.strictEqual(nextError, formatError);
     assert.strictEqual(logs.length, 0);
   } finally {
     await cleanup();

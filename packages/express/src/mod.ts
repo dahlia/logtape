@@ -679,9 +679,11 @@ export function expressLogger(
       return;
     }
     if (isPromiseLike<Record<string, unknown>>(requestContext)) {
-      Promise.resolve(requestContext).then((resolvedContext) => {
-        withContext(resolvedContext, () => handleRequest(resolvedContext));
-      }, next);
+      Promise.resolve(requestContext)
+        .then((resolvedContext) => {
+          withContext(resolvedContext, () => handleRequest(resolvedContext));
+        })
+        .catch(next);
       return;
     }
 
