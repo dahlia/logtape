@@ -1,0 +1,67 @@
+{
+  "name": "@logtape/testing",
+  "version": "2.2.0",
+  "description": "Testing utilities for collecting and asserting LogTape records",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "logtape",
+    "testing",
+    "test"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/testing/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "main": "./dist/mod.cjs",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/mod.d.ts",
+        "require": "./dist/mod.d.cts"
+      },
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist/"
+  ],
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:^"
+  },
+  "devDependencies": {
+    "@logtape/redaction": "workspace:^",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+  }
+}

@@ -18,6 +18,23 @@ To be released.
 
 [implicit context]: https://logtape.org/manual/contexts#implicit-contexts
 
+### @logtape/testing
+
+ -  New package *@logtape/testing* providing testing utilities for collecting
+    and asserting LogTape records in memory.  [[#173], [#175]]
+
+     -  Added `createLogRecorder(): LogRecorder`.
+     -  Added `LogRecorder` interface with `sink`, `records`, `clear()`,
+        `take()`, `find()`, `filter()`, `assertLogged()`, and
+        `assertNotLogged()`.
+     -  Added `LogRecordMatch` interface for matching category, category
+        prefix, level, rendered message, raw message, structured properties,
+        and custom predicates.
+     -  Added `PropertyMatcher` type for custom property matching.
+
+[#173]: https://github.com/dahlia/logtape/issues/173
+[#175]: https://github.com/dahlia/logtape/pull/175
+
 ### @logtape/elysia, @logtape/express, @logtape/hono, and @logtape/koa
 
  -  Added opt-in request-scoped context support to `elysiaLogger()`,

@@ -95,6 +95,48 @@ export class Database {
 }
 ~~~~
 
+### Testing library logs
+
+When logs are part of your library's observable behavior, test them alongside
+the public API with [*@logtape/testing*]:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { configure, reset } from "@logtape/logtape";
+import { createLogRecorder } from "@logtape/testing";
+import { Database } from "my-awesome-lib";
+
+const recorder = createLogRecorder();
+
+try {
+  await configure({
+    sinks: { recorder: recorder.sink },
+    loggers: [
+      {
+        category: ["my-awesome-lib"],
+        lowestLevel: "debug",
+        sinks: ["recorder"],
+      },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+
+  const db = new Database("localhost", 5432, "user");
+  db.query("SELECT * FROM users");
+
+  recorder.assertLogged({
+    categoryPrefix: ["my-awesome-lib"],
+    level: "debug",
+    message: /Executing query/,
+    properties: { sql: "SELECT * FROM users" },
+  });
+} finally {
+  await reset();
+}
+~~~~
+
+[*@logtape/testing*]: ./testing.md
+
 
 For application developers
 --------------------------

@@ -56,11 +56,69 @@ describe("my test", async (t) => {
 :::
 
 
+Log recorder
+------------
+
+For testing purposes, you may want to collect log records in memory and assert
+on them.  The [*@logtape/testing*] package provides `createLogRecorder()` for
+this:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, getLogger, reset } from "@logtape/logtape";
+import { createLogRecorder } from "@logtape/testing";
+
+const recorder = createLogRecorder();
+
+try {
+  await configure({
+    sinks: {
+      recorder: recorder.sink,  // [!code highlight]
+    },
+    loggers: [
+      {
+        category: ["my-lib"],
+        lowestLevel: "debug",
+        sinks: ["recorder"],
+      },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+
+  getLogger(["my-lib"]).info("User {userId} logged in.", {
+    userId: "u-123",
+  });
+
+  recorder.assertLogged({  // [!code highlight]
+    category: ["my-lib"],
+    level: "info",
+    message: "User u-123 logged in.",
+    properties: { userId: "u-123" },
+  });
+} finally {
+  await reset();
+}
+~~~~
+
+The recorder stores records in sink call order.  It provides `records`,
+`clear()`, `take()`, `find()`, `filter()`, `assertLogged()`, and
+`assertNotLogged()`.  Matchers can check category, category prefix, level,
+rendered message, raw message, and a shallow partial set of structured
+properties.  Use a property predicate when a test needs absence checks or deep
+matching.
+
+`createLogRecorder()` is a synchronous sink.  If a log call uses async lazy
+properties, await the log call before asserting.  If your test also uses async
+sinks, still call `await dispose()` or `await reset()` as usual.
+
+[*@logtape/testing*]: https://jsr.io/@logtape/testing
+
+
 Buffer sink
 -----------
 
-For testing purposes, you may want to collect log messages in memory.  Although
-LogTape does not provide a built-in buffer sink, you can easily implement it:
+For very small tests that only need raw `LogRecord` objects, you can still
+implement a buffer sink directly:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345

@@ -23,6 +23,7 @@
     "@logtape/redaction": "workspace:",
     "@logtape/sentry": "workspace:",
     "@logtape/syslog": "workspace:",
+    "@logtape/testing": "workspace:",
     "@logtape/windows-eventlog": "workspace:",
     "@opentelemetry/exporter-logs-otlp-http": "catalog:",
     "@opentelemetry/resources": "catalog:",

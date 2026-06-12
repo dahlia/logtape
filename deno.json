@@ -18,6 +18,7 @@
     "./packages/redaction",
     "./packages/sentry",
     "./packages/syslog",
+    "./packages/testing",
     "./packages/cloudwatch-logs",
     "./packages/config",
     "./packages/windows-eventlog",
