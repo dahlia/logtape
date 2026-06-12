@@ -256,11 +256,12 @@ function matchesCategory(
   category: readonly string[],
   expected: string | readonly string[] | RegExp,
 ): boolean {
+  const joinedCategory = category.join(".");
   if (expected instanceof RegExp) {
-    return testRegExp(expected, formatCategory(category));
+    return testRegExp(expected, joinedCategory);
   }
   if (typeof expected === "string") {
-    return formatCategory(category) === expected;
+    return joinedCategory === expected;
   }
   const expectedCategory = parseCategory(expected);
   return category.length === expectedCategory.length &&

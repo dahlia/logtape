@@ -72,8 +72,15 @@ test("LogRecorder.find() and LogRecorder.filter()", () => {
     rawMessage: "Query failed.",
     properties: { durationMs: 1200 },
   });
+  const rootRecord = logRecord({
+    category: [],
+    level: "info",
+    message: ["Root record."],
+    rawMessage: "Root record.",
+  });
   recorder.sink(authRecord);
   recorder.sink(dbRecord);
+  recorder.sink(rootRecord);
 
   assert.strictEqual(
     recorder.find({
@@ -86,6 +93,8 @@ test("LogRecorder.find() and LogRecorder.filter()", () => {
     authRecord,
   );
   assert.strictEqual(recorder.find({ category: "app.auth" }), authRecord);
+  assert.strictEqual(recorder.find({ category: "" }), rootRecord);
+  assert.deepStrictEqual(recorder.filter({ category: /^$/ }), [rootRecord]);
   assert.deepStrictEqual(recorder.filter({ categoryPrefix: ["app"] }), [
     authRecord,
     dbRecord,
