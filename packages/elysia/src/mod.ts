@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { getLogger, type LogLevel } from "@logtape/logtape";
+import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
 
 export type { LogLevel } from "@logtape/logtape";
 
@@ -64,6 +64,81 @@ export interface RequestLogProperties {
   userAgent: string | undefined;
   /** Referrer header value */
   referrer: string | undefined;
+}
+
+/**
+ * Request fields that can be added to the implicit request context.
+ * @since 2.2.0
+ */
+export type RequestContextField =
+  | "requestId"
+  | "method"
+  | "url"
+  | "path"
+  | "userAgent"
+  | "remoteAddr"
+  | "referrer";
+
+/**
+ * Options for extracting, generating, and propagating a request ID.
+ * @since 2.2.0
+ */
+export interface RequestIdOptions {
+  /**
+   * The property name used in implicit context and request log records.
+   * @default "requestId"
+   */
+  readonly property?: string;
+
+  /**
+   * Incoming request headers to inspect in order.
+   * @default ["x-request-id"]
+   */
+  readonly headerNames?: readonly string[];
+
+  /**
+   * Response header that receives the resolved request ID.
+   * Set to `false` to disable response header propagation.
+   * @default "x-request-id"
+   */
+  readonly responseHeader?: string | false;
+
+  /**
+   * Generates a request ID when no incoming header is present.
+   * @default crypto.randomUUID()
+   */
+  readonly generate?: () => string;
+
+  /**
+   * Normalizes an incoming request ID.  Return `null` to reject the value and
+   * keep looking for another header or generate a new ID.
+   */
+  readonly normalize?: (value: string) => string | null;
+}
+
+/**
+ * Options for request-scoped implicit context.
+ * @since 2.2.0
+ */
+export interface RequestContextOptions {
+  /**
+   * Enables request ID extraction, generation, and response propagation.
+   * @default true
+   */
+  readonly requestId?: boolean | RequestIdOptions;
+
+  /**
+   * Fields to add to the implicit context.
+   * @default ["requestId"]
+   */
+  readonly include?: readonly RequestContextField[];
+
+  /**
+   * Adds application-specific fields to the implicit request context.
+   */
+  readonly enrich?: (
+    ctx: ElysiaContext,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 }
 
 /**
@@ -134,6 +209,115 @@ export interface ElysiaLogTapeOptions {
    * @default "global"
    */
   readonly scope?: PluginScope;
+
+  /**
+   * Enables request-scoped implicit context and request ID correlation.
+   *
+   * When set to `true`, the plugin reads the `x-request-id` header, generates
+   * one when it is absent, writes it to the `x-request-id` response header,
+   * and adds `requestId` to all LogTape records emitted while handling the
+   * request.
+   *
+   * @default false
+   * @since 2.2.0
+   */
+  readonly context?: boolean | RequestContextOptions;
+}
+
+const defaultRequestIdHeader = "x-request-id";
+
+/**
+ * Per-request context state stored outside Elysia's shared store.
+ */
+interface ElysiaRequestContextState {
+  readonly context: Record<string, unknown>;
+  readonly responseHeader?: {
+    readonly name: string;
+    readonly value: string;
+  };
+}
+
+/**
+ * Normalize request context options.
+ */
+function normalizeRequestContextOptions(
+  options: boolean | RequestContextOptions | undefined,
+): RequestContextOptions | undefined {
+  if (options === true) return {};
+  if (options === false || options == null) return undefined;
+  return options;
+}
+
+/**
+ * Normalize request ID options.
+ */
+function normalizeRequestIdOptions(
+  options: boolean | RequestIdOptions | undefined,
+): RequestIdOptions | undefined {
+  if (options === false) return undefined;
+  if (options === true || options == null) return {};
+  return options;
+}
+
+/**
+ * Generate a request ID with Web Crypto when possible.
+ */
+function generateRequestId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * Normalize an incoming request ID.
+ */
+function defaultNormalizeRequestId(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * Resolve a request path from a request URL.
+ */
+function getPath(request: Request): string {
+  return new URL(request.url).pathname;
+}
+
+/**
+ * Resolve the request ID for a request.
+ */
+function resolveRequestId(
+  request: Request,
+  options: RequestIdOptions,
+): {
+  readonly property: string;
+  readonly value: string;
+  readonly responseHeader?: string;
+} {
+  const property = options.property ?? "requestId";
+  const normalize = options.normalize ?? defaultNormalizeRequestId;
+  const headerNames = options.headerNames ?? [defaultRequestIdHeader];
+  for (const headerName of headerNames) {
+    const headerValue = request.headers.get(headerName);
+    if (headerValue == null) continue;
+    const normalized = normalize(headerValue);
+    if (normalized != null) {
+      const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
+      return {
+        property,
+        value: normalized,
+        responseHeader: responseHeader === false ? undefined : responseHeader,
+      };
+    }
+  }
+  const generated = (options.generate ?? generateRequestId)();
+  const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
+  return {
+    property,
+    value: generated,
+    responseHeader: responseHeader === false ? undefined : responseHeader,
+  };
 }
 
 /**
@@ -166,6 +350,81 @@ function getRemoteAddr(request: Request): string | undefined {
 }
 
 /**
+ * Build request context fields from a request.
+ */
+function buildIncludedContext(
+  request: Request,
+  resolvedRequestId:
+    | { readonly property: string; readonly value: string }
+    | undefined,
+  include: readonly RequestContextField[],
+): Record<string, unknown> {
+  const context: Record<string, unknown> = {};
+  for (const field of include) {
+    switch (field) {
+      case "requestId":
+        if (resolvedRequestId != null) {
+          context[resolvedRequestId.property] = resolvedRequestId.value;
+        }
+        break;
+      case "method":
+        context.method = request.method;
+        break;
+      case "url":
+        context.url = request.url;
+        break;
+      case "path":
+        context.path = getPath(request);
+        break;
+      case "userAgent":
+        context.userAgent = getUserAgent(request);
+        break;
+      case "remoteAddr":
+        context.remoteAddr = getRemoteAddr(request);
+        break;
+      case "referrer":
+        context.referrer = getReferrer(request);
+        break;
+    }
+  }
+  return context;
+}
+
+/**
+ * Build the implicit context for a request.
+ */
+async function buildRequestContext(
+  request: Request,
+  options: RequestContextOptions,
+): Promise<ElysiaRequestContextState> {
+  const requestIdOptions = normalizeRequestIdOptions(options.requestId);
+  const resolvedRequestId = requestIdOptions == null
+    ? undefined
+    : resolveRequestId(request, requestIdOptions);
+  const include = options.include ??
+    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const context = buildIncludedContext(request, resolvedRequestId, include);
+  if (options.enrich != null) {
+    const set = { status: 200, headers: {} };
+    Object.assign(
+      context,
+      await options.enrich({
+        request,
+        path: getPath(request),
+        set,
+      }),
+    );
+  }
+  const responseHeader = resolvedRequestId?.responseHeader == null
+    ? undefined
+    : {
+      name: resolvedRequestId.responseHeader,
+      value: resolvedRequestId.value,
+    };
+  return { context, responseHeader };
+}
+
+/**
  * Get content length from response headers.
  */
 function getContentLength(
@@ -194,6 +453,17 @@ function buildProperties(
     userAgent: getUserAgent(ctx.request),
     referrer: getReferrer(ctx.request),
   };
+}
+
+/**
+ * Add request context fields to a request log result.
+ */
+function withRequestLogContext(
+  result: string | Record<string, unknown>,
+  context: Record<string, unknown>,
+): string | Record<string, unknown> {
+  if (typeof result === "string") return result;
+  return { ...result, ...context };
 }
 
 /**
@@ -384,6 +654,11 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const skip = options.skip ?? (() => false);
   const logRequest = options.logRequest ?? false;
   const scope = options.scope ?? "global";
+  const contextOptions = normalizeRequestContextOptions(options.context);
+  const requestContextStates = new WeakMap<
+    Request,
+    ElysiaRequestContextState
+  >();
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -393,22 +668,53 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const logMethod = logger[level].bind(logger);
   const errorLogMethod = logger.error.bind(logger);
 
-  let plugin = new Elysia({
+  // deno-lint-ignore no-explicit-any
+  let plugin: Elysia<any, any, any, any, any, any, any> = new Elysia({
     name: "@logtape/elysia",
     seed: options,
-  })
+  });
+
+  if (contextOptions != null) {
+    // Elysia lifecycle hooks cannot wrap downstream handlers, so use wrap()
+    // to keep AsyncLocalStorage active for the whole route execution.
+    plugin = plugin.wrap((handle) => {
+      return async (request: Request) => {
+        const requestContext = await buildRequestContext(
+          request,
+          contextOptions,
+        );
+        requestContextStates.set(request, requestContext);
+        return await withContext(
+          requestContext.context,
+          () => handle(request),
+        );
+      };
+    });
+  }
+
+  plugin = plugin
     .state("startTime", 0)
-    .onRequest(({ store }) => {
+    .onRequest(({ request, set, store }) => {
       (store as LoggerStore).startTime = performance.now();
+      const requestContext = requestContextStates.get(request);
+      if (requestContext?.responseHeader != null) {
+        set.headers[requestContext.responseHeader.name] =
+          requestContext.responseHeader.value;
+      }
     });
 
   if (logRequest) {
     // Log immediately when request arrives
     plugin = plugin.onRequest((ctx) => {
       if (!skip(ctx as unknown as ElysiaContext)) {
-        const result = formatFn(ctx as unknown as ElysiaContext, 0);
+        const requestContext = requestContextStates.get(ctx.request)?.context ??
+          {};
+        const result = withRequestLogContext(
+          formatFn(ctx as unknown as ElysiaContext, 0),
+          requestContext,
+        );
         if (typeof result === "string") {
-          logMethod(result);
+          logMethod(result, requestContext);
         } else {
           logMethod("{method} {url}", result);
         }
@@ -421,10 +727,15 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
 
       const store = ctx.store as LoggerStore;
       const responseTime = performance.now() - store.startTime;
-      const result = formatFn(ctx as unknown as ElysiaContext, responseTime);
+      const requestContext = requestContextStates.get(ctx.request)?.context ??
+        {};
+      const result = withRequestLogContext(
+        formatFn(ctx as unknown as ElysiaContext, responseTime),
+        requestContext,
+      );
 
       if (typeof result === "string") {
-        logMethod(result);
+        logMethod(result, requestContext);
       } else {
         logMethod("{method} {url} {status} - {responseTime} ms", result);
       }
@@ -440,6 +751,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     if (skip(elysiaCtx)) return;
 
     const props = buildProperties(elysiaCtx, responseTime);
+    const requestContext = requestContextStates.get(ctx.request)?.context ?? {};
     // Get the correct HTTP status code from error context
     const status = getErrorStatus(ctx.code, ctx.error, elysiaCtx.set.status);
     // Extract error message safely
@@ -449,6 +761,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
       "Error: {method} {url} {status} - {responseTime} ms - {errorMessage}",
       {
         ...props,
+        ...requestContext,
         status,
         errorMessage,
         errorCode: ctx.code,

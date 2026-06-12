@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import _test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { configure, type LogRecord, reset } from "@logtape/logtape";
+import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
 import { Elysia } from "elysia";
 import { elysiaLogger } from "./mod.ts";
 
@@ -11,14 +12,14 @@ import { elysiaLogger } from "./mod.ts";
 const test = _test;
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
-function createTestSink(): {
+function createTestSink(options: { includeMeta?: boolean } = {}): {
   sink: (record: LogRecord) => void;
   logs: LogRecord[];
 } {
   const logs: LogRecord[] = [];
   return {
     sink: (record: LogRecord) => {
-      if (record.category[0] !== "logtape") {
+      if (options.includeMeta || record.category[0] !== "logtape") {
         logs.push(record);
       }
     },
@@ -27,14 +28,22 @@ function createTestSink(): {
 }
 
 // Setup helper
-async function setupLogtape(): Promise<{
+async function setupLogtape(options: {
+  contextLocalStorage?: boolean;
+  includeMeta?: boolean;
+} = {}): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
-  const { sink, logs } = createTestSink();
+  const { sink, logs } = createTestSink({
+    includeMeta: options.includeMeta,
+  });
   await configure({
     sinks: { test: sink },
     loggers: [{ category: [], sinks: ["test"] }],
+    contextLocalStorage: options.contextLocalStorage
+      ? new AsyncLocalStorage()
+      : undefined,
   });
   return { logs, cleanup: () => reset() };
 }
@@ -476,6 +485,172 @@ test("elysiaLogger(): non-logRequest mode logs after response", async () => {
 
     assert.strictEqual(logs.length, 1);
     assert.ok((logs[0].properties.responseTime as number) >= 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Request Context Tests
+// ============================================
+
+test("elysiaLogger(): context true uses incoming request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({ context: true }))
+      .get("/test", () => {
+        appLogger.info("Handled request");
+        return "Hello";
+      });
+
+    const res = await app.handle(
+      new Request("http://localhost/test", {
+        headers: {
+          "x-request-id": "request-123",
+          "user-agent": "test-agent/1.0",
+        },
+      }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "request-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "request-123");
+    assert.strictEqual(logs[1].properties.requestId, "request-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context true generates missing request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "generated-123" } },
+      }))
+      .get("/test", () => "Hello");
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "generated-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "generated-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context keeps implicit context when skipped", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "skip-123" } },
+        skip: () => true,
+      }))
+      .get("/test", () => {
+        appLogger.info("Handled skipped request");
+        return "Hello";
+      });
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "skip-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context works with logRequest", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "immediate-123" } },
+        logRequest: true,
+      }))
+      .get("/test", () => "Hello");
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "immediate-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "immediate-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): missing context storage still logs request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "no-storage-123" } },
+      }))
+      .get("/test", () => {
+        appLogger.info("Handled request");
+        return "Hello";
+      });
+
+    await app.handle(new Request("http://localhost/test"));
+
+    const appLog = logs.find((record) => record.category[0] === "app");
+    const requestLog = logs.find((record) => record.category[0] === "elysia");
+    const metaLog = logs.find((record) =>
+      record.category[0] === "logtape" && record.category[1] === "meta" &&
+      record.level === "warning"
+    );
+    assert.ok(appLog);
+    assert.ok(requestLog);
+    assert.ok(metaLog);
+    assert.strictEqual(appLog.properties.requestId, undefined);
+    assert.strictEqual(requestLog.properties.requestId, "no-storage-123");
+    assert.strictEqual(metaLog.level, "warning");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context appears on error logs", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "error-123" } },
+      }))
+      .get("/error", () => {
+        appLogger.info("About to fail");
+        throw new Error("Test error");
+      });
+
+    const res = await app.handle(new Request("http://localhost/error"));
+
+    const appLog = logs.find((record) => record.category[0] === "app");
+    const errorLog = logs.find((record) => record.level === "error");
+    assert.strictEqual(res.headers.get("x-request-id"), "error-123");
+    assert.ok(appLog);
+    assert.ok(errorLog);
+    assert.strictEqual(appLog.properties.requestId, "error-123");
+    assert.strictEqual(errorLog.properties.requestId, "error-123");
   } finally {
     await cleanup();
   }
