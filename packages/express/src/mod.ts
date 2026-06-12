@@ -354,11 +354,12 @@ function buildIncludedContext(
 }
 
 /**
- * Check whether a value is a promise-like object.
+ * Check whether a value is a Promise object.
  */
-function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+function isPromise<T>(value: unknown): value is Promise<T> {
   return value != null && typeof value === "object" &&
-    typeof (value as PromiseLike<T>).then === "function";
+    Object.prototype.toString.call(value) === "[object Promise]" &&
+    typeof (value as Promise<T>).then === "function";
 }
 
 /**
@@ -378,7 +379,7 @@ function buildRequestContext(
   const context = buildIncludedContext(req, resolvedRequestId, include);
   if (options.enrich == null) return context;
   const enriched = options.enrich(req, res);
-  if (isPromiseLike<Record<string, unknown>>(enriched)) {
+  if (isPromise<Record<string, unknown>>(enriched)) {
     return Promise.resolve(enriched).then((extraContext) => ({
       ...context,
       ...extraContext,
@@ -678,7 +679,7 @@ export function expressLogger(
       next(error);
       return;
     }
-    if (isPromiseLike<Record<string, unknown>>(requestContext)) {
+    if (isPromise<Record<string, unknown>>(requestContext)) {
       Promise.resolve(requestContext)
         .then((resolvedContext) => {
           withContext(resolvedContext, () => handleRequest(resolvedContext));

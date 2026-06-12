@@ -695,6 +695,38 @@ test("expressLogger(): context supports custom options", async () => {
   }
 });
 
+test("expressLogger(): context enrich allows a callable then field", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const middleware = expressLogger({
+      context: {
+        enrich: () => ({
+          route: "/test",
+          then: () => "not a promise",
+        }),
+      },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let nextCalled = false;
+
+    middleware(req, res, () => {
+      nextCalled = true;
+    });
+    await delay(0);
+    finishResponse(res);
+
+    assert.strictEqual(nextCalled, true);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.route, "/test");
+    assert.strictEqual(typeof logs[0].properties.then, "function");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("expressLogger(): context keeps implicit context when skipped", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,
