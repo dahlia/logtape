@@ -596,77 +596,99 @@ interface LoggerStore {
   startTime: number;
 }
 
+type ElysiaRouteContext = ElysiaContext & {
+  readonly store: LoggerStore;
+};
+
+type ElysiaRouteHandler = (
+  this: unknown,
+  context: ElysiaRouteContext,
+) => unknown;
+
+type ElysiaRouteRegistrar = (
+  path: string,
+  handler: unknown,
+  hook?: unknown,
+) => unknown;
+
+type ElysiaRouteMethod =
+  | "all"
+  | "connect"
+  | "delete"
+  | "get"
+  | "head"
+  | "options"
+  | "patch"
+  | "post"
+  | "put";
+
+const elysiaRouteMethods: readonly ElysiaRouteMethod[] = [
+  "all",
+  "connect",
+  "delete",
+  "get",
+  "head",
+  "options",
+  "patch",
+  "post",
+  "put",
+];
+
+type ElysiaRoutePlugin = Record<ElysiaRouteMethod, ElysiaRouteRegistrar> & {
+  route: (
+    method: string,
+    path: string,
+    handler: unknown,
+    hook?: unknown,
+  ) => unknown;
+};
+
 /**
- * Minimal shape of Elysia's internal route matcher.
+ * Wrap routes registered on a local plugin with implicit LogTape context.
  */
-interface ElysiaRouteMatcher {
-  readonly router?: {
-    readonly http?: {
-      find(method: string, path: string): unknown;
+function wrapLocalRouteHandlers(
+  plugin: ElysiaRoutePlugin,
+  buildAndStoreRequestContext: (
+    request: Request,
+  ) => Promise<ElysiaRequestContextState | undefined>,
+  applyRequestContextToSet: (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ) => void,
+): void {
+  const wrapHandler = (handler: unknown): unknown => {
+    if (typeof handler !== "function") return handler;
+    const routeHandler = handler as ElysiaRouteHandler;
+    return async function (
+      this: unknown,
+      ctx: ElysiaRouteContext,
+    ): Promise<unknown> {
+      const requestContext = await buildAndStoreRequestContext(ctx.request);
+      ctx.store.startTime = requestContext?.startTime ??
+        performance.now();
+      applyRequestContextToSet(ctx.set, requestContext);
+      return await withContext(
+        requestContext?.context ?? {},
+        () => routeHandler.call(this, ctx),
+      );
     };
   };
-  readonly routes?: readonly {
-    readonly method: string;
-    readonly path: string;
-  }[];
-}
 
-/**
- * Check whether an Elysia route path matches a request path.
- */
-function routePathMatches(routePath: string, requestPath: string): boolean {
-  if (routePath === requestPath) return true;
-  const routeSegments = routePath.split("/");
-  const requestSegments = requestPath.split("/");
-  const segmentCount = Math.max(routeSegments.length, requestSegments.length);
-  for (let index = 0; index < segmentCount; index++) {
-    const routeSegment = routeSegments[index];
-    const requestSegment = requestSegments[index];
-    if (routeSegment == null) return false;
-    if (routeSegment === "*") return true;
-    if (requestSegment == null) {
-      if (routeSegment.startsWith(":") && routeSegment.endsWith("?")) {
-        continue;
-      }
-      return false;
-    }
-    if (routeSegment === requestSegment || routeSegment.startsWith(":")) {
-      continue;
-    }
-    return false;
+  for (const method of elysiaRouteMethods) {
+    const register = plugin[method].bind(plugin);
+    plugin[method] = ((path: string, handler: unknown, hook?: unknown) =>
+      register(path, wrapHandler(handler), hook)) as ElysiaRouteRegistrar;
   }
-  return true;
-}
 
-/**
- * Check whether an Elysia route method can handle a request method.
- */
-function routeMethodMatches(
-  routeMethod: string,
-  requestMethod: string,
-): boolean {
-  return routeMethod === requestMethod || routeMethod === "ALL" ||
-    (routeMethod === "GET" && requestMethod === "HEAD");
-}
-
-/**
- * Check whether a request belongs to routes defined on the local plugin.
- */
-function isLocalPluginRoute(
-  plugin: ElysiaRouteMatcher,
-  request: Request,
-): boolean {
-  const path = getPath(request);
-  const httpRouter = plugin.router?.http;
-  if (httpRouter?.find(request.method, path) != null) return true;
-  if (httpRouter?.find("ALL", path) != null) return true;
-  if (request.method === "HEAD" && httpRouter?.find("GET", path) != null) {
-    return true;
-  }
-  return plugin.routes?.some((route) =>
-    routeMethodMatches(route.method, request.method) &&
-    routePathMatches(route.path, path)
-  ) ?? false;
+  const route = plugin.route.bind(plugin);
+  plugin.route = ((
+    method: string,
+    path: string,
+    handler: unknown,
+    hook?: unknown,
+  ) => route(method, path, wrapHandler(handler), hook)) as ElysiaRoutePlugin[
+    "route"
+  ];
 }
 
 /**
@@ -783,14 +805,17 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     seed: options,
   });
 
-  if (shouldWrapContext) {
+  if (shouldWrapContext && scope === "local") {
+    wrapLocalRouteHandlers(
+      plugin as unknown as ElysiaRoutePlugin,
+      buildAndStoreRequestContext,
+      applyRequestContextToSet,
+    );
+  } else if (shouldWrapContext) {
     // Elysia lifecycle hooks cannot wrap downstream handlers, so use wrap()
     // to keep AsyncLocalStorage active for the whole route execution.
     plugin = plugin.wrap((handle) => {
       return async (request: Request) => {
-        if (scope === "local" && !isLocalPluginRoute(plugin, request)) {
-          return await handle(request);
-        }
         const requestContext = await buildAndStoreRequestContext(request);
         return await withContext(
           requestContext?.context ?? {},

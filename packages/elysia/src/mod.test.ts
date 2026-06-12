@@ -863,6 +863,64 @@ test("elysiaLogger(): local scope builds context for local routes", async () => 
   }
 });
 
+test("elysiaLogger(): local scope builds context for prefixed local routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-prefixed-123" } },
+    })
+      .get("/test", () => {
+        appLogger.info("Handled prefixed local route");
+        return "Hello";
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-prefixed-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-prefixed-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-prefixed-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope does not wrap parent routes with the same suffix", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-suffix-123" } },
+    })
+      .get("/test", () => "Local");
+    const app = new Elysia()
+      .use(plugin)
+      .get("/api/test", () => {
+        appLogger.info("Handled parent suffix route");
+        return "Parent";
+      });
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(await res.text(), "Parent");
+    assert.strictEqual(res.headers.get("x-request-id"), null);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("elysiaLogger(): local scope wraps wildcard ALL routes", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,
