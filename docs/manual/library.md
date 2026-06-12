@@ -97,6 +97,8 @@ export class Database {
 
 ### Testing library logs
 
+*This API is available since LogTape 2.2.0.*
+
 When logs are part of your library's observable behavior, test them alongside
 the public API with [*@logtape/testing*]:
 

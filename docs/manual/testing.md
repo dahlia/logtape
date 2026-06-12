@@ -59,6 +59,8 @@ describe("my test", async (t) => {
 Log recorder
 ------------
 
+*This API is available since LogTape 2.2.0.*
+
 For testing purposes, you may want to collect log records in memory and assert
 on them.  The [*@logtape/testing*] package provides `createLogRecorder()` for
 this:
