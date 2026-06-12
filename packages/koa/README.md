@@ -69,6 +69,49 @@ app.use(koaLogger({
   format: "dev",                 // Predefined format (default: "combined")
   skip: (ctx) => ctx.path === "/health",  // Skip health check endpoint
   logRequest: false,             // Log after response (default: false)
+  context: true,                 // Add requestId to request-scoped logs
+}));
+~~~~
+
+
+Request context
+---------------
+
+Set `context: true` to add request-scoped correlation fields.  By default,
+the middleware reads the `x-request-id` request header, generates an ID when
+the header is missing, writes the resolved ID to the `x-request-id` response
+header, and adds `requestId` to the request log record.
+
+To make logs emitted by your route handlers inherit the same `requestId`, also
+configure LogTape with `contextLocalStorage`:
+
+~~~~ typescript
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  // ... sinks and loggers ...
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+app.use(koaLogger({ context: true }));
+~~~~
+
+The context is still established when `skip` suppresses the request log, so
+application logs inside the skipped request can keep the same request ID.
+
+You can customize request ID headers and add more request fields:
+
+~~~~ typescript
+app.use(koaLogger({
+  context: {
+    requestId: {
+      headerNames: ["x-correlation-id", "x-request-id"],
+      responseHeader: "x-request-id",
+    },
+    include: ["requestId", "method", "path", "remoteAddr"],
+    enrich: (ctx) => ({ route: ctx.path }),
+  },
 }));
 ~~~~
 

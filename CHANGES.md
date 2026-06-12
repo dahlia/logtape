@@ -18,6 +18,34 @@ To be released.
 
 [implicit context]: https://logtape.org/manual/contexts#implicit-contexts
 
+### @logtape/express, @logtape/hono, @logtape/koa, and @logtape/elysia
+
+ -  Added opt-in request-scoped context support to `expressLogger()`,
+    `honoLogger()`, `koaLogger()`, and `elysiaLogger()`.  Set
+    `context: true` to read the incoming `x-request-id` header, generate a
+    request ID when the header is missing, write the resolved ID to the
+    `x-request-id` response header, and add `requestId` to request log records
+    and, when implicit context storage is configured, logs emitted while
+    handling the request.  [[#172], [#174]]
+
+     -  Added `context?: boolean | RequestContextOptions` to
+        `ExpressLogTapeOptions`, `HonoLogTapeOptions`, `KoaLogTapeOptions`,
+        and `ElysiaLogTapeOptions`.
+     -  Added `RequestContextOptions` with
+        `requestId?: boolean | RequestIdOptions`,
+        `include?: readonly RequestContextField[]`, and
+        `enrich?: (...) => Record<string, unknown> | Promise<Record<string, unknown>>`.
+     -  Added `RequestIdOptions` with `property?: string`,
+        `headerNames?: readonly string[]`,
+        `responseHeader?: string | false`, `generate?: () => string`, and
+        `normalize?: (value: string) => string | null`.
+     -  Added `RequestContextField` for selecting request fields in implicit
+        context.  The Express integration also supports the `httpVersion`
+        field.
+
+[#172]: https://github.com/dahlia/logtape/issues/172
+[#174]: https://github.com/dahlia/logtape/pull/174
+
 ### @logtape/file
 
  -  Fixed a bug where `getRotatingFileSink()` with `maxFiles: 0` or a negative

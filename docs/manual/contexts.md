@@ -196,6 +196,41 @@ implicit context `requestId` even though the `requestId` is not passed to the
 > are correctly inherited by all subroutines and asynchronous operations.
 > In other words, implicit contexts are more than just a global variable.
 
+### HTTP request contexts
+
+The Express, Elysia, Hono, and Koa integrations can establish implicit context
+for each request.  Set the integration's `context` option to `true` to read the
+incoming `x-request-id` header, generate a request ID when the header is
+missing, propagate the resolved ID to the `x-request-id` response header, and
+add `requestId` to request log records:
+
+~~~~ typescript twoslash
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+import { expressLogger } from "@logtape/express";
+
+await configure({
+  sinks: {},
+  loggers: [],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+const middleware = expressLogger({ context: true });
+~~~~
+
+With `~Config.contextLocalStorage` configured, logs emitted by application code
+while handling the request inherit the same `requestId` automatically.  The
+integrations still establish the context when their `skip` option suppresses
+the request log, so application logs inside skipped requests can remain
+correlated.
+
+The `context` option also accepts a `RequestContextOptions` object for custom
+request ID headers, response header propagation, included request fields, and
+application-specific enrichment.  See [third-party integrations] for
+framework-specific examples.
+
+[third-party integrations]: ./integrations.md
+
 ### Nesting
 
 Implicit contexts can be nested.  Here's an example of nesting implicit

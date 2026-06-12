@@ -199,6 +199,53 @@ const middleware = expressLogger({
   format: "dev",                 // Predefined format (default: "combined")
   skip: (req, res) => res.statusCode < 400,  // Skip successful requests
   immediate: false,              // Log after response (default: false)
+  context: true,                 // Add requestId to request-scoped logs
+});
+~~~~
+
+### Request context
+
+Set `context: true` to add request-scoped correlation fields.  By default,
+the middleware reads the `x-request-id` request header, generates an ID when
+the header is missing, writes the resolved ID to the `x-request-id` response
+header, and adds `requestId` to the request log record.
+
+To make logs emitted by route handlers inherit the same `requestId`, configure
+LogTape with `~Config.contextLocalStorage` as described in
+[implicit contexts](./contexts.md#implicit-contexts):
+
+~~~~ typescript twoslash
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+import { expressLogger } from "@logtape/express";
+
+await configure({
+  sinks: {},
+  loggers: [],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+const middleware = expressLogger({ context: true });
+~~~~
+
+The context is established even when `skip` suppresses the request log, so
+application logs inside the skipped request can still carry the same request
+ID.
+
+You can customize request ID headers and include additional request fields:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  context: {
+    requestId: {
+      headerNames: ["x-correlation-id", "x-request-id"],
+      responseHeader: "x-request-id",
+    },
+    include: ["requestId", "method", "url", "httpVersion"],
+    enrich: (req) => ({ route: req.path }),
+  },
 });
 ~~~~
 
@@ -328,6 +375,53 @@ const plugin = elysiaLogger({
   skip: (ctx) => ctx.path === "/health",  // Skip health check endpoint
   logRequest: false,             // Log after response (default: false)
   scope: "global",               // Plugin scope (default: "global")
+  context: true,                 // Add requestId to request-scoped logs
+});
+~~~~
+
+### Request context
+
+Set `context: true` to add request-scoped correlation fields.  By default,
+the plugin reads the `x-request-id` request header, generates an ID when the
+header is missing, writes the resolved ID to the `x-request-id` response
+header, and adds `requestId` to request and error log records.
+
+To make logs emitted by route handlers inherit the same `requestId`, configure
+LogTape with `~Config.contextLocalStorage` as described in
+[implicit contexts](./contexts.md#implicit-contexts):
+
+~~~~ typescript twoslash
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+import { elysiaLogger } from "@logtape/elysia";
+
+await configure({
+  sinks: {},
+  loggers: [],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+const plugin = elysiaLogger({ context: true });
+~~~~
+
+The context is established even when `skip` suppresses the request log, so
+application logs inside the skipped request can still carry the same request
+ID.
+
+You can customize request ID headers and include additional request fields:
+
+~~~~ typescript twoslash
+import { elysiaLogger } from "@logtape/elysia";
+// ---cut-before---
+const plugin = elysiaLogger({
+  context: {
+    requestId: {
+      headerNames: ["x-correlation-id", "x-request-id"],
+      responseHeader: "x-request-id",
+    },
+    include: ["requestId", "method", "path", "userAgent"],
+    enrich: (ctx) => ({ route: ctx.path }),
+  },
 });
 ~~~~
 
@@ -480,6 +574,53 @@ const middleware = honoLogger({
   format: "dev",                 // Predefined format (default: "combined")
   skip: (c) => c.req.path === "/health",  // Skip health check endpoint
   logRequest: false,             // Log after response (default: false)
+  context: true,                 // Add requestId to request-scoped logs
+});
+~~~~
+
+### Request context
+
+Set `context: true` to add request-scoped correlation fields.  By default,
+the middleware reads the `x-request-id` request header, generates an ID when
+the header is missing, writes the resolved ID to the `x-request-id` response
+header, and adds `requestId` to the request log record.
+
+To make logs emitted by route handlers inherit the same `requestId`, configure
+LogTape with `~Config.contextLocalStorage` as described in
+[implicit contexts](./contexts.md#implicit-contexts):
+
+~~~~ typescript twoslash
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+import { honoLogger } from "@logtape/hono";
+
+await configure({
+  sinks: {},
+  loggers: [],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+const middleware = honoLogger({ context: true });
+~~~~
+
+The context is established even when `skip` suppresses the request log, so
+application logs inside the skipped request can still carry the same request
+ID.
+
+You can customize request ID headers and include additional request fields:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  context: {
+    requestId: {
+      headerNames: ["x-correlation-id", "x-request-id"],
+      responseHeader: "x-request-id",
+    },
+    include: ["requestId", "method", "path", "userAgent"],
+    enrich: (c) => ({ route: c.req.path }),
+  },
 });
 ~~~~
 
@@ -730,6 +871,53 @@ const middleware = koaLogger({
   format: "dev",                 // Predefined format (default: "combined")
   skip: (ctx) => ctx.path === "/health",  // Skip health check endpoint
   logRequest: false,             // Log after response (default: false)
+  context: true,                 // Add requestId to request-scoped logs
+});
+~~~~
+
+### Request context
+
+Set `context: true` to add request-scoped correlation fields.  By default,
+the middleware reads the `x-request-id` request header, generates an ID when
+the header is missing, writes the resolved ID to the `x-request-id` response
+header, and adds `requestId` to the request log record.
+
+To make logs emitted by route handlers inherit the same `requestId`, configure
+LogTape with `~Config.contextLocalStorage` as described in
+[implicit contexts](./contexts.md#implicit-contexts):
+
+~~~~ typescript twoslash
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+import { koaLogger } from "@logtape/koa";
+
+await configure({
+  sinks: {},
+  loggers: [],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+const middleware = koaLogger({ context: true });
+~~~~
+
+The context is established even when `skip` suppresses the request log, so
+application logs inside the skipped request can still carry the same request
+ID.
+
+You can customize request ID headers and include additional request fields:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  context: {
+    requestId: {
+      headerNames: ["x-correlation-id", "x-request-id"],
+      responseHeader: "x-request-id",
+    },
+    include: ["requestId", "method", "path", "remoteAddr"],
+    enrich: (ctx) => ({ route: ctx.path }),
+  },
 });
 ~~~~
 
@@ -793,7 +981,8 @@ SvelteKit
 ---------
 
 [SvelteKit] can use LogTape in both server-side hooks and API routes.
-Use hooks for global request logging:
+Unlike Express, Elysia, Hono, and Koa, LogTape does not provide a dedicated
+SvelteKit adapter.  Use hooks with `withContext()` for global request logging:
 
 ~~~~ typescript [src/hooks.server.ts] twoslash
 import {
