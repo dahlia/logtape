@@ -520,6 +520,27 @@ test("honoLogger(): context true generates missing request ID", async () => {
   }
 });
 
+test("honoLogger(): context propagates request ID to raw Response", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Hono();
+    app.use(honoLogger({
+      context: { requestId: { generate: () => "raw-response-123" } },
+    }));
+    app.get("/test", () => new Response("Hello"));
+
+    const res = await app.request("/test");
+
+    assert.strictEqual(res.headers.get("x-request-id"), "raw-response-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "raw-response-123");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("honoLogger(): context supports custom options", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,

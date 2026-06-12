@@ -206,6 +206,20 @@ export interface HonoLogTapeOptions {
 
 const defaultRequestIdHeader = "x-request-id";
 
+interface ResolvedRequestId {
+  readonly property: string;
+  readonly value: string;
+  readonly responseHeader?: string;
+}
+
+interface HonoRequestContextState {
+  readonly context: Record<string, unknown>;
+  readonly responseHeader?: {
+    readonly name: string;
+    readonly value: string;
+  };
+}
+
 /**
  * Normalize request context options.
  */
@@ -252,7 +266,7 @@ function defaultNormalizeRequestId(value: string): string | null {
 function resolveRequestId(
   c: HonoContext,
   options: RequestIdOptions,
-): { property: string; value: string } {
+): ResolvedRequestId {
   const property = options.property ?? "requestId";
   const normalize = options.normalize ?? defaultNormalizeRequestId;
   const headerNames = options.headerNames ?? [defaultRequestIdHeader];
@@ -262,14 +276,20 @@ function resolveRequestId(
     const normalized = normalize(headerValue);
     if (normalized != null) {
       const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
-      if (responseHeader !== false) c.header(responseHeader, normalized);
-      return { property, value: normalized };
+      return {
+        property,
+        value: normalized,
+        responseHeader: responseHeader === false ? undefined : responseHeader,
+      };
     }
   }
   const generated = (options.generate ?? generateRequestId)();
   const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
-  if (responseHeader !== false) c.header(responseHeader, generated);
-  return { property, value: generated };
+  return {
+    property,
+    value: generated,
+    responseHeader: responseHeader === false ? undefined : responseHeader,
+  };
 }
 
 /**
@@ -329,7 +349,7 @@ function buildProperties(
  */
 function buildIncludedContext(
   c: HonoContext,
-  resolvedRequestId: { property: string; value: string } | undefined,
+  resolvedRequestId: ResolvedRequestId | undefined,
   include: readonly RequestContextField[],
 ): Record<string, unknown> {
   const context: Record<string, unknown> = {};
@@ -369,7 +389,7 @@ function buildIncludedContext(
 async function buildRequestContext(
   c: HonoContext,
   options: RequestContextOptions,
-): Promise<Record<string, unknown>> {
+): Promise<HonoRequestContextState> {
   const requestIdOptions = normalizeRequestIdOptions(options.requestId);
   const resolvedRequestId = requestIdOptions == null
     ? undefined
@@ -377,11 +397,28 @@ async function buildRequestContext(
   const include = options.include ??
     (resolvedRequestId == null ? [] : ["requestId"] as const);
   const context = buildIncludedContext(c, resolvedRequestId, include);
-  if (options.enrich == null) return context;
-  return {
-    ...context,
-    ...await options.enrich(c),
-  };
+  if (options.enrich != null) Object.assign(context, await options.enrich(c));
+  const responseHeader = resolvedRequestId?.responseHeader == null
+    ? undefined
+    : {
+      name: resolvedRequestId.responseHeader,
+      value: resolvedRequestId.value,
+    };
+  return { context, responseHeader };
+}
+
+/**
+ * Apply deferred context response headers to the final Hono response.
+ */
+function applyResponseHeaders(
+  c: HonoContext,
+  requestContext: HonoRequestContextState,
+): void {
+  if (requestContext.responseHeader == null) return;
+  c.header(
+    requestContext.responseHeader.name,
+    requestContext.responseHeader.value,
+  );
 }
 
 /**
@@ -557,8 +594,9 @@ export function honoLogger(
     const honoContext = c as unknown as HonoContext;
 
     const handleRequest = async (
-      requestContext: Record<string, unknown>,
+      requestContextState: HonoRequestContextState,
     ): Promise<void> => {
+      const requestContext = requestContextState.context;
       // For immediate logging, log when request arrives
       if (logRequest) {
         if (!skip(honoContext)) {
@@ -573,11 +611,13 @@ export function honoLogger(
           }
         }
         await next();
+        applyResponseHeaders(honoContext, requestContextState);
         return;
       }
 
       // Log after response is sent
       await next();
+      applyResponseHeaders(honoContext, requestContextState);
 
       if (skip(honoContext)) return;
 
@@ -595,14 +635,17 @@ export function honoLogger(
     };
 
     if (contextOptions == null) {
-      await handleRequest({});
+      await handleRequest({ context: {} });
       return;
     }
 
-    const requestContext = await buildRequestContext(
+    const requestContextState = await buildRequestContext(
       honoContext,
       contextOptions,
     );
-    await withContext(requestContext, () => handleRequest(requestContext));
+    await withContext(
+      requestContextState.context,
+      () => handleRequest(requestContextState),
+    );
   });
 }
