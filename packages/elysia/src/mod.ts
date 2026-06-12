@@ -742,9 +742,10 @@ function createElysiaRequestWrappers(
     ): Promise<unknown> {
       const ctx = getRouteContext(args[0]);
       if (ctx == null) return await requestCallback.apply(this, args);
+      ctx.store.startTime = performance.now();
       const requestContext = await buildAndStoreRequestContext(ctx.request);
       ctx.store.startTime = requestContext?.startTime ??
-        performance.now();
+        ctx.store.startTime;
       applyRequestContextToSet(ctx.set, requestContext);
       return await withContext(
         requestContext?.context ?? {},
@@ -886,8 +887,9 @@ function wrapLocalLifecycleHooks(
 
   const wrapLifecycleHookArgs = (args: readonly unknown[]): unknown[] => {
     const wrappedArgs = [...args];
-    if (isLifecycleHookType(args[0]) && args.length > 1) {
-      wrappedArgs[1] = wrapRouteHookValue(args[1]);
+    if (isLifecycleHookType(args[0])) {
+      if (args.length > 1) wrappedArgs[1] = wrapRouteHookValue(args[1]);
+      if (args.length > 2) wrappedArgs[2] = wrapRouteHookValue(args[2]);
     } else if (isLifecycleHookType(args[1]) && args.length > 2) {
       wrappedArgs[2] = wrapRouteHookValue(args[2]);
     }
@@ -1048,6 +1050,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     .onRequest(({ request, set, store }) => {
       const requestContext = requestContextStates.get(request);
       if (requestContext == null && shouldWrapAllRoutes) {
+        (store as LoggerStore).startTime = performance.now();
         return buildAndStoreRequestContext(request).then((resolvedContext) => {
           applyRequestContextToRequest(
             store as LoggerStore,
@@ -1061,9 +1064,10 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
 
   if (scope === "local" && (contextOptions != null || logRequest)) {
     plugin = plugin.onBeforeHandle(async (ctx) => {
+      (ctx.store as LoggerStore).startTime = performance.now();
       const requestContext = await buildAndStoreRequestContext(ctx.request);
       (ctx.store as LoggerStore).startTime = requestContext?.startTime ??
-        performance.now();
+        (ctx.store as LoggerStore).startTime;
       applyRequestContextToSet(ctx.set, requestContext);
       if (logRequest && !skip(ctx as unknown as ElysiaContext)) {
         const context = requestContext?.context ?? {};

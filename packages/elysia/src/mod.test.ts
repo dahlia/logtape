@@ -48,6 +48,17 @@ async function setupLogtape(options: {
   return { logs, cleanup: () => reset() };
 }
 
+function assertRecentResponseTime(
+  responseTime: unknown,
+  startedAt: number,
+): void {
+  assert.ok(typeof responseTime === "number");
+  assert.ok(
+    responseTime <= performance.now() - startedAt + 50,
+    `expected recent response time, got ${responseTime}`,
+  );
+}
+
 // ============================================
 // Basic Plugin Creation Tests
 // ============================================
@@ -757,6 +768,37 @@ test("elysiaLogger(): context appears on error logs", async () => {
   }
 });
 
+test("elysiaLogger(): context enrich errors keep local response time recent", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const enrichError = new Error("enrich failed");
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        enrich: async () => {
+          await delay(1);
+          throw enrichError;
+        },
+      },
+    })
+      .get("/error", () => "Hello");
+    const app = new Elysia().use(plugin);
+
+    await delay(100);
+    const startedAt = performance.now();
+    const res = await app.handle(new Request("http://localhost/error"));
+
+    const errorLog = logs.find((record) => record.level === "error");
+    assert.strictEqual(res.status, 500);
+    assert.ok(errorLog);
+    assertRecentResponseTime(errorLog.properties.responseTime, startedAt);
+  } finally {
+    await cleanup();
+  }
+});
+
 // ============================================
 // Plugin Scope Tests
 // ============================================
@@ -1055,6 +1097,58 @@ test("elysiaLogger(): local scope builds context for plugin hooks", async () => 
     assert.deepStrictEqual(logs[1].category, ["app"]);
     assert.strictEqual(logs[1].properties.requestId, "local-plugin-hook-1");
     assert.strictEqual(logs[2].properties.requestId, "local-plugin-hook-1");
+    assert.strictEqual(requestIdCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for plugin hooks with options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: {
+          generate: () => `local-plugin-hook-options-${++requestIdCount}`,
+        },
+      },
+    })
+      .onBeforeHandle({ as: "local" }, () => {
+        hookLogger.info("Handled local plugin hook with options");
+      })
+      .get("/test", () => {
+        appLogger.info("Handled local plugin hook route with options");
+        return "Hello";
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(
+      res.headers.get("x-request-id"),
+      "local-plugin-hook-options-1",
+    );
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(
+      logs[0].properties.requestId,
+      "local-plugin-hook-options-1",
+    );
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(
+      logs[1].properties.requestId,
+      "local-plugin-hook-options-1",
+    );
+    assert.strictEqual(
+      logs[2].properties.requestId,
+      "local-plugin-hook-options-1",
+    );
     assert.strictEqual(requestIdCount, 1);
   } finally {
     await cleanup();
