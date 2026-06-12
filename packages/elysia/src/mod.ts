@@ -660,6 +660,7 @@ const elysiaPluginLifecycleHookTypes = [
   "derive",
   "error",
   "mapResponse",
+  "parse",
   "resolve",
   "transform",
 ] as const;

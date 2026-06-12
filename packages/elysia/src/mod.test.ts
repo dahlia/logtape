@@ -1061,6 +1061,56 @@ test("elysiaLogger(): local scope builds context for plugin hooks", async () => 
   }
 });
 
+test("elysiaLogger(): local scope builds context for plugin parse hooks", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: { generate: () => `local-parse-hook-${++requestIdCount}` },
+      },
+    })
+      .onParse(({ request }) => {
+        hookLogger.info("Parsed local plugin body");
+        return request.text();
+      })
+      .post("/test", ({ body }) => {
+        appLogger.info("Handled local plugin parse hook route", { body });
+        return String(body);
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(
+      new Request("http://localhost/api/test", {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: "Hello",
+      }),
+    );
+
+    assert.strictEqual(await res.text(), "Hello");
+    assert.strictEqual(
+      res.headers.get("x-request-id"),
+      "local-parse-hook-1",
+    );
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-parse-hook-1");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, "local-parse-hook-1");
+    assert.strictEqual(logs[1].properties.body, "Hello");
+    assert.strictEqual(logs[2].properties.requestId, "local-parse-hook-1");
+    assert.strictEqual(requestIdCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("elysiaLogger(): local scope does not wrap parent routes with the same suffix", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,
