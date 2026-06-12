@@ -520,6 +520,45 @@ test("honoLogger(): context true generates missing request ID", async () => {
   }
 });
 
+test("honoLogger(): context supports custom options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Hono();
+    app.use(honoLogger({
+      context: {
+        requestId: {
+          property: "correlationId",
+          headerNames: ["x-correlation-id", "x-request-id"],
+          responseHeader: "x-correlation-id",
+          normalize: (value) => value.trim().toUpperCase(),
+        },
+        include: ["requestId", "method", "path", "userAgent"],
+        enrich: (c) => ({ route: c.req.path }),
+      },
+    }));
+    app.get("/test", (c) => c.text("Hello"));
+
+    const res = await app.request("/test", {
+      headers: {
+        "x-correlation-id": " custom-123 ",
+        "user-agent": "test-agent/1.0",
+      },
+    });
+
+    assert.strictEqual(res.headers.get("x-correlation-id"), "CUSTOM-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.correlationId, "CUSTOM-123");
+    assert.strictEqual(logs[0].properties.method, "GET");
+    assert.strictEqual(logs[0].properties.path, "/test");
+    assert.strictEqual(logs[0].properties.userAgent, "test-agent/1.0");
+    assert.strictEqual(logs[0].properties.route, "/test");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("honoLogger(): context keeps implicit context when skipped", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,

@@ -547,6 +547,47 @@ test("elysiaLogger(): context true generates missing request ID", async () => {
   }
 });
 
+test("elysiaLogger(): context supports custom options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: {
+          requestId: {
+            property: "correlationId",
+            headerNames: ["x-correlation-id", "x-request-id"],
+            responseHeader: "x-correlation-id",
+            normalize: (value) => value.trim().toUpperCase(),
+          },
+          include: ["requestId", "method", "path", "userAgent"],
+          enrich: (ctx) => ({ route: ctx.path }),
+        },
+      }))
+      .get("/test", () => "Hello");
+
+    const res = await app.handle(
+      new Request("http://localhost/test", {
+        headers: {
+          "x-correlation-id": " custom-123 ",
+          "user-agent": "test-agent/1.0",
+        },
+      }),
+    );
+
+    assert.strictEqual(res.headers.get("x-correlation-id"), "CUSTOM-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.correlationId, "CUSTOM-123");
+    assert.strictEqual(logs[0].properties.method, "GET");
+    assert.strictEqual(logs[0].properties.path, "/test");
+    assert.strictEqual(logs[0].properties.userAgent, "test-agent/1.0");
+    assert.strictEqual(logs[0].properties.route, "/test");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("elysiaLogger(): context keeps implicit context when skipped", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,

@@ -651,6 +651,49 @@ test("expressLogger(): context true generates missing request ID", async () => {
   }
 });
 
+test("expressLogger(): context supports custom options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const middleware = expressLogger({
+      context: {
+        requestId: {
+          property: "correlationId",
+          headerNames: ["x-correlation-id", "x-request-id"],
+          responseHeader: "x-correlation-id",
+          normalize: (value) => value.trim().toUpperCase(),
+        },
+        include: ["requestId", "method", "path", "httpVersion"],
+        enrich: (req) => ({ route: req.path }),
+      },
+    });
+    const req = createMockRequest({
+      path: "/test",
+      get: (header: string) => {
+        const headers: Record<string, string> = {
+          "x-correlation-id": " custom-123 ",
+        };
+        return headers[header.toLowerCase()];
+      },
+    });
+    const res = createMockResponse();
+
+    middleware(req, res, () => {});
+    finishResponse(res);
+
+    assert.strictEqual(res.getHeader("x-correlation-id"), "CUSTOM-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.correlationId, "CUSTOM-123");
+    assert.strictEqual(logs[0].properties.method, "GET");
+    assert.strictEqual(logs[0].properties.path, "/test");
+    assert.strictEqual(logs[0].properties.httpVersion, "1.1");
+    assert.strictEqual(logs[0].properties.route, "/test");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("expressLogger(): context keeps implicit context when skipped", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,
