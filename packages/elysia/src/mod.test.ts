@@ -840,18 +840,84 @@ test("elysiaLogger(): local scope builds context for local routes", async () => 
     contextLocalStorage: true,
   });
   try {
+    const appLogger = getLogger(["app"]);
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-route-123" } },
     })
-      .get("/test", () => "Hello");
+      .get("/test", () => {
+        appLogger.info("Handled local route");
+        return "Hello";
+      });
     const app = new Elysia().use(plugin);
 
     const res = await app.handle(new Request("http://localhost/test"));
 
     assert.strictEqual(res.headers.get("x-request-id"), "local-route-123");
-    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
     assert.strictEqual(logs[0].properties.requestId, "local-route-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-route-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope wraps wildcard ALL routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-wildcard-123" } },
+    })
+      .all("/files/*", () => {
+        appLogger.info("Handled local wildcard route");
+        return "Hello";
+      });
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(
+      new Request("http://localhost/files/a/b", { method: "POST" }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-wildcard-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-wildcard-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-wildcard-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope wraps optional ALL routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-optional-123" } },
+    })
+      .all("/users/:id?", () => {
+        appLogger.info("Handled local optional route");
+        return "Hello";
+      });
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(
+      new Request("http://localhost/users", { method: "POST" }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-optional-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-optional-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-optional-123");
   } finally {
     await cleanup();
   }

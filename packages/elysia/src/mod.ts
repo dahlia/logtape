@@ -597,6 +597,71 @@ interface LoggerStore {
 }
 
 /**
+ * Minimal shape of Elysia's internal route matcher.
+ */
+interface ElysiaRouteMatcher {
+  readonly router?: {
+    readonly http?: {
+      find(method: string, path: string): unknown;
+    };
+  };
+  readonly routes?: readonly {
+    readonly method: string;
+    readonly path: string;
+  }[];
+}
+
+/**
+ * Check whether an Elysia route path matches a request path.
+ */
+function routePathMatches(routePath: string, requestPath: string): boolean {
+  if (routePath === requestPath) return true;
+  const routeSegments = routePath.split("/");
+  const requestSegments = requestPath.split("/");
+  for (let index = 0; index < routeSegments.length; index++) {
+    const segment = routeSegments[index];
+    if (segment === "*") return true;
+    if (index >= requestSegments.length) return false;
+    if (segment === requestSegments[index] || segment.startsWith(":")) {
+      continue;
+    }
+    return false;
+  }
+  return routeSegments.length === requestSegments.length;
+}
+
+/**
+ * Check whether an Elysia route method can handle a request method.
+ */
+function routeMethodMatches(
+  routeMethod: string,
+  requestMethod: string,
+): boolean {
+  return routeMethod === requestMethod || routeMethod === "ALL" ||
+    (routeMethod === "GET" && requestMethod === "HEAD");
+}
+
+/**
+ * Check whether a request belongs to routes defined on the local plugin.
+ */
+function isLocalPluginRoute(
+  plugin: ElysiaRouteMatcher,
+  request: Request,
+): boolean {
+  const path = getPath(request);
+  const httpRouter = plugin.router?.http;
+  if (httpRouter?.find(request.method, path) != null) return true;
+  if (httpRouter?.find("ALL", path) != null) return true;
+  if (request.method === "HEAD" && httpRouter?.find("GET", path) != null) {
+    return true;
+  }
+  return plugin.routes?.some((route) =>
+    routeMethodMatches(route.method, request.method) &&
+    routePathMatches(route.path, path)
+  ) ?? false;
+}
+
+/**
  * Creates Elysia plugin for HTTP request logging using LogTape.
  *
  * This plugin provides Morgan-compatible request logging with LogTape
@@ -662,7 +727,8 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     Request,
     ElysiaRequestContextState
   >();
-  const shouldWrapContext = contextOptions != null && scope !== "local";
+  const shouldWrapContext = contextOptions != null;
+  const shouldWrapAllRoutes = contextOptions != null && scope !== "local";
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -714,6 +780,9 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     // to keep AsyncLocalStorage active for the whole route execution.
     plugin = plugin.wrap((handle) => {
       return async (request: Request) => {
+        if (scope === "local" && !isLocalPluginRoute(plugin, request)) {
+          return await handle(request);
+        }
         const requestContext = await buildAndStoreRequestContext(request);
         return await withContext(
           requestContext?.context ?? {},
@@ -727,7 +796,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     .state("startTime", 0)
     .onRequest(async ({ request, set, store }) => {
       let requestContext = requestContextStates.get(request);
-      if (requestContext == null && shouldWrapContext) {
+      if (requestContext == null && shouldWrapAllRoutes) {
         requestContext = await buildAndStoreRequestContext(request);
       }
       (store as LoggerStore).startTime = requestContext?.startTime ??
