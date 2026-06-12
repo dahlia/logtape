@@ -1,4 +1,4 @@
-import { getLogger, type LogLevel } from "@logtape/logtape";
+import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
 
 export type { LogLevel } from "@logtape/logtape";
 
@@ -28,6 +28,7 @@ export interface ExpressResponse {
   statusCode: number;
   on(event: string, listener: () => void): void;
   getHeader(name: string): string | number | string[] | undefined;
+  setHeader?(name: string, value: string): void;
 }
 
 /**
@@ -93,6 +94,83 @@ export interface RequestLogProperties {
 }
 
 /**
+ * Request fields that can be added to the implicit request context.
+ * @since 2.2.0
+ */
+export type RequestContextField =
+  | "requestId"
+  | "method"
+  | "url"
+  | "path"
+  | "userAgent"
+  | "remoteAddr"
+  | "referrer"
+  | "httpVersion";
+
+/**
+ * Options for extracting, generating, and propagating a request ID.
+ * @since 2.2.0
+ */
+export interface RequestIdOptions {
+  /**
+   * The property name used in implicit context and request log records.
+   * @default "requestId"
+   */
+  readonly property?: string;
+
+  /**
+   * Incoming request headers to inspect in order.
+   * @default ["x-request-id"]
+   */
+  readonly headerNames?: readonly string[];
+
+  /**
+   * Response header that receives the resolved request ID.
+   * Set to `false` to disable response header propagation.
+   * @default "x-request-id"
+   */
+  readonly responseHeader?: string | false;
+
+  /**
+   * Generates a request ID when no incoming header is present.
+   * @default crypto.randomUUID()
+   */
+  readonly generate?: () => string;
+
+  /**
+   * Normalizes an incoming request ID.  Return `null` to reject the value and
+   * keep looking for another header or generate a new ID.
+   */
+  readonly normalize?: (value: string) => string | null;
+}
+
+/**
+ * Options for request-scoped implicit context.
+ * @since 2.2.0
+ */
+export interface RequestContextOptions {
+  /**
+   * Enables request ID extraction, generation, and response propagation.
+   * @default true
+   */
+  readonly requestId?: boolean | RequestIdOptions;
+
+  /**
+   * Fields to add to the implicit context.
+   * @default ["requestId"]
+   */
+  readonly include?: readonly RequestContextField[];
+
+  /**
+   * Adds application-specific fields to the implicit request context.
+   */
+  readonly enrich?: (
+    req: ExpressRequest,
+    res: ExpressResponse,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+}
+
+/**
  * Options for configuring the Express LogTape middleware.
  * @since 1.3.0
  */
@@ -149,6 +227,175 @@ export interface ExpressLogTapeOptions {
    * @default false
    */
   readonly immediate?: boolean;
+
+  /**
+   * Enables request-scoped implicit context and request ID correlation.
+   *
+   * When set to `true`, the middleware reads the `x-request-id` header,
+   * generates one when it is absent, writes it to the `x-request-id` response
+   * header, and adds `requestId` to all LogTape records emitted while handling
+   * the request.
+   *
+   * @default false
+   * @since 2.2.0
+   */
+  readonly context?: boolean | RequestContextOptions;
+}
+
+const defaultRequestIdHeader = "x-request-id";
+
+/**
+ * Normalize request context options.
+ */
+function normalizeRequestContextOptions(
+  options: boolean | RequestContextOptions | undefined,
+): RequestContextOptions | undefined {
+  if (options === true) return {};
+  if (options === false || options == null) return undefined;
+  return options;
+}
+
+/**
+ * Normalize request ID options.
+ */
+function normalizeRequestIdOptions(
+  options: boolean | RequestIdOptions | undefined,
+): RequestIdOptions | undefined {
+  if (options === false) return undefined;
+  if (options === true || options == null) return {};
+  return options;
+}
+
+/**
+ * Generate a request ID with Web Crypto when possible.
+ */
+function generateRequestId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * Normalize an incoming request ID.
+ */
+function defaultNormalizeRequestId(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * Resolve the request ID for a request.
+ */
+function resolveRequestId(
+  req: ExpressRequest,
+  res: ExpressResponse,
+  options: RequestIdOptions,
+): { property: string; value: string } {
+  const property = options.property ?? "requestId";
+  const normalize = options.normalize ?? defaultNormalizeRequestId;
+  const headerNames = options.headerNames ?? [defaultRequestIdHeader];
+  for (const headerName of headerNames) {
+    const headerValue = req.get(headerName);
+    if (headerValue == null) continue;
+    const normalized = normalize(headerValue);
+    if (normalized != null) {
+      const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
+      if (responseHeader !== false) res.setHeader?.(responseHeader, normalized);
+      return { property, value: normalized };
+    }
+  }
+  const generated = (options.generate ?? generateRequestId)();
+  const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
+  if (responseHeader !== false) res.setHeader?.(responseHeader, generated);
+  return { property, value: generated };
+}
+
+/**
+ * Build request context fields from a request.
+ */
+function buildIncludedContext(
+  req: ExpressRequest,
+  resolvedRequestId: { property: string; value: string } | undefined,
+  include: readonly RequestContextField[],
+): Record<string, unknown> {
+  const context: Record<string, unknown> = {};
+  for (const field of include) {
+    switch (field) {
+      case "requestId":
+        if (resolvedRequestId != null) {
+          context[resolvedRequestId.property] = resolvedRequestId.value;
+        }
+        break;
+      case "method":
+        context.method = req.method;
+        break;
+      case "url":
+        context.url = req.originalUrl || req.url;
+        break;
+      case "path":
+        context.path = req.path;
+        break;
+      case "userAgent":
+        context.userAgent = getUserAgent(req);
+        break;
+      case "remoteAddr":
+        context.remoteAddr = getRemoteAddr(req);
+        break;
+      case "referrer":
+        context.referrer = getReferrer(req);
+        break;
+      case "httpVersion":
+        context.httpVersion = req.httpVersion;
+        break;
+    }
+  }
+  return context;
+}
+
+/**
+ * Check whether a value is a promise-like object.
+ */
+function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+  return value != null && typeof value === "object" &&
+    typeof (value as PromiseLike<T>).then === "function";
+}
+
+/**
+ * Build the implicit context for a request.
+ */
+function buildRequestContext(
+  req: ExpressRequest,
+  res: ExpressResponse,
+  options: RequestContextOptions,
+): Record<string, unknown> | Promise<Record<string, unknown>> {
+  const requestIdOptions = normalizeRequestIdOptions(options.requestId);
+  const resolvedRequestId = requestIdOptions == null
+    ? undefined
+    : resolveRequestId(req, res, requestIdOptions);
+  const include = options.include ??
+    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const context = buildIncludedContext(req, resolvedRequestId, include);
+  if (options.enrich == null) return context;
+  const enriched = options.enrich(req, res);
+  if (isPromiseLike<Record<string, unknown>>(enriched)) {
+    return Promise.resolve(enriched).then((extraContext) => ({
+      ...context,
+      ...extraContext,
+    }));
+  }
+  return { ...context, ...enriched };
+}
+
+/**
+ * Add request context fields to a request log result.
+ */
+function withRequestLogContext(
+  result: string | Record<string, unknown>,
+  context: Record<string, unknown>,
+): string | Record<string, unknown> {
+  if (typeof result === "string") return result;
+  return { ...result, ...context };
 }
 
 /**
@@ -360,6 +607,7 @@ export function expressLogger(
   const formatOption = options.format ?? "combined";
   const skip = options.skip ?? (() => false);
   const immediate = options.immediate ?? false;
+  const contextOptions = normalizeRequestContextOptions(options.context);
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -375,37 +623,60 @@ export function expressLogger(
   ): void => {
     const startTime = Date.now();
 
-    // For immediate logging, log when request arrives
-    if (immediate) {
-      if (!skip(req, res)) {
-        const result = formatFn(req, res, 0);
-        if (typeof result === "string") {
-          logMethod(result);
-        } else {
-          logMethod("{method} {url}", result);
+    const handleRequest = (requestContext: Record<string, unknown>): void => {
+      // For immediate logging, log when request arrives
+      if (immediate) {
+        if (!skip(req, res)) {
+          const result = withRequestLogContext(
+            formatFn(req, res, 0),
+            requestContext,
+          );
+          if (typeof result === "string") {
+            logMethod(result, requestContext);
+          } else {
+            logMethod("{method} {url}", result);
+          }
         }
+        next();
+        return;
       }
+
+      // Log after response is sent
+      const logRequest = (): void => {
+        if (skip(req, res)) return;
+
+        const responseTime = Date.now() - startTime;
+        const result = withRequestLogContext(
+          formatFn(req, res, responseTime),
+          requestContext,
+        );
+
+        if (typeof result === "string") {
+          logMethod(result, requestContext);
+        } else {
+          logMethod("{method} {url} {status} - {responseTime} ms", result);
+        }
+      };
+
+      // Listen for response finish event
+      res.on("finish", logRequest);
+
       next();
+    };
+
+    if (contextOptions == null) {
+      handleRequest({});
       return;
     }
 
-    // Log after response is sent
-    const logRequest = (): void => {
-      if (skip(req, res)) return;
+    const requestContext = buildRequestContext(req, res, contextOptions);
+    if (isPromiseLike<Record<string, unknown>>(requestContext)) {
+      Promise.resolve(requestContext).then((resolvedContext) => {
+        withContext(resolvedContext, () => handleRequest(resolvedContext));
+      }, next);
+      return;
+    }
 
-      const responseTime = Date.now() - startTime;
-      const result = formatFn(req, res, responseTime);
-
-      if (typeof result === "string") {
-        logMethod(result);
-      } else {
-        logMethod("{method} {url} {status} - {responseTime} ms", result);
-      }
-    };
-
-    // Listen for response finish event
-    res.on("finish", logRequest);
-
-    next();
+    withContext(requestContext, () => handleRequest(requestContext));
   };
 }
