@@ -616,6 +616,8 @@ type ElysiaUseRegistrar = (
   ...options: unknown[]
 ) => unknown;
 
+type ElysiaOnRegistrar = (...args: unknown[]) => unknown;
+
 type ElysiaRouteMethod =
   | "all"
   | "connect"
@@ -651,10 +653,22 @@ const elysiaRouteHookKeys = [
   "transform",
 ] as const;
 
+const elysiaPluginLifecycleHookTypes = [
+  "afterHandle",
+  "afterResponse",
+  "beforeHandle",
+  "derive",
+  "error",
+  "mapResponse",
+  "resolve",
+  "transform",
+] as const;
+
 type ElysiaRoutePlugin = Record<ElysiaRouteMethod, ElysiaRouteRegistrar> & {
   readonly router?: {
     readonly history?: Record<string, ElysiaRouteEntry> | ElysiaRouteEntry[];
   };
+  on: ElysiaOnRegistrar;
   route: (
     method: string,
     path: string,
@@ -669,8 +683,13 @@ interface ElysiaRouteEntry {
   hooks?: unknown;
 }
 
-function getElysiaRouteEntries(plugin: unknown): ElysiaRouteEntry[] {
+function getElysiaRouteEntries(
+  plugin: unknown,
+  visited = new Set<object>(),
+): ElysiaRouteEntry[] {
   if (plugin == null || typeof plugin !== "object") return [];
+  if (visited.has(plugin)) return [];
+  visited.add(plugin);
   const routePlugin = plugin as {
     readonly default?: unknown;
     readonly router?: {
@@ -683,14 +702,10 @@ function getElysiaRouteEntries(plugin: unknown): ElysiaRouteEntry[] {
     : history == null
     ? []
     : Object.values(history);
-  return entries.concat(getElysiaRouteEntries(routePlugin.default));
+  return entries.concat(getElysiaRouteEntries(routePlugin.default, visited));
 }
 
-/**
- * Wrap routes registered on a local plugin with implicit LogTape context.
- */
-function wrapLocalRouteHandlers(
-  plugin: ElysiaRoutePlugin,
+function createElysiaRequestWrappers(
   buildAndStoreRequestContext: (
     request: Request,
   ) => Promise<ElysiaRequestContextState | undefined>,
@@ -698,7 +713,7 @@ function wrapLocalRouteHandlers(
     set: ElysiaContext["set"],
     requestContext: ElysiaRequestContextState | undefined,
   ) => void,
-): void {
+) {
   const wrappedHandlers = new WeakSet<ElysiaRequestCallback>();
   const wrappedHandlerCache = new WeakMap<
     ElysiaRequestCallback,
@@ -767,6 +782,27 @@ function wrapLocalRouteHandlers(
     return changed ? wrappedHooks : hooks;
   };
 
+  return { wrapRequestCallback, wrapRouteHookValue, wrapRouteHooks };
+}
+
+/**
+ * Wrap routes registered on a local plugin with implicit LogTape context.
+ */
+function wrapLocalRouteHandlers(
+  plugin: ElysiaRoutePlugin,
+  buildAndStoreRequestContext: (
+    request: Request,
+  ) => Promise<ElysiaRequestContextState | undefined>,
+  applyRequestContextToSet: (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ) => void,
+): void {
+  const { wrapRequestCallback, wrapRouteHooks } = createElysiaRequestWrappers(
+    buildAndStoreRequestContext,
+    applyRequestContextToSet,
+  );
+
   const wrapRouteEntries = (routePlugin: unknown): (() => void)[] => {
     const restore: (() => void)[] = [];
     for (const route of getElysiaRouteEntries(routePlugin)) {
@@ -823,6 +859,44 @@ function wrapLocalRouteHandlers(
       for (const restoreRouteHandler of restore) restoreRouteHandler();
     }
   }) as ElysiaUseRegistrar;
+}
+
+/**
+ * Wrap local plugin lifecycle hooks registered by downstream code.
+ */
+function wrapLocalLifecycleHooks(
+  plugin: ElysiaRoutePlugin,
+  buildAndStoreRequestContext: (
+    request: Request,
+  ) => Promise<ElysiaRequestContextState | undefined>,
+  applyRequestContextToSet: (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ) => void,
+): void {
+  const { wrapRouteHookValue } = createElysiaRequestWrappers(
+    buildAndStoreRequestContext,
+    applyRequestContextToSet,
+  );
+
+  const isLifecycleHookType = (value: unknown): boolean =>
+    typeof value === "string" &&
+    (elysiaPluginLifecycleHookTypes as readonly string[]).includes(value);
+
+  const wrapLifecycleHookArgs = (args: readonly unknown[]): unknown[] => {
+    const wrappedArgs = [...args];
+    if (isLifecycleHookType(args[0]) && args.length > 1) {
+      wrappedArgs[1] = wrapRouteHookValue(args[1]);
+    } else if (isLifecycleHookType(args[1]) && args.length > 2) {
+      wrappedArgs[2] = wrapRouteHookValue(args[2]);
+    }
+    return wrappedArgs;
+  };
+
+  const on = plugin.on.bind(plugin);
+  plugin.on =
+    ((...args: unknown[]) =>
+      on(...wrapLifecycleHookArgs(args))) as ElysiaOnRegistrar;
 }
 
 /**
@@ -1060,6 +1134,14 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
       },
     );
   });
+
+  if (shouldWrapContext && scope === "local") {
+    wrapLocalLifecycleHooks(
+      plugin as unknown as ElysiaRoutePlugin,
+      buildAndStoreRequestContext,
+      applyRequestContextToSet,
+    );
+  }
 
   // Apply scope
   if (scope === "global") {
