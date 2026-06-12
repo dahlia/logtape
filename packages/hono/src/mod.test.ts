@@ -541,6 +541,36 @@ test("honoLogger(): context propagates request ID to raw Response", async () => 
   }
 });
 
+test("honoLogger(): context ignores immutable response header errors", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Hono();
+    app.use(honoLogger({
+      context: { requestId: { generate: () => "immutable-response-123" } },
+    }));
+    app.get("/test", async () => {
+      const response = await fetch("data:text/plain,Hello");
+      await response.text();
+      return response;
+    });
+
+    const res = await app.request("/test");
+
+    assert.strictEqual(res.status, 200);
+    const responseRequestId = res.headers.get("x-request-id");
+    assert.ok(
+      responseRequestId == null ||
+        responseRequestId === "immutable-response-123",
+    );
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "immutable-response-123");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("honoLogger(): context supports custom options", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,

@@ -415,10 +415,14 @@ function applyResponseHeaders(
   requestContext: HonoRequestContextState,
 ): void {
   if (requestContext.responseHeader == null) return;
-  c.header(
-    requestContext.responseHeader.name,
-    requestContext.responseHeader.value,
-  );
+  try {
+    c.header(
+      requestContext.responseHeader.name,
+      requestContext.responseHeader.value,
+    );
+  } catch {
+    // Keep logging middleware from replacing the application's response.
+  }
 }
 
 /**
