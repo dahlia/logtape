@@ -897,11 +897,20 @@ test("elysiaLogger(): local scope builds context for child plugin routes", async
   });
   try {
     const appLogger = getLogger(["app"]);
+    const childHookLogger = getLogger(["child-hook"]);
     const child = new Elysia()
-      .get("/child", () => {
-        appLogger.info("Handled child plugin route");
-        return "Hello";
-      });
+      .get(
+        "/child",
+        () => {
+          appLogger.info("Handled child plugin route");
+          return "Hello";
+        },
+        {
+          beforeHandle() {
+            childHookLogger.info("Handled child plugin route hook");
+          },
+        },
+      );
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-child-123" } },
@@ -911,10 +920,12 @@ test("elysiaLogger(): local scope builds context for child plugin routes", async
     const res = await app.handle(new Request("http://localhost/api/child"));
 
     assert.strictEqual(res.headers.get("x-request-id"), "local-child-123");
-    assert.strictEqual(logs.length, 2);
-    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["child-hook"]);
     assert.strictEqual(logs[0].properties.requestId, "local-child-123");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
     assert.strictEqual(logs[1].properties.requestId, "local-child-123");
+    assert.strictEqual(logs[2].properties.requestId, "local-child-123");
 
     logs.length = 0;
     const otherApp = new Elysia().use(child);
@@ -923,9 +934,54 @@ test("elysiaLogger(): local scope builds context for child plugin routes", async
     );
 
     assert.strictEqual(otherRes.headers.get("x-request-id"), null);
-    assert.strictEqual(logs.length, 1);
-    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["child-hook"]);
     assert.strictEqual(logs[0].properties.requestId, undefined);
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for route hooks", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: { generate: () => `local-hook-${++requestIdCount}` },
+      },
+    })
+      .get(
+        "/test",
+        () => {
+          appLogger.info("Handled local route with hook");
+          return "Hello";
+        },
+        {
+          beforeHandle() {
+            hookLogger.info("Handled local route hook");
+          },
+        },
+      );
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-hook-1");
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-hook-1");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, "local-hook-1");
+    assert.strictEqual(logs[2].properties.requestId, "local-hook-1");
+    assert.strictEqual(requestIdCount, 1);
   } finally {
     await cleanup();
   }

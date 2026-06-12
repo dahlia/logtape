@@ -600,9 +600,9 @@ type ElysiaRouteContext = ElysiaContext & {
   readonly store: LoggerStore;
 };
 
-type ElysiaRouteHandler = (
+type ElysiaRequestCallback = (
   this: unknown,
-  context: ElysiaRouteContext,
+  ...args: unknown[]
 ) => unknown;
 
 type ElysiaRouteRegistrar = (
@@ -639,6 +639,18 @@ const elysiaRouteMethods: readonly ElysiaRouteMethod[] = [
   "put",
 ];
 
+const elysiaRouteHookKeys = [
+  "afterHandle",
+  "afterResponse",
+  "beforeHandle",
+  "derive",
+  "error",
+  "mapResponse",
+  "parse",
+  "resolve",
+  "transform",
+] as const;
+
 type ElysiaRoutePlugin = Record<ElysiaRouteMethod, ElysiaRouteRegistrar> & {
   readonly router?: {
     readonly history?: Record<string, ElysiaRouteEntry> | ElysiaRouteEntry[];
@@ -654,6 +666,7 @@ type ElysiaRoutePlugin = Record<ElysiaRouteMethod, ElysiaRouteRegistrar> & {
 
 interface ElysiaRouteEntry {
   handler?: unknown;
+  hooks?: unknown;
 }
 
 function getElysiaRouteEntries(plugin: unknown): ElysiaRouteEntry[] {
@@ -686,45 +699,93 @@ function wrapLocalRouteHandlers(
     requestContext: ElysiaRequestContextState | undefined,
   ) => void,
 ): void {
-  const wrappedHandlers = new WeakSet<ElysiaRouteHandler>();
+  const wrappedHandlers = new WeakSet<ElysiaRequestCallback>();
   const wrappedHandlerCache = new WeakMap<
-    ElysiaRouteHandler,
-    ElysiaRouteHandler
+    ElysiaRequestCallback,
+    ElysiaRequestCallback
   >();
-  const wrapHandler = (handler: unknown): unknown => {
-    if (typeof handler !== "function") return handler;
-    const routeHandler = handler as ElysiaRouteHandler;
-    if (wrappedHandlers.has(routeHandler)) return handler;
-    const cached = wrappedHandlerCache.get(routeHandler);
+
+  const getRouteContext = (
+    value: unknown,
+  ): ElysiaRouteContext | undefined => {
+    if (value == null || typeof value !== "object") return undefined;
+    const context = value as { readonly request?: unknown };
+    if (!(context.request instanceof Request)) return undefined;
+    return value as ElysiaRouteContext;
+  };
+
+  const wrapRequestCallback = (callback: unknown): unknown => {
+    if (typeof callback !== "function") return callback;
+    const requestCallback = callback as ElysiaRequestCallback;
+    if (wrappedHandlers.has(requestCallback)) return callback;
+    const cached = wrappedHandlerCache.get(requestCallback);
     if (cached != null) return cached;
     const wrapped = async function (
       this: unknown,
-      ctx: ElysiaRouteContext,
+      ...args: unknown[]
     ): Promise<unknown> {
+      const ctx = getRouteContext(args[0]);
+      if (ctx == null) return await requestCallback.apply(this, args);
       const requestContext = await buildAndStoreRequestContext(ctx.request);
       ctx.store.startTime = requestContext?.startTime ??
         performance.now();
       applyRequestContextToSet(ctx.set, requestContext);
       return await withContext(
         requestContext?.context ?? {},
-        () => routeHandler.call(this, ctx),
+        () => requestCallback.apply(this, args),
       );
     };
     wrappedHandlers.add(wrapped);
-    wrappedHandlerCache.set(routeHandler, wrapped);
+    wrappedHandlerCache.set(requestCallback, wrapped);
     return wrapped;
+  };
+
+  const wrapRouteHookValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(wrapRouteHookValue);
+    if (typeof value === "function") return wrapRequestCallback(value);
+    if (value == null || typeof value !== "object") return value;
+    const hookContainer = value as { readonly fn?: unknown };
+    if (typeof hookContainer.fn !== "function") return value;
+    return {
+      ...hookContainer,
+      fn: wrapRequestCallback(hookContainer.fn),
+    };
+  };
+
+  const wrapRouteHooks = (hooks: unknown): unknown => {
+    if (hooks == null || typeof hooks !== "object") return hooks;
+    const routeHooks = hooks as Record<string, unknown>;
+    let changed = false;
+    const wrappedHooks = { ...routeHooks };
+    for (const key of elysiaRouteHookKeys) {
+      const value = routeHooks[key];
+      const wrappedValue = wrapRouteHookValue(value);
+      if (wrappedValue === value) continue;
+      wrappedHooks[key] = wrappedValue;
+      changed = true;
+    }
+    return changed ? wrappedHooks : hooks;
   };
 
   const wrapRouteEntries = (routePlugin: unknown): (() => void)[] => {
     const restore: (() => void)[] = [];
     for (const route of getElysiaRouteEntries(routePlugin)) {
       const handler = route.handler;
-      const wrappedHandler = wrapHandler(handler);
-      if (wrappedHandler === handler) continue;
-      route.handler = wrappedHandler;
-      restore.push(() => {
-        route.handler = handler;
-      });
+      const wrappedHandler = wrapRequestCallback(handler);
+      if (wrappedHandler !== handler) {
+        route.handler = wrappedHandler;
+        restore.push(() => {
+          route.handler = handler;
+        });
+      }
+      const hooks = route.hooks;
+      const wrappedHooks = wrapRouteHooks(hooks);
+      if (wrappedHooks !== hooks) {
+        route.hooks = wrappedHooks;
+        restore.push(() => {
+          route.hooks = hooks;
+        });
+      }
     }
     return restore;
   };
@@ -732,7 +793,11 @@ function wrapLocalRouteHandlers(
   for (const method of elysiaRouteMethods) {
     const register = plugin[method].bind(plugin);
     plugin[method] = ((path: string, handler: unknown, hook?: unknown) =>
-      register(path, wrapHandler(handler), hook)) as ElysiaRouteRegistrar;
+      register(
+        path,
+        wrapRequestCallback(handler),
+        wrapRouteHooks(hook),
+      )) as ElysiaRouteRegistrar;
   }
 
   const route = plugin.route.bind(plugin);
@@ -741,9 +806,13 @@ function wrapLocalRouteHandlers(
     path: string,
     handler: unknown,
     hook?: unknown,
-  ) => route(method, path, wrapHandler(handler), hook)) as ElysiaRoutePlugin[
-    "route"
-  ];
+  ) =>
+    route(
+      method,
+      path,
+      wrapRequestCallback(handler),
+      wrapRouteHooks(hook),
+    )) as ElysiaRoutePlugin["route"];
 
   const use = plugin.use.bind(plugin);
   plugin.use = ((childPlugin: unknown, ...options: unknown[]) => {
