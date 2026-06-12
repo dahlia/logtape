@@ -236,6 +236,7 @@ interface ElysiaRequestContextState {
     readonly name: string;
     readonly value: string;
   };
+  readonly set?: ElysiaContext["set"];
 }
 
 /**
@@ -282,7 +283,7 @@ function defaultNormalizeRequestId(value: string): string | null {
  * Resolve a request path from a request URL.
  */
 function getPath(request: Request): string {
-  return new URL(request.url).pathname;
+  return new URL(request.url, "http://localhost").pathname;
 }
 
 /**
@@ -405,8 +406,9 @@ async function buildRequestContext(
   const include = options.include ??
     (resolvedRequestId == null ? [] : ["requestId"] as const);
   const context = buildIncludedContext(request, resolvedRequestId, include);
+  let set: ElysiaContext["set"] | undefined;
   if (options.enrich != null) {
-    const set = { status: 200, headers: {} };
+    set = { status: 200, headers: {} };
     Object.assign(
       context,
       await options.enrich({
@@ -422,7 +424,7 @@ async function buildRequestContext(
       name: resolvedRequestId.responseHeader,
       value: resolvedRequestId.value,
     };
-  return { context, responseHeader };
+  return { context, responseHeader, set };
 }
 
 /**
@@ -670,6 +672,37 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const logMethod = logger[level].bind(logger);
   const errorLogMethod = logger.error.bind(logger);
 
+  const buildAndStoreRequestContext = async (
+    request: Request,
+  ): Promise<ElysiaRequestContextState | undefined> => {
+    if (contextOptions == null) return undefined;
+    const existingContext = requestContextStates.get(request);
+    if (existingContext != null) return existingContext;
+    const startTime = performance.now();
+    const requestContext = {
+      ...await buildRequestContext(request, contextOptions),
+      startTime,
+    };
+    requestContextStates.set(request, requestContext);
+    return requestContext;
+  };
+
+  const applyRequestContextToSet = (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ): void => {
+    if (requestContext?.responseHeader != null) {
+      set.headers[requestContext.responseHeader.name] =
+        requestContext.responseHeader.value;
+    }
+    if (requestContext?.set != null) {
+      if (requestContext.set.status !== 200) {
+        set.status = requestContext.set.status;
+      }
+      Object.assign(set.headers, requestContext.set.headers);
+    }
+  };
+
   // deno-lint-ignore no-explicit-any
   let plugin: Elysia<any, any, any, any, any, any, any> = new Elysia({
     name: "@logtape/elysia",
@@ -681,17 +714,9 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     // to keep AsyncLocalStorage active for the whole route execution.
     plugin = plugin.wrap((handle) => {
       return async (request: Request) => {
-        const startTime = performance.now();
-        const requestContext = await buildRequestContext(
-          request,
-          contextOptions,
-        );
-        requestContextStates.set(request, {
-          ...requestContext,
-          startTime,
-        });
+        const requestContext = await buildAndStoreRequestContext(request);
         return await withContext(
-          requestContext.context,
+          requestContext?.context ?? {},
           () => handle(request),
         );
       };
@@ -703,38 +728,54 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     .onRequest(async ({ request, set, store }) => {
       let requestContext = requestContextStates.get(request);
       if (requestContext == null && shouldWrapContext) {
-        const startTime = performance.now();
-        requestContext = {
-          ...await buildRequestContext(request, contextOptions),
-          startTime,
-        };
-        requestContextStates.set(request, requestContext);
+        requestContext = await buildAndStoreRequestContext(request);
       }
       (store as LoggerStore).startTime = requestContext?.startTime ??
         performance.now();
-      if (requestContext?.responseHeader != null) {
-        set.headers[requestContext.responseHeader.name] =
-          requestContext.responseHeader.value;
-      }
+      applyRequestContextToSet(set, requestContext);
     });
 
-  if (logRequest) {
-    // Log immediately when request arrives
-    plugin = plugin.onRequest((ctx) => {
-      if (!skip(ctx as unknown as ElysiaContext)) {
-        const requestContext = requestContextStates.get(ctx.request)?.context ??
-          {};
+  if (scope === "local" && (contextOptions != null || logRequest)) {
+    plugin = plugin.onBeforeHandle(async (ctx) => {
+      const requestContext = await buildAndStoreRequestContext(ctx.request);
+      (ctx.store as LoggerStore).startTime = requestContext?.startTime ??
+        performance.now();
+      applyRequestContextToSet(ctx.set, requestContext);
+      if (logRequest && !skip(ctx as unknown as ElysiaContext)) {
+        const context = requestContext?.context ?? {};
         const result = withRequestLogContext(
           formatFn(ctx as unknown as ElysiaContext, 0),
-          requestContext,
+          context,
         );
         if (typeof result === "string") {
-          logMethod(result, requestContext);
+          logMethod(result, context);
         } else {
           logMethod("{method} {url}", result);
         }
       }
     });
+  }
+
+  if (logRequest) {
+    // Log immediately when request arrives
+    if (scope !== "local") {
+      plugin = plugin.onRequest((ctx) => {
+        if (!skip(ctx as unknown as ElysiaContext)) {
+          const requestContext =
+            requestContextStates.get(ctx.request)?.context ??
+              {};
+          const result = withRequestLogContext(
+            formatFn(ctx as unknown as ElysiaContext, 0),
+            requestContext,
+          );
+          if (typeof result === "string") {
+            logMethod(result, requestContext);
+          } else {
+            logMethod("{method} {url}", result);
+          }
+        }
+      });
+    }
   } else {
     // Log after handler completes
     plugin = plugin.onAfterHandle((ctx) => {

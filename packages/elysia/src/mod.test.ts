@@ -588,6 +588,37 @@ test("elysiaLogger(): context supports custom options", async () => {
   }
 });
 
+test("elysiaLogger(): context enrich can update response set", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: {
+          requestId: { generate: () => "enrich-set-123" },
+          enrich: (ctx) => {
+            ctx.set.status = 202;
+            ctx.set.headers["x-enriched"] = "yes";
+            return { enriched: true };
+          },
+        },
+      }))
+      .get("/test", () => "Accepted");
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.status, 202);
+    assert.strictEqual(res.headers.get("x-enriched"), "yes");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "enrich-set-123");
+    assert.strictEqual(logs[0].properties.enriched, true);
+    assert.strictEqual(logs[0].properties.status, 202);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("elysiaLogger(): async context enrich counts in response time", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,
@@ -799,6 +830,28 @@ test("elysiaLogger(): local scope does not wrap parent route context", async () 
     assert.strictEqual(logs.length, 1);
     assert.deepStrictEqual(logs[0].category, ["app"]);
     assert.strictEqual(logs[0].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for local routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-route-123" } },
+    })
+      .get("/test", () => "Hello");
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-route-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "local-route-123");
   } finally {
     await cleanup();
   }
