@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import _test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { configure, type LogRecord, reset } from "@logtape/logtape";
+import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
 import { Elysia } from "elysia";
 import { elysiaLogger } from "./mod.ts";
 
@@ -11,14 +12,14 @@ import { elysiaLogger } from "./mod.ts";
 const test = _test;
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
-function createTestSink(): {
+function createTestSink(options: { includeMeta?: boolean } = {}): {
   sink: (record: LogRecord) => void;
   logs: LogRecord[];
 } {
   const logs: LogRecord[] = [];
   return {
     sink: (record: LogRecord) => {
-      if (record.category[0] !== "logtape") {
+      if (options.includeMeta || record.category[0] !== "logtape") {
         logs.push(record);
       }
     },
@@ -27,16 +28,35 @@ function createTestSink(): {
 }
 
 // Setup helper
-async function setupLogtape(): Promise<{
+async function setupLogtape(options: {
+  contextLocalStorage?: boolean;
+  includeMeta?: boolean;
+} = {}): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
-  const { sink, logs } = createTestSink();
+  const { sink, logs } = createTestSink({
+    includeMeta: options.includeMeta,
+  });
   await configure({
     sinks: { test: sink },
     loggers: [{ category: [], sinks: ["test"] }],
+    contextLocalStorage: options.contextLocalStorage
+      ? new AsyncLocalStorage()
+      : undefined,
   });
   return { logs, cleanup: () => reset() };
+}
+
+function assertRecentResponseTime(
+  responseTime: unknown,
+  startedAt: number,
+): void {
+  assert.ok(typeof responseTime === "number");
+  assert.ok(
+    responseTime <= performance.now() - startedAt + 50,
+    `expected recent response time, got ${responseTime}`,
+  );
 }
 
 // ============================================
@@ -482,6 +502,304 @@ test("elysiaLogger(): non-logRequest mode logs after response", async () => {
 });
 
 // ============================================
+// Request Context Tests
+// ============================================
+
+test("elysiaLogger(): context true uses incoming request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({ context: true }))
+      .get("/test", () => {
+        appLogger.info("Handled request");
+        return "Hello";
+      });
+
+    const res = await app.handle(
+      new Request("http://localhost/test", {
+        headers: {
+          "x-request-id": "request-123",
+          "user-agent": "test-agent/1.0",
+        },
+      }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "request-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "request-123");
+    assert.strictEqual(logs[1].properties.requestId, "request-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context true generates missing request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "generated-123" } },
+      }))
+      .get("/test", () => "Hello");
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "generated-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "generated-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context supports custom options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: {
+          requestId: {
+            property: "correlationId",
+            headerNames: ["x-correlation-id", "x-request-id"],
+            responseHeader: "x-correlation-id",
+            normalize: (value) => value.trim().toUpperCase(),
+          },
+          include: ["requestId", "method", "path", "userAgent"],
+          enrich: (ctx) => ({ route: ctx.path }),
+        },
+      }))
+      .get("/test", () => "Hello");
+
+    const res = await app.handle(
+      new Request("http://localhost/test", {
+        headers: {
+          "x-correlation-id": " custom-123 ",
+          "user-agent": "test-agent/1.0",
+        },
+      }),
+    );
+
+    assert.strictEqual(res.headers.get("x-correlation-id"), "CUSTOM-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.correlationId, "CUSTOM-123");
+    assert.strictEqual(logs[0].properties.method, "GET");
+    assert.strictEqual(logs[0].properties.path, "/test");
+    assert.strictEqual(logs[0].properties.userAgent, "test-agent/1.0");
+    assert.strictEqual(logs[0].properties.route, "/test");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context enrich can update response set", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: {
+          requestId: { generate: () => "enrich-set-123" },
+          enrich: (ctx) => {
+            ctx.set.status = 202;
+            ctx.set.headers["x-enriched"] = "yes";
+            return { enriched: true };
+          },
+        },
+      }))
+      .get("/test", () => "Accepted");
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.status, 202);
+    assert.strictEqual(res.headers.get("x-enriched"), "yes");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "enrich-set-123");
+    assert.strictEqual(logs[0].properties.enriched, true);
+    assert.strictEqual(logs[0].properties.status, 202);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): async context enrich counts in response time", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: {
+          requestId: { generate: () => "async-enrich-123" },
+          enrich: async () => {
+            await delay(25);
+            return { enriched: true };
+          },
+        },
+      }))
+      .get("/test", () => "Hello");
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "async-enrich-123");
+    assert.strictEqual(logs[0].properties.enriched, true);
+    assert.strictEqual(typeof logs[0].properties.responseTime, "number");
+    assert.ok((logs[0].properties.responseTime as number) >= 20);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context keeps implicit context when skipped", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "skip-123" } },
+        skip: () => true,
+      }))
+      .get("/test", () => {
+        appLogger.info("Handled skipped request");
+        return "Hello";
+      });
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "skip-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context works with logRequest", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "immediate-123" } },
+        logRequest: true,
+      }))
+      .get("/test", () => "Hello");
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "immediate-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "immediate-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): missing context storage still logs request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "no-storage-123" } },
+      }))
+      .get("/test", () => {
+        appLogger.info("Handled request");
+        return "Hello";
+      });
+
+    await app.handle(new Request("http://localhost/test"));
+
+    const appLog = logs.find((record) => record.category[0] === "app");
+    const requestLog = logs.find((record) => record.category[0] === "elysia");
+    const metaLog = logs.find((record) =>
+      record.category[0] === "logtape" && record.category[1] === "meta" &&
+      record.level === "warning"
+    );
+    assert.ok(appLog);
+    assert.ok(requestLog);
+    assert.ok(metaLog);
+    assert.strictEqual(appLog.properties.requestId, undefined);
+    assert.strictEqual(requestLog.properties.requestId, "no-storage-123");
+    assert.strictEqual(metaLog.level, "warning");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context appears on error logs", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        context: { requestId: { generate: () => "error-123" } },
+      }))
+      .get("/error", () => {
+        appLogger.info("About to fail");
+        throw new Error("Test error");
+      });
+
+    const res = await app.handle(new Request("http://localhost/error"));
+
+    const appLog = logs.find((record) => record.category[0] === "app");
+    const errorLog = logs.find((record) => record.level === "error");
+    assert.strictEqual(res.headers.get("x-request-id"), "error-123");
+    assert.ok(appLog);
+    assert.ok(errorLog);
+    assert.strictEqual(appLog.properties.requestId, "error-123");
+    assert.strictEqual(errorLog.properties.requestId, "error-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): context enrich errors keep local response time recent", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const enrichError = new Error("enrich failed");
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        enrich: async () => {
+          await delay(1);
+          throw enrichError;
+        },
+      },
+    })
+      .get("/error", () => "Hello");
+    const app = new Elysia().use(plugin);
+
+    await delay(100);
+    const startedAt = performance.now();
+    const res = await app.handle(new Request("http://localhost/error"));
+
+    const errorLog = logs.find((record) => record.level === "error");
+    assert.strictEqual(res.status, 500);
+    assert.ok(errorLog);
+    assertRecentResponseTime(errorLog.properties.responseTime, startedAt);
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
 // Plugin Scope Tests
 // ============================================
 
@@ -527,6 +845,487 @@ test("elysiaLogger(): scope 'local' works", async () => {
     // Local scope may not log requests defined outside the plugin
     // This test just ensures no errors
     assert.ok(logs.length >= 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope does not wrap parent route context", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        scope: "local",
+        context: { requestId: { generate: () => "local-scope-123" } },
+      }))
+      .get("/test", () => {
+        appLogger.info("Handled parent route");
+        return "Hello";
+      });
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), null);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for local routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-route-123" } },
+    })
+      .get("/test", () => {
+        appLogger.info("Handled local route");
+        return "Hello";
+      });
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-route-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-route-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-route-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for prefixed local routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-prefixed-123" } },
+    })
+      .get("/test", () => {
+        appLogger.info("Handled prefixed local route");
+        return "Hello";
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-prefixed-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-prefixed-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-prefixed-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for child plugin routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const childHookLogger = getLogger(["child-hook"]);
+    const child = new Elysia()
+      .get(
+        "/child",
+        () => {
+          appLogger.info("Handled child plugin route");
+          return "Hello";
+        },
+        {
+          beforeHandle() {
+            childHookLogger.info("Handled child plugin route hook");
+          },
+        },
+      );
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-child-123" } },
+    }).use(child);
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/child"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-child-123");
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["child-hook"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-child-123");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, "local-child-123");
+    assert.strictEqual(logs[2].properties.requestId, "local-child-123");
+
+    logs.length = 0;
+    const otherApp = new Elysia().use(child);
+    const otherRes = await otherApp.handle(
+      new Request("http://localhost/child"),
+    );
+
+    assert.strictEqual(otherRes.headers.get("x-request-id"), null);
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["child-hook"]);
+    assert.strictEqual(logs[0].properties.requestId, undefined);
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope handles circular child plugin defaults", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const child = new Elysia()
+      .get("/child", () => {
+        appLogger.info("Handled circular child plugin route");
+        return "Hello";
+      });
+    Object.defineProperty(child, "default", {
+      configurable: true,
+      value: child,
+    });
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-circular-123" } },
+    }).use(child);
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/child"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-circular-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-circular-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-circular-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for route hooks", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: { generate: () => `local-hook-${++requestIdCount}` },
+      },
+    })
+      .get(
+        "/test",
+        () => {
+          appLogger.info("Handled local route with hook");
+          return "Hello";
+        },
+        {
+          beforeHandle() {
+            hookLogger.info("Handled local route hook");
+          },
+        },
+      );
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-hook-1");
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-hook-1");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, "local-hook-1");
+    assert.strictEqual(logs[2].properties.requestId, "local-hook-1");
+    assert.strictEqual(requestIdCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for plugin hooks", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: { generate: () => `local-plugin-hook-${++requestIdCount}` },
+      },
+    })
+      .onBeforeHandle(() => {
+        hookLogger.info("Handled local plugin hook");
+      })
+      .get("/test", () => {
+        appLogger.info("Handled local plugin hook route");
+        return "Hello";
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(
+      res.headers.get("x-request-id"),
+      "local-plugin-hook-1",
+    );
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-plugin-hook-1");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, "local-plugin-hook-1");
+    assert.strictEqual(logs[2].properties.requestId, "local-plugin-hook-1");
+    assert.strictEqual(requestIdCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for plugin hooks with options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: {
+          generate: () => `local-plugin-hook-options-${++requestIdCount}`,
+        },
+      },
+    })
+      .onBeforeHandle({ as: "local" }, () => {
+        hookLogger.info("Handled local plugin hook with options");
+      })
+      .get("/test", () => {
+        appLogger.info("Handled local plugin hook route with options");
+        return "Hello";
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(
+      res.headers.get("x-request-id"),
+      "local-plugin-hook-options-1",
+    );
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(
+      logs[0].properties.requestId,
+      "local-plugin-hook-options-1",
+    );
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(
+      logs[1].properties.requestId,
+      "local-plugin-hook-options-1",
+    );
+    assert.strictEqual(
+      logs[2].properties.requestId,
+      "local-plugin-hook-options-1",
+    );
+    assert.strictEqual(requestIdCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope builds context for plugin parse hooks", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const hookLogger = getLogger(["hook"]);
+    let requestIdCount = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: {
+        requestId: { generate: () => `local-parse-hook-${++requestIdCount}` },
+      },
+    })
+      .onParse(({ request }) => {
+        hookLogger.info("Parsed local plugin body");
+        return request.text();
+      })
+      .post("/test", ({ body }) => {
+        appLogger.info("Handled local plugin parse hook route", { body });
+        return String(body);
+      });
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(
+      new Request("http://localhost/api/test", {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: "Hello",
+      }),
+    );
+
+    assert.strictEqual(await res.text(), "Hello");
+    assert.strictEqual(
+      res.headers.get("x-request-id"),
+      "local-parse-hook-1",
+    );
+    assert.strictEqual(logs.length, 3);
+    assert.deepStrictEqual(logs[0].category, ["hook"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-parse-hook-1");
+    assert.deepStrictEqual(logs[1].category, ["app"]);
+    assert.strictEqual(logs[1].properties.requestId, "local-parse-hook-1");
+    assert.strictEqual(logs[1].properties.body, "Hello");
+    assert.strictEqual(logs[2].properties.requestId, "local-parse-hook-1");
+    assert.strictEqual(requestIdCount, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope does not wrap parent routes with the same suffix", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-suffix-123" } },
+    })
+      .get("/test", () => "Local");
+    const app = new Elysia()
+      .use(plugin)
+      .get("/api/test", () => {
+        appLogger.info("Handled parent suffix route");
+        return "Parent";
+      });
+
+    const res = await app.handle(new Request("http://localhost/api/test"));
+
+    assert.strictEqual(await res.text(), "Parent");
+    assert.strictEqual(res.headers.get("x-request-id"), null);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope wraps wildcard ALL routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-wildcard-123" } },
+    })
+      .all("/files/*", () => {
+        appLogger.info("Handled local wildcard route");
+        return "Hello";
+      });
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(
+      new Request("http://localhost/files/a/b", { method: "POST" }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-wildcard-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-wildcard-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-wildcard-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope wraps optional ALL routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-optional-123" } },
+    })
+      .all("/users/:id?", () => {
+        appLogger.info("Handled local optional route");
+        return "Hello";
+      });
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(
+      new Request("http://localhost/users", { method: "POST" }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-optional-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-optional-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-optional-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): local scope fallback matches optional routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-fallback-123" } },
+    })
+      .all("/users/:id?", () => {
+        appLogger.info("Handled local optional fallback route");
+        return "Hello";
+      });
+    const routeMatcher = plugin as unknown as {
+      router?: { http?: { find: () => unknown } };
+    };
+    if (routeMatcher.router?.http != null) {
+      routeMatcher.router.http.find = () => undefined;
+    }
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(
+      new Request("http://localhost/users", { method: "POST" }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-fallback-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-fallback-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-fallback-123");
   } finally {
     await cleanup();
   }

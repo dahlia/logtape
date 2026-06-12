@@ -1,23 +1,25 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { EventEmitter } from "node:events";
 import test from "node:test";
-import { configure, type LogRecord, reset } from "@logtape/logtape";
+import { setTimeout as delay } from "node:timers/promises";
+import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
 import {
   expressLogger,
   type ExpressNextFunction,
   type ExpressRequest,
   type ExpressResponse,
 } from "./mod.ts";
-import { EventEmitter } from "node:events";
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
-function createTestSink(): {
+function createTestSink(options: { includeMeta?: boolean } = {}): {
   sink: (record: LogRecord) => void;
   logs: LogRecord[];
 } {
   const logs: LogRecord[] = [];
   return {
     sink: (record: LogRecord) => {
-      if (record.category[0] !== "logtape") {
+      if (options.includeMeta || record.category[0] !== "logtape") {
         logs.push(record);
       }
     },
@@ -26,14 +28,22 @@ function createTestSink(): {
 }
 
 // Setup helper
-async function setupLogtape(): Promise<{
+async function setupLogtape(options: {
+  contextLocalStorage?: boolean;
+  includeMeta?: boolean;
+} = {}): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
-  const { sink, logs } = createTestSink();
+  const { sink, logs } = createTestSink({
+    includeMeta: options.includeMeta,
+  });
   await configure({
     sinks: { test: sink },
     loggers: [{ category: [], sinks: ["test"] }],
+    contextLocalStorage: options.contextLocalStorage
+      ? new AsyncLocalStorage()
+      : undefined,
   });
   return { logs, cleanup: () => reset() };
 }
@@ -578,6 +588,284 @@ test("expressLogger(): non-immediate mode logs after response", async () => {
     finishResponse(res);
 
     assert.strictEqual(logs.length, 1); // Now logged
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Request Context Tests
+// ============================================
+
+test("expressLogger(): context true uses incoming request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const middleware = expressLogger({ context: true });
+    const req = createMockRequest({
+      get: (header: string) => {
+        const headers: Record<string, string> = {
+          "x-request-id": "request-123",
+          "user-agent": "test-agent/1.0",
+        };
+        return headers[header.toLowerCase()];
+      },
+    });
+    const res = createMockResponse();
+
+    middleware(req, res, () => {
+      appLogger.info("Handled request");
+    });
+    finishResponse(res);
+
+    assert.strictEqual(res.getHeader("x-request-id"), "request-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "request-123");
+    assert.strictEqual(logs[1].properties.requestId, "request-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): context true generates missing request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const middleware = expressLogger({
+      context: { requestId: { generate: () => "generated-123" } },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+
+    middleware(req, res, () => {});
+    finishResponse(res);
+
+    assert.strictEqual(res.getHeader("x-request-id"), "generated-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "generated-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): context supports custom options", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const middleware = expressLogger({
+      context: {
+        requestId: {
+          property: "correlationId",
+          headerNames: ["x-correlation-id", "x-request-id"],
+          responseHeader: "x-correlation-id",
+          normalize: (value) => value.trim().toUpperCase(),
+        },
+        include: ["requestId", "method", "path", "httpVersion"],
+        enrich: (req) => ({ route: req.path }),
+      },
+    });
+    const req = createMockRequest({
+      path: "/test",
+      get: (header: string) => {
+        const headers: Record<string, string> = {
+          "x-correlation-id": " custom-123 ",
+        };
+        return headers[header.toLowerCase()];
+      },
+    });
+    const res = createMockResponse();
+
+    middleware(req, res, () => {});
+    finishResponse(res);
+
+    assert.strictEqual(res.getHeader("x-correlation-id"), "CUSTOM-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.correlationId, "CUSTOM-123");
+    assert.strictEqual(logs[0].properties.method, "GET");
+    assert.strictEqual(logs[0].properties.path, "/test");
+    assert.strictEqual(logs[0].properties.httpVersion, "1.1");
+    assert.strictEqual(logs[0].properties.route, "/test");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): context enrich allows a callable then field", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const middleware = expressLogger({
+      context: {
+        enrich: () => ({
+          route: "/test",
+          then: () => "not a promise",
+        }),
+      },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let nextCalled = false;
+
+    middleware(req, res, () => {
+      nextCalled = true;
+    });
+    await delay(0);
+    finishResponse(res);
+
+    assert.strictEqual(nextCalled, true);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.route, "/test");
+    assert.strictEqual(typeof logs[0].properties.then, "function");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): context keeps implicit context when skipped", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const middleware = expressLogger({
+      context: { requestId: { generate: () => "skip-123" } },
+      skip: () => true,
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+
+    middleware(req, res, () => {
+      appLogger.info("Handled skipped request");
+    });
+    finishResponse(res);
+
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "skip-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): context works with immediate logging", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const middleware = expressLogger({
+      context: { requestId: { generate: () => "immediate-123" } },
+      immediate: true,
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+
+    middleware(req, res, () => {});
+
+    assert.strictEqual(res.getHeader("x-request-id"), "immediate-123");
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].properties.requestId, "immediate-123");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): forwards synchronous context enrich errors", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const enrichError = new Error("enrich failed");
+    const middleware = expressLogger({
+      context: {
+        enrich: () => {
+          throw enrichError;
+        },
+      },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let nextError: unknown;
+
+    assert.doesNotThrow(() => {
+      middleware(req, res, (err) => {
+        nextError = err;
+      });
+    });
+
+    assert.strictEqual(nextError, enrichError);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): forwards errors after async context enrich", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const formatError = new Error("format failed");
+    const middleware = expressLogger({
+      context: {
+        enrich: async () => {
+          await delay(0);
+          return { enriched: true };
+        },
+      },
+      format: () => {
+        throw formatError;
+      },
+      immediate: true,
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let nextError: unknown;
+
+    middleware(req, res, (err) => {
+      nextError = err;
+    });
+    await delay(0);
+
+    assert.strictEqual(nextError, formatError);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): missing context storage still logs request ID", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const appLogger = getLogger(["app"]);
+    const middleware = expressLogger({
+      context: { requestId: { generate: () => "no-storage-123" } },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+
+    middleware(req, res, () => {
+      appLogger.info("Handled request");
+    });
+    finishResponse(res);
+
+    const appLog = logs.find((record) => record.category[0] === "app");
+    const requestLog = logs.find((record) => record.category[0] === "express");
+    const metaLog = logs.find((record) =>
+      record.category[0] === "logtape" && record.category[1] === "meta" &&
+      record.level === "warning"
+    );
+    assert.ok(appLog);
+    assert.ok(requestLog);
+    assert.ok(metaLog);
+    assert.strictEqual(appLog.properties.requestId, undefined);
+    assert.strictEqual(requestLog.properties.requestId, "no-storage-123");
+    assert.strictEqual(metaLog.level, "warning");
   } finally {
     await cleanup();
   }

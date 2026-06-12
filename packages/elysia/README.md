@@ -66,6 +66,51 @@ app.use(elysiaLogger({
   skip: (ctx) => ctx.path === "/health",  // Skip logging for specific paths
   logRequest: true,              // Log at request start (default: false)
   scope: "global",               // Plugin scope (default: "global")
+  context: true,                 // Add requestId to request-scoped logs
+}));
+~~~~
+
+
+Request context
+---------------
+
+Set `context: true` to add request-scoped correlation fields.  By default,
+the plugin reads the `x-request-id` request header, generates an ID when the
+header is missing, writes the resolved ID to the `x-request-id` response
+header, and adds `requestId` to request and error log records.
+
+To make logs emitted by your route handlers inherit the same `requestId`, also
+configure LogTape with `contextLocalStorage`:
+
+~~~~ typescript
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  // ... sinks and loggers ...
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+new Elysia()
+  .use(elysiaLogger({ context: true }))
+  .get("/", () => ({ hello: "world" }));
+~~~~
+
+The context is still established when `skip` suppresses the request log, so
+application logs inside the skipped request can keep the same request ID.
+
+You can customize request ID headers and add more request fields:
+
+~~~~ typescript
+app.use(elysiaLogger({
+  context: {
+    requestId: {
+      headerNames: ["x-correlation-id", "x-request-id"],
+      responseHeader: "x-request-id",
+    },
+    include: ["requestId", "method", "path", "userAgent"],
+    enrich: (ctx) => ({ route: ctx.path }),
+  },
 }));
 ~~~~
 

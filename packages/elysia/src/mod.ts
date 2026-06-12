@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { getLogger, type LogLevel } from "@logtape/logtape";
+import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
 
 export type { LogLevel } from "@logtape/logtape";
 
@@ -64,6 +64,81 @@ export interface RequestLogProperties {
   userAgent: string | undefined;
   /** Referrer header value */
   referrer: string | undefined;
+}
+
+/**
+ * Request fields that can be added to the implicit request context.
+ * @since 2.2.0
+ */
+export type RequestContextField =
+  | "requestId"
+  | "method"
+  | "url"
+  | "path"
+  | "userAgent"
+  | "remoteAddr"
+  | "referrer";
+
+/**
+ * Options for extracting, generating, and propagating a request ID.
+ * @since 2.2.0
+ */
+export interface RequestIdOptions {
+  /**
+   * The property name used in implicit context and request log records.
+   * @default "requestId"
+   */
+  readonly property?: string;
+
+  /**
+   * Incoming request headers to inspect in order.
+   * @default ["x-request-id"]
+   */
+  readonly headerNames?: readonly string[];
+
+  /**
+   * Response header that receives the resolved request ID.
+   * Set to `false` to disable response header propagation.
+   * @default "x-request-id"
+   */
+  readonly responseHeader?: string | false;
+
+  /**
+   * Generates a request ID when no incoming header is present.
+   * @default crypto.randomUUID()
+   */
+  readonly generate?: () => string;
+
+  /**
+   * Normalizes an incoming request ID.  Return `null` to reject the value and
+   * keep looking for another header or generate a new ID.
+   */
+  readonly normalize?: (value: string) => string | null;
+}
+
+/**
+ * Options for request-scoped implicit context.
+ * @since 2.2.0
+ */
+export interface RequestContextOptions {
+  /**
+   * Enables request ID extraction, generation, and response propagation.
+   * @default true
+   */
+  readonly requestId?: boolean | RequestIdOptions;
+
+  /**
+   * Fields to add to the implicit context.
+   * @default ["requestId"]
+   */
+  readonly include?: readonly RequestContextField[];
+
+  /**
+   * Adds application-specific fields to the implicit request context.
+   */
+  readonly enrich?: (
+    ctx: ElysiaContext,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 }
 
 /**
@@ -134,6 +209,117 @@ export interface ElysiaLogTapeOptions {
    * @default "global"
    */
   readonly scope?: PluginScope;
+
+  /**
+   * Enables request-scoped implicit context and request ID correlation.
+   *
+   * When set to `true`, the plugin reads the `x-request-id` header, generates
+   * one when it is absent, writes it to the `x-request-id` response header,
+   * and adds `requestId` to all LogTape records emitted while handling the
+   * request.
+   *
+   * @default false
+   * @since 2.2.0
+   */
+  readonly context?: boolean | RequestContextOptions;
+}
+
+const defaultRequestIdHeader = "x-request-id";
+
+/**
+ * Per-request context state stored outside Elysia's shared store.
+ */
+interface ElysiaRequestContextState {
+  readonly context: Record<string, unknown>;
+  readonly startTime?: number;
+  readonly responseHeader?: {
+    readonly name: string;
+    readonly value: string;
+  };
+  readonly set?: ElysiaContext["set"];
+}
+
+/**
+ * Normalize request context options.
+ */
+function normalizeRequestContextOptions(
+  options: boolean | RequestContextOptions | undefined,
+): RequestContextOptions | undefined {
+  if (options === true) return {};
+  if (options === false || options == null) return undefined;
+  return options;
+}
+
+/**
+ * Normalize request ID options.
+ */
+function normalizeRequestIdOptions(
+  options: boolean | RequestIdOptions | undefined,
+): RequestIdOptions | undefined {
+  if (options === false) return undefined;
+  if (options === true || options == null) return {};
+  return options;
+}
+
+/**
+ * Generate a request ID with Web Crypto when possible.
+ */
+function generateRequestId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * Normalize an incoming request ID.
+ */
+function defaultNormalizeRequestId(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * Resolve a request path from a request URL.
+ */
+function getPath(request: Request): string {
+  return new URL(request.url, "http://localhost").pathname;
+}
+
+/**
+ * Resolve the request ID for a request.
+ */
+function resolveRequestId(
+  request: Request,
+  options: RequestIdOptions,
+): {
+  readonly property: string;
+  readonly value: string;
+  readonly responseHeader?: string;
+} {
+  const property = options.property ?? "requestId";
+  const normalize = options.normalize ?? defaultNormalizeRequestId;
+  const headerNames = options.headerNames ?? [defaultRequestIdHeader];
+  for (const headerName of headerNames) {
+    const headerValue = request.headers.get(headerName);
+    if (headerValue == null) continue;
+    const normalized = normalize(headerValue);
+    if (normalized != null) {
+      const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
+      return {
+        property,
+        value: normalized,
+        responseHeader: responseHeader === false ? undefined : responseHeader,
+      };
+    }
+  }
+  const generated = (options.generate ?? generateRequestId)();
+  const responseHeader = options.responseHeader ?? defaultRequestIdHeader;
+  return {
+    property,
+    value: generated,
+    responseHeader: responseHeader === false ? undefined : responseHeader,
+  };
 }
 
 /**
@@ -166,6 +352,82 @@ function getRemoteAddr(request: Request): string | undefined {
 }
 
 /**
+ * Build request context fields from a request.
+ */
+function buildIncludedContext(
+  request: Request,
+  resolvedRequestId:
+    | { readonly property: string; readonly value: string }
+    | undefined,
+  include: readonly RequestContextField[],
+): Record<string, unknown> {
+  const context: Record<string, unknown> = {};
+  for (const field of include) {
+    switch (field) {
+      case "requestId":
+        if (resolvedRequestId != null) {
+          context[resolvedRequestId.property] = resolvedRequestId.value;
+        }
+        break;
+      case "method":
+        context.method = request.method;
+        break;
+      case "url":
+        context.url = request.url;
+        break;
+      case "path":
+        context.path = getPath(request);
+        break;
+      case "userAgent":
+        context.userAgent = getUserAgent(request);
+        break;
+      case "remoteAddr":
+        context.remoteAddr = getRemoteAddr(request);
+        break;
+      case "referrer":
+        context.referrer = getReferrer(request);
+        break;
+    }
+  }
+  return context;
+}
+
+/**
+ * Build the implicit context for a request.
+ */
+async function buildRequestContext(
+  request: Request,
+  options: RequestContextOptions,
+): Promise<ElysiaRequestContextState> {
+  const requestIdOptions = normalizeRequestIdOptions(options.requestId);
+  const resolvedRequestId = requestIdOptions == null
+    ? undefined
+    : resolveRequestId(request, requestIdOptions);
+  const include = options.include ??
+    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const context = buildIncludedContext(request, resolvedRequestId, include);
+  let set: ElysiaContext["set"] | undefined;
+  if (options.enrich != null) {
+    set = { status: 200, headers: {} };
+    Object.assign(
+      context,
+      await options.enrich({
+        request,
+        path: getPath(request),
+        set,
+      }),
+    );
+  }
+  const responseHeader = resolvedRequestId?.responseHeader == null
+    ? undefined
+    : {
+      name: resolvedRequestId.responseHeader,
+      value: resolvedRequestId.value,
+    };
+  return { context, responseHeader, set };
+}
+
+/**
  * Get content length from response headers.
  */
 function getContentLength(
@@ -194,6 +456,17 @@ function buildProperties(
     userAgent: getUserAgent(ctx.request),
     referrer: getReferrer(ctx.request),
   };
+}
+
+/**
+ * Add request context fields to a request log result.
+ */
+function withRequestLogContext(
+  result: string | Record<string, unknown>,
+  context: Record<string, unknown>,
+): string | Record<string, unknown> {
+  if (typeof result === "string") return result;
+  return { ...result, ...context };
 }
 
 /**
@@ -323,6 +596,312 @@ interface LoggerStore {
   startTime: number;
 }
 
+type ElysiaRouteContext = ElysiaContext & {
+  readonly store: LoggerStore;
+};
+
+type ElysiaRequestCallback = (
+  this: unknown,
+  ...args: unknown[]
+) => unknown;
+
+type ElysiaRouteRegistrar = (
+  path: string,
+  handler: unknown,
+  hook?: unknown,
+) => unknown;
+
+type ElysiaUseRegistrar = (
+  plugin: unknown,
+  ...options: unknown[]
+) => unknown;
+
+type ElysiaOnRegistrar = (...args: unknown[]) => unknown;
+
+type ElysiaRouteMethod =
+  | "all"
+  | "connect"
+  | "delete"
+  | "get"
+  | "head"
+  | "options"
+  | "patch"
+  | "post"
+  | "put";
+
+const elysiaRouteMethods: readonly ElysiaRouteMethod[] = [
+  "all",
+  "connect",
+  "delete",
+  "get",
+  "head",
+  "options",
+  "patch",
+  "post",
+  "put",
+];
+
+const elysiaRouteHookKeys = [
+  "afterHandle",
+  "afterResponse",
+  "beforeHandle",
+  "derive",
+  "error",
+  "mapResponse",
+  "parse",
+  "resolve",
+  "transform",
+] as const;
+
+const elysiaPluginLifecycleHookTypes = [
+  "afterHandle",
+  "afterResponse",
+  "beforeHandle",
+  "derive",
+  "error",
+  "mapResponse",
+  "parse",
+  "resolve",
+  "transform",
+] as const;
+
+type ElysiaRoutePlugin = Record<ElysiaRouteMethod, ElysiaRouteRegistrar> & {
+  readonly router?: {
+    readonly history?: Record<string, ElysiaRouteEntry> | ElysiaRouteEntry[];
+  };
+  on: ElysiaOnRegistrar;
+  route: (
+    method: string,
+    path: string,
+    handler: unknown,
+    hook?: unknown,
+  ) => unknown;
+  use: ElysiaUseRegistrar;
+};
+
+interface ElysiaRouteEntry {
+  handler?: unknown;
+  hooks?: unknown;
+}
+
+function getElysiaRouteEntries(
+  plugin: unknown,
+  visited = new Set<object>(),
+): ElysiaRouteEntry[] {
+  if (plugin == null || typeof plugin !== "object") return [];
+  if (visited.has(plugin)) return [];
+  visited.add(plugin);
+  const routePlugin = plugin as {
+    readonly default?: unknown;
+    readonly router?: {
+      readonly history?: Record<string, ElysiaRouteEntry> | ElysiaRouteEntry[];
+    };
+  };
+  const history = routePlugin.router?.history;
+  const entries = Array.isArray(history)
+    ? history
+    : history == null
+    ? []
+    : Object.values(history);
+  return entries.concat(getElysiaRouteEntries(routePlugin.default, visited));
+}
+
+function createElysiaRequestWrappers(
+  buildAndStoreRequestContext: (
+    request: Request,
+  ) => Promise<ElysiaRequestContextState | undefined>,
+  applyRequestContextToSet: (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ) => void,
+) {
+  const wrappedHandlers = new WeakSet<ElysiaRequestCallback>();
+  const wrappedHandlerCache = new WeakMap<
+    ElysiaRequestCallback,
+    ElysiaRequestCallback
+  >();
+
+  const getRouteContext = (
+    value: unknown,
+  ): ElysiaRouteContext | undefined => {
+    if (value == null || typeof value !== "object") return undefined;
+    const context = value as { readonly request?: unknown };
+    if (!(context.request instanceof Request)) return undefined;
+    return value as ElysiaRouteContext;
+  };
+
+  const wrapRequestCallback = (callback: unknown): unknown => {
+    if (typeof callback !== "function") return callback;
+    const requestCallback = callback as ElysiaRequestCallback;
+    if (wrappedHandlers.has(requestCallback)) return callback;
+    const cached = wrappedHandlerCache.get(requestCallback);
+    if (cached != null) return cached;
+    const wrapped = async function (
+      this: unknown,
+      ...args: unknown[]
+    ): Promise<unknown> {
+      const ctx = getRouteContext(args[0]);
+      if (ctx == null) return await requestCallback.apply(this, args);
+      ctx.store.startTime = performance.now();
+      const requestContext = await buildAndStoreRequestContext(ctx.request);
+      ctx.store.startTime = requestContext?.startTime ??
+        ctx.store.startTime;
+      applyRequestContextToSet(ctx.set, requestContext);
+      return await withContext(
+        requestContext?.context ?? {},
+        () => requestCallback.apply(this, args),
+      );
+    };
+    wrappedHandlers.add(wrapped);
+    wrappedHandlerCache.set(requestCallback, wrapped);
+    return wrapped;
+  };
+
+  const wrapRouteHookValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(wrapRouteHookValue);
+    if (typeof value === "function") return wrapRequestCallback(value);
+    if (value == null || typeof value !== "object") return value;
+    const hookContainer = value as { readonly fn?: unknown };
+    if (typeof hookContainer.fn !== "function") return value;
+    return {
+      ...hookContainer,
+      fn: wrapRequestCallback(hookContainer.fn),
+    };
+  };
+
+  const wrapRouteHooks = (hooks: unknown): unknown => {
+    if (hooks == null || typeof hooks !== "object") return hooks;
+    const routeHooks = hooks as Record<string, unknown>;
+    let changed = false;
+    const wrappedHooks = { ...routeHooks };
+    for (const key of elysiaRouteHookKeys) {
+      const value = routeHooks[key];
+      const wrappedValue = wrapRouteHookValue(value);
+      if (wrappedValue === value) continue;
+      wrappedHooks[key] = wrappedValue;
+      changed = true;
+    }
+    return changed ? wrappedHooks : hooks;
+  };
+
+  return { wrapRequestCallback, wrapRouteHookValue, wrapRouteHooks };
+}
+
+/**
+ * Wrap routes registered on a local plugin with implicit LogTape context.
+ */
+function wrapLocalRouteHandlers(
+  plugin: ElysiaRoutePlugin,
+  buildAndStoreRequestContext: (
+    request: Request,
+  ) => Promise<ElysiaRequestContextState | undefined>,
+  applyRequestContextToSet: (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ) => void,
+): void {
+  const { wrapRequestCallback, wrapRouteHooks } = createElysiaRequestWrappers(
+    buildAndStoreRequestContext,
+    applyRequestContextToSet,
+  );
+
+  const wrapRouteEntries = (routePlugin: unknown): (() => void)[] => {
+    const restore: (() => void)[] = [];
+    for (const route of getElysiaRouteEntries(routePlugin)) {
+      const handler = route.handler;
+      const wrappedHandler = wrapRequestCallback(handler);
+      if (wrappedHandler !== handler) {
+        route.handler = wrappedHandler;
+        restore.push(() => {
+          route.handler = handler;
+        });
+      }
+      const hooks = route.hooks;
+      const wrappedHooks = wrapRouteHooks(hooks);
+      if (wrappedHooks !== hooks) {
+        route.hooks = wrappedHooks;
+        restore.push(() => {
+          route.hooks = hooks;
+        });
+      }
+    }
+    return restore;
+  };
+
+  for (const method of elysiaRouteMethods) {
+    const register = plugin[method].bind(plugin);
+    plugin[method] = ((path: string, handler: unknown, hook?: unknown) =>
+      register(
+        path,
+        wrapRequestCallback(handler),
+        wrapRouteHooks(hook),
+      )) as ElysiaRouteRegistrar;
+  }
+
+  const route = plugin.route.bind(plugin);
+  plugin.route = ((
+    method: string,
+    path: string,
+    handler: unknown,
+    hook?: unknown,
+  ) =>
+    route(
+      method,
+      path,
+      wrapRequestCallback(handler),
+      wrapRouteHooks(hook),
+    )) as ElysiaRoutePlugin["route"];
+
+  const use = plugin.use.bind(plugin);
+  plugin.use = ((childPlugin: unknown, ...options: unknown[]) => {
+    const restore = wrapRouteEntries(childPlugin);
+    try {
+      return use(childPlugin, ...options);
+    } finally {
+      for (const restoreRouteHandler of restore) restoreRouteHandler();
+    }
+  }) as ElysiaUseRegistrar;
+}
+
+/**
+ * Wrap local plugin lifecycle hooks registered by downstream code.
+ */
+function wrapLocalLifecycleHooks(
+  plugin: ElysiaRoutePlugin,
+  buildAndStoreRequestContext: (
+    request: Request,
+  ) => Promise<ElysiaRequestContextState | undefined>,
+  applyRequestContextToSet: (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ) => void,
+): void {
+  const { wrapRouteHookValue } = createElysiaRequestWrappers(
+    buildAndStoreRequestContext,
+    applyRequestContextToSet,
+  );
+
+  const isLifecycleHookType = (value: unknown): boolean =>
+    typeof value === "string" &&
+    (elysiaPluginLifecycleHookTypes as readonly string[]).includes(value);
+
+  const wrapLifecycleHookArgs = (args: readonly unknown[]): unknown[] => {
+    const wrappedArgs = [...args];
+    if (isLifecycleHookType(args[0])) {
+      if (args.length > 1) wrappedArgs[1] = wrapRouteHookValue(args[1]);
+      if (args.length > 2) wrappedArgs[2] = wrapRouteHookValue(args[2]);
+    } else if (isLifecycleHookType(args[1]) && args.length > 2) {
+      wrappedArgs[2] = wrapRouteHookValue(args[2]);
+    }
+    return wrappedArgs;
+  };
+
+  const on = plugin.on.bind(plugin);
+  plugin.on =
+    ((...args: unknown[]) =>
+      on(...wrapLifecycleHookArgs(args))) as ElysiaOnRegistrar;
+}
+
 /**
  * Creates Elysia plugin for HTTP request logging using LogTape.
  *
@@ -384,6 +963,13 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const skip = options.skip ?? (() => false);
   const logRequest = options.logRequest ?? false;
   const scope = options.scope ?? "global";
+  const contextOptions = normalizeRequestContextOptions(options.context);
+  const requestContextStates = new WeakMap<
+    Request,
+    ElysiaRequestContextState
+  >();
+  const shouldWrapContext = contextOptions != null;
+  const shouldWrapAllRoutes = contextOptions != null && scope !== "local";
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -393,27 +979,131 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const logMethod = logger[level].bind(logger);
   const errorLogMethod = logger.error.bind(logger);
 
-  let plugin = new Elysia({
+  const buildAndStoreRequestContext = async (
+    request: Request,
+  ): Promise<ElysiaRequestContextState | undefined> => {
+    if (contextOptions == null) return undefined;
+    const existingContext = requestContextStates.get(request);
+    if (existingContext != null) return existingContext;
+    const startTime = performance.now();
+    const requestContext = {
+      ...await buildRequestContext(request, contextOptions),
+      startTime,
+    };
+    requestContextStates.set(request, requestContext);
+    return requestContext;
+  };
+
+  const applyRequestContextToSet = (
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ): void => {
+    if (requestContext?.responseHeader != null) {
+      set.headers[requestContext.responseHeader.name] =
+        requestContext.responseHeader.value;
+    }
+    if (requestContext?.set != null) {
+      if (requestContext.set.status !== 200) {
+        set.status = requestContext.set.status;
+      }
+      Object.assign(set.headers, requestContext.set.headers);
+    }
+  };
+
+  const applyRequestContextToRequest = (
+    store: LoggerStore,
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ): void => {
+    store.startTime = requestContext?.startTime ?? performance.now();
+    applyRequestContextToSet(set, requestContext);
+  };
+
+  // deno-lint-ignore no-explicit-any
+  let plugin: Elysia<any, any, any, any, any, any, any> = new Elysia({
     name: "@logtape/elysia",
     seed: options,
-  })
+  });
+
+  if (shouldWrapContext && scope === "local") {
+    wrapLocalRouteHandlers(
+      plugin as unknown as ElysiaRoutePlugin,
+      buildAndStoreRequestContext,
+      applyRequestContextToSet,
+    );
+  } else if (shouldWrapContext) {
+    // Elysia lifecycle hooks cannot wrap downstream handlers, so use wrap()
+    // to keep AsyncLocalStorage active for the whole route execution.
+    plugin = plugin.wrap((handle) => {
+      return async (request: Request) => {
+        const requestContext = await buildAndStoreRequestContext(request);
+        return await withContext(
+          requestContext?.context ?? {},
+          () => handle(request),
+        );
+      };
+    });
+  }
+
+  plugin = plugin
     .state("startTime", 0)
-    .onRequest(({ store }) => {
-      (store as LoggerStore).startTime = performance.now();
+    .onRequest(({ request, set, store }) => {
+      const requestContext = requestContextStates.get(request);
+      if (requestContext == null && shouldWrapAllRoutes) {
+        (store as LoggerStore).startTime = performance.now();
+        return buildAndStoreRequestContext(request).then((resolvedContext) => {
+          applyRequestContextToRequest(
+            store as LoggerStore,
+            set,
+            resolvedContext,
+          );
+        });
+      }
+      applyRequestContextToRequest(store as LoggerStore, set, requestContext);
     });
 
-  if (logRequest) {
-    // Log immediately when request arrives
-    plugin = plugin.onRequest((ctx) => {
-      if (!skip(ctx as unknown as ElysiaContext)) {
-        const result = formatFn(ctx as unknown as ElysiaContext, 0);
+  if (scope === "local" && (contextOptions != null || logRequest)) {
+    plugin = plugin.onBeforeHandle(async (ctx) => {
+      (ctx.store as LoggerStore).startTime = performance.now();
+      const requestContext = await buildAndStoreRequestContext(ctx.request);
+      (ctx.store as LoggerStore).startTime = requestContext?.startTime ??
+        (ctx.store as LoggerStore).startTime;
+      applyRequestContextToSet(ctx.set, requestContext);
+      if (logRequest && !skip(ctx as unknown as ElysiaContext)) {
+        const context = requestContext?.context ?? {};
+        const result = withRequestLogContext(
+          formatFn(ctx as unknown as ElysiaContext, 0),
+          context,
+        );
         if (typeof result === "string") {
-          logMethod(result);
+          logMethod(result, context);
         } else {
           logMethod("{method} {url}", result);
         }
       }
     });
+  }
+
+  if (logRequest) {
+    // Log immediately when request arrives
+    if (scope !== "local") {
+      plugin = plugin.onRequest((ctx) => {
+        if (!skip(ctx as unknown as ElysiaContext)) {
+          const requestContext =
+            requestContextStates.get(ctx.request)?.context ??
+              {};
+          const result = withRequestLogContext(
+            formatFn(ctx as unknown as ElysiaContext, 0),
+            requestContext,
+          );
+          if (typeof result === "string") {
+            logMethod(result, requestContext);
+          } else {
+            logMethod("{method} {url}", result);
+          }
+        }
+      });
+    }
   } else {
     // Log after handler completes
     plugin = plugin.onAfterHandle((ctx) => {
@@ -421,10 +1111,15 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
 
       const store = ctx.store as LoggerStore;
       const responseTime = performance.now() - store.startTime;
-      const result = formatFn(ctx as unknown as ElysiaContext, responseTime);
+      const requestContext = requestContextStates.get(ctx.request)?.context ??
+        {};
+      const result = withRequestLogContext(
+        formatFn(ctx as unknown as ElysiaContext, responseTime),
+        requestContext,
+      );
 
       if (typeof result === "string") {
-        logMethod(result);
+        logMethod(result, requestContext);
       } else {
         logMethod("{method} {url} {status} - {responseTime} ms", result);
       }
@@ -440,6 +1135,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     if (skip(elysiaCtx)) return;
 
     const props = buildProperties(elysiaCtx, responseTime);
+    const requestContext = requestContextStates.get(ctx.request)?.context ?? {};
     // Get the correct HTTP status code from error context
     const status = getErrorStatus(ctx.code, ctx.error, elysiaCtx.set.status);
     // Extract error message safely
@@ -449,12 +1145,21 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
       "Error: {method} {url} {status} - {responseTime} ms - {errorMessage}",
       {
         ...props,
+        ...requestContext,
         status,
         errorMessage,
         errorCode: ctx.code,
       },
     );
   });
+
+  if (shouldWrapContext && scope === "local") {
+    wrapLocalLifecycleHooks(
+      plugin as unknown as ElysiaRoutePlugin,
+      buildAndStoreRequestContext,
+      applyRequestContextToSet,
+    );
+  }
 
   // Apply scope
   if (scope === "global") {
