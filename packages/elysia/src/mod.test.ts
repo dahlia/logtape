@@ -891,6 +891,46 @@ test("elysiaLogger(): local scope builds context for prefixed local routes", asy
   }
 });
 
+test("elysiaLogger(): local scope builds context for child plugin routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const child = new Elysia()
+      .get("/child", () => {
+        appLogger.info("Handled child plugin route");
+        return "Hello";
+      });
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-child-123" } },
+    }).use(child);
+    const app = new Elysia().group("/api", (app) => app.use(plugin));
+
+    const res = await app.handle(new Request("http://localhost/api/child"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-child-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-child-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-child-123");
+
+    logs.length = 0;
+    const otherApp = new Elysia().use(child);
+    const otherRes = await otherApp.handle(
+      new Request("http://localhost/child"),
+    );
+
+    assert.strictEqual(otherRes.headers.get("x-request-id"), null);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("elysiaLogger(): local scope does not wrap parent routes with the same suffix", async () => {
   const { logs, cleanup } = await setupLogtape({
     contextLocalStorage: true,

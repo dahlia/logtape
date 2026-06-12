@@ -611,6 +611,11 @@ type ElysiaRouteRegistrar = (
   hook?: unknown,
 ) => unknown;
 
+type ElysiaUseRegistrar = (
+  plugin: unknown,
+  ...options: unknown[]
+) => unknown;
+
 type ElysiaRouteMethod =
   | "all"
   | "connect"
@@ -635,13 +640,38 @@ const elysiaRouteMethods: readonly ElysiaRouteMethod[] = [
 ];
 
 type ElysiaRoutePlugin = Record<ElysiaRouteMethod, ElysiaRouteRegistrar> & {
+  readonly router?: {
+    readonly history?: Record<string, ElysiaRouteEntry> | ElysiaRouteEntry[];
+  };
   route: (
     method: string,
     path: string,
     handler: unknown,
     hook?: unknown,
   ) => unknown;
+  use: ElysiaUseRegistrar;
 };
+
+interface ElysiaRouteEntry {
+  handler?: unknown;
+}
+
+function getElysiaRouteEntries(plugin: unknown): ElysiaRouteEntry[] {
+  if (plugin == null || typeof plugin !== "object") return [];
+  const routePlugin = plugin as {
+    readonly default?: unknown;
+    readonly router?: {
+      readonly history?: Record<string, ElysiaRouteEntry> | ElysiaRouteEntry[];
+    };
+  };
+  const history = routePlugin.router?.history;
+  const entries = Array.isArray(history)
+    ? history
+    : history == null
+    ? []
+    : Object.values(history);
+  return entries.concat(getElysiaRouteEntries(routePlugin.default));
+}
 
 /**
  * Wrap routes registered on a local plugin with implicit LogTape context.
@@ -656,10 +686,18 @@ function wrapLocalRouteHandlers(
     requestContext: ElysiaRequestContextState | undefined,
   ) => void,
 ): void {
+  const wrappedHandlers = new WeakSet<ElysiaRouteHandler>();
+  const wrappedHandlerCache = new WeakMap<
+    ElysiaRouteHandler,
+    ElysiaRouteHandler
+  >();
   const wrapHandler = (handler: unknown): unknown => {
     if (typeof handler !== "function") return handler;
     const routeHandler = handler as ElysiaRouteHandler;
-    return async function (
+    if (wrappedHandlers.has(routeHandler)) return handler;
+    const cached = wrappedHandlerCache.get(routeHandler);
+    if (cached != null) return cached;
+    const wrapped = async function (
       this: unknown,
       ctx: ElysiaRouteContext,
     ): Promise<unknown> {
@@ -672,6 +710,23 @@ function wrapLocalRouteHandlers(
         () => routeHandler.call(this, ctx),
       );
     };
+    wrappedHandlers.add(wrapped);
+    wrappedHandlerCache.set(routeHandler, wrapped);
+    return wrapped;
+  };
+
+  const wrapRouteEntries = (routePlugin: unknown): (() => void)[] => {
+    const restore: (() => void)[] = [];
+    for (const route of getElysiaRouteEntries(routePlugin)) {
+      const handler = route.handler;
+      const wrappedHandler = wrapHandler(handler);
+      if (wrappedHandler === handler) continue;
+      route.handler = wrappedHandler;
+      restore.push(() => {
+        route.handler = handler;
+      });
+    }
+    return restore;
   };
 
   for (const method of elysiaRouteMethods) {
@@ -689,6 +744,16 @@ function wrapLocalRouteHandlers(
   ) => route(method, path, wrapHandler(handler), hook)) as ElysiaRoutePlugin[
     "route"
   ];
+
+  const use = plugin.use.bind(plugin);
+  plugin.use = ((childPlugin: unknown, ...options: unknown[]) => {
+    const restore = wrapRouteEntries(childPlugin);
+    try {
+      return use(childPlugin, ...options);
+    } finally {
+      for (const restoreRouteHandler of restore) restoreRouteHandler();
+    }
+  }) as ElysiaUseRegistrar;
 }
 
 /**
