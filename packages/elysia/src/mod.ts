@@ -660,6 +660,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     Request,
     ElysiaRequestContextState
   >();
+  const shouldWrapContext = contextOptions != null && scope !== "local";
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -675,7 +676,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     seed: options,
   });
 
-  if (contextOptions != null) {
+  if (shouldWrapContext) {
     // Elysia lifecycle hooks cannot wrap downstream handlers, so use wrap()
     // to keep AsyncLocalStorage active for the whole route execution.
     plugin = plugin.wrap((handle) => {
@@ -699,8 +700,16 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
 
   plugin = plugin
     .state("startTime", 0)
-    .onRequest(({ request, set, store }) => {
-      const requestContext = requestContextStates.get(request);
+    .onRequest(async ({ request, set, store }) => {
+      let requestContext = requestContextStates.get(request);
+      if (requestContext == null && shouldWrapContext) {
+        const startTime = performance.now();
+        requestContext = {
+          ...await buildRequestContext(request, contextOptions),
+          startTime,
+        };
+        requestContextStates.set(request, requestContext);
+      }
       (store as LoggerStore).startTime = requestContext?.startTime ??
         performance.now();
       if (requestContext?.responseHeader != null) {

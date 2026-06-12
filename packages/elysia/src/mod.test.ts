@@ -777,6 +777,33 @@ test("elysiaLogger(): scope 'local' works", async () => {
   }
 });
 
+test("elysiaLogger(): local scope does not wrap parent route context", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const app = new Elysia()
+      .use(elysiaLogger({
+        scope: "local",
+        context: { requestId: { generate: () => "local-scope-123" } },
+      }))
+      .get("/test", () => {
+        appLogger.info("Handled parent route");
+        return "Hello";
+      });
+
+    const res = await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(res.headers.get("x-request-id"), null);
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
 // ============================================
 // Error Logging Tests
 // ============================================
