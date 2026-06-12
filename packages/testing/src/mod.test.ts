@@ -1,3 +1,6 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
 import {
   configure,
   getLogger,
@@ -7,8 +10,7 @@ import {
   type Sink,
 } from "@logtape/logtape";
 import { redactByField } from "@logtape/redaction";
-import assert from "node:assert/strict";
-import test from "node:test";
+
 import {
   createLogRecorder,
   type LogRecordMatch,
@@ -100,6 +102,17 @@ test("LogRecorder.find() and LogRecorder.filter()", () => {
     dbRecord,
   ]);
   assert.deepStrictEqual(recorder.filter({ category: /^app\.d/ }), [dbRecord]);
+
+  const categoryPattern = /app\.auth/g;
+  assert.strictEqual(categoryPattern.test("app.auth"), true);
+  assert.strictEqual(recorder.find({ category: categoryPattern }), authRecord);
+
+  const stickyMessagePattern = /User/y;
+  stickyMessagePattern.lastIndex = 1;
+  assert.strictEqual(
+    recorder.find({ message: stickyMessagePattern }),
+    authRecord,
+  );
 });
 
 test("LogRecorder supports predicate matchers", () => {
@@ -120,6 +133,21 @@ test("LogRecorder supports predicate matchers", () => {
   recorder.sink(record);
 
   assert.strictEqual(recorder.find(match), record);
+});
+
+test("LogRecorder matches rendered RegExp and Date message values", () => {
+  const recorder = createLogRecorder();
+  const pattern = /failed login/i;
+  const timestamp = new Date("2026-06-09T00:00:00.000Z");
+  const record = logRecord({
+    message: ["Pattern ", pattern, " matched at ", timestamp, "."],
+    rawMessage: "Pattern {pattern} matched at {timestamp}.",
+  });
+  recorder.sink(record);
+
+  recorder.assertLogged({
+    message: "Pattern /failed login/i matched at 2026-06-09T00:00:00.000Z.",
+  });
 });
 
 test("LogRecorder.assertLogged()", () => {

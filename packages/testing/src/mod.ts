@@ -314,7 +314,6 @@ function matchesProperties(
 function testRegExp(pattern: RegExp, text: string): boolean {
   const flags = pattern.flags;
   const clone = new RegExp(pattern.source, flags);
-  clone.lastIndex = pattern.lastIndex;
   return clone.test(text);
 }
 
@@ -334,6 +333,14 @@ function renderMessagePart(part: unknown): string {
   if (typeof part === "string") return part;
   if (typeof part === "bigint") return `${part}n`;
   if (part instanceof Error) return part.message;
+  if (part instanceof RegExp) return String(part);
+  if (part instanceof Date) {
+    try {
+      return part.toISOString();
+    } catch {
+      return String(part);
+    }
+  }
   if (part == null) return String(part);
   if (typeof part === "object") {
     try {
