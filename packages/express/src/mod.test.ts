@@ -742,6 +742,36 @@ test("expressLogger(): context works with immediate logging", async () => {
   }
 });
 
+test("expressLogger(): forwards synchronous context enrich errors", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const enrichError = new Error("enrich failed");
+    const middleware = expressLogger({
+      context: {
+        enrich: () => {
+          throw enrichError;
+        },
+      },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let nextError: unknown;
+
+    assert.doesNotThrow(() => {
+      middleware(req, res, (err) => {
+        nextError = err;
+      });
+    });
+
+    assert.strictEqual(nextError, enrichError);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("expressLogger(): missing context storage still logs request ID", async () => {
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {

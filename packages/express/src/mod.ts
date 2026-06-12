@@ -669,7 +669,15 @@ export function expressLogger(
       return;
     }
 
-    const requestContext = buildRequestContext(req, res, contextOptions);
+    let requestContext:
+      | Record<string, unknown>
+      | Promise<Record<string, unknown>>;
+    try {
+      requestContext = buildRequestContext(req, res, contextOptions);
+    } catch (error) {
+      next(error);
+      return;
+    }
     if (isPromiseLike<Record<string, unknown>>(requestContext)) {
       Promise.resolve(requestContext).then((resolvedContext) => {
         withContext(resolvedContext, () => handleRequest(resolvedContext));
