@@ -1007,6 +1007,15 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     }
   };
 
+  const applyRequestContextToRequest = (
+    store: LoggerStore,
+    set: ElysiaContext["set"],
+    requestContext: ElysiaRequestContextState | undefined,
+  ): void => {
+    store.startTime = requestContext?.startTime ?? performance.now();
+    applyRequestContextToSet(set, requestContext);
+  };
+
   // deno-lint-ignore no-explicit-any
   let plugin: Elysia<any, any, any, any, any, any, any> = new Elysia({
     name: "@logtape/elysia",
@@ -1035,14 +1044,18 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
 
   plugin = plugin
     .state("startTime", 0)
-    .onRequest(async ({ request, set, store }) => {
-      let requestContext = requestContextStates.get(request);
+    .onRequest(({ request, set, store }) => {
+      const requestContext = requestContextStates.get(request);
       if (requestContext == null && shouldWrapAllRoutes) {
-        requestContext = await buildAndStoreRequestContext(request);
+        return buildAndStoreRequestContext(request).then((resolvedContext) => {
+          applyRequestContextToRequest(
+            store as LoggerStore,
+            set,
+            resolvedContext,
+          );
+        });
       }
-      (store as LoggerStore).startTime = requestContext?.startTime ??
-        performance.now();
-      applyRequestContextToSet(set, requestContext);
+      applyRequestContextToRequest(store as LoggerStore, set, requestContext);
     });
 
   if (scope === "local" && (contextOptions != null || logRequest)) {
