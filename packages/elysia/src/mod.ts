@@ -618,16 +618,24 @@ function routePathMatches(routePath: string, requestPath: string): boolean {
   if (routePath === requestPath) return true;
   const routeSegments = routePath.split("/");
   const requestSegments = requestPath.split("/");
-  for (let index = 0; index < routeSegments.length; index++) {
-    const segment = routeSegments[index];
-    if (segment === "*") return true;
-    if (index >= requestSegments.length) return false;
-    if (segment === requestSegments[index] || segment.startsWith(":")) {
+  const segmentCount = Math.max(routeSegments.length, requestSegments.length);
+  for (let index = 0; index < segmentCount; index++) {
+    const routeSegment = routeSegments[index];
+    const requestSegment = requestSegments[index];
+    if (routeSegment == null) return false;
+    if (routeSegment === "*") return true;
+    if (requestSegment == null) {
+      if (routeSegment.startsWith(":") && routeSegment.endsWith("?")) {
+        continue;
+      }
+      return false;
+    }
+    if (routeSegment === requestSegment || routeSegment.startsWith(":")) {
       continue;
     }
     return false;
   }
-  return routeSegments.length === requestSegments.length;
+  return true;
 }
 
 /**

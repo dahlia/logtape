@@ -923,6 +923,42 @@ test("elysiaLogger(): local scope wraps optional ALL routes", async () => {
   }
 });
 
+test("elysiaLogger(): local scope fallback matches optional routes", async () => {
+  const { logs, cleanup } = await setupLogtape({
+    contextLocalStorage: true,
+  });
+  try {
+    const appLogger = getLogger(["app"]);
+    const plugin = elysiaLogger({
+      scope: "local",
+      context: { requestId: { generate: () => "local-fallback-123" } },
+    })
+      .all("/users/:id?", () => {
+        appLogger.info("Handled local optional fallback route");
+        return "Hello";
+      });
+    const routeMatcher = plugin as unknown as {
+      router?: { http?: { find: () => unknown } };
+    };
+    if (routeMatcher.router?.http != null) {
+      routeMatcher.router.http.find = () => undefined;
+    }
+    const app = new Elysia().use(plugin);
+
+    const res = await app.handle(
+      new Request("http://localhost/users", { method: "POST" }),
+    );
+
+    assert.strictEqual(res.headers.get("x-request-id"), "local-fallback-123");
+    assert.strictEqual(logs.length, 2);
+    assert.deepStrictEqual(logs[0].category, ["app"]);
+    assert.strictEqual(logs[0].properties.requestId, "local-fallback-123");
+    assert.strictEqual(logs[1].properties.requestId, "local-fallback-123");
+  } finally {
+    await cleanup();
+  }
+});
+
 // ============================================
 // Error Logging Tests
 // ============================================
