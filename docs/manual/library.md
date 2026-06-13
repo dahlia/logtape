@@ -102,6 +102,30 @@ export class Database {
 When logs are part of your library's observable behavior, test them alongside
 the public API with [*@logtape/testing*]:
 
+::: code-group
+
+~~~~ bash [Deno]
+deno add jsr:@logtape/testing
+~~~~
+
+~~~~ bash [npm]
+npm add @logtape/testing
+~~~~
+
+~~~~ bash [pnpm]
+pnpm add @logtape/testing
+~~~~
+
+~~~~ bash [Yarn]
+yarn add @logtape/testing
+~~~~
+
+~~~~ bash [Bun]
+bun add @logtape/testing
+~~~~
+
+:::
+
 ~~~~ typescript twoslash
 // @noErrors: 2307
 import { configure, reset } from "@logtape/logtape";

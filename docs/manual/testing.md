@@ -65,6 +65,30 @@ For testing purposes, you may want to collect log records in memory and assert
 on them.  The [*@logtape/testing*] package provides `createLogRecorder()` for
 this:
 
+::: code-group
+
+~~~~ bash [Deno]
+deno add jsr:@logtape/testing
+~~~~
+
+~~~~ bash [npm]
+npm add @logtape/testing
+~~~~
+
+~~~~ bash [pnpm]
+pnpm add @logtape/testing
+~~~~
+
+~~~~ bash [Yarn]
+yarn add @logtape/testing
+~~~~
+
+~~~~ bash [Bun]
+bun add @logtape/testing
+~~~~
+
+:::
+
 ~~~~ typescript twoslash
 // @noErrors: 2307
 import { configure, getLogger, reset } from "@logtape/logtape";
