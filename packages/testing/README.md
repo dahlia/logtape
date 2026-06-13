@@ -68,7 +68,9 @@ try {
 }
 ~~~~
 
-The `records` property returns a snapshot, and the recorder also provides
+The recorder snapshots lazy callback messages when its sink receives them, so
+assertions see the same message a normal sink would observe at emit time.  The
+`records` property returns a snapshot, and the recorder also provides
 `clear()`, `take()`, `find()`, `filter()`, and `assertNotLogged()` for tests
 that need lower-level access.  Most property values are compared with
 `Object.is()`, `Date` values are compared by timestamp, and regular expression

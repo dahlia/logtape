@@ -102,16 +102,17 @@ try {
 }
 ~~~~
 
-The recorder stores records in sink call order.  The `records` property
-returns a snapshot, and the recorder also provides `clear()`, `take()`,
-`find()`, `filter()`, `assertLogged()`, and `assertNotLogged()`.  Matchers can
-check category, category prefix, level, rendered message, raw message, and a
-shallow partial set of structured properties.  Most property values are
-compared with `Object.is()`, `Date` values are compared by timestamp, and
-regular expression matcher values match string property values.  Rendered
-message matching uses the same value rendering as LogTape's default text
-formatter.  Use a property predicate when a test needs absence checks or deep
-matching.
+The recorder stores records in sink call order.  It snapshots lazy callback
+messages when the sink receives them, so assertions see the same message a
+normal sink would observe at emit time.  The `records` property returns a
+snapshot, and the recorder also provides `clear()`, `take()`, `find()`,
+`filter()`, `assertLogged()`, and `assertNotLogged()`.  Matchers can check
+category, category prefix, level, rendered message, raw message, and a shallow
+partial set of structured properties.  Most property values are compared with
+`Object.is()`, `Date` values are compared by timestamp, and regular expression
+matcher values match string property values.  Rendered message matching uses
+the same value rendering as LogTape's default text formatter.  Use a property
+predicate when a test needs absence checks or deep matching.
 
 `createLogRecorder()` is a synchronous sink.  If a log call uses async lazy
 properties, await the log call before asserting.  If your test also uses async

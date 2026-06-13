@@ -695,6 +695,44 @@ test("LogRecorder works with configure()", async () => {
   }
 });
 
+test("LogRecorder snapshots lazy callback messages in the sink", async () => {
+  const recorder = createLogRecorder();
+  try {
+    await configure({
+      sinks: { recorder: recorder.sink },
+      loggers: [
+        { category: ["logtape", "meta"], sinks: [] },
+        {
+          category: ["my-lib"],
+          lowestLevel: "debug",
+          sinks: ["recorder"],
+        },
+      ],
+    });
+
+    let userId = "alice";
+    let evaluations = 0;
+    getLogger(["my-lib"]).info((log) => {
+      evaluations++;
+      return log`User ${userId} logged in.`;
+    });
+    userId = "bob";
+
+    assert.strictEqual(evaluations, 1);
+    assert.deepStrictEqual(recorder.records[0]?.message, [
+      "User ",
+      "alice",
+      " logged in.",
+    ]);
+    assert.strictEqual(
+      renderRawMessage(recorder.records[0]?.rawMessage),
+      "User  logged in.",
+    );
+  } finally {
+    await reset();
+  }
+});
+
 test("LogRecorder observes resolved lazy and redacted properties", async () => {
   const recorder = createLogRecorder();
   const sink = redactByField(recorder.sink, {
@@ -759,6 +797,10 @@ function renderMessageWithCoreFormatter(record: LogRecord): string {
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderRawMessage(rawMessage: LogRecord["rawMessage"]): string {
+  return typeof rawMessage === "string" ? rawMessage : rawMessage.join("");
 }
 
 function circularNullPrototypeObject(): Record<string, unknown> {

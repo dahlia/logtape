@@ -178,7 +178,7 @@ export interface LogRecorder {
 export function createLogRecorder(): LogRecorder {
   const records: LogRecord[] = [];
   const sink: Sink = (record: LogRecord): void => {
-    records.push(record);
+    records.push(materializeLogRecord(record));
   };
 
   return {
@@ -227,6 +227,32 @@ export function createLogRecorder(): LogRecorder {
         ].join("\n"),
       );
     },
+  };
+}
+
+function materializeLogRecord(record: LogRecord): LogRecord {
+  const message = record.message;
+  const rawMessage = record.rawMessage;
+  const messageDescriptor = Object.getOwnPropertyDescriptor(record, "message");
+  const rawMessageDescriptor = Object.getOwnPropertyDescriptor(
+    record,
+    "rawMessage",
+  );
+  if (
+    messageDescriptor != null &&
+    "value" in messageDescriptor &&
+    rawMessageDescriptor != null &&
+    "value" in rawMessageDescriptor
+  ) {
+    return record;
+  }
+  return {
+    category: record.category,
+    level: record.level,
+    message,
+    rawMessage,
+    timestamp: record.timestamp,
+    properties: record.properties,
   };
 }
 
