@@ -584,14 +584,24 @@ function formatSet(value: ReadonlySet<unknown>): string {
 }
 
 function safeJsonStringify(value: unknown): string | undefined {
-  const seen = new WeakSet<object>();
-  return JSON.stringify(value, (_key, item: unknown) => {
+  const ancestors: object[] = [];
+  return JSON.stringify(value, function (
+    this: unknown,
+    _key: string,
+    item: unknown,
+  ): unknown {
     if (typeof item === "bigint") return `${item}n`;
     if (item instanceof RegExp) return String(item);
     if (item instanceof Error) return `${item.name}: ${item.message}`;
     if (typeof item === "object" && item != null) {
-      if (seen.has(item)) return "[Circular]";
-      seen.add(item);
+      while (
+        ancestors.length > 0 &&
+        ancestors[ancestors.length - 1] !== this
+      ) {
+        ancestors.pop();
+      }
+      if (ancestors.includes(item)) return "[Circular]";
+      ancestors.push(item);
       if (item instanceof Map) return formatMapContents(item);
       if (item instanceof Set) return Array.from(item);
     }

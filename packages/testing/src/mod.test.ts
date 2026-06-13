@@ -327,6 +327,33 @@ test("LogRecorder diagnostics render nested BigInt and circular values", () => {
   );
 });
 
+test("LogRecorder diagnostics preserve repeated non-circular references", () => {
+  const recorder = createLogRecorder();
+  const sharedValue = { id: "user-123" };
+  recorder.sink(logRecord({
+    message: ["shared reference diagnostics"],
+    properties: {
+      payload: {
+        before: sharedValue,
+        after: sharedValue,
+      },
+    },
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ properties: { missing: true } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(
+        error.message,
+        /payload: {"before":{"id":"user-123"},"after":{"id":"user-123"}}/,
+      );
+      assert.doesNotMatch(error.message, /"after":"\[Circular\]"/);
+      return true;
+    },
+  );
+});
+
 test("LogRecorder diagnostics render nested Error values", () => {
   const recorder = createLogRecorder();
   recorder.sink(logRecord({
