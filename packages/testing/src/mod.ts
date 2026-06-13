@@ -334,7 +334,7 @@ function testRegExp(pattern: RegExp, text: string): boolean {
 }
 
 function renderRawMessage(rawMessage: string | TemplateStringsArray): string {
-  return typeof rawMessage === "string" ? rawMessage : [...rawMessage].join("");
+  return typeof rawMessage === "string" ? rawMessage : rawMessage.join("");
 }
 
 function renderMessage(record: LogRecord): string {
