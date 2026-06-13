@@ -475,8 +475,16 @@ function formatValue(value: unknown): string {
 function formatMap(value: ReadonlyMap<unknown, unknown>): string {
   const label = `Map(${value.size})`;
   try {
-    const entries = value as Iterable<readonly [PropertyKey, unknown]>;
-    return `${label} ${JSON.stringify(Object.fromEntries(entries))}`;
+    const entries = Array.from(
+      value,
+      ([key, entryValue]) => [safeString(key), entryValue] as const,
+    );
+    const keys = entries.map(([key]) => key);
+    const uniqueKeys = new Set(keys);
+    const contents = uniqueKeys.size === keys.length
+      ? Object.fromEntries(entries)
+      : entries;
+    return `${label} ${JSON.stringify(contents)}`;
   } catch {
     return label;
   }

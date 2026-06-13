@@ -290,6 +290,47 @@ test("LogRecorder diagnostics render Map and Set values", () => {
   );
 });
 
+test("LogRecorder diagnostics preserve Map entries with object keys", () => {
+  const recorder = createLogRecorder();
+  const nullPrototypeKey = Object.create(null) as Record<string, unknown>;
+  nullPrototypeKey.id = "primary";
+  const firstObjectKey = { id: "first" };
+  const secondObjectKey = { id: "second" };
+  recorder.sink(logRecord({
+    message: ["object key diagnostics"],
+    properties: {
+      distinctKeyMap: new Map<unknown, string>([
+        [nullPrototypeKey, "visible"],
+      ]),
+      collidingKeyMap: new Map<unknown, string>([
+        [firstObjectKey, "first"],
+        [secondObjectKey, "second"],
+      ]),
+    },
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ properties: { missing: true } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(
+        error.message,
+        /distinctKeyMap: Map\(1\) {"\[object Object\]":"visible"}/,
+      );
+      assert.match(
+        error.message,
+        /collidingKeyMap: Map\(2\) \[\["\[object Object\]","first"\],\["\[object Object\]","second"\]\]/,
+      );
+      assert.doesNotMatch(error.message, /distinctKeyMap: Map\(1\)(?! )/);
+      assert.doesNotMatch(
+        error.message,
+        /collidingKeyMap: Map\(2\) {"\[object Object\]":"second"}/,
+      );
+      return true;
+    },
+  );
+});
+
 test("LogRecorder diagnostics preserve non-finite numbers", () => {
   const recorder = createLogRecorder();
   recorder.sink(logRecord({
