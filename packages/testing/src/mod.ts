@@ -449,8 +449,16 @@ function formatValue(value: unknown): string {
     return `${value.name}: ${value.message}`;
   }
   try {
-    return JSON.stringify(value) ?? String(value);
+    return JSON.stringify(value) ?? safeString(value);
   } catch {
+    return safeString(value);
+  }
+}
+
+function safeString(value: unknown): string {
+  try {
     return String(value);
+  } catch {
+    return Object.prototype.toString.call(value);
   }
 }

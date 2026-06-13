@@ -170,6 +170,30 @@ test("LogRecorder handles nullish record properties", () => {
   );
 });
 
+test("LogRecorder diagnostics handle null-prototype circular values", () => {
+  const recorder = createLogRecorder();
+  const recordedValue = circularNullPrototypeObject();
+  const matcherValue = circularNullPrototypeObject();
+  recorder.sink(logRecord({
+    message: ["circular diagnostic value"],
+    properties: { recordedValue },
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ properties: { matcherValue } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Expected a LogTape record matching:/);
+      assert.match(
+        error.message,
+        /properties\.matcherValue: \[object Object\]/,
+      );
+      assert.match(error.message, /recordedValue: \[object Object\]/);
+      return true;
+    },
+  );
+});
+
 test("LogRecorder matches rendered object message values", () => {
   const recorder = createLogRecorder();
   const payload = { foo: "bar" };
@@ -416,4 +440,10 @@ function renderMessageWithCoreFormatter(record: LogRecord): string {
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function circularNullPrototypeObject(): Record<string, unknown> {
+  const value = Object.create(null) as Record<string, unknown>;
+  value.self = value;
+  return value;
 }
