@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   configure,
   getLogger,
+  getTextFormatter,
   lazy,
   type LogRecord,
   reset,
@@ -88,7 +89,7 @@ test("LogRecorder.find() and LogRecorder.filter()", () => {
     recorder.find({
       category: ["app", "auth"],
       level: "warning",
-      message: "User u-123 failed login.",
+      message: renderMessageWithCoreFormatter(authRecord),
       rawMessage: /userId/,
       properties: { userId: "u-123" },
     }),
@@ -171,6 +172,67 @@ test("LogRecorder handles nullish record properties", () => {
 
 test("LogRecorder matches rendered object message values", () => {
   const recorder = createLogRecorder();
+  const payload = { foo: "bar" };
+  const values = ["one", "two"];
+  const error = new TypeError("Bad input");
+  const pattern = /failed login/i;
+  const timestamp = new Date("2026-06-09T00:00:00.000Z");
+  const record = logRecord({
+    message: [
+      "Payload ",
+      payload,
+      " values ",
+      values,
+      "; pattern ",
+      pattern,
+      " failed with ",
+      error,
+      " at ",
+      timestamp,
+      ".",
+    ],
+    rawMessage:
+      "Payload {payload} values {values}; pattern {pattern} failed with {error} at {timestamp}.",
+  });
+  recorder.sink(record);
+
+  recorder.assertLogged({
+    message: renderMessageWithCoreFormatter(record),
+  });
+  assert.ok(
+    !renderMessageWithCoreFormatter(record).includes(
+      JSON.stringify(payload),
+    ),
+  );
+});
+
+test("LogRecorder diagnostics render messages like the core formatter", () => {
+  const recorder = createLogRecorder();
+  const record = logRecord({
+    message: [
+      "Payload ",
+      { foo: "bar" },
+      ".",
+    ],
+    rawMessage: "Payload {payload}.",
+  });
+  recorder.sink(record);
+
+  assert.throws(
+    () => recorder.assertLogged({ message: "missing" }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(
+        error.message,
+        new RegExp(escapeRegExp(renderMessageWithCoreFormatter(record))),
+      );
+      return true;
+    },
+  );
+});
+
+test("LogRecorder matches rendered special object message values", () => {
+  const recorder = createLogRecorder();
   const error = new TypeError("Bad input");
   const pattern = /failed login/i;
   const timestamp = new Date("2026-06-09T00:00:00.000Z");
@@ -189,20 +251,20 @@ test("LogRecorder matches rendered object message values", () => {
   recorder.sink(record);
 
   recorder.assertLogged({
-    message:
-      "Pattern /failed login/i failed with TypeError: Bad input at 2026-06-09T00:00:00.000Z.",
+    message: renderMessageWithCoreFormatter(record),
   });
 });
 
 test("LogRecorder.assertLogged()", () => {
   const recorder = createLogRecorder();
-  recorder.sink(logRecord({
+  const authRecord = logRecord({
     category: ["app", "auth"],
     level: "warning",
     message: ["User ", "u-123", " failed login."],
     rawMessage: "User {userId} failed login.",
     properties: { userId: "u-123" },
-  }));
+  });
+  recorder.sink(authRecord);
 
   recorder.assertLogged({ level: "warning", properties: { userId: "u-123" } });
 
@@ -216,7 +278,9 @@ test("LogRecorder.assertLogged()", () => {
       assert.match(error.message, /Recorded 1 record:/);
       assert.match(
         error.message,
-        /\[warning\] app\.auth: User u-123 failed login\./,
+        new RegExp(escapeRegExp(
+          `[warning] app.auth: ${renderMessageWithCoreFormatter(authRecord)}`,
+        )),
       );
       return true;
     },
@@ -225,13 +289,14 @@ test("LogRecorder.assertLogged()", () => {
 
 test("LogRecorder.assertNotLogged()", () => {
   const recorder = createLogRecorder();
-  recorder.sink(logRecord({
+  const authRecord = logRecord({
     category: ["app", "auth"],
     level: "warning",
     message: ["User ", "u-123", " failed login."],
     rawMessage: "User {userId} failed login.",
     properties: { userId: "u-123" },
-  }));
+  });
+  recorder.sink(authRecord);
 
   recorder.assertNotLogged({ level: "error" });
 
@@ -243,7 +308,9 @@ test("LogRecorder.assertNotLogged()", () => {
       assert.match(error.message, /Found 1 matching record:/);
       assert.match(
         error.message,
-        /\[warning\] app\.auth: User u-123 failed login\./,
+        new RegExp(escapeRegExp(
+          `[warning] app.auth: ${renderMessageWithCoreFormatter(authRecord)}`,
+        )),
       );
       return true;
     },
@@ -272,12 +339,12 @@ test("LogRecorder works with configure()", async () => {
     recorder.assertLogged({
       category: ["my-lib"],
       level: "info",
-      message: "User u-123 logged in.",
+      message: /^User .+ logged in\.$/,
       properties: { userId: "u-123" },
     });
     recorder.assertLogged({
       category: ["my-lib"],
-      message: "Tagged value record.",
+      message: /^Tagged .+ record\.$/,
       rawMessage: /Tagged/,
     });
   } finally {
@@ -314,7 +381,7 @@ test("LogRecorder observes resolved lazy and redacted properties", async () => {
     });
 
     recorder.assertLogged({
-      message: "Login failed for alice with [redacted].",
+      message: /^Login failed for .+ with .+\.$/,
       properties: { password: "[redacted]", userId: "alice" },
     });
     recorder.assertNotLogged({
@@ -337,4 +404,16 @@ function logRecord(record: Partial<LogRecord> = {}): LogRecord {
     timestamp: 1700000000000,
     ...record,
   };
+}
+
+function renderMessageWithCoreFormatter(record: LogRecord): string {
+  return getTextFormatter({
+    format: ({ message }) => message,
+    lineEnding: "lf",
+    timestamp: "none",
+  })(record).slice(0, -1);
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -54,14 +54,14 @@ try {
   });
 
   getLogger(["my-lib"]).info("User {userId} logged in.", {
-    userId: "u-123",
+    userId: 123,
   });
 
   recorder.assertLogged({
     category: ["my-lib"],
     level: "info",
-    message: "User u-123 logged in.",
-    properties: { userId: "u-123" },
+    message: "User 123 logged in.",
+    properties: { userId: 123 },
   });
 } finally {
   await reset();
@@ -70,6 +70,8 @@ try {
 
 The recorder also provides `records`, `clear()`, `take()`, `find()`,
 `filter()`, and `assertNotLogged()` for tests that need lower-level access.
+Rendered message matching uses the same value rendering as LogTape's default
+text formatter.
 
 
 Docs

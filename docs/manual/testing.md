@@ -66,7 +66,7 @@ on them.  The [*@logtape/testing*] package provides `createLogRecorder()` for
 this:
 
 ~~~~ typescript twoslash
-// @noErrors: 2345
+// @noErrors: 2307
 import { configure, getLogger, reset } from "@logtape/logtape";
 import { createLogRecorder } from "@logtape/testing";
 
@@ -88,14 +88,14 @@ try {
   });
 
   getLogger(["my-lib"]).info("User {userId} logged in.", {
-    userId: "u-123",
+    userId: 123,
   });
 
   recorder.assertLogged({  // [!code highlight]
     category: ["my-lib"],
     level: "info",
-    message: "User u-123 logged in.",
-    properties: { userId: "u-123" },
+    message: "User 123 logged in.",
+    properties: { userId: 123 },
   });
 } finally {
   await reset();
@@ -106,8 +106,9 @@ The recorder stores records in sink call order.  It provides `records`,
 `clear()`, `take()`, `find()`, `filter()`, `assertLogged()`, and
 `assertNotLogged()`.  Matchers can check category, category prefix, level,
 rendered message, raw message, and a shallow partial set of structured
-properties.  Use a property predicate when a test needs absence checks or deep
-matching.
+properties.  Rendered message matching uses the same value rendering as
+LogTape's default text formatter.  Use a property predicate when a test needs
+absence checks or deep matching.
 
 `createLogRecorder()` is a synchronous sink.  If a log call uses async lazy
 properties, await the log call before asserting.  If your test also uses async

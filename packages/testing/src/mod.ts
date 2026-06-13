@@ -1,4 +1,15 @@
-import type { LogLevel, LogRecord, Sink } from "@logtape/logtape";
+import {
+  getTextFormatter,
+  type LogLevel,
+  type LogRecord,
+  type Sink,
+} from "@logtape/logtape";
+
+const messageFormatter = getTextFormatter({
+  format: ({ message }) => message,
+  lineEnding: "lf",
+  timestamp: "none",
+});
 
 /**
  * A predicate that matches log record properties.
@@ -45,7 +56,8 @@ export interface LogRecordMatch {
 
   /**
    * Rendered message matcher.  String and regular expression matchers are
-   * applied to the rendered message.  A predicate receives the full record.
+   * applied to the rendered message, using the same value rendering as
+   * LogTape's default text formatter.  A predicate receives the full record.
    */
   readonly message?: string | RegExp | ((record: LogRecord) => boolean);
 
@@ -144,14 +156,14 @@ export interface LogRecorder {
  *   });
  *
  *   getLogger(["my-lib"]).info("User {userId} logged in.", {
- *     userId: "u-123",
+ *     userId: 123,
  *   });
  *
  *   recorder.assertLogged({
  *     category: ["my-lib"],
  *     level: "info",
- *     message: "User u-123 logged in.",
- *     properties: { userId: "u-123" },
+ *     message: "User 123 logged in.",
+ *     properties: { userId: 123 },
  *   });
  * } finally {
  *   await reset();
@@ -232,7 +244,7 @@ function matchesLogRecord(record: LogRecord, match: LogRecordMatch): boolean {
   if (match.level != null && record.level !== match.level) return false;
   if (
     match.message != null &&
-    !matchesMessage(renderMessage(record.message), record, match.message)
+    !matchesMessage(renderMessage(record), record, match.message)
   ) {
     return false;
   }
@@ -325,35 +337,8 @@ function renderRawMessage(rawMessage: string | TemplateStringsArray): string {
   return typeof rawMessage === "string" ? rawMessage : [...rawMessage].join("");
 }
 
-function renderMessage(message: readonly unknown[]): string {
-  let rendered = "";
-  for (const part of message) {
-    rendered += renderMessagePart(part);
-  }
-  return rendered;
-}
-
-function renderMessagePart(part: unknown): string {
-  if (typeof part === "string") return part;
-  if (typeof part === "bigint") return `${part}n`;
-  if (part instanceof Error) return `${part.name}: ${part.message}`;
-  if (part instanceof RegExp) return String(part);
-  if (part instanceof Date) {
-    try {
-      return part.toISOString();
-    } catch {
-      return String(part);
-    }
-  }
-  if (part == null) return String(part);
-  if (typeof part === "object") {
-    try {
-      return JSON.stringify(part) ?? String(part);
-    } catch {
-      return String(part);
-    }
-  }
-  return String(part);
+function renderMessage(record: LogRecord): string {
+  return messageFormatter(record).slice(0, -1);
 }
 
 function formatMatcher(match: LogRecordMatch): string {
@@ -429,7 +414,7 @@ function formatRecords(records: readonly LogRecord[]): string {
 
 function formatRecord(record: LogRecord): string {
   const category = formatCategory(record.category);
-  return `  [${record.level}] ${category}: ${renderMessage(record.message)}${
+  return `  [${record.level}] ${category}: ${renderMessage(record)}${
     formatProperties(record.properties)
   }`;
 }
