@@ -236,14 +236,11 @@ function materializeLogRecord(record: LogRecord): LogRecord {
   const descriptors = Object.getOwnPropertyDescriptors(
     record,
   ) as PropertyDescriptorMap;
-  const messageDescriptor = descriptors.message;
-  const rawMessageDescriptor = descriptors.rawMessage;
-  if (
-    isDataDescriptor(messageDescriptor) &&
-    isDataDescriptor(rawMessageDescriptor)
-  ) {
+  if (!hasStringAccessorDescriptor(descriptors)) {
     return record;
   }
+  const messageDescriptor = descriptors.message;
+  const rawMessageDescriptor = descriptors.rawMessage;
   const snapshotDescriptors = Object.create(null) as PropertyDescriptorMap;
   for (const key of Reflect.ownKeys(descriptors)) {
     if (isLogRecordKey(key)) continue;
@@ -268,6 +265,16 @@ function materializeLogRecord(record: LogRecord): LogRecord {
     Object.create(Object.getPrototypeOf(record)),
     snapshotDescriptors,
   ) as LogRecord;
+}
+
+function hasStringAccessorDescriptor(
+  descriptors: PropertyDescriptorMap,
+): boolean {
+  for (const key of Object.getOwnPropertyNames(descriptors)) {
+    const descriptor = descriptors[key];
+    if (descriptor != null && !isDataDescriptor(descriptor)) return true;
+  }
+  return false;
 }
 
 function isDataDescriptor(

@@ -835,6 +835,50 @@ test("LogRecorder preserves extra fields when snapshotting lazy messages", () =>
   assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
 });
 
+test("LogRecorder preserves extra accessors when messages are eager", () => {
+  const recorder = createLogRecorder();
+  const contextKey = Symbol("context");
+  let traceId = "trace-123";
+  let spanId = "span-123";
+  const record = {
+    ...logRecord({
+      message: ["User ", "alice", " logged in."],
+      properties: { userId: "alice" },
+      rawMessage: "User {userId} logged in.",
+    }),
+    requestId: "req-123",
+    get traceId(): string {
+      return traceId;
+    },
+    get [contextKey](): { readonly spanId: string } {
+      return { spanId };
+    },
+  } as LogRecord & {
+    readonly requestId: string;
+    readonly traceId: string;
+    readonly [contextKey]: { readonly spanId: string };
+  };
+
+  recorder.sink(record);
+  traceId = "trace-456";
+  spanId = "span-456";
+
+  const snapshot = recorder.records[0] as LogRecord & {
+    readonly requestId?: string;
+    readonly traceId?: string;
+    readonly [contextKey]?: { readonly spanId: string };
+  };
+  assert.notStrictEqual(snapshot, record);
+  assert.deepStrictEqual(snapshot.message, [
+    "User ",
+    "alice",
+    " logged in.",
+  ]);
+  assert.strictEqual(snapshot.requestId, "req-123");
+  assert.strictEqual(snapshot.traceId, "trace-123");
+  assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
+});
+
 test("LogRecorder observes resolved lazy and redacted properties", async () => {
   const recorder = createLogRecorder();
   const sink = redactByField(recorder.sink, {
