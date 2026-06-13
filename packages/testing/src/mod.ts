@@ -31,9 +31,9 @@ export type PropertyMatcher = (
  *
  * Object property matching is shallow: every own string key in the matcher
  * must exist on the record properties and match by value.  Most values are
- * compared with `Object.is()`, while `Date` values are compared by timestamp.
- * Use a {@link PropertyMatcher} when a test needs absence checks or deeper
- * matching.
+ * compared with `Object.is()`, `Date` values are compared by timestamp, and
+ * regular expression matcher values match string property values.  Use a
+ * {@link PropertyMatcher} when a test needs absence checks or deeper matching.
  *
  * @since 2.2.0
  */
@@ -330,6 +330,9 @@ function matchesProperties(
 function matchesPropertyValue(actual: unknown, expected: unknown): boolean {
   if (actual instanceof Date && expected instanceof Date) {
     return Object.is(actual.getTime(), expected.getTime());
+  }
+  if (typeof actual === "string" && expected instanceof RegExp) {
+    return testRegExp(expected, actual);
   }
   return Object.is(actual, expected);
 }

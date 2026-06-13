@@ -30,7 +30,8 @@ To be released.
      -  Added `LogRecordMatch` interface for matching category, category
         prefix, level, rendered message, raw message, structured properties,
         and custom predicates.  `Date` property values are matched by
-        timestamp.
+        timestamp, and regular expression matcher values match string property
+        values.
      -  Added `PropertyMatcher` type for custom property matching.
 
 [#173]: https://github.com/dahlia/logtape/issues/173

@@ -167,6 +167,30 @@ test("LogRecorder matches Date property values by time", () => {
   );
 });
 
+test("LogRecorder matches string property values with regular expressions", () => {
+  const recorder = createLogRecorder();
+  const record = logRecord({
+    properties: { status: "completed", userId: "user-123" },
+  });
+  recorder.sink(record);
+
+  const userPattern = /^user-\d+$/g;
+  assert.strictEqual(userPattern.test("user-123"), true);
+  assert.strictEqual(
+    recorder.find({
+      properties: { userId: userPattern },
+    }),
+    record,
+  );
+  assert.strictEqual(userPattern.lastIndex, "user-123".length);
+  assert.strictEqual(
+    recorder.find({
+      properties: { status: /^failed$/ },
+    }),
+    undefined,
+  );
+});
+
 test("LogRecorder handles nullish record properties", () => {
   const recorder = createLogRecorder();
   const record = {
