@@ -33,8 +33,6 @@ To be released.
         timestamp, and regular expression matcher values match string property
         values.
      -  Added `PropertyMatcher` type for custom property matching.
-     -  Improved failure diagnostics for `Map` and `Set` property values so
-        they show collection sizes and serializable contents.
 
 [#173]: https://github.com/dahlia/logtape/issues/173
 [#175]: https://github.com/dahlia/logtape/pull/175
