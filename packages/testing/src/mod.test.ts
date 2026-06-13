@@ -733,6 +733,42 @@ test("LogRecorder snapshots lazy callback messages in the sink", async () => {
   }
 });
 
+test("LogRecorder preserves extra fields when snapshotting lazy messages", () => {
+  const recorder = createLogRecorder();
+  const contextKey = Symbol("context");
+  let userId = "alice";
+  const record = {
+    ...logRecord({
+      properties: { userId },
+      rawMessage: "User {userId} logged in.",
+    }),
+    requestId: "req-123",
+    [contextKey]: { traceId: "trace-123" },
+    get message(): readonly unknown[] {
+      return ["User ", userId, " logged in."];
+    },
+  } as LogRecord & {
+    readonly requestId: string;
+    readonly [contextKey]: { readonly traceId: string };
+  };
+
+  recorder.sink(record);
+  userId = "bob";
+
+  const snapshot = recorder.records[0] as LogRecord & {
+    readonly requestId?: string;
+    readonly [contextKey]?: { readonly traceId: string };
+  };
+  assert.notStrictEqual(snapshot, record);
+  assert.deepStrictEqual(snapshot.message, [
+    "User ",
+    "alice",
+    " logged in.",
+  ]);
+  assert.strictEqual(snapshot.requestId, "req-123");
+  assert.deepStrictEqual(snapshot[contextKey], { traceId: "trace-123" });
+});
+
 test("LogRecorder observes resolved lazy and redacted properties", async () => {
   const recorder = createLogRecorder();
   const sink = redactByField(recorder.sink, {
