@@ -183,6 +183,33 @@ test("LogRecorder matches Date property values by time", () => {
   );
 });
 
+test("LogRecorder matches properties without Object.hasOwn", () => {
+  const recorder = createLogRecorder();
+  const record = logRecord({
+    properties: { userId: "u-123" },
+  });
+  recorder.sink(record);
+  const hasOwnDescriptor = Object.getOwnPropertyDescriptor(Object, "hasOwn");
+  try {
+    Object.defineProperty(Object, "hasOwn", {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+
+    assert.strictEqual(
+      recorder.find({ properties: { userId: "u-123" } }),
+      record,
+    );
+  } finally {
+    if (hasOwnDescriptor == null) {
+      delete (Object as { hasOwn?: typeof Object.hasOwn }).hasOwn;
+    } else {
+      Object.defineProperty(Object, "hasOwn", hasOwnDescriptor);
+    }
+  }
+});
+
 test("LogRecorder matches string property values with regular expressions", () => {
   const recorder = createLogRecorder();
   const record = logRecord({
@@ -737,27 +764,38 @@ test("LogRecorder preserves extra fields when snapshotting lazy messages", () =>
   const recorder = createLogRecorder();
   const contextKey = Symbol("context");
   let userId = "alice";
+  let traceId = "trace-123";
+  let spanId = "span-123";
   const record = {
     ...logRecord({
       properties: { userId },
       rawMessage: "User {userId} logged in.",
     }),
     requestId: "req-123",
-    [contextKey]: { traceId: "trace-123" },
+    get traceId(): string {
+      return traceId;
+    },
+    get [contextKey](): { readonly spanId: string } {
+      return { spanId };
+    },
     get message(): readonly unknown[] {
       return ["User ", userId, " logged in."];
     },
   } as LogRecord & {
     readonly requestId: string;
-    readonly [contextKey]: { readonly traceId: string };
+    readonly traceId: string;
+    readonly [contextKey]: { readonly spanId: string };
   };
 
   recorder.sink(record);
   userId = "bob";
+  traceId = "trace-456";
+  spanId = "span-456";
 
   const snapshot = recorder.records[0] as LogRecord & {
     readonly requestId?: string;
-    readonly [contextKey]?: { readonly traceId: string };
+    readonly traceId?: string;
+    readonly [contextKey]?: { readonly spanId: string };
   };
   assert.notStrictEqual(snapshot, record);
   assert.deepStrictEqual(snapshot.message, [
@@ -766,7 +804,8 @@ test("LogRecorder preserves extra fields when snapshotting lazy messages", () =>
     " logged in.",
   ]);
   assert.strictEqual(snapshot.requestId, "req-123");
-  assert.deepStrictEqual(snapshot[contextKey], { traceId: "trace-123" });
+  assert.strictEqual(snapshot.traceId, "trace-123");
+  assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
 });
 
 test("LogRecorder observes resolved lazy and redacted properties", async () => {

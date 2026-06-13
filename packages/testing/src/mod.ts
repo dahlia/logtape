@@ -247,7 +247,11 @@ function materializeLogRecord(record: LogRecord): LogRecord {
   const snapshotDescriptors = Object.create(null) as PropertyDescriptorMap;
   for (const key of Reflect.ownKeys(descriptors)) {
     if (isLogRecordKey(key)) continue;
-    snapshotDescriptors[key] = descriptors[key];
+    const descriptor = descriptors[key];
+    if (descriptor == null) continue;
+    snapshotDescriptors[key] = isDataDescriptor(descriptor)
+      ? descriptor
+      : materializedDescriptor(Reflect.get(record, key), descriptor);
   }
   Object.assign(snapshotDescriptors, {
     category: materializedDescriptor(record.category, descriptors.category),
@@ -383,7 +387,7 @@ function matchesProperties(
   const props: Readonly<Record<string, unknown>> = properties ?? {};
   if (typeof matcher === "function") return matcher(props, record);
   for (const key of Object.keys(matcher)) {
-    if (!Object.hasOwn(props, key)) return false;
+    if (!Object.prototype.hasOwnProperty.call(props, key)) return false;
     if (!matchesPropertyValue(props[key], matcher[key])) return false;
   }
   return true;
