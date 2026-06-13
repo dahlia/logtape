@@ -3,9 +3,10 @@ import {
   type LogLevel,
   type LogRecord,
   type Sink,
+  type TextFormatter,
 } from "@logtape/logtape";
 
-const messageFormatter = getTextFormatter({
+const messageFormatter: TextFormatter = getTextFormatter({
   format: ({ message }) => message,
   lineEnding: "lf",
   timestamp: "none",
@@ -317,7 +318,7 @@ function matchesProperties(
   record: LogRecord,
   matcher: Readonly<Record<string, unknown>> | PropertyMatcher,
 ): boolean {
-  const props = properties ?? {};
+  const props: Readonly<Record<string, unknown>> = properties ?? {};
   if (typeof matcher === "function") return matcher(props, record);
   for (const key of Object.keys(matcher)) {
     if (!Object.hasOwn(props, key)) return false;
@@ -434,7 +435,7 @@ function formatCategory(category: readonly string[]): string {
 function formatProperties(
   properties: Readonly<Record<string, unknown>> | null | undefined,
 ): string {
-  const props = properties ?? {};
+  const props: Readonly<Record<string, unknown>> = properties ?? {};
   const entries = Object.keys(props);
   if (entries.length < 1) return "";
   const summary = entries.slice(0, 3).map((key) =>
