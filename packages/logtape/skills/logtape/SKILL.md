@@ -503,7 +503,7 @@ try {
   recorder.assertLogged({
     category: "test",
     level: "info",
-    message: "User u-123 logged in.",
+    message: /^User .+ logged in\.$/,
     properties: { userId: "u-123" },
   });
 } finally {
