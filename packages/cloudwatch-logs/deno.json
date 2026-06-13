@@ -1,6 +1,6 @@
 {
   "name": "@logtape/cloudwatch-logs",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "exclude": [
