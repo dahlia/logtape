@@ -113,6 +113,18 @@ To be released.
      -  Added `RedactionTraversalOptions` interface.
 
 
+Version 2.1.4
+-------------
+
+Released on June 13, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where non-blocking `getRotatingFileSink()` could leave records
+    queued during an active background flush buffered until the next log record
+    or disposal.
+
+
 Version 2.1.3
 -------------
 
@@ -317,6 +329,18 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.13
+--------------
+
+Released on June 13, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where non-blocking `getRotatingFileSink()` could leave records
+    queued during an active background flush buffered until the next log record
+    or disposal.
 
 
 Version 2.0.12

@@ -597,6 +597,56 @@ test("getBaseRotatingFileSink() non-blocking disposal waits for flush errors", a
   }
 });
 
+test("getBaseRotatingFileSink() non-blocking drains records queued during a flush", async () => {
+  const { driver, file } = makeAsyncRotatingMemoryFileDriver();
+  let releaseFirstFlush: (() => void) | undefined;
+  let secondFlushComplete: (() => void) | undefined;
+  let flushCount = 0;
+  const firstFlush = new Promise<void>((resolve) => {
+    releaseFirstFlush = resolve;
+  });
+  const secondFlush = new Promise<void>((resolve) => {
+    secondFlushComplete = resolve;
+  });
+  const sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 1,
+    flushInterval: 0,
+    maxSize: 1024 * 1024,
+    async flush() {
+      flushCount++;
+      if (flushCount === 1) await firstFlush;
+      else secondFlushComplete?.();
+    },
+    nonBlocking: true,
+  }) as unknown as Sink & AsyncDisposable;
+
+  sink(debug);
+  assert.deepStrictEqual(
+    readMemoryFile(file),
+    "2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!\n",
+  );
+
+  sink(info);
+  releaseFirstFlush?.();
+
+  const drained = await Promise.race([
+    secondFlush.then(() => true),
+    delay(1000).then(() => false),
+  ]);
+
+  assert.strictEqual(drained, true, "queued record was not drained");
+  assert.deepStrictEqual(
+    readMemoryFile(file),
+    `\
+2023-11-14 22:13:20.000 +00:00 [DBG] my-app·junk: Hello, 123 & 456!
+2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!
+`,
+  );
+
+  await sink[Symbol.asyncDispose]();
+});
+
 test("getRotatingFileSink() with bufferSize: 0 (no buffering)", () => {
   const path = makeTempFileSync();
   const sink: Sink & Disposable = getRotatingFileSink(path, {
@@ -1248,8 +1298,7 @@ test("getRotatingFileSink() with nonBlocking rotation", async () => {
   sink(warning);
   sink(error);
 
-  // Wait for all flushes and rotation to complete
-  await delay(200);
+  await sink[Symbol.asyncDispose]();
 
   // Check that rotation occurred
   const mainContent = fs.readFileSync(path, { encoding: "utf-8" });
@@ -1265,8 +1314,6 @@ test("getRotatingFileSink() with nonBlocking rotation", async () => {
   // Should have all 4 records somewhere
   const recordCount = (allContent.match(/Hello, 123 & 456!/g) || []).length;
   assert.strictEqual(recordCount, 4);
-
-  await sink[Symbol.asyncDispose]();
 });
 
 // cSpell: ignore filesink
