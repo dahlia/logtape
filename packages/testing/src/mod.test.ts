@@ -244,6 +244,52 @@ test("LogRecorder diagnostics handle null-prototype circular values", () => {
   );
 });
 
+test("LogRecorder diagnostics render Map and Set values", () => {
+  const recorder = createLogRecorder();
+  recorder.sink(logRecord({
+    message: ["collection diagnostics"],
+    properties: {
+      roles: new Set(["admin", "operator"]),
+      tags: new Map<string, unknown>([
+        ["environment", "production"],
+        ["retries", 3],
+      ]),
+    },
+  }));
+
+  assert.throws(
+    () =>
+      recorder.assertLogged({
+        properties: {
+          expectedRoles: new Set(["admin"]),
+          expectedTags: new Map([["environment", "staging"]]),
+        },
+      }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(
+        error.message,
+        /properties\.expectedRoles: Set\(1\) \["admin"\]/,
+      );
+      assert.match(
+        error.message,
+        /properties\.expectedTags: Map\(1\) {"environment":"staging"}/,
+      );
+      assert.match(
+        error.message,
+        /roles: Set\(2\) \["admin","operator"\]/,
+      );
+      assert.match(
+        error.message,
+        /tags: Map\(2\) {"environment":"production","retries":3}/,
+      );
+      assert.doesNotMatch(error.message, /roles: {}/);
+      assert.doesNotMatch(error.message, /tags: {}/);
+      return true;
+    },
+  );
+});
+
 test("LogRecorder diagnostics preserve non-finite numbers", () => {
   const recorder = createLogRecorder();
   recorder.sink(logRecord({

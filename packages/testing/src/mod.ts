@@ -463,10 +463,31 @@ function formatValue(value: unknown): string {
   if (value instanceof Error) {
     return `${value.name}: ${value.message}`;
   }
+  if (value instanceof Map) return formatMap(value);
+  if (value instanceof Set) return formatSet(value);
   try {
     return JSON.stringify(value) ?? safeString(value);
   } catch {
     return safeString(value);
+  }
+}
+
+function formatMap(value: ReadonlyMap<unknown, unknown>): string {
+  const label = `Map(${value.size})`;
+  try {
+    const entries = value as Iterable<readonly [PropertyKey, unknown]>;
+    return `${label} ${JSON.stringify(Object.fromEntries(entries))}`;
+  } catch {
+    return label;
+  }
+}
+
+function formatSet(value: ReadonlySet<unknown>): string {
+  const label = `Set(${value.size})`;
+  try {
+    return `${label} ${JSON.stringify(Array.from(value))}`;
+  } catch {
+    return label;
   }
 }
 
