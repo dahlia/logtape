@@ -70,8 +70,9 @@ try {
 
 The recorder also provides `records`, `clear()`, `take()`, `find()`,
 `filter()`, and `assertNotLogged()` for tests that need lower-level access.
-Rendered message matching uses the same value rendering as LogTape's default
-text formatter.
+Most property values are compared with `Object.is()`, while `Date` values are
+compared by timestamp.  Rendered message matching uses the same value rendering
+as LogTape's default text formatter.
 
 
 Docs

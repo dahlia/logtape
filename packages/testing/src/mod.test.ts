@@ -141,6 +141,32 @@ test("LogRecorder supports predicate matchers", () => {
   assert.strictEqual(recorder.find(match), record);
 });
 
+test("LogRecorder matches Date property values by time", () => {
+  const recorder = createLogRecorder();
+  const occurredAt = new Date("2026-06-09T00:00:00.000Z");
+  const record = logRecord({
+    properties: { occurredAt },
+  });
+  recorder.sink(record);
+
+  assert.strictEqual(
+    recorder.find({
+      properties: {
+        occurredAt: new Date("2026-06-09T00:00:00.000Z"),
+      },
+    }),
+    record,
+  );
+  assert.strictEqual(
+    recorder.find({
+      properties: {
+        occurredAt: new Date("2026-06-10T00:00:00.000Z"),
+      },
+    }),
+    undefined,
+  );
+});
+
 test("LogRecorder handles nullish record properties", () => {
   const recorder = createLogRecorder();
   const record = {

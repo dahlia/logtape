@@ -29,9 +29,10 @@ export type PropertyMatcher = (
  * A matcher for records collected by a {@link LogRecorder}.
  *
  * Object property matching is shallow: every own string key in the matcher
- * must exist on the record properties and have the same value according to
- * `Object.is()`.  Use a {@link PropertyMatcher} when a test needs absence
- * checks or deeper matching.
+ * must exist on the record properties and match by value.  Most values are
+ * compared with `Object.is()`, while `Date` values are compared by timestamp.
+ * Use a {@link PropertyMatcher} when a test needs absence checks or deeper
+ * matching.
  *
  * @since 2.2.0
  */
@@ -320,9 +321,16 @@ function matchesProperties(
   if (typeof matcher === "function") return matcher(props, record);
   for (const key of Object.keys(matcher)) {
     if (!Object.hasOwn(props, key)) return false;
-    if (!Object.is(props[key], matcher[key])) return false;
+    if (!matchesPropertyValue(props[key], matcher[key])) return false;
   }
   return true;
+}
+
+function matchesPropertyValue(actual: unknown, expected: unknown): boolean {
+  if (actual instanceof Date && expected instanceof Date) {
+    return Object.is(actual.getTime(), expected.getTime());
+  }
+  return Object.is(actual, expected);
 }
 
 function testRegExp(pattern: RegExp, text: string): boolean {
