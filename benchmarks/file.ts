@@ -7,7 +7,7 @@ import { bench, run, summary } from "mitata";
 import { createWriteStream } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pino } from "pino";
+import { destination, pino } from "pino";
 // @ts-types="@types/signale"
 import signale from "signale";
 import winston from "winston";
@@ -57,7 +57,7 @@ summary(() => {
 
   bench("pino", function* () {
     const tempFile = join(tmpdir(), `pino-bench-${Date.now()}.log`);
-    const logger = pino(pino.destination(tempFile));
+    const logger = pino(destination(tempFile));
     yield () => logger.info("Test log message.");
   });
 

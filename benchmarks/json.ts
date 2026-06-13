@@ -4,7 +4,7 @@ import * as logtape from "@logtape/logtape";
 import bunyan from "bunyan";
 import { bench, run, summary } from "mitata";
 import { devNull } from "node:os";
-import { pino } from "pino";
+import { destination, pino } from "pino";
 import winston from "winston";
 
 summary(() => {
@@ -38,7 +38,7 @@ summary(() => {
   });
 
   bench("pino", function* () {
-    const logger = pino(pino.destination(devNull));
+    const logger = pino(destination(devNull));
     yield () => logger.info("Test log message: %o", { foo: 1, bar: 2 });
   });
 

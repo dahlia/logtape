@@ -1,15 +1,15 @@
 {
   "imports": {
-    "@graphql-hive/logger": "npm:@graphql-hive/logger@^1.0.0",
+    "@graphql-hive/logger": "npm:@graphql-hive/logger@^1.1.0",
     "@types/bunyan": "npm:@types/bunyan@^1.8.11",
     "@types/signale": "npm:@types/signale@^1.4.7",
     "bunyan": "npm:bunyan@^1.8.15",
     "log4js": "npm:log4js@^6.9.1",
     "mitata": "npm:mitata@^1.0.34",
-    "pino": "npm:pino@^9.7.0",
-    "pino-abstract-transport": "npm:pino-abstract-transport@^2.0.0",
+    "pino": "npm:pino@^10.3.1",
+    "pino-abstract-transport": "npm:pino-abstract-transport@^3.0.0",
     "signale": "npm:signale@^1.4.0",
-    "winston": "npm:winston@^3.17.0",
+    "winston": "npm:winston@^3.19.0",
     "winston-transport": "npm:winston-transport@^4.9.0"
   },
   "tasks": {

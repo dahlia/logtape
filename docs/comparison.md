@@ -198,36 +198,43 @@ Performance comparison
 ----------------------
 
 Performance matters, especially for high-throughput applications.  Based on
-comprehensive benchmarks across different runtimes:
+comprehensive benchmarks across different runtimes.  The latest run used
+LogTape 2.2.0, Pino 10.3.1, winston 3.19.0, bunyan 1.8.15,
+log4js 6.9.1, Signale 1.4.0, and Hive Logger 1.1.0.
 
 ### Console logging (nanoseconds per iteration)
 
 | Library     | Node.js |    Deno |     Bun | Average |
 | ----------- | ------: | ------: | ------: | ------: |
-| **LogTape** | **214** | **236** | **225** | **225** |
-| Pino        |     326 |     302 |     874 |     501 |
-| winston     |   2,050 |   3,370 |   1,770 |   2,397 |
-| bunyan      |   2,390 |   3,260 |   2,020 |   2,557 |
-| log4js      |   3,600 |   4,430 |   3,540 |   3,857 |
-| Signale     |   4,110 |   3,020 |   2,110 |   3,080 |
+| LogTape     |     451 |     391 | **215** | **352** |
+| Pino        | **339** | **377** |     944 |     553 |
+| Hive Logger |   2,200 |   3,450 |   1,550 |   2,383 |
+| winston     |   2,130 |   3,630 |   1,880 |   2,547 |
+| bunyan      |   2,320 |   3,870 |   2,060 |   2,750 |
+| Signale     |   4,360 |   4,370 |   1,980 |   3,570 |
+| log4js      |   3,400 |   3,770 |   3,820 |   3,663 |
 
-LogTape consistently delivers the best console logging performance across
-all runtimes, often by a significant margin.
+LogTape had the lowest average console logging overhead in this run.  Pino
+was fastest on Node.js and Deno, but LogTape was fastest on Bun and close
+behind Pino on Deno.
 
 ### Null benchmark (no output)
 
-This measures the overhead when logs are disabled:
+This measures the overhead of enabled log calls routed to no-op output:
 
-| Library     | Node.js |    Deno |     Bun |
-| ----------- | ------: | ------: | ------: |
-| Hive Logger |     158 |   2,390 |     157 |
-| **LogTape** | **163** | **178** | **187** |
-| log4js      |     279 |     274 |     261 |
-| Pino        |     570 |   1,060 |     715 |
-| winston     |     701 |     757 |     569 |
+| Library     | Node.js |    Deno |    Bun | Average |
+| ----------- | ------: | ------: | -----: | ------: |
+| Hive Logger | **157** |     388 | **89** | **211** |
+| log4js      |     294 | **289** |    276 |     286 |
+| LogTape     |     381 |     321 |    202 |     301 |
+| winston     |     734 |     833 |    663 |     743 |
+| Pino        |     585 |     893 |    773 |     750 |
+| bunyan      |   1,430 |   1,600 |  1,340 |   1,457 |
+| Signale     |   2,770 |   2,380 |  1,190 |   2,113 |
 
-When logging is disabled, LogTape has minimal overhead, making it ideal for
-performance-critical applications.
+The no-op benchmark is sensitive to each logger's record construction path.
+Hive Logger and log4js still had the lowest no-op overhead in this run, but
+LogTape is now in the top tier: second on Bun and Deno, and third on Node.js.
 
 
 Feature comparison
@@ -366,7 +373,9 @@ Use case recommendations
     *@types/* packages
  -  *Modern JavaScript patterns* — Template literals, `async`/`await`,
     structured logging
- -  *Performance matters* — Especially for console logging
+ -  *Measured tradeoffs are acceptable* — The benchmark results fit your
+    workload and the library-first design matters more than winning every
+    microbenchmark
 
 ### Choose winston when…
 
@@ -413,8 +422,8 @@ JavaScript development:
 3.  *Zero dependencies*: Eliminate supply chain risks, reduce bundle size,
     and simplify maintenance.
 
-4.  *Performance leadership*: Consistently outperforms other libraries,
-    especially for console logging across all runtimes.
+4.  *Measured tradeoffs*: Provides a library-first logging model with
+    explicit, benchmarked performance costs.
 
 5.  *Developer experience*: TypeScript-first design with intuitive APIs
     like template literals and hierarchical categories.
@@ -432,4 +441,4 @@ the JavaScript ecosystem, as it enables library authors to provide logging
 capabilities without imposing dependencies or configuration requirements on
 their users.  This creates a better experience for everyone in the ecosystem.
 
-<!-- cSpell: ignore Bundlephobia Signale myapp -->
+<!-- cSpell: ignore Bundlephobia Hive Signale myapp -->
