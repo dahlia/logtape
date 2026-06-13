@@ -586,6 +586,16 @@ test("getJsonLinesFormatter()", () => {
     });
   }
 
+  { // default options keep the fixed JSON Lines shape
+    const formatter = getJsonLinesFormatter({ lineEnding: "crlf" });
+    const expected = '{"@timestamp":"2023-11-14T22:13:20.000Z",' +
+      '"level":"INFO","message":"Hello, 123 & 456!",' +
+      '"logger":"my-app.junk",' +
+      '"properties":{"userId":"12345","requestId":"abc-def"}}\r\n';
+
+    assert.deepStrictEqual(formatter(logRecord), expected);
+  }
+
   { // warning level converts to WARN
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(warningRecord));
@@ -742,6 +752,45 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.properties.error.errors.length, 2);
     assert.deepStrictEqual(result.properties.error.errors[0].message, "first");
     assert.deepStrictEqual(result.properties.error.errors[1].message, "second");
+  }
+
+  { // BigInt keeps JSON.stringify() failure behavior
+    const formatter = getJsonLinesFormatter();
+
+    assert.throws(
+      () =>
+        formatter({
+          ...logRecord,
+          properties: { value: 1n },
+        }),
+      TypeError,
+    );
+    assert.throws(
+      () =>
+        formatter({
+          ...logRecord,
+          message: ["value ", 1n, ""],
+          rawMessage: ["value ", ""] as unknown as TemplateStringsArray,
+          properties: {},
+        }),
+      TypeError,
+    );
+  }
+
+  { // default path preserves toJSON() field keys
+    const formatter = getJsonLinesFormatter();
+    const result = JSON.parse(formatter({
+      ...logRecord,
+      message: [{
+        toJSON: (key: string) => key,
+      }],
+      properties: {
+        toJSON: (key: string) => ({ key }),
+      } as unknown as Record<string, unknown>,
+    }));
+
+    assert.deepStrictEqual(result.message, "message");
+    assert.deepStrictEqual(result.properties, { key: "properties" });
   }
 
   { // invalid properties option - empty prepend prefix

@@ -585,6 +585,75 @@ function jsonReplacer(_key: string, value: unknown): unknown {
   return serialized;
 }
 
+function renderDefaultJsonLinesMessage(
+  message: readonly unknown[],
+): unknown {
+  const messageLength = message.length;
+  if (messageLength === 1) {
+    return message[0];
+  }
+  if (messageLength === 3) {
+    return (message[0] as string) + JSON.stringify(message[1]) +
+      (message[2] as string);
+  }
+
+  let rendered = message[0] as string;
+  for (let i = 1; i < messageLength; i++) {
+    rendered += (i & 1) ? JSON.stringify(message[i]) : message[i];
+  }
+  return rendered;
+}
+
+function stringifyJsonLinesField(
+  key: string,
+  value: unknown,
+): string | undefined {
+  if (
+    value != null &&
+    (typeof value === "object" ||
+      typeof value === "function" ||
+      typeof value === "bigint")
+  ) {
+    const toJSON = (value as { toJSON?: unknown }).toJSON;
+    if (typeof toJSON === "function") {
+      value = toJSON.call(value, key);
+    }
+  }
+  return JSON.stringify(jsonReplacer(key, value), jsonReplacer);
+}
+
+function formatDefaultJsonLinesRecord(
+  record: LogRecord,
+  lineEnding: string,
+): string {
+  const level = record.level === "warning"
+    ? "WARN"
+    : record.level.toUpperCase();
+  const messageJson: string | undefined = stringifyJsonLinesField(
+    "message",
+    renderDefaultJsonLinesMessage(record.message),
+  );
+  const propertiesJson: string | undefined = stringifyJsonLinesField(
+    "properties",
+    record.properties,
+  );
+
+  // The default formatter always emits the same object shape, so build the
+  // fixed JSON shell directly while preserving JSON.stringify() escaping,
+  // toJSON field keys, Error serialization, and unsupported-value failures.
+  let line = `{"@timestamp":${
+    JSON.stringify(new Date(record.timestamp).toISOString())
+  },"level":${JSON.stringify(level)}`;
+  if (messageJson !== undefined) {
+    line += `,"message":${messageJson}`;
+  }
+  line += `,"logger":${JSON.stringify(record.category.join("."))}`;
+  if (propertiesJson !== undefined) {
+    line += `,"properties":${propertiesJson}`;
+  }
+  return `${line}}${lineEnding}`;
+}
+
 /**
  * Get a text formatter with the specified options.  Although it's flexible
  * enough to create a custom formatter, if you want more control, you can
@@ -984,49 +1053,8 @@ export function getJsonLinesFormatter(
 
   // Most common configuration - optimize for the default case
   if (!options.categorySeparator && !options.message && !options.properties) {
-    // Ultra-minimalist path - eliminate all possible overhead
-    return (record: LogRecord): string => {
-      // Direct benchmark pattern match (most common case first)
-      if (record.message.length === 3) {
-        return JSON.stringify({
-          "@timestamp": new Date(record.timestamp).toISOString(),
-          level: record.level === "warning"
-            ? "WARN"
-            : record.level.toUpperCase(),
-          message: record.message[0] + JSON.stringify(record.message[1]) +
-            record.message[2],
-          logger: record.category.join("."),
-          properties: record.properties,
-        }, jsonReplacer) + lineEnding;
-      }
-
-      // Single message (second most common)
-      if (record.message.length === 1) {
-        return JSON.stringify({
-          "@timestamp": new Date(record.timestamp).toISOString(),
-          level: record.level === "warning"
-            ? "WARN"
-            : record.level.toUpperCase(),
-          message: record.message[0],
-          logger: record.category.join("."),
-          properties: record.properties,
-        }, jsonReplacer) + lineEnding;
-      }
-
-      // Complex messages (fallback)
-      let msg = record.message[0] as string;
-      for (let i = 1; i < record.message.length; i++) {
-        msg += (i & 1) ? JSON.stringify(record.message[i]) : record.message[i];
-      }
-
-      return JSON.stringify({
-        "@timestamp": new Date(record.timestamp).toISOString(),
-        level: record.level === "warning" ? "WARN" : record.level.toUpperCase(),
-        message: msg,
-        logger: record.category.join("."),
-        properties: record.properties,
-      }, jsonReplacer) + lineEnding;
-    };
+    return (record: LogRecord): string =>
+      formatDefaultJsonLinesRecord(record, lineEnding);
   }
 
   // Pre-compile configuration for non-default cases

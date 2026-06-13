@@ -27,6 +27,9 @@ To be released.
     the pre-sink log record snapshot when the sink consumes the record
     synchronously.
 
+ -  Improved default JSON Lines formatter performance by avoiding an
+    intermediate wrapper object while preserving JSON serialization behavior.
+
  -  Reduced allocation overhead in enabled logging by avoiding sink array
     materialization for the common single-sink path.
 
