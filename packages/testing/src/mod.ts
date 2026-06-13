@@ -442,6 +442,9 @@ function formatCount(count: number, noun: string): string {
 
 function formatValue(value: unknown): string {
   if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    return String(value);
+  }
   if (typeof value === "bigint") return `${value}n`;
   if (typeof value === "symbol") return String(value);
   if (value instanceof RegExp) return String(value);

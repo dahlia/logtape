@@ -194,6 +194,31 @@ test("LogRecorder diagnostics handle null-prototype circular values", () => {
   );
 });
 
+test("LogRecorder diagnostics preserve non-finite numbers", () => {
+  const recorder = createLogRecorder();
+  recorder.sink(logRecord({
+    message: ["non-finite numbers"],
+    properties: { value: -Infinity },
+  }));
+
+  assert.throws(
+    () =>
+      recorder.assertLogged({
+        properties: { actual: NaN, expected: Infinity },
+      }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /properties\.actual: NaN/);
+      assert.match(error.message, /properties\.expected: Infinity/);
+      assert.match(error.message, /value: -Infinity/);
+      assert.doesNotMatch(error.message, /properties\.actual: null/);
+      assert.doesNotMatch(error.message, /properties\.expected: null/);
+      assert.doesNotMatch(error.message, /value: null/);
+      return true;
+    },
+  );
+});
+
 test("LogRecorder matches rendered object message values", () => {
   const recorder = createLogRecorder();
   const payload = { foo: "bar" };
