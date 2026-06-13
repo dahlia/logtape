@@ -4,25 +4,25 @@ import {
   type Sink,
   type TextFormatter,
 } from "@logtape/logtape";
+import { once } from "node:events";
 import { createWriteStream } from "node:fs";
-import { PassThrough } from "node:stream";
 
 /**
  * Options for the {@link getStreamFileSink} function.
  *
  * This interface configures the high-performance stream-based file sink that
- * uses Node.js PassThrough streams for optimal I/O performance with automatic
- * backpressure management.
+ * writes directly to Node.js file streams for optimal I/O performance with
+ * native stream buffering.
  *
  * @since 1.0.0
  */
 export interface StreamFileSinkOptions {
   /**
-   * High water mark for the PassThrough stream buffer in bytes.
+   * High water mark for the file stream buffer in bytes.
    *
-   * This controls the internal buffer size of the PassThrough stream.
-   * Higher values can improve performance for high-volume logging but use
-   * more memory. Lower values reduce memory usage but may impact performance.
+   * This controls the internal buffer size of the underlying file stream.
+   * Higher values can improve performance for high-volume logging but use more
+   * memory. Lower values reduce memory usage but may impact performance.
    *
    * @default 16384
    * @since 1.0.0
@@ -45,16 +45,15 @@ export interface StreamFileSinkOptions {
 /**
  * Create a high-performance stream-based file sink that writes log records to a file.
  *
- * This sink uses Node.js PassThrough streams piped to WriteStreams for optimal
- * I/O performance. It leverages the Node.js stream infrastructure to provide
- * automatic backpressure management, efficient buffering, and asynchronous writes
- * without blocking the main thread.
+ * This sink writes formatted records directly to a Node.js `WriteStream`. It
+ * leverages Node.js stream buffering for efficient asynchronous writes without
+ * blocking the main thread.
  *
  * ## Performance Characteristics
  *
  * - **High Performance**: Optimized for high-volume logging scenarios
  * - **Non-blocking**: Uses asynchronous I/O that doesn't block the main thread
- * - **Memory Efficient**: Automatic backpressure prevents memory buildup
+ * - **Memory Efficient**: Uses the file stream buffer directly
  * - **Stream-based**: Leverages Node.js native stream optimizations
  *
  * ## When to Use
@@ -62,7 +61,7 @@ export interface StreamFileSinkOptions {
  * Use this sink when you need:
  * - High-performance file logging for production applications
  * - Non-blocking I/O behavior for real-time applications
- * - Automatic backpressure handling for high-volume scenarios
+ * - Stream-buffered writes for high-volume scenarios
  * - Simple file output without complex buffering configuration
  *
  * For more control over buffering behavior, consider using {@link getFileSink}
@@ -103,54 +102,49 @@ export function getStreamFileSink(
   const highWaterMark = options.highWaterMark ?? 16384;
   const formatter = options.formatter ?? defaultTextFormatter;
 
-  // Create PassThrough stream for optimal performance
-  const passThrough = new PassThrough({
+  const writeStream = createWriteStream(path, {
+    flags: "a",
     highWaterMark,
-    objectMode: false,
   });
 
-  // Create WriteStream immediately (not lazy)
-  const writeStream = createWriteStream(path, { flags: "a" });
-
-  // Pipe PassThrough to WriteStream for automatic backpressure handling
-  passThrough.pipe(writeStream);
-
   let disposed = false;
+  let streamError: Error | undefined;
+  const handleStreamError = (error: Error) => {
+    streamError = error;
+  };
+  writeStream.on("error", handleStreamError);
 
-  // Stream-based sink function for high performance
   const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     if (disposed) return;
 
-    // Direct write to PassThrough stream
-    passThrough.write(formatter(record));
+    // The hot path writes straight to the file stream.  We intentionally avoid
+    // awaiting backpressure here; async disposal below is the synchronization
+    // point that waits for buffered records to reach the filesystem.
+    writeStream.write(formatter(record));
   };
 
-  // Asynchronous disposal with sequential stream closure
   sink[Symbol.asyncDispose] = async () => {
     if (disposed) return;
     disposed = true;
 
-    // Wait for PassThrough to drain if needed
-    if (passThrough.writableNeedDrain) {
-      await new Promise<void>((resolve) => {
-        passThrough.once("drain", resolve);
-      });
-    }
+    try {
+      if (streamError != null) throw streamError;
 
-    // End the PassThrough stream first and wait for it to finish
-    await new Promise<void>((resolve) => {
-      passThrough.once("finish", resolve);
-      passThrough.end();
-    });
-
-    // Wait for WriteStream to finish and close (piped streams auto-close)
-    await new Promise<void>((resolve) => {
-      if (writeStream.closed || writeStream.destroyed) {
-        resolve();
-        return;
+      if (writeStream.writableNeedDrain && !writeStream.writableEnded) {
+        await once(writeStream, "drain");
       }
-      writeStream.once("close", resolve);
-    });
+      if (streamError != null) throw streamError;
+
+      if (writeStream.closed || writeStream.destroyed) return;
+
+      const closePromise = once(writeStream, "close");
+      writeStream.end();
+      await closePromise;
+
+      if (streamError != null) throw streamError;
+    } finally {
+      writeStream.off("error", handleStreamError);
+    }
   };
 
   return sink;

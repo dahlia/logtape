@@ -82,6 +82,10 @@ To be released.
 
 ### @logtape/file
 
+ -  Improved `getStreamFileSink()` throughput by writing formatted log records
+    directly to the underlying file stream instead of routing them through an
+    extra Node.js stream layer.
+
  -  Fixed a bug where `getRotatingFileSink()` with `maxFiles: 0` or a negative
     `maxFiles` still renamed the current file to `path.1` during rollover,
     leaving stale backup files behind even though no backups should be kept.

@@ -124,6 +124,30 @@ test("getStreamFileSink() high-volume logging", async () => {
   assert.ok(lines[99].includes("Log entry 99"));
 });
 
+test("getStreamFileSink() flushes buffered direct writes on disposal", async () => {
+  const path = makeTempFileSync();
+  const sink = getStreamFileSink(path, {
+    highWaterMark: 16,
+    formatter: (record) => `${record.message[0]}\n`,
+  });
+
+  for (let i = 0; i < 200; i++) {
+    const record: LogRecord = {
+      ...debug,
+      message: [`Buffered entry ${i} ${"x".repeat(200)}`],
+    };
+    sink(record);
+  }
+
+  await sink[Symbol.asyncDispose]();
+
+  const content = fs.readFileSync(path, { encoding: "utf-8" });
+  const lines = content.split("\n").filter((line) => line.length > 0);
+  assert.strictEqual(lines.length, 200);
+  assert.ok(lines[0].startsWith("Buffered entry 0 "));
+  assert.ok(lines[199].startsWith("Buffered entry 199 "));
+});
+
 test("getStreamFileSink() disposal stops writing", async () => {
   const path = makeTempFileSync();
   const sink = getStreamFileSink(path);
