@@ -68,12 +68,12 @@ try {
 }
 ~~~~
 
-The recorder also provides `records`, `clear()`, `take()`, `find()`,
-`filter()`, and `assertNotLogged()` for tests that need lower-level access.
-Most property values are compared with `Object.is()`, `Date` values are
-compared by timestamp, and regular expression matcher values match string
-property values.  Rendered message matching uses the same value rendering as
-LogTape's default text formatter.
+The `records` property returns a snapshot, and the recorder also provides
+`clear()`, `take()`, `find()`, `filter()`, and `assertNotLogged()` for tests
+that need lower-level access.  Most property values are compared with
+`Object.is()`, `Date` values are compared by timestamp, and regular expression
+matcher values match string property values.  Rendered message matching uses
+the same value rendering as LogTape's default text formatter.
 
 
 Docs

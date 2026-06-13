@@ -37,6 +37,22 @@ test("createLogRecorder() stores records in order", () => {
   assert.deepStrictEqual(recorder.records, [first, second]);
 });
 
+test("LogRecorder.records returns snapshots", () => {
+  const recorder = createLogRecorder();
+  const record = logRecord({ message: ["snapshot"] });
+  recorder.sink(record);
+
+  const snapshot = recorder.records;
+  (recorder.records as LogRecord[]).pop();
+
+  assert.deepStrictEqual(recorder.records, [record]);
+
+  recorder.clear();
+
+  assert.deepStrictEqual(snapshot, [record]);
+  assert.deepStrictEqual(recorder.records, []);
+});
+
 test("LogRecorder.clear()", () => {
   const recorder = createLogRecorder();
   recorder.sink(logRecord({ message: ["before clear"] }));

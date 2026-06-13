@@ -92,7 +92,7 @@ export interface LogRecorder {
   readonly sink: Sink;
 
   /**
-   * Records collected so far, in sink call order.
+   * A snapshot of records collected so far, in sink call order.
    */
   readonly records: readonly LogRecord[];
 
@@ -184,7 +184,7 @@ export function createLogRecorder(): LogRecorder {
   return {
     sink,
     get records(): readonly LogRecord[] {
-      return records;
+      return records.slice();
     },
     clear(): void {
       records.length = 0;
