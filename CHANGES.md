@@ -16,6 +16,9 @@ To be released.
  -  Improved enabled string logging performance by using a faster snapshot path
     for log records created by LogTape.
 
+ -  Reduced allocation overhead in enabled logging by avoiding sink array
+    materialization for the common single-sink path.
+
 ### @logtape/config
 
  -  Added `ConfigureOptions.contextLocalStorage` option to

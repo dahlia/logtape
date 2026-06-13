@@ -3180,6 +3180,38 @@ test("Logger does not resolve lazy values when no sinks are configured", () => {
   }
 });
 
+test("Logger does not resolve lazy values when all sinks are bypassed", () => {
+  const logger: LoggerImpl = LoggerImpl.getLogger(["lazy-bypassed-sink-test"]);
+  const sink: Sink = () => assert.fail("sink should not be called");
+  logger.parentSinks = "override";
+  logger.sinks.push(sink);
+
+  try {
+    let evaluated: boolean = false;
+
+    logger.emit(
+      {
+        category: ["lazy-bypassed-sink-test"],
+        level: "info",
+        message: ["Bypassed"],
+        rawMessage: "Bypassed",
+        timestamp: Date.now(),
+        properties: {
+          value: lazy(() => {
+            evaluated = true;
+            return "computed";
+          }),
+        },
+      },
+      new Set([sink]),
+    );
+
+    assert.strictEqual(evaluated, false);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
 test("Logger resolves direct lazy properties before buffered sinks read them", () => {
   const logger: LoggerImpl = LoggerImpl.getLogger([
     "lazy-direct-buffer-snapshot-test",

@@ -1677,15 +1677,57 @@ export class LoggerImpl implements Logger {
     ) {
       return;
     }
-    const sinks: Sink[] = [...this.getSinks(record.level)];
-    if (sinks.length < 1) return;
+    const sinkIterator = this.getSinks(record.level)[Symbol.iterator]();
+    const firstSink = sinkIterator.next();
+    if (firstSink.done) return;
+    const secondSink = sinkIterator.next();
+    let sinks: Sink[] | undefined;
+    if (!secondSink.done) {
+      // Multiple sinks keep the previous snapshot-list behavior, so sink list
+      // mutations during emission do not affect the current record.
+      sinks = [firstSink.value, secondSink.value];
+      for (;;) {
+        const nextSink = sinkIterator.next();
+        if (nextSink.done) break;
+        sinks.push(nextSink.value);
+      }
+    }
+
     let snapshot: LogRecord | undefined;
     let snapshotFailed: boolean = false;
+    if (sinks == null) {
+      const sink = firstSink.value;
+      if (bypassSinks?.has(sink)) return;
+      try {
+        try {
+          // Avoid a sinks array for the common one-sink path, but keep lazy
+          // properties snapshotted before the sink can buffer the record.
+          snapshot = snapshotLogRecordProperties(record);
+        } catch {
+          snapshotFailed = true;
+          snapshot = record;
+        }
+        sink(snapshot ?? record);
+      } catch (error) {
+        const bypassSinks2 = new Set(bypassSinks);
+        bypassSinks2.add(sink);
+        metaLogger.log(
+          "fatal",
+          "Failed to emit a log record to sink {sink}: {error}",
+          { sink, error, record },
+          bypassSinks2,
+        );
+      }
+      return;
+    }
+
     for (const sink of sinks) {
       if (bypassSinks?.has(sink)) continue;
       try {
         if (snapshot == null && !snapshotFailed) {
           try {
+            // Build the snapshot only once and only for a sink that will
+            // actually receive the record.
             snapshot = snapshotLogRecordProperties(record);
           } catch {
             snapshotFailed = true;
