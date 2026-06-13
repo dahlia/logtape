@@ -3,12 +3,34 @@ import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
 
 export type { LogLevel } from "@logtape/logtape";
 
+type ElysiaRequestHeaders = Request extends {
+  readonly headers: infer RequestHeaders;
+} ? RequestHeaders & {
+    get(name: string): string | null;
+  }
+  : {
+    get(name: string): string | null;
+  };
+
+/**
+ * Web Request interface exposed to Elysia request hooks.
+ * @since 2.2.0
+ */
+export interface ElysiaRequest extends Request {
+  /** HTTP request method */
+  readonly method: string;
+  /** Request URL */
+  readonly url: string;
+  /** Request headers */
+  readonly headers: ElysiaRequestHeaders;
+}
+
 /**
  * Minimal Elysia Context interface for compatibility.
  * @since 2.0.0
  */
 export interface ElysiaContext {
-  request: Request;
+  request: ElysiaRequest;
   path: string;
   set: {
     status: number;
@@ -282,7 +304,7 @@ function defaultNormalizeRequestId(value: string): string | null {
 /**
  * Resolve a request path from a request URL.
  */
-function getPath(request: Request): string {
+function getPath(request: ElysiaRequest): string {
   return new URL(request.url, "http://localhost").pathname;
 }
 
@@ -290,7 +312,7 @@ function getPath(request: Request): string {
  * Resolve the request ID for a request.
  */
 function resolveRequestId(
-  request: Request,
+  request: ElysiaRequest,
   options: RequestIdOptions,
 ): {
   readonly property: string;
@@ -325,7 +347,7 @@ function resolveRequestId(
 /**
  * Get referrer from request headers.
  */
-function getReferrer(request: Request): string | undefined {
+function getReferrer(request: ElysiaRequest): string | undefined {
   return request.headers.get("referrer") ??
     request.headers.get("referer") ??
     undefined;
@@ -334,14 +356,14 @@ function getReferrer(request: Request): string | undefined {
 /**
  * Get user agent from request headers.
  */
-function getUserAgent(request: Request): string | undefined {
+function getUserAgent(request: ElysiaRequest): string | undefined {
   return request.headers.get("user-agent") ?? undefined;
 }
 
 /**
  * Get remote address from X-Forwarded-For header.
  */
-function getRemoteAddr(request: Request): string | undefined {
+function getRemoteAddr(request: ElysiaRequest): string | undefined {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     // X-Forwarded-For can contain multiple IPs, take the first one
@@ -355,7 +377,7 @@ function getRemoteAddr(request: Request): string | undefined {
  * Build request context fields from a request.
  */
 function buildIncludedContext(
-  request: Request,
+  request: ElysiaRequest,
   resolvedRequestId:
     | { readonly property: string; readonly value: string }
     | undefined,
@@ -396,7 +418,7 @@ function buildIncludedContext(
  * Build the implicit context for a request.
  */
 async function buildRequestContext(
-  request: Request,
+  request: ElysiaRequest,
   options: RequestContextOptions,
 ): Promise<ElysiaRequestContextState> {
   const requestIdOptions = normalizeRequestIdOptions(options.requestId);
