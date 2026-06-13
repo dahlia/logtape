@@ -480,26 +480,35 @@ See <https://logtape.org/manual/adaptors.md> for details.
 Testing
 -------
 
-For tests, configure a buffer sink and assert on collected records:
+For tests, use `@logtape/testing` and assert on collected records:
 
 ~~~~ typescript
-import { configure, getLogger, reset, type LogRecord } from "@logtape/logtape";
+import { configure, getLogger, reset } from "@logtape/logtape";
+import { createLogRecorder } from "@logtape/testing";
 
-const buffer: LogRecord[] = [];
+const recorder = createLogRecorder();
 
-await configure({
-  sinks: { buffer: buffer.push.bind(buffer) },
-  loggers: [{ category: "test", sinks: ["buffer"] }],
-});
+try {
+  await configure({
+    sinks: { recorder: recorder.sink },
+    loggers: [
+      { category: "test", sinks: ["recorder"] },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
 
-const logger = getLogger(["test"]);
-logger.info("hello");
+  const logger = getLogger(["test"]);
+  logger.info("User {userId} logged in.", { userId: "u-123" });
 
-// Assert
-assert(buffer.length === 1);
-assert(buffer[0].level === "info");
-
-await reset();
+  recorder.assertLogged({
+    category: "test",
+    level: "info",
+    message: /^User .+ logged in\.$/,
+    properties: { userId: "u-123" },
+  });
+} finally {
+  await reset();
+}
 ~~~~
 
 If using `configureSync()`, reset with `resetSync()`:
@@ -549,6 +558,12 @@ Available packages
 | -------------------- | ------------------------ |
 | `@logtape/pretty`    | Pretty console formatter |
 | `@logtape/redaction` | Sensitive data redaction |
+
+### Testing
+
+| Package            | Description                  |
+| ------------------ | ---------------------------- |
+| `@logtape/testing` | Log recording and assertions |
 
 ### Adaptors (for existing loggers)
 
