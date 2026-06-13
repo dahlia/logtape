@@ -20,6 +20,9 @@ To be released.
     allocation and lazy record getters when a log call has no properties or
     message placeholders.
 
+ -  Improved enabled logging performance by caching effective sink dispatch
+    plans instead of rebuilding the inherited sink list for every log record.
+
  -  Reduced allocation overhead in enabled logging by avoiding sink array
     materialization for the common single-sink path.
 

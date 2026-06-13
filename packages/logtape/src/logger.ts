@@ -195,6 +195,27 @@ function hasEnumerableProperties(properties: unknown): boolean {
     );
 }
 
+type SinkDispatchPlanState = {
+  readonly localSinks: readonly Sink[];
+  readonly parentSinks: "inherit" | "override";
+  readonly lowestLevel: LogLevel | null;
+  readonly parentPlan: SinkDispatchPlan | undefined;
+};
+
+type SinkDispatchPlan =
+  & SinkDispatchPlanState
+  & (
+    | { readonly kind: "none" }
+    | {
+      readonly kind: "one";
+      readonly sink: Sink;
+    }
+    | {
+      readonly kind: "many";
+      readonly sinks: readonly Sink[];
+    }
+  );
+
 /**
  * A logger interface.  It provides methods to log messages at different
  * severity levels.
@@ -1502,10 +1523,11 @@ export class LoggerImpl implements Logger {
   readonly children: Record<string, LoggerImpl | WeakRef<LoggerImpl>>;
   readonly category: readonly string[];
   readonly sinks: Sink[];
-  parentSinks: "inherit" | "override" = "inherit";
   readonly filters: Filter[];
-  lowestLevel: LogLevel | null = "trace";
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
+  #parentSinks: "inherit" | "override" = "inherit";
+  #lowestLevel: LogLevel | null = "trace";
+  #sinkPlanCache: Partial<Record<LogLevel, SinkDispatchPlan>> = {};
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
     let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
@@ -1543,6 +1565,24 @@ export class LoggerImpl implements Logger {
     this.category = category;
     this.sinks = [];
     this.filters = [];
+  }
+
+  get parentSinks(): "inherit" | "override" {
+    return this.#parentSinks;
+  }
+
+  set parentSinks(value: "inherit" | "override") {
+    if (this.#parentSinks === value) return;
+    this.#parentSinks = value;
+  }
+
+  get lowestLevel(): LogLevel | null {
+    return this.#lowestLevel;
+  }
+
+  set lowestLevel(value: LogLevel | null) {
+    if (this.#lowestLevel === value) return;
+    this.#lowestLevel = value;
   }
 
   getChild(
@@ -1605,15 +1645,97 @@ export class LoggerImpl implements Logger {
   }
 
   *getSinks(level: LogLevel): Iterable<Sink> {
+    const plan = this.getSinkDispatchPlan(level);
+    switch (plan.kind) {
+      case "none":
+        return;
+      case "one":
+        yield plan.sink;
+        return;
+      case "many":
+        yield* plan.sinks;
+        return;
+    }
+  }
+
+  private getSinkDispatchPlan(level: LogLevel): SinkDispatchPlan {
+    const cached = this.#sinkPlanCache[level];
+    if (cached != null && this.isSinkDispatchPlanFresh(level, cached)) {
+      return cached;
+    }
+
+    const parentPlan = this.parent != null && this.parentSinks === "inherit"
+      ? this.parent.getSinkDispatchPlan(level)
+      : undefined;
+    const plan = this.createSinkDispatchPlan(level, parentPlan);
+    this.#sinkPlanCache[level] = plan;
+    return plan;
+  }
+
+  private isSinkDispatchPlanFresh(
+    level: LogLevel,
+    plan: SinkDispatchPlan,
+  ): boolean {
     if (
-      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
+      plan.lowestLevel !== this.lowestLevel ||
+      plan.parentSinks !== this.parentSinks ||
+      plan.localSinks.length !== this.sinks.length
     ) {
-      return;
+      return false;
     }
-    if (this.parent != null && this.parentSinks === "inherit") {
-      for (const sink of this.parent.getSinks(level)) yield sink;
+    for (let i = 0; i < plan.localSinks.length; i++) {
+      if (plan.localSinks[i] !== this.sinks[i]) return false;
     }
-    for (const sink of this.sinks) yield sink;
+
+    const parentPlan = this.parent != null && this.parentSinks === "inherit"
+      ? this.parent.getSinkDispatchPlan(level)
+      : undefined;
+    return plan.parentPlan === parentPlan;
+  }
+
+  private createSinkDispatchPlan(
+    level: LogLevel,
+    parentPlan: SinkDispatchPlan | undefined,
+  ): SinkDispatchPlan {
+    const state: SinkDispatchPlanState = {
+      // Keep a plain array for compatibility with cross-runtime assertions, but
+      // snapshot it here so direct index/length mutations invalidate the cache.
+      localSinks: [...this.sinks],
+      parentSinks: this.parentSinks,
+      lowestLevel: this.lowestLevel,
+      parentPlan,
+    };
+    if (state.lowestLevel === null) return { ...state, kind: "none" };
+    if (compareLogLevel(level, state.lowestLevel) < 0) {
+      return { ...state, kind: "none" };
+    }
+
+    let firstSink: Sink | undefined;
+    let sinks: Sink[] | undefined;
+    const appendSink = (sink: Sink) => {
+      if (sinks != null) {
+        sinks.push(sink);
+      } else if (firstSink == null) {
+        firstSink = sink;
+      } else {
+        sinks = [firstSink, sink];
+      }
+    };
+
+    if (parentPlan != null) {
+      if (parentPlan.kind === "one") {
+        firstSink = parentPlan.sink;
+      } else if (parentPlan.kind === "many") {
+        // Multiple-sink plans are snapshots.  Copy the parent snapshot so local
+        // sinks can be appended without mutating the parent's cached plan.
+        sinks = [...parentPlan.sinks];
+      }
+    }
+    for (const sink of state.localSinks) appendSink(sink);
+
+    if (sinks != null) return { ...state, kind: "many", sinks };
+    if (firstSink != null) return { ...state, kind: "one", sink: firstSink };
+    return { ...state, kind: "none" };
   }
 
   isEnabledFor(level: LogLevel): boolean {
@@ -1630,15 +1752,7 @@ export class LoggerImpl implements Logger {
   }
 
   private isEnabledForResolved(level: LogLevel): boolean {
-    if (
-      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
-    ) {
-      return false;
-    }
-    for (const _ of this.getSinks(level)) {
-      return true;
-    }
-    return false;
+    return this.getSinkDispatchPlan(level).kind !== "none";
   }
 
   emit(record: Omit<LogRecord, "category">): void;
@@ -1692,26 +1806,13 @@ export class LoggerImpl implements Logger {
     ) {
       return;
     }
-    const sinkIterator = this.getSinks(record.level)[Symbol.iterator]();
-    const firstSink = sinkIterator.next();
-    if (firstSink.done) return;
-    const secondSink = sinkIterator.next();
-    let sinks: Sink[] | undefined;
-    if (!secondSink.done) {
-      // Multiple sinks keep the previous snapshot-list behavior, so sink list
-      // mutations during emission do not affect the current record.
-      sinks = [firstSink.value, secondSink.value];
-      for (;;) {
-        const nextSink = sinkIterator.next();
-        if (nextSink.done) break;
-        sinks.push(nextSink.value);
-      }
-    }
+    const plan = this.getSinkDispatchPlan(record.level);
+    if (plan.kind === "none") return;
 
     let snapshot: LogRecord | undefined;
     let snapshotFailed: boolean = false;
-    if (sinks == null) {
-      const sink = firstSink.value;
+    if (plan.kind === "one") {
+      const sink = plan.sink;
       if (bypassSinks?.has(sink)) return;
       try {
         try {
@@ -1736,7 +1837,7 @@ export class LoggerImpl implements Logger {
       return;
     }
 
-    for (const sink of sinks) {
+    for (const sink of plan.sinks) {
       if (bypassSinks?.has(sink)) continue;
       try {
         if (snapshot == null && !snapshotFailed) {

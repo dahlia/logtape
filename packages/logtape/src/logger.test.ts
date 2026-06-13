@@ -155,6 +155,108 @@ test("LoggerImpl.getSinks()", () => {
   }
 });
 
+test("LoggerImpl sink plan cache observes direct sink mutations", () => {
+  const logger = LoggerImpl.getLogger(["cache", "direct"]);
+  const recordsA: LogRecord[] = [];
+  const recordsB: LogRecord[] = [];
+  const sinkA: Sink = (record) => recordsA.push(record);
+  const sinkB: Sink = (record) => recordsB.push(record);
+
+  try {
+    logger.parentSinks = "override";
+    logger.sinks.push(sinkA);
+    logger.emit(info);
+
+    logger.sinks[0] = sinkB;
+    logger.emit(info);
+
+    logger.sinks.length = 0;
+    logger.emit(info);
+
+    assert.deepStrictEqual(recordsA, [info]);
+    assert.deepStrictEqual(recordsB, [info]);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("LoggerImpl sink plan cache observes inherited sink resets", () => {
+  const parent = LoggerImpl.getLogger(["cache", "parent"]);
+  const child = parent.getChild("child");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    parent.parentSinks = "override";
+    parent.sinks.push(sink);
+    child.emit(info);
+
+    parent.reset();
+    child.emit(info);
+
+    parent.parentSinks = "override";
+    parent.sinks.push(sink);
+    child.emit(info);
+
+    assert.deepStrictEqual(records, [info, info]);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("LoggerImpl sink plan cache snapshots emission-time mutations", () => {
+  const logger = LoggerImpl.getLogger(["cache", "mutation"]);
+  const calls: string[] = [];
+  const sinkC: Sink = () => calls.push("c");
+  const sinkA: Sink = () => {
+    calls.push("a");
+    logger.sinks.push(sinkC);
+  };
+  const sinkB: Sink = () => calls.push("b");
+
+  try {
+    logger.parentSinks = "override";
+    logger.sinks.push(sinkA, sinkB);
+
+    logger.emit(info);
+    assert.deepStrictEqual(calls, ["a", "b"]);
+
+    calls.length = 0;
+    logger.emit(info);
+    assert.deepStrictEqual(calls, ["a", "b", "c"]);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("LoggerImpl sink plan cache follows category prefix dispatchers", () => {
+  const root = LoggerImpl.getLogger([]);
+  const prefixed = LoggerImpl.getLogger(["tenant", "cache-prefix"]);
+  const unprefixed = LoggerImpl.getLogger("cache-prefix");
+  const recordsA: LogRecord[] = [];
+  const recordsB: LogRecord[] = [];
+  const sinkA: Sink = (record) => recordsA.push(record);
+  const sinkB: Sink = (record) => recordsB.push(record);
+
+  try {
+    root.contextLocalStorage = new TestContextLocalStorage();
+    prefixed.parentSinks = "override";
+    prefixed.sinks.push(sinkA);
+    withCategoryPrefix("tenant", () => unprefixed.info("cached prefix"));
+
+    prefixed.sinks[0] = sinkB;
+    withCategoryPrefix("tenant", () => unprefixed.info("cached prefix"));
+
+    assert.strictEqual(recordsA.length, 1);
+    assert.strictEqual(recordsB.length, 1);
+    assert.deepStrictEqual(recordsA[0].category, ["tenant", "cache-prefix"]);
+    assert.deepStrictEqual(recordsB[0].category, ["tenant", "cache-prefix"]);
+  } finally {
+    root.contextLocalStorage = undefined;
+    root.resetDescendants();
+  }
+});
+
 test("LoggerImpl.emit()", () => {
   const root = LoggerImpl.getLogger([]);
   const foo = root.getChild("foo");
