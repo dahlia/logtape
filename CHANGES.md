@@ -8,6 +8,11 @@ Version 2.2.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Improved enabled logging performance by avoiding redundant log record
+    category copying when no category prefix is active.
+
 ### @logtape/config
 
  -  Added `ConfigureOptions.contextLocalStorage` option to

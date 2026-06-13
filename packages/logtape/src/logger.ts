@@ -1617,7 +1617,8 @@ export class LoggerImpl implements Logger {
     record: Omit<LogRecord, "category"> | LogRecord,
     bypassSinks?: Set<Sink>,
   ): void {
-    const baseCategory = "category" in record
+    const hasCategory = "category" in record;
+    const baseCategory = hasCategory
       ? (record as LogRecord).category
       : this.category;
     const categoryPrefix = isMetaLoggerCategory(baseCategory)
@@ -1626,6 +1627,15 @@ export class LoggerImpl implements Logger {
     const fullCategory = categoryPrefix.length > 0
       ? [...categoryPrefix, ...baseCategory]
       : baseCategory;
+    if (
+      categoryPrefix.length < 1 &&
+      Object.prototype.hasOwnProperty.call(record, "category")
+    ) {
+      // The record already carries the final category in the common path, so
+      // avoid cloning descriptors on every enabled log call.
+      this.emitResolved(record as LogRecord, bypassSinks);
+      return;
+    }
 
     // Create the full record by copying property descriptors from the original
     // record, which preserves getters without invoking them (unlike spread).
