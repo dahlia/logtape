@@ -246,7 +246,7 @@ function matchesLogRecord(record: LogRecord, match: LogRecordMatch): boolean {
   if (match.level != null && record.level !== match.level) return false;
   if (
     match.message != null &&
-    !matchesMessage(renderMessage(record), record, match.message)
+    !matchesMessage(record, match.message)
   ) {
     return false;
   }
@@ -299,12 +299,11 @@ function parseCategory(
 }
 
 function matchesMessage(
-  renderedMessage: string,
   record: LogRecord,
   matcher: string | RegExp | ((record: LogRecord) => boolean),
 ): boolean {
   if (typeof matcher === "function") return matcher(record);
-  return matchesText(renderedMessage, matcher);
+  return matchesText(renderMessage(record), matcher);
 }
 
 function matchesText(text: string, matcher: string | RegExp): boolean {
@@ -426,9 +425,17 @@ function formatRecords(records: readonly LogRecord[]): string {
 
 function formatRecord(record: LogRecord): string {
   const category = formatCategory(record.category);
-  return `  [${record.level}] ${category}: ${renderMessage(record)}${
+  return `  [${record.level}] ${category}: ${formatMessage(record)}${
     formatProperties(record.properties)
   }`;
+}
+
+function formatMessage(record: LogRecord): string {
+  try {
+    return renderMessage(record);
+  } catch (error) {
+    return formatAccessError(error);
+  }
 }
 
 function formatCategory(category: readonly string[]): string {

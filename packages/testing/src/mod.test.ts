@@ -517,6 +517,47 @@ test("LogRecorder diagnostics render messages like the core formatter", () => {
   );
 });
 
+test("LogRecorder message predicates do not render messages", () => {
+  const recorder = createLogRecorder();
+  const value = throwingInspectValue();
+  const record = logRecord({
+    message: ["Value ", value, "."],
+    rawMessage: "Value {value}.",
+  });
+  recorder.sink(record);
+
+  let seenRecord: LogRecord | undefined;
+  assert.strictEqual(
+    recorder.find({
+      message: (candidate) => {
+        seenRecord = candidate;
+        return candidate.message[1] === value;
+      },
+    }),
+    record,
+  );
+  assert.strictEqual(seenRecord, record);
+});
+
+test("LogRecorder diagnostics guard message rendering errors", () => {
+  const recorder = createLogRecorder();
+  recorder.sink(logRecord({
+    message: ["Value ", throwingInspectValue(), "."],
+    rawMessage: "Value {value}.",
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ level: "error" }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Expected a LogTape record matching:/);
+      assert.match(error.message, /level: "error"/);
+      assert.match(error.message, /<error: inspect failed>/);
+      return true;
+    },
+  );
+});
+
 test("LogRecorder matches rendered special object message values", () => {
   const recorder = createLogRecorder();
   const error = new TypeError("Bad input");
@@ -708,4 +749,15 @@ function circularNullPrototypeObject(): Record<string, unknown> {
   const value = Object.create(null) as Record<string, unknown>;
   value.self = value;
   return value;
+}
+
+function throwingInspectValue(): unknown {
+  return {
+    [Symbol.for("Deno.customInspect")](): string {
+      throw new Error("inspect failed");
+    },
+    [Symbol.for("nodejs.util.inspect.custom")](): string {
+      throw new Error("inspect failed");
+    },
+  };
 }
