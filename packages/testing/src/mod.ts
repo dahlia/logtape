@@ -466,7 +466,7 @@ function formatValue(value: unknown): string {
   if (value instanceof Map) return formatMap(value);
   if (value instanceof Set) return formatSet(value);
   try {
-    return JSON.stringify(value) ?? safeString(value);
+    return safeJsonStringify(value) ?? safeString(value);
   } catch {
     return safeString(value);
   }
@@ -475,16 +475,8 @@ function formatValue(value: unknown): string {
 function formatMap(value: ReadonlyMap<unknown, unknown>): string {
   const label = `Map(${value.size})`;
   try {
-    const entries = Array.from(
-      value,
-      ([key, entryValue]) => [safeString(key), entryValue] as const,
-    );
-    const keys = entries.map(([key]) => key);
-    const uniqueKeys = new Set(keys);
-    const contents = uniqueKeys.size === keys.length
-      ? Object.fromEntries(entries)
-      : entries;
-    return `${label} ${JSON.stringify(contents)}`;
+    const contents = formatMapContents(value);
+    return `${label} ${safeJsonStringify(contents) ?? safeString(contents)}`;
   } catch {
     return label;
   }
@@ -493,10 +485,40 @@ function formatMap(value: ReadonlyMap<unknown, unknown>): string {
 function formatSet(value: ReadonlySet<unknown>): string {
   const label = `Set(${value.size})`;
   try {
-    return `${label} ${JSON.stringify(Array.from(value))}`;
+    const contents = Array.from(value);
+    return `${label} ${safeJsonStringify(contents) ?? safeString(contents)}`;
   } catch {
     return label;
   }
+}
+
+function safeJsonStringify(value: unknown): string | undefined {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, item: unknown) => {
+    if (typeof item === "bigint") return `${item}n`;
+    if (item instanceof RegExp) return String(item);
+    if (typeof item === "object" && item != null) {
+      if (seen.has(item)) return "[Circular]";
+      seen.add(item);
+      if (item instanceof Map) return formatMapContents(item);
+      if (item instanceof Set) return Array.from(item);
+    }
+    return item;
+  });
+}
+
+function formatMapContents(
+  value: ReadonlyMap<unknown, unknown>,
+): Readonly<Record<string, unknown>> | readonly (readonly [string, unknown])[] {
+  const entries = Array.from(
+    value,
+    ([key, entryValue]) => [safeString(key), entryValue] as const,
+  );
+  const keys = entries.map(([key]) => key);
+  const uniqueKeys = new Set(keys);
+  return uniqueKeys.size === keys.length
+    ? Object.fromEntries(entries)
+    : entries;
 }
 
 function safeString(value: unknown): string {

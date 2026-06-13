@@ -236,9 +236,49 @@ test("LogRecorder diagnostics handle null-prototype circular values", () => {
       assert.match(error.message, /Expected a LogTape record matching:/);
       assert.match(
         error.message,
-        /properties\.matcherValue: \[object Object\]/,
+        /properties\.matcherValue: {"self":"\[Circular\]"}/,
       );
-      assert.match(error.message, /recordedValue: \[object Object\]/);
+      assert.match(error.message, /recordedValue: {"self":"\[Circular\]"}/);
+      return true;
+    },
+  );
+});
+
+test("LogRecorder diagnostics render nested BigInt and circular values", () => {
+  const recorder = createLogRecorder();
+  const circularValue: Record<string, unknown> = { id: "payload" };
+  circularValue.self = circularValue;
+  recorder.sink(logRecord({
+    message: ["nested diagnostic value"],
+    properties: {
+      payload: { attempts: 3n, pattern: /retry/g, self: circularValue },
+      statusById: new Map<unknown, unknown>([
+        ["job-1", { attempts: 2n }],
+      ]),
+      flags: new Set<unknown>([1n, /ready/i]),
+    },
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ properties: { expected: { count: 1n } } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(
+        error.message,
+        /properties\.expected: {"count":"1n"}/,
+      );
+      assert.match(
+        error.message,
+        /payload: {"attempts":"3n","pattern":"\/retry\/g","self":{"id":"payload","self":"\[Circular\]"}}/,
+      );
+      assert.match(
+        error.message,
+        /statusById: Map\(1\) {"job-1":{"attempts":"2n"}}/,
+      );
+      assert.match(error.message, /flags: Set\(2\) \["1n","\/ready\/i"\]/);
+      assert.doesNotMatch(error.message, /payload: \[object Object\]/);
+      assert.doesNotMatch(error.message, /statusById: Map\(1\)(?! )/);
+      assert.doesNotMatch(error.message, /flags: Set\(2\)(?! )/);
       return true;
     },
   );
