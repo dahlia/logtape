@@ -410,7 +410,7 @@ function formatPropertiesMatcher(
 ): string[] {
   if (typeof matcher === "function") return ["  properties: <predicate>"];
   const lines = Object.keys(matcher).map((key) =>
-    `  properties.${key}: ${formatValue(matcher[key])}`
+    `  properties.${key}: ${formatPropertyValue(matcher, key)}`
   );
   return lines.length < 1 ? ["  properties: {}"] : lines;
 }
@@ -442,10 +442,27 @@ function formatProperties(
   const entries = Object.keys(props);
   if (entries.length < 1) return "";
   const summary = entries.slice(0, 3).map((key) =>
-    `${key}: ${formatValue(props[key])}`
+    `${key}: ${formatPropertyValue(props, key)}`
   );
   if (entries.length > 3) summary.push(`... ${entries.length - 3} more`);
   return ` {${summary.join(", ")}}`;
+}
+
+function formatPropertyValue(
+  properties: Readonly<Record<string, unknown>>,
+  key: string,
+): string {
+  try {
+    return formatValue(properties[key]);
+  } catch (error) {
+    return formatAccessError(error);
+  }
+}
+
+function formatAccessError(error: unknown): string {
+  return `<error: ${
+    error instanceof Error ? error.message : safeString(error)
+  }>`;
 }
 
 function formatCount(count: number, noun: string): string {
@@ -497,6 +514,7 @@ function safeJsonStringify(value: unknown): string | undefined {
   return JSON.stringify(value, (_key, item: unknown) => {
     if (typeof item === "bigint") return `${item}n`;
     if (item instanceof RegExp) return String(item);
+    if (item instanceof Error) return `${item.name}: ${item.message}`;
     if (typeof item === "object" && item != null) {
       if (seen.has(item)) return "[Circular]";
       seen.add(item);

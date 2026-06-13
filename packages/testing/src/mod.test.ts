@@ -284,6 +284,66 @@ test("LogRecorder diagnostics render nested BigInt and circular values", () => {
   );
 });
 
+test("LogRecorder diagnostics render nested Error values", () => {
+  const recorder = createLogRecorder();
+  recorder.sink(logRecord({
+    message: ["nested error diagnostic value"],
+    properties: {
+      payload: { error: new TypeError("Bad input") },
+      failuresById: new Map<unknown, unknown>([
+        ["job-1", new Error("Boom")],
+      ]),
+      failures: new Set<unknown>([new RangeError("Too high")]),
+    },
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ properties: { missing: true } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(
+        error.message,
+        /payload: {"error":"TypeError: Bad input"}/,
+      );
+      assert.match(
+        error.message,
+        /failuresById: Map\(1\) {"job-1":"Error: Boom"}/,
+      );
+      assert.match(
+        error.message,
+        /failures: Set\(1\) \["RangeError: Too high"\]/,
+      );
+      assert.doesNotMatch(error.message, /payload: {"error":{}}/);
+      return true;
+    },
+  );
+});
+
+test("LogRecorder diagnostics handle throwing property getters", () => {
+  const recorder = createLogRecorder();
+  const properties: Record<string, unknown> = {};
+  Object.defineProperty(properties, "unstable", {
+    enumerable: true,
+    get() {
+      throw new Error("getter failed");
+    },
+  });
+  recorder.sink(logRecord({
+    message: ["throwing getter diagnostic value"],
+    properties,
+  }));
+
+  assert.throws(
+    () => recorder.assertLogged({ properties: { missing: true } }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Expected a LogTape record matching:/);
+      assert.match(error.message, /unstable: <error: getter failed>/);
+      return true;
+    },
+  );
+});
+
 test("LogRecorder diagnostics render Map and Set values", () => {
   const recorder = createLogRecorder();
   recorder.sink(logRecord({
