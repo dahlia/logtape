@@ -5,6 +5,7 @@ import {
   type Sink,
   type StreamSinkOptions,
 } from "@logtape/logtape";
+import { markSinkAsImmediate } from "./snapshot.ts";
 
 function isMetaLoggerRecord(record: LogRecord): boolean {
   return record.category.length === 2 &&
@@ -490,7 +491,7 @@ export function getBaseFileSink<TFile>(
       // Clean up buffer pool
       bufferPool.clear();
     };
-    return sink;
+    return markSinkAsImmediate(sink);
   }
 
   // Non-blocking mode implementation
@@ -648,7 +649,7 @@ export function getBaseFileSink<TFile>(
     bufferPool.clear();
   };
 
-  return nonBlockingSink;
+  return markSinkAsImmediate(nonBlockingSink);
 }
 
 /**
@@ -845,7 +846,7 @@ export function getBaseRotatingFileSink<TFile>(
       flushBuffer();
       options.closeSync(fd);
     };
-    return sink;
+    return markSinkAsImmediate(sink);
   }
 
   // Non-blocking mode implementation
@@ -933,5 +934,5 @@ export function getBaseRotatingFileSink<TFile>(
     }
   };
 
-  return nonBlockingSink;
+  return markSinkAsImmediate(nonBlockingSink);
 }

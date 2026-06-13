@@ -8,6 +8,7 @@ import type {
   FileSinkDriver,
   FileSinkOptions,
 } from "./filesink.base.ts";
+import { markSinkAsImmediate } from "./snapshot.ts";
 
 /**
  * The rotation interval for time-based file sinks.
@@ -368,7 +369,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
       options.closeSync(fd);
     };
 
-    return sink;
+    return markSinkAsImmediate(sink);
   }
 
   // Non-blocking mode implementation
@@ -442,5 +443,5 @@ export function getBaseTimeRotatingFileSink<TFile>(
     }
   };
 
-  return nonBlockingSink;
+  return markSinkAsImmediate(nonBlockingSink);
 }

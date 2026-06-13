@@ -6,6 +6,7 @@ import {
 } from "@logtape/logtape";
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
+import { markSinkAsImmediate } from "./snapshot.ts";
 
 /**
  * Options for the {@link getStreamFileSink} function.
@@ -147,5 +148,5 @@ export function getStreamFileSink(
     }
   };
 
-  return sink;
+  return markSinkAsImmediate(sink);
 }

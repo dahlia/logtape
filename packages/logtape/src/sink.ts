@@ -9,6 +9,17 @@ import { compareLogLevel, type LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
+const immediateSinkSymbol = Symbol.for(
+  "LogTape.sinkSnapshotPolicy.immediate",
+);
+
+function markSinkAsImmediate<T extends Sink>(sink: T): T {
+  Object.defineProperty(sink, immediateSinkSymbol, {
+    value: true,
+  });
+  return sink;
+}
+
 /**
  * A sink is a function that accepts a log record and prints it somewhere.
  * Thrown exceptions will be suppressed and then logged to the meta logger,
@@ -159,7 +170,7 @@ export function getStreamSink(
       await lastPromise;
       await writer.close();
     };
-    return sink;
+    return markSinkAsImmediate(sink);
   }
 
   // Non-blocking mode implementation

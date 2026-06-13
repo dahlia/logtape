@@ -3147,6 +3147,73 @@ test("Logger.with() lazy values are snapshotted for non-blocking console sinks",
   }
 });
 
+test("Logger custom sinks receive snapshotted records", () => {
+  const logger = LoggerImpl.getLogger(["custom-sink-snapshot-test"]);
+  const records: LogRecord[] = [];
+  let propertiesAccesses = 0;
+  const sink: Sink = (record) => {
+    assert.strictEqual(propertiesAccesses, 1);
+    records.push(record);
+    assert.deepStrictEqual(record.properties, { value: "snapshot" });
+    assert.strictEqual(propertiesAccesses, 1);
+  };
+  logger.parentSinks = "override";
+  logger.sinks.push(sink);
+
+  try {
+    logger.emit({
+      category: logger.category,
+      level: "info",
+      message: ["Snapshot"],
+      rawMessage: "Snapshot",
+      timestamp: Date.now(),
+      get properties() {
+        propertiesAccesses++;
+        return { value: "snapshot" };
+      },
+    });
+
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(propertiesAccesses, 1);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger immediate sink policy skips pre-sink snapshots", () => {
+  const logger = LoggerImpl.getLogger(["immediate-sink-snapshot-test"]);
+  const immediateSinkSymbol = Symbol.for(
+    "LogTape.sinkSnapshotPolicy.immediate",
+  );
+  let propertiesAccesses = 0;
+  const sink: Sink = (record) => {
+    assert.strictEqual(propertiesAccesses, 0);
+    assert.deepStrictEqual(record.properties, { value: "live" });
+    assert.strictEqual(propertiesAccesses, 1);
+  };
+  Object.defineProperty(sink, immediateSinkSymbol, { value: true });
+  logger.parentSinks = "override";
+  logger.sinks.push(sink);
+
+  try {
+    logger.emit({
+      category: logger.category,
+      level: "info",
+      message: ["Live"],
+      rawMessage: "Live",
+      timestamp: Date.now(),
+      get properties() {
+        propertiesAccesses++;
+        return { value: "live" };
+      },
+    });
+
+    assert.strictEqual(propertiesAccesses, 1);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
 test("Logger lazy values are resolved once for all sinks", () => {
   const logger: LoggerImpl = LoggerImpl.getLogger([
     "lazy-single-evaluation-test",

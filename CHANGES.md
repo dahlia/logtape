@@ -23,6 +23,10 @@ To be released.
  -  Improved enabled logging performance by caching effective sink dispatch
     plans instead of rebuilding the inherited sink list for every log record.
 
+ -  Improved enabled logging performance for built-in stream sinks by skipping
+    the pre-sink log record snapshot when the sink consumes the record
+    synchronously.
+
  -  Reduced allocation overhead in enabled logging by avoiding sink array
     materialization for the common single-sink path.
 
@@ -88,6 +92,9 @@ To be released.
  -  Improved `getStreamFileSink()` throughput by writing formatted log records
     directly to the underlying file stream instead of routing them through an
     extra Node.js stream layer.
+
+ -  Improved file sink throughput by skipping the pre-sink log record snapshot
+    for built-in file sinks that format records immediately.
 
  -  Fixed a bug where `getRotatingFileSink()` with `maxFiles: 0` or a negative
     `maxFiles` still renamed the current file to `path.1` during rollover,

@@ -15,6 +15,9 @@ const lazySymbol: unique symbol = Symbol.for("logtape.lazy");
 const throttlingSummaryRecordSymbol = Symbol.for(
   "LogTape.throttlingSummaryRecord",
 );
+const immediateSinkSymbol = Symbol.for(
+  "LogTape.sinkSnapshotPolicy.immediate",
+);
 const internalStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 const resolvedStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 
@@ -193,6 +196,13 @@ function hasEnumerableProperties(properties: unknown): boolean {
       properties,
       throttlingSummaryRecordSymbol,
     );
+}
+
+function shouldSnapshotForSink(sink: Sink): boolean {
+  // Custom sinks are assumed to be buffering sinks.  Only built-in sinks that
+  // synchronously finish formatting/encoding opt into receiving the live record.
+  return (sink as unknown as Record<symbol, unknown>)[immediateSinkSymbol] !==
+    true;
 }
 
 type SinkDispatchPlanState = {
@@ -1815,13 +1825,15 @@ export class LoggerImpl implements Logger {
       const sink = plan.sink;
       if (bypassSinks?.has(sink)) return;
       try {
-        try {
-          // Avoid a sinks array for the common one-sink path, but keep lazy
-          // properties snapshotted before the sink can buffer the record.
-          snapshot = snapshotLogRecordProperties(record);
-        } catch {
-          snapshotFailed = true;
-          snapshot = record;
+        if (shouldSnapshotForSink(sink)) {
+          try {
+            // Avoid a sinks array for the common one-sink path, but keep lazy
+            // properties snapshotted before a sink can buffer the record.
+            snapshot = snapshotLogRecordProperties(record);
+          } catch {
+            snapshotFailed = true;
+            snapshot = record;
+          }
         }
         sink(snapshot ?? record);
       } catch (error) {
@@ -1840,10 +1852,12 @@ export class LoggerImpl implements Logger {
     for (const sink of plan.sinks) {
       if (bypassSinks?.has(sink)) continue;
       try {
-        if (snapshot == null && !snapshotFailed) {
+        if (
+          snapshot == null && !snapshotFailed && shouldSnapshotForSink(sink)
+        ) {
           try {
             // Build the snapshot only once and only for a sink that will
-            // actually receive the record.
+            // actually requires it and will receive the record.
             snapshot = snapshotLogRecordProperties(record);
           } catch {
             snapshotFailed = true;

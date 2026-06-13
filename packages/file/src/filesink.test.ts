@@ -192,6 +192,29 @@ test("getBaseFileSink()", () => {
   );
 });
 
+test("getBaseFileSink() encodes records before caller mutations", () => {
+  const { driver, file } = makeMemoryFileDriver();
+  const logger = LoggerImpl.getLogger(["file", "immediate-snapshot"]);
+  const properties = { value: "before" };
+  const sink: Sink & Disposable = getBaseFileSink("memory.log", {
+    ...driver,
+    bufferSize: 1000,
+    formatter: (record) => `${record.properties.value}\n`,
+  });
+  logger.parentSinks = "override";
+  logger.sinks.push(sink);
+
+  try {
+    logger.info("Value {value}", properties);
+    properties.value = "after";
+    sink[Symbol.dispose]();
+
+    assert.strictEqual(readMemoryFile(file), "before\n");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
 test("getBaseFileSink() with lazy option", () => {
   const pathDir = fs.mkdtempSync(join(tmpdir(), "logtape-"));
   const path = join(pathDir, "test.log");
