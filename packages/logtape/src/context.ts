@@ -81,12 +81,31 @@ export function getCategoryPrefix(): readonly string[] {
  * @since 1.3.0
  */
 export function getImplicitContext(): Record<string, unknown> {
+  return getImplicitContextIfAny() ?? {};
+}
+
+/**
+ * Gets the current implicit context only when user-visible context keys exist.
+ *
+ * This is intentionally not exported from the public entry point.  Hot logging
+ * paths use it to avoid allocating a fresh `{}` when no implicit context is
+ * active, while `getImplicitContext()` keeps its public return contract.
+ * @returns The current implicit context without internal symbol keys, or
+ *          `undefined` if there is no user-visible implicit context.
+ */
+export function getImplicitContextIfAny():
+  | Record<string, unknown>
+  | undefined {
   const rootLogger = LoggerImpl.getLogger();
   const store = rootLogger.contextLocalStorage?.getStore();
-  if (store == null) return {};
-  // Filter out symbol keys (like categoryPrefixSymbol)
+  if (store == null) return undefined;
+
+  const keys = Object.keys(store);
+  if (keys.length < 1) return undefined;
+
+  // Filter out symbol keys (like categoryPrefixSymbol).
   const result: Record<string, unknown> = {};
-  for (const key of Object.keys(store)) {
+  for (const key of keys) {
     result[key] = store[key];
   }
   return result;

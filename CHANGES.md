@@ -16,6 +16,10 @@ To be released.
  -  Improved enabled string logging performance by using a faster snapshot path
     for log records created by LogTape.
 
+ -  Improved simple string logging performance by avoiding implicit context
+    allocation and lazy record getters when a log call has no properties or
+    message placeholders.
+
  -  Reduced allocation overhead in enabled logging by avoiding sink array
     materialization for the common single-sink path.
 

@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 import fc from "fast-check";
+import {
+  type ContextLocalStorage,
+  withCategoryPrefix,
+  withContext,
+} from "./context.ts";
 import { toFilter } from "./filter.ts";
 import { debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
@@ -21,6 +26,25 @@ import { getConsoleSink, type Sink } from "./sink.ts";
 
 function templateLiteral(tpl: TemplateStringsArray, ..._: unknown[]) {
   return tpl;
+}
+
+class TestContextLocalStorage
+  implements ContextLocalStorage<Record<string, unknown>> {
+  #store: Record<string, unknown> | undefined;
+
+  run<R>(store: Record<string, unknown>, callback: () => R): R {
+    const previous = this.#store;
+    this.#store = store;
+    try {
+      return callback();
+    } finally {
+      this.#store = previous;
+    }
+  }
+
+  getStore(): Record<string, unknown> | undefined {
+    return this.#store;
+  }
 }
 
 test("getLogger()", () => {
@@ -2585,6 +2609,78 @@ test("isLazy() returns false for non-lazy values", () => {
   assert.ok(!isLazy({ getter: () => 1 })); // object without symbol
   assert.ok(!isLazy({}));
   assert.ok(!isLazy([]));
+});
+
+test("Logger simple string records have record-local properties", () => {
+  const logger = LoggerImpl.getLogger(["simple-string-fast-path"]);
+  const records: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.sinks.push((record) => {
+    records.push(record);
+    record.properties.mutated = records.length;
+  });
+
+  try {
+    logger.info("First message");
+    logger.info("Second message");
+
+    assert.strictEqual(records.length, 2);
+    assert.deepStrictEqual(records[0].message, ["First message"]);
+    assert.deepStrictEqual(records[1].message, ["Second message"]);
+    assert.notStrictEqual(records[0].properties, records[1].properties);
+    assert.strictEqual(records[0].properties.mutated, 1);
+    assert.strictEqual(records[1].properties.mutated, 2);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger simple string records keep implicit context", () => {
+  const root = LoggerImpl.getLogger();
+  const logger = LoggerImpl.getLogger(["simple-string-context"]);
+  const records: LogRecord[] = [];
+  const previousStorage = root.contextLocalStorage;
+  root.contextLocalStorage = new TestContextLocalStorage();
+  logger.parentSinks = "override";
+  logger.sinks.push((record) => records.push(record));
+
+  try {
+    withContext({ requestId: "req-1" }, () => {
+      logger.info("Context message");
+    });
+
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].message, ["Context message"]);
+    assert.deepStrictEqual(records[0].properties, { requestId: "req-1" });
+  } finally {
+    root.contextLocalStorage = previousStorage;
+    logger.resetDescendants();
+  }
+});
+
+test("Logger simple string records keep category prefixes", () => {
+  const root = LoggerImpl.getLogger();
+  const prefixed = LoggerImpl.getLogger(["worker", "database"]);
+  const records: LogRecord[] = [];
+  const previousStorage = root.contextLocalStorage;
+  root.contextLocalStorage = new TestContextLocalStorage();
+  root.parentSinks = "override";
+  prefixed.parentSinks = "override";
+  prefixed.sinks.push((record) => records.push(record));
+
+  try {
+    withCategoryPrefix("worker", () => {
+      LoggerImpl.getLogger("database").info("Prefixed message");
+    });
+
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].category, ["worker", "database"]);
+    assert.deepStrictEqual(records[0].message, ["Prefixed message"]);
+    assert.deepStrictEqual(records[0].properties, {});
+  } finally {
+    root.contextLocalStorage = previousStorage;
+    root.resetDescendants();
+  }
 });
 
 test("Logger.with() with lazy values", () => {

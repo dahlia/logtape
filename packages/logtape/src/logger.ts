@@ -1,7 +1,7 @@
 import {
   type ContextLocalStorage,
   getCategoryPrefix,
-  getImplicitContext,
+  getImplicitContextIfAny,
 } from "./context.ts";
 import type { Filter } from "./filter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
@@ -16,6 +16,7 @@ const throttlingSummaryRecordSymbol = Symbol.for(
   "LogTape.throttlingSummaryRecord",
 );
 const internalStringLogRecords: WeakSet<LogRecord> = new WeakSet();
+const resolvedStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 
 /**
  * A lazy value that is evaluated at logging time.
@@ -152,6 +153,11 @@ function logStringMessage(
 }
 
 function snapshotLogRecordProperties(record: LogRecord): LogRecord {
+  if (resolvedStringLogRecords.has(record)) {
+    // The simple string fast path already owns a per-record properties object.
+    // Reusing the record avoids the snapshot allocation in the hottest path.
+    return record;
+  }
   const properties: Record<string, unknown> = resolveProperties(
     record.properties,
   );
@@ -178,6 +184,15 @@ function snapshotLogRecordProperties(record: LogRecord): LogRecord {
     configurable: true,
   };
   return Object.defineProperties({}, descriptors) as LogRecord;
+}
+
+function hasEnumerableProperties(properties: unknown): boolean {
+  if (properties == null || typeof properties !== "object") return false;
+  return Object.keys(properties).length > 0 ||
+    Object.prototype.propertyIsEnumerable.call(
+      properties,
+      throttlingSummaryRecordSymbol,
+    );
 }
 
 /**
@@ -1754,7 +1769,26 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
-    const implicitContext: Record<string, unknown> = getImplicitContext();
+    const implicitContext = getImplicitContextIfAny();
+    if (
+      typeof properties !== "function" &&
+      implicitContext == null &&
+      !rawMessage.includes("{") &&
+      !hasEnumerableProperties(properties)
+    ) {
+      const record: LogRecord = {
+        category: this.category,
+        level,
+        message: [rawMessage],
+        rawMessage,
+        timestamp: Date.now(),
+        properties: {},
+      };
+      resolvedStringLogRecords.add(record);
+      this.emit(record, bypassSinks);
+      return;
+    }
+
     let cachedProps: Record<string, unknown> | undefined = undefined;
     let cachedMessage: readonly unknown[] | undefined = undefined;
     const record: LogRecord = typeof properties === "function"
@@ -1772,7 +1806,7 @@ export class LoggerImpl implements Logger {
         get properties() {
           if (cachedProps == null) {
             cachedProps = resolveProperties({
-              ...implicitContext,
+              ...(implicitContext ?? {}),
               ...properties(),
             });
           }
@@ -1793,7 +1827,7 @@ export class LoggerImpl implements Logger {
         get properties() {
           if (cachedProps == null) {
             cachedProps = resolveProperties({
-              ...implicitContext,
+              ...(implicitContext ?? {}),
               ...properties,
             });
           }
@@ -1809,7 +1843,7 @@ export class LoggerImpl implements Logger {
     callback: LogCallback,
     properties: Record<string, unknown> = {},
   ): void {
-    const implicitContext = getImplicitContext();
+    const implicitContext = getImplicitContextIfAny();
     let rawMessage: TemplateStringsArray | undefined = undefined;
     let msg: unknown[] | undefined = undefined;
     function realizeMessage(): [unknown[], TemplateStringsArray] {
@@ -1832,7 +1866,7 @@ export class LoggerImpl implements Logger {
         return realizeMessage()[1];
       },
       timestamp: Date.now(),
-      properties: { ...implicitContext, ...properties },
+      properties: { ...(implicitContext ?? {}), ...properties },
     });
   }
 
@@ -1842,14 +1876,14 @@ export class LoggerImpl implements Logger {
     values: unknown[],
     properties: Record<string, unknown> = {},
   ): void {
-    const implicitContext = getImplicitContext();
+    const implicitContext = getImplicitContextIfAny();
     this.emit({
       category: this.category,
       level,
       message: renderMessage(messageTemplate, values),
       rawMessage: messageTemplate,
       timestamp: Date.now(),
-      properties: { ...implicitContext, ...properties },
+      properties: { ...(implicitContext ?? {}), ...properties },
     });
   }
 
