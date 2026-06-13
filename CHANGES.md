@@ -8,6 +8,12 @@ Version 2.0.13
 
 To be released.
 
+### @logtape/file
+
+ -  Fixed a bug where non-blocking `getRotatingFileSink()` could leave records
+    queued during an active background flush buffered until the next log record
+    or disposal.
+
 
 Version 2.0.12
 --------------
