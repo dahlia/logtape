@@ -845,6 +845,7 @@ export function getBaseRotatingFileSink<TFile>(
 
     activeFlush = flushBuffer().finally(() => {
       activeFlush = null;
+      if (!disposed && buffer.length > 0) scheduleFlush();
     });
   }
 
