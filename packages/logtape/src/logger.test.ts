@@ -2978,6 +2978,38 @@ test("Logger lazy values are resolved once for all sinks", () => {
   }
 });
 
+test("Logger direct lazy values are resolved once for all sinks", () => {
+  const logger: LoggerImpl = LoggerImpl.getLogger([
+    "lazy-direct-single-evaluation-test",
+  ]);
+  const records1: LogRecord[] = [];
+  const records2: LogRecord[] = [];
+  logger.parentSinks = "override";
+  logger.sinks.push((record) => records1.push(record));
+  logger.sinks.push((record) => records2.push(record));
+
+  try {
+    let currentValue: string = "initial";
+    let evaluations: number = 0;
+
+    logger.info("Direct {value}", {
+      value: lazy(() => {
+        evaluations++;
+        return currentValue;
+      }),
+    });
+    currentValue = "updated";
+
+    assert.strictEqual(evaluations, 1);
+    assert.strictEqual(records1[0], records2[0]);
+    assert.deepStrictEqual(records1[0].message, ["Direct ", "initial", ""]);
+    assert.strictEqual(records1[0].properties.value, "initial");
+    assert.strictEqual(records2[0].properties.value, "initial");
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
 test("Logger does not resolve lazy values when level disables record", () => {
   const logger: LoggerImpl = LoggerImpl.getLogger([
     "lazy-disabled-level-test",

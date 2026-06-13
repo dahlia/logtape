@@ -15,6 +15,7 @@ const lazySymbol: unique symbol = Symbol.for("logtape.lazy");
 const throttlingSummaryRecordSymbol = Symbol.for(
   "LogTape.throttlingSummaryRecord",
 );
+const internalStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 
 /**
  * A lazy value that is evaluated at logging time.
@@ -154,6 +155,20 @@ function snapshotLogRecordProperties(record: LogRecord): LogRecord {
   const properties: Record<string, unknown> = resolveProperties(
     record.properties,
   );
+  if (internalStringLogRecords.has(record)) {
+    // LoggerImpl.log() creates this fixed shape.  Rebuilding it directly keeps
+    // lazy message rendering intact without copying property descriptors.
+    return {
+      category: record.category,
+      level: record.level,
+      get message() {
+        return record.message;
+      },
+      rawMessage: record.rawMessage,
+      timestamp: record.timestamp,
+      properties,
+    };
+  }
   const descriptors = Object.getOwnPropertyDescriptors(record) as
     & PropertyDescriptorMap
     & { properties?: PropertyDescriptor };
@@ -1743,6 +1758,7 @@ export class LoggerImpl implements Logger {
           return cachedProps;
         },
       };
+    internalStringLogRecords.add(record);
     this.emit(record, bypassSinks);
   }
 

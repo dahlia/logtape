@@ -13,6 +13,9 @@ To be released.
  -  Improved enabled logging performance by avoiding redundant log record
     category copying when no category prefix is active.
 
+ -  Improved enabled string logging performance by using a faster snapshot path
+    for log records created by LogTape.
+
 ### @logtape/config
 
  -  Added `ConfigureOptions.contextLocalStorage` option to
