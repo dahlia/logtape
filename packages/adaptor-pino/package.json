@@ -50,14 +50,14 @@
   ],
   "peerDependencies": {
     "@logtape/logtape": "workspace:^",
-    "pino": "^9.7.0"
+    "pino": "^9.7.0 || ^10.0.0"
   },
   "devDependencies": {
     "@alinea/suite": "catalog:",
     "@std/assert": "catalog:",
     "@std/async": "catalog:",
-    "pino": "^9.7.0",
-    "pino-abstract-transport": "^2.0.0",
+    "pino": "^10.0.0",
+    "pino-abstract-transport": "^3.0.0",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

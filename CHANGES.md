@@ -163,6 +163,14 @@ To be released.
      -  Added `PatternRedactionOptions` interface.
      -  Added `RedactionTraversalOptions` interface.
 
+### @logtape/adaptor-pino
+
+ -  The `pino` peer dependency now accepts Pino 10.x in addition to 9.x.
+    The supported range is expanded from `^9.7.0` to `^9.7.0 || ^10.0.0`.
+    [[#176]]
+
+[#176]: https://github.com/dahlia/logtape/issues/176
+
 
 Version 2.1.4
 -------------

@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
-    "pino-abstract-transport": "npm:pino-abstract-transport@^2.0.0"
+    "pino-abstract-transport": "npm:pino-abstract-transport@^3.0.0"
   },
   "exclude": [
     "coverage/",
