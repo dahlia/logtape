@@ -8,6 +8,17 @@ Version 1.3.11
 
 To be released.
 
+### @logtape/syslog
+
+ -  Fixed a security vulnerability where structured data values containing C0
+    control characters could inject forged syslog frames when
+    `SyslogSinkOptions.includeStructuredData` was enabled.  Structured
+    data values now replace C0 control characters with printable `#NNN`
+    sequences, and structured data parameters with invalid RFC 5424 `SD-NAME`
+    keys are skipped.  [[CVE-2026-54511]]
+
+[CVE-2026-54511]: https://github.com/dahlia/logtape/security/advisories/GHSA-8h6h-x5pq-56fq
+
 
 Version 1.3.10
 --------------
