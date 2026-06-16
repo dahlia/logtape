@@ -132,6 +132,12 @@ This will generate a syslog message like:
 <134>1 2024-01-01T12:00:00.000Z hostname myapp 1234 - [myapp@12345 userId="12345" method="oauth"] User login successful
 ~~~~
 
+Only properties whose keys are valid RFC 5424 `SD-NAME` values are included:
+keys must be 1 to 32 printable US-ASCII characters and must not contain spaces,
+`=`, `]`, or `"`.  Properties with invalid keys are skipped.  Control
+characters in structured data values are replaced with printable `#NNN`
+sequences before the message is sent.
+
 
 Supported facilities
 --------------------

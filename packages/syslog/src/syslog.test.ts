@@ -732,6 +732,15 @@ if (typeof Deno !== "undefined") {
         backslash: "Has \\ backslash",
         bracket: "Has ] bracket",
         combined: 'Mix of "quotes", \\ and ] chars',
+        control:
+          "normal\n<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED\r\u0000end",
+        validKey: "included",
+        "bad key": "skip-space",
+        "bad=key": "skip-equals",
+        'bad"key': "skip-quote",
+        "bad]key": "skip-bracket",
+        "bad\nkey": "skip-control",
+        abcdefghijklmnopqrstuvwxyz1234567: "skip-long",
       });
 
       sink(testRecord);
@@ -747,6 +756,9 @@ if (typeof Deno !== "undefined") {
       assert.strictEqual(parsed.hostname, Deno.hostname());
       assert.strictEqual(parsed.appName, "escape-test");
       assert.strictEqual(parsed.message, "Test escaping");
+      assert.strictEqual(parsed.structuredData.includes("\n"), false);
+      assert.strictEqual(parsed.structuredData.includes("\r"), false);
+      assert.strictEqual(parsed.structuredData.includes("\u0000"), false);
 
       // Parse structured data and verify proper unescaping
       const structuredData = parseStructuredData(parsed.structuredData);
@@ -757,6 +769,17 @@ if (typeof Deno !== "undefined") {
         structuredData.combined,
         'Mix of "quotes", \\ and ] chars',
       );
+      assert.strictEqual(
+        structuredData.control,
+        "normal#010<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED#013#000end",
+      );
+      assert.strictEqual(structuredData.validKey, "included");
+      assert.strictEqual(parsed.structuredData.includes("skip-space"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-equals"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-quote"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-bracket"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-control"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-long"), false);
     } finally {
       server.close();
     }
@@ -795,6 +818,15 @@ if (typeof Deno !== "undefined") {
         backslash: "Has \\ backslash",
         bracket: "Has ] bracket",
         combined: 'Mix of "quotes", \\ and ] chars',
+        control:
+          "normal\n<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED\r\u0000end",
+        validKey: "included",
+        "bad key": "skip-space",
+        "bad=key": "skip-equals",
+        'bad"key': "skip-quote",
+        "bad]key": "skip-bracket",
+        "bad\nkey": "skip-control",
+        abcdefghijklmnopqrstuvwxyz1234567: "skip-long",
       });
 
       sink(testRecord);
@@ -809,6 +841,9 @@ if (typeof Deno !== "undefined") {
       assert.strictEqual(parsed.version, 1);
       assert.strictEqual(parsed.message, "Test escaping");
       assert.strictEqual(parsed.appName, "escape-test");
+      assert.strictEqual(parsed.structuredData.includes("\n"), false);
+      assert.strictEqual(parsed.structuredData.includes("\r"), false);
+      assert.strictEqual(parsed.structuredData.includes("\u0000"), false);
 
       // Parse structured data and verify escaping
       const structuredData = parseStructuredData(parsed.structuredData);
@@ -819,6 +854,17 @@ if (typeof Deno !== "undefined") {
         structuredData.combined,
         'Mix of "quotes", \\ and ] chars',
       );
+      assert.strictEqual(
+        structuredData.control,
+        "normal#010<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED#013#000end",
+      );
+      assert.strictEqual(structuredData.validKey, "included");
+      assert.strictEqual(parsed.structuredData.includes("skip-space"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-equals"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-quote"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-bracket"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-control"), false);
+      assert.strictEqual(parsed.structuredData.includes("skip-long"), false);
     } finally {
       server.close();
     }

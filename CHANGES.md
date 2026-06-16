@@ -8,6 +8,17 @@ Version 2.1.5
 
 To be released.
 
+### @logtape/syslog
+
+ -  Fixed a security vulnerability where structured data values containing C0
+    control characters could inject forged syslog frames when
+    `SyslogSinkOptions.includeStructuredData` was enabled.  Structured
+    data values now replace C0 control characters with printable `#NNN`
+    sequences, and structured data parameters with invalid RFC 5424 `SD-NAME`
+    keys are skipped.  [[CVE-2026-54511]]
+
+[CVE-2026-54511]: https://github.com/dahlia/logtape/security/advisories/GHSA-8h6h-x5pq-56fq
+
 
 Version 2.1.4
 -------------
@@ -225,6 +236,21 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.14
+--------------
+
+Released on June 16, 2026.
+
+### @logtape/syslog
+
+ -  Fixed a security vulnerability where structured data values containing C0
+    control characters could inject forged syslog frames when
+    `SyslogSinkOptions.includeStructuredData` was enabled.  Structured
+    data values now replace C0 control characters with printable `#NNN`
+    sequences, and structured data parameters with invalid RFC 5424 `SD-NAME`
+    keys are skipped.  [[CVE-2026-54511]]
 
 
 Version 2.0.13
@@ -744,6 +770,21 @@ Released on January 15, 2026.
         file in the Windows Registry.
 
 [#115]: https://github.com/dahlia/logtape/pull/115
+
+
+Version 1.3.11
+--------------
+
+Released on June 16, 2026.
+
+### @logtape/syslog
+
+ -  Fixed a security vulnerability where structured data values containing C0
+    control characters could inject forged syslog frames when
+    `SyslogSinkOptions.includeStructuredData` was enabled.  Structured
+    data values now replace C0 control characters with printable `#NNN`
+    sequences, and structured data parameters with invalid RFC 5424 `SD-NAME`
+    keys are skipped.  [[CVE-2026-54511]]
 
 
 Version 1.3.10
