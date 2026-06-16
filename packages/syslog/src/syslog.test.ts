@@ -734,6 +734,15 @@ if (typeof Deno !== "undefined") {
         backslash: "Has \\ backslash",
         bracket: "Has ] bracket",
         combined: 'Mix of "quotes", \\ and ] chars',
+        control:
+          "normal\n<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED\r\u0000end",
+        validKey: "included",
+        "bad key": "skip-space",
+        "bad=key": "skip-equals",
+        'bad"key': "skip-quote",
+        "bad]key": "skip-bracket",
+        "bad\nkey": "skip-control",
+        abcdefghijklmnopqrstuvwxyz1234567: "skip-long",
       });
 
       sink(testRecord);
@@ -749,6 +758,9 @@ if (typeof Deno !== "undefined") {
       assertEquals(parsed.hostname, Deno.hostname());
       assertEquals(parsed.appName, "escape-test");
       assertEquals(parsed.message, "Test escaping");
+      assert(!parsed.structuredData.includes("\n"));
+      assert(!parsed.structuredData.includes("\r"));
+      assert(!parsed.structuredData.includes("\u0000"));
 
       // Parse structured data and verify proper unescaping
       const structuredData = parseStructuredData(parsed.structuredData);
@@ -756,6 +768,17 @@ if (typeof Deno !== "undefined") {
       assertEquals(structuredData.backslash, "Has \\ backslash");
       assertEquals(structuredData.bracket, "Has ] bracket");
       assertEquals(structuredData.combined, 'Mix of "quotes", \\ and ] chars');
+      assertEquals(
+        structuredData.control,
+        "normal#010<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED#013#000end",
+      );
+      assertEquals(structuredData.validKey, "included");
+      assert(!parsed.structuredData.includes("skip-space"));
+      assert(!parsed.structuredData.includes("skip-equals"));
+      assert(!parsed.structuredData.includes("skip-quote"));
+      assert(!parsed.structuredData.includes("skip-bracket"));
+      assert(!parsed.structuredData.includes("skip-control"));
+      assert(!parsed.structuredData.includes("skip-long"));
     } finally {
       server.close();
     }
@@ -794,6 +817,15 @@ if (typeof Deno !== "undefined") {
         backslash: "Has \\ backslash",
         bracket: "Has ] bracket",
         combined: 'Mix of "quotes", \\ and ] chars',
+        control:
+          "normal\n<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED\r\u0000end",
+        validKey: "included",
+        "bad key": "skip-space",
+        "bad=key": "skip-equals",
+        'bad"key': "skip-quote",
+        "bad]key": "skip-bracket",
+        "bad\nkey": "skip-control",
+        abcdefghijklmnopqrstuvwxyz1234567: "skip-long",
       });
 
       sink(testRecord);
@@ -808,6 +840,9 @@ if (typeof Deno !== "undefined") {
       assertEquals(parsed.version, 1);
       assertEquals(parsed.message, "Test escaping");
       assertEquals(parsed.appName, "escape-test");
+      assert(!parsed.structuredData.includes("\n"));
+      assert(!parsed.structuredData.includes("\r"));
+      assert(!parsed.structuredData.includes("\u0000"));
 
       // Parse structured data and verify escaping
       const structuredData = parseStructuredData(parsed.structuredData);
@@ -815,6 +850,17 @@ if (typeof Deno !== "undefined") {
       assertEquals(structuredData.backslash, "Has \\ backslash");
       assertEquals(structuredData.bracket, "Has ] bracket");
       assertEquals(structuredData.combined, 'Mix of "quotes", \\ and ] chars');
+      assertEquals(
+        structuredData.control,
+        "normal#010<134>1 2026-01-01T00:00:00Z forged evil - - - INJECTED#013#000end",
+      );
+      assertEquals(structuredData.validKey, "included");
+      assert(!parsed.structuredData.includes("skip-space"));
+      assert(!parsed.structuredData.includes("skip-equals"));
+      assert(!parsed.structuredData.includes("skip-quote"));
+      assert(!parsed.structuredData.includes("skip-bracket"));
+      assert(!parsed.structuredData.includes("skip-control"));
+      assert(!parsed.structuredData.includes("skip-long"));
     } finally {
       server.close();
     }
