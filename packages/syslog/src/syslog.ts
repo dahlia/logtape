@@ -210,10 +210,41 @@ function formatTimestamp(timestamp: number): string {
  * @since 0.12.0
  */
 function escapeStructuredDataValue(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/]/g, "\\]");
+  let result = "";
+  for (const char of value) {
+    const charCode = char.charCodeAt(0);
+    if (charCode <= 31) {
+      result += `#${charCode.toString(10).padStart(3, "0")}`;
+    } else if (char === "\\") {
+      result += "\\\\";
+    } else if (char === '"') {
+      result += '\\"';
+    } else if (char === "]") {
+      result += "\\]";
+    } else {
+      result += char;
+    }
+  }
+  return result;
+}
+
+/**
+ * Validates an RFC 5424 SD-NAME value.
+ */
+function isStructuredDataName(name: string): boolean {
+  if (name.length < 1 || name.length > 32) return false;
+
+  for (const char of name) {
+    const charCode = char.charCodeAt(0);
+    if (
+      charCode <= 32 || charCode > 126 ||
+      char === "=" || char === "]" || char === '"'
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -230,9 +261,13 @@ function formatStructuredData(
 
   const elements: string[] = [];
   for (const [key, value] of Object.entries(record.properties)) {
+    if (!isStructuredDataName(key)) continue;
+
     const escapedValue = escapeStructuredDataValue(String(value));
     elements.push(`${key}="${escapedValue}"`);
   }
+
+  if (elements.length === 0) return "-";
 
   return `[${structuredDataId} ${elements.join(" ")}]`;
 }
