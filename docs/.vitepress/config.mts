@@ -71,8 +71,22 @@ if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
   ];
 }
 
+const siteUrl = (process.env.SITEMAP_HOSTNAME ?? "https://logtape.org")
+  .replace(/\/+$/, "");
+const ogImage = `${siteUrl}/og.png`;
+
 const head: [string, Record<string, string>][] = [
   ["link", { rel: "icon", href: "/logtape.svg" }],
+  ["meta", { property: "og:type", content: "website" }],
+  ["meta", { property: "og:image", content: ogImage }],
+  ["meta", { property: "og:image:width", content: "1200" }],
+  ["meta", { property: "og:image:height", content: "630" }],
+  ["meta", {
+    property: "og:image:alt",
+    content: "LogTape: logging that stays out of your way",
+  }],
+  ["meta", { name: "twitter:card", content: "summary_large_image" }],
+  ["meta", { name: "twitter:image", content: ogImage }],
 ];
 if (process.env.PLAUSIBLE_DOMAIN) {
   head.push(
