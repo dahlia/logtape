@@ -32,6 +32,11 @@ import ReelMark from "./ReelMark.vue";
           Star on GitHub →
         </a>
       </div>
+
+      <p class="lt-cta__sponsor">
+        LogTape is free and open source. If it helps you,
+        <a href="https://github.com/sponsors/dahlia">♥ Sponsor the work →</a>
+      </p>
     </div>
   </section>
 </template>
@@ -100,6 +105,18 @@ import ReelMark from "./ReelMark.vue";
   align-items: center;
   gap: 0.75rem;
   margin-top: 1.8rem;
+}
+
+.lt-cta__sponsor {
+  margin: 2.2rem 0 0;
+  font-size: 0.86rem;
+  color: var(--vp-c-text-3);
+}
+
+.lt-cta__sponsor a {
+  font-weight: 600;
+  color: var(--lt-amber);
+  white-space: nowrap;
 }
 
 /* Shared button styles (mirrors LandingHero) */
