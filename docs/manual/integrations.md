@@ -938,10 +938,15 @@ const middleware = koaLogger({
 
 ### Predefined formats
 
-The middleware supports Morgan-compatible predefined formats:
+The middleware supports structured presets and text presets:
 
- -  `"combined"`: Apache Combined Log Format with all properties (default)
- -  `"common"`: Apache Common Log Format (without referrer/userAgent)
+ -  `"structured-combined"`: Structured request properties (default)
+ -  `"structured-common"`: Structured request properties without
+    `referrer`/`userAgent`
+ -  `"combined"`: Deprecated alias for `"structured-combined"`
+ -  `"common"`: Deprecated alias for `"structured-common"`
+ -  `"morgan-combined"`: Morgan-compatible Apache combined access log output
+ -  `"morgan-common"`: Morgan-compatible Apache common access log output
  -  `"dev"`: Concise output for development (e.g.,
     `GET /path 200 1.234 ms - 123`)
  -  `"short"`: Shorter format with remote address
@@ -967,8 +972,8 @@ const middleware = koaLogger({
 
 ### Structured logging output
 
-When using the `"combined"` format (default), the middleware logs structured
-data that includes:
+When using the `"structured-combined"` format (default), the middleware logs
+structured data that includes:
 
  -  `method`: HTTP request method
  -  `url`: Request URL

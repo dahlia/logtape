@@ -41,6 +41,14 @@ async function setupLogtape(options: {
   return { logs, cleanup: () => reset() };
 }
 
+function useFixedDateNow(timestamp: number): () => void {
+  const originalDateNow = Date.now;
+  Date.now = () => timestamp;
+  return () => {
+    Date.now = originalDateNow;
+  };
+}
+
 interface MockKoaContext extends KoaContext {
   readonly responseHeaders: Record<string, string>;
 }
@@ -58,6 +66,9 @@ function createMockContext(
     ip: "127.0.0.1",
     response: {
       length: undefined,
+    },
+    req: {
+      httpVersion: "1.1",
     },
     get: (field: string) => {
       const headers: Record<string, string> = {
@@ -240,6 +251,35 @@ test("koaLogger(): combined format logs structured properties", async () => {
   }
 });
 
+test(
+  "koaLogger(): structured-combined format logs structured properties",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const middleware = koaLogger({ format: "structured-combined" });
+      const ctx = createMockContext({
+        response: { length: 123 },
+      });
+
+      await runMiddleware(middleware, ctx);
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.strictEqual(props.url, "/test");
+      assert.strictEqual(props.path, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.notStrictEqual(props.responseTime, null);
+      assert.strictEqual(props.contentLength, 123);
+      assert.strictEqual(props.remoteAddr, "127.0.0.1");
+      assert.strictEqual(props.userAgent, "test-agent/1.0");
+      assert.strictEqual(props.referrer, "http://example.com");
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
 // ============================================
 // Format Tests - Common
 // ============================================
@@ -260,6 +300,94 @@ test("koaLogger(): common format excludes referrer and userAgent", async () => {
     assert.strictEqual(props.referrer, undefined);
     assert.strictEqual(props.userAgent, undefined);
   } finally {
+    await cleanup();
+  }
+});
+
+test(
+  "koaLogger(): structured-common format excludes referrer and userAgent",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const middleware = koaLogger({ format: "structured-common" });
+      const ctx = createMockContext();
+
+      await runMiddleware(middleware, ctx);
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.strictEqual(props.path, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.strictEqual(props.referrer, undefined);
+      assert.strictEqual(props.userAgent, undefined);
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
+// ============================================
+// Format Tests - Morgan
+// ============================================
+
+test("koaLogger(): morgan-combined format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const middleware = koaLogger({ format: "morgan-combined" });
+    const ctx = createMockContext({
+      ip: "203.0.113.7",
+      method: "POST",
+      url: "/test?name=alice",
+      path: "/test",
+      status: 201,
+      response: { length: 42 },
+      get: (field: string) => {
+        const headers: Record<string, string> = {
+          "authorization": "Basic ZnJhbms6c2VjcmV0",
+          "user-agent": 'test-agent "quoted"',
+          "referrer": "http://example.com/start",
+          "referer": "http://example.com/start",
+        };
+        return headers[field.toLowerCase()] ?? "";
+      },
+    });
+
+    await runMiddleware(middleware, ctx);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '203.0.113.7 - frank [10/Oct/2000:13:55:36 +0000] "POST /test?name=alice HTTP/1.1" 201 42 "http://example.com/start" "test-agent \\"quoted\\""',
+    );
+  } finally {
+    restoreDateNow();
+    await cleanup();
+  }
+});
+
+test("koaLogger(): morgan-common format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const middleware = koaLogger({ format: "morgan-common" });
+    const ctx = createMockContext({
+      ip: "",
+      status: 204,
+      response: { length: undefined },
+      req: {},
+    });
+
+    await runMiddleware(middleware, ctx);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '- - - [10/Oct/2000:13:55:36 +0000] "GET /test HTTP/-" 204 -',
+    );
+  } finally {
+    restoreDateNow();
     await cleanup();
   }
 });

@@ -25,6 +25,10 @@ export interface KoaContext {
   response: {
     length?: number;
   };
+  /** Node.js request object, when available. */
+  req?: {
+    httpVersion?: string;
+  };
   /**
    * Get a request header field value (case-insensitive).
    * @param field The header field name.
@@ -49,10 +53,25 @@ export type KoaMiddleware = (
 ) => Promise<void>;
 
 /**
- * Predefined log format names compatible with Morgan.
+ * Predefined log format names.
  * @since 1.3.0
  */
-export type PredefinedFormat = "combined" | "common" | "dev" | "short" | "tiny";
+export type PredefinedFormat =
+  /**
+   * @deprecated Use `"structured-combined"` instead.
+   */
+  | "combined"
+  /**
+   * @deprecated Use `"structured-common"` instead.
+   */
+  | "common"
+  | "structured-combined"
+  | "structured-common"
+  | "morgan-combined"
+  | "morgan-common"
+  | "dev"
+  | "short"
+  | "tiny";
 
 /**
  * Custom format function for request logging.
@@ -188,14 +207,21 @@ export interface KoaLogTapeOptions {
    * The format for log output.
    * Can be a predefined format name or a custom format function.
    *
-   * Predefined formats:
-   * - `"combined"` - Apache Combined Log Format (structured, default)
-   * - `"common"` - Apache Common Log Format (structured, no referrer/userAgent)
+   * Structured formats:
+   * - `"structured-combined"` - Structured request properties (default)
+   * - `"structured-common"` - Structured request properties without
+   *   referrer/userAgent
+   * - `"combined"` - Deprecated alias for `"structured-combined"`
+   * - `"common"` - Deprecated alias for `"structured-common"`
+   *
+   * Text formats:
+   * - `"morgan-combined"` - Morgan-compatible combined access log (string)
+   * - `"morgan-common"` - Morgan-compatible common access log (string)
    * - `"dev"` - Concise colored output for development (string)
    * - `"short"` - Shorter than common (string)
    * - `"tiny"` - Minimal output (string)
    *
-   * @default "combined"
+   * @default "structured-combined"
    */
   readonly format?: PredefinedFormat | FormatFunction;
 
@@ -431,8 +457,77 @@ function withRequestLogContext(
   return { ...result, ...context };
 }
 
+const clfMonths = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+function pad2(value: number): string {
+  return value.toString().padStart(2, "0");
+}
+
+function formatClfDate(timestamp: number = Date.now()): string {
+  const date = new Date(timestamp);
+  return `${pad2(date.getUTCDate())}/${
+    clfMonths[date.getUTCMonth()]
+  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${
+    pad2(date.getUTCMinutes())
+  }:${pad2(date.getUTCSeconds())} +0000`;
+}
+
+function escapeAccessLogValue(value: unknown, escapeSpaces: boolean): string {
+  const escaped = String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t");
+  return escapeSpaces ? escaped.replace(/ /g, "\\x20") : escaped;
+}
+
+function formatAccessLogToken(value: unknown): string {
+  if (value == null || value === "") return "-";
+  return escapeAccessLogValue(value, true);
+}
+
+function formatAccessLogQuotedToken(value: unknown): string {
+  if (value == null || value === "") return '"-"';
+  return `"${escapeAccessLogValue(value, false)}"`;
+}
+
+function getRemoteUser(ctx: KoaContext): string | undefined {
+  const authorization = ctx.get("authorization");
+  if (authorization === "") return undefined;
+  const match = /^Basic\s+(.+)$/i.exec(authorization);
+  if (match == null || typeof globalThis.atob !== "function") {
+    return undefined;
+  }
+  try {
+    const decoded = globalThis.atob(match[1]);
+    const colonIndex = decoded.indexOf(":");
+    const user = colonIndex < 0 ? decoded : decoded.slice(0, colonIndex);
+    return user === "" ? undefined : user;
+  } catch {
+    return undefined;
+  }
+}
+
+function getHttpVersion(ctx: KoaContext): string | undefined {
+  return ctx.req?.httpVersion;
+}
+
 /**
- * Combined format (Apache Combined Log Format).
+ * Structured combined format.
  * Returns all structured properties.
  */
 function formatCombined(
@@ -443,8 +538,8 @@ function formatCombined(
 }
 
 /**
- * Common format (Apache Common Log Format).
- * Like combined but without referrer and userAgent.
+ * Structured common format.
+ * Like structured combined but without referrer and userAgent.
  */
 function formatCommon(
   ctx: KoaContext,
@@ -453,6 +548,39 @@ function formatCommon(
   const props = buildProperties(ctx, responseTime);
   const { referrer: _referrer, userAgent: _userAgent, ...rest } = props;
   return rest;
+}
+
+/**
+ * Morgan combined format.
+ * :remote-addr - :remote-user [:date[clf]]
+ * ":method :url HTTP/:http-version" :status :res[content-length]
+ * ":referrer" ":user-agent"
+ */
+function formatMorganCombined(ctx: KoaContext): string {
+  return `${formatAccessLogToken(getRemoteAddr(ctx))} - ${
+    formatAccessLogToken(getRemoteUser(ctx))
+  } [${formatClfDate()}] "${formatAccessLogToken(ctx.method)} ${
+    formatAccessLogToken(ctx.url)
+  } HTTP/${formatAccessLogToken(getHttpVersion(ctx))}" ${
+    formatAccessLogToken(ctx.status)
+  } ${formatAccessLogToken(getContentLength(ctx))} ${
+    formatAccessLogQuotedToken(getReferrer(ctx))
+  } ${formatAccessLogQuotedToken(getUserAgent(ctx))}`;
+}
+
+/**
+ * Morgan common format.
+ * :remote-addr - :remote-user [:date[clf]]
+ * ":method :url HTTP/:http-version" :status :res[content-length]
+ */
+function formatMorganCommon(ctx: KoaContext): string {
+  return `${formatAccessLogToken(getRemoteAddr(ctx))} - ${
+    formatAccessLogToken(getRemoteUser(ctx))
+  } [${formatClfDate()}] "${formatAccessLogToken(ctx.method)} ${
+    formatAccessLogToken(ctx.url)
+  } HTTP/${formatAccessLogToken(getHttpVersion(ctx))}" ${
+    formatAccessLogToken(ctx.status)
+  } ${formatAccessLogToken(getContentLength(ctx))}`;
 }
 
 /**
@@ -504,6 +632,10 @@ function formatTiny(
 const predefinedFormats: Record<PredefinedFormat, FormatFunction> = {
   combined: formatCombined,
   common: formatCommon,
+  "structured-combined": formatCombined,
+  "structured-common": formatCommon,
+  "morgan-combined": formatMorganCombined,
+  "morgan-common": formatMorganCommon,
   dev: formatDev,
   short: formatShort,
   tiny: formatTiny,
@@ -580,7 +712,7 @@ export function koaLogger(
   const category = normalizeCategory(options.category ?? ["koa"]);
   const logger = getLogger(category);
   const level = options.level ?? "info";
-  const formatOption = options.format ?? "combined";
+  const formatOption = options.format ?? "structured-combined";
   const skip = options.skip ?? (() => false);
   const logRequest = options.logRequest ?? false;
   const contextOptions = normalizeRequestContextOptions(options.context);

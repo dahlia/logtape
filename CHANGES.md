@@ -101,6 +101,13 @@ To be released.
     `common` format names remain supported as deprecated aliases for the
     corresponding structured presets.  [[#178]]
 
+ -  Added clearer predefined format names to `koaLogger()`.
+    `structured-combined` and `structured-common` are structured request log
+    presets, while `morgan-combined` and `morgan-common` produce
+    Morgan-compatible Apache access log text.  The existing `combined` and
+    `common` format names remain supported as deprecated aliases for the
+    corresponding structured presets.  [[#178]]
+
 [#172]: https://github.com/dahlia/logtape/issues/172
 [#174]: https://github.com/dahlia/logtape/pull/174
 [#178]: https://github.com/dahlia/logtape/issues/178
