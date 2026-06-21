@@ -63,12 +63,6 @@ const features: Feature[] = [
     desc: "Capture and assert on emitted logs so your logging itself stays under test.",
     link: "/manual/testing",
   },
-  {
-    cue: "ESM · CJS · .d.ts",
-    title: "Modern, typed, dual",
-    desc: "Ships ESM and CommonJS with bundled TypeScript types. No extra @types package.",
-    link: "/manual/install",
-  },
 ];
 </script>
 
@@ -99,7 +93,7 @@ const features: Feature[] = [
 
 <style scoped>
 .lt-feat {
-  background: var(--lt-card-2);
+  background: var(--lt-paper);
   border-bottom: 1px solid var(--lt-hairline);
 }
 
@@ -112,7 +106,7 @@ const features: Feature[] = [
   margin: clamp(32px, 4vw, 52px) 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 1rem;
 }
 
