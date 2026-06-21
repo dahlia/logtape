@@ -64,7 +64,7 @@ const max = Math.max(...rows.map((r) => r.kb));
 
 <style scoped>
 .lt-bz {
-  background: var(--lt-card-2);
+  background: var(--lt-paper);
   border-bottom: 1px solid var(--lt-hairline);
 }
 
