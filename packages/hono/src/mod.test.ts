@@ -42,6 +42,14 @@ async function setupLogtape(options: {
   return { logs, cleanup: () => reset() };
 }
 
+function useFixedDateNow(timestamp: number): () => void {
+  const originalDateNow = Date.now;
+  Date.now = () => timestamp;
+  return () => {
+    Date.now = originalDateNow;
+  };
+}
+
 // ============================================
 // Basic Middleware Creation Tests
 // ============================================
@@ -207,6 +215,41 @@ test("honoLogger(): combined format logs structured properties", async () => {
   }
 });
 
+test(
+  "honoLogger(): structured-combined format logs structured properties",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const app = new Hono();
+      app.use(honoLogger({ format: "structured-combined" }));
+      app.get("/test", () =>
+        new Response("Hello", {
+          headers: { "content-length": "5" },
+        }));
+
+      await app.request("/test", {
+        headers: {
+          "User-Agent": "test-agent/1.0",
+          "Referer": "http://example.com",
+        },
+      });
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.ok((props.url as string).includes("/test"));
+      assert.strictEqual(props.path, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.notStrictEqual(props.responseTime, null);
+      assert.strictEqual(props.contentLength, "5");
+      assert.strictEqual(props.userAgent, "test-agent/1.0");
+      assert.strictEqual(props.referrer, "http://example.com");
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
 // ============================================
 // Format Tests - Common
 // ============================================
@@ -233,6 +276,97 @@ test("honoLogger(): common format excludes referrer and userAgent", async () => 
     assert.strictEqual(props.referrer, undefined);
     assert.strictEqual(props.userAgent, undefined);
   } finally {
+    await cleanup();
+  }
+});
+
+test(
+  "honoLogger(): structured-common format excludes referrer and userAgent",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const app = new Hono();
+      app.use(honoLogger({ format: "structured-common" }));
+      app.get("/test", (c) => c.text("Hello"));
+
+      await app.request("/test", {
+        headers: {
+          "User-Agent": "test-agent/1.0",
+          "Referer": "http://example.com",
+        },
+      });
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.strictEqual(props.path, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.strictEqual(props.referrer, undefined);
+      assert.strictEqual(props.userAgent, undefined);
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
+// ============================================
+// Format Tests - Morgan
+// ============================================
+
+test("honoLogger(): morgan-combined format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const app = new Hono();
+    app.use(honoLogger({ format: "morgan-combined" }));
+    app.get("/test", () =>
+      new Response("Created", {
+        status: 201,
+        headers: { "content-length": "42" },
+      }));
+
+    await app.request("http://localhost/test?name=alice", {
+      headers: {
+        "Authorization": "Basic ZnJhbms6c2VjcmV0",
+        "User-Agent": 'test-agent "quoted"',
+        "Referer": "http://example.com/start",
+        "X-Forwarded-For": "203.0.113.7, 198.51.100.9",
+      },
+    });
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '203.0.113.7 - frank [10/Oct/2000:13:55:36 +0000] "GET /test?name=alice HTTP/-" 201 42 "http://example.com/start" "test-agent \\"quoted\\""',
+    );
+  } finally {
+    restoreDateNow();
+    await cleanup();
+  }
+});
+
+test("honoLogger(): morgan-common format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const app = new Hono();
+    app.use(honoLogger({ format: "morgan-common" }));
+    app.get("/test", (c) => c.body(null, 204));
+
+    await app.request("http://localhost/test", {
+      headers: {
+        "User-Agent": "test-agent/1.0",
+        "Referer": "http://example.com/start",
+      },
+    });
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '- - - [10/Oct/2000:13:55:36 +0000] "GET /test HTTP/-" 204 -',
+    );
+  } finally {
+    restoreDateNow();
     await cleanup();
   }
 });
