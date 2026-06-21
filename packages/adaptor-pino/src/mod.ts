@@ -1,6 +1,14 @@
 import type { Logger } from "pino";
 import { configureSync, type LogRecord, type Sink } from "@logtape/logtape";
 
+type PinoLogger<
+  CustomLevels extends string,
+  UseOnlyCustomLevels extends boolean,
+> = Pick<
+  Logger<CustomLevels, UseOnlyCustomLevels>,
+  "debug" | "error" | "fatal" | "info" | "trace" | "warn"
+>;
+
 /**
  * Options for configuring the Pino sink adapter.
  * @since 1.0.0
@@ -92,7 +100,7 @@ export function getPinoSink<
   CustomLevels extends string,
   UseOnlyCustomLevels extends boolean,
 >(
-  logger: Logger<CustomLevels, UseOnlyCustomLevels>,
+  logger: PinoLogger<CustomLevels, UseOnlyCustomLevels>,
   options: PinoSinkOptions = {},
 ): Sink {
   const categoryOptions = !options.category
@@ -231,7 +239,7 @@ export function install<
   CustomLevels extends string,
   UseOnlyCustomLevels extends boolean,
 >(
-  logger: Logger<CustomLevels, UseOnlyCustomLevels>,
+  logger: PinoLogger<CustomLevels, UseOnlyCustomLevels>,
   options: PinoSinkOptions = {},
 ): void {
   configureSync({
