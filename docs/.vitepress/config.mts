@@ -249,6 +249,11 @@ export default defineConfig({
     editLink: {
       pattern: "https://github.com/dahlia/logtape/edit/main/docs/:path",
     },
+
+    footer: {
+      message: "Released under the MIT License.",
+      copyright: "© 2024–2026 Hong Minhee",
+    },
   },
   head: head,
   markdown: {

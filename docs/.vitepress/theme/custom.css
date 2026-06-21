@@ -1,9 +1,149 @@
+/*
+ * LogTape brand theme — "logs are a recording, LogTape is the tape."
+ *
+ * Structural palette is lifted from the grayscale cassette logo; a single
+ * warm tape-amber accent carries the brand.  Tokens live on :root/.dark and
+ * are consumed by both the VitePress variables and the landing components.
+ */
+
+/* ── Design tokens ──────────────────────────────────────────────────── */
+
 :root {
-  --vp-c-brand-1: var(--vp-c-yellow-1);
-  --vp-c-brand-2: var(--vp-c-yellow-2);
-  --vp-c-brand-3: var(--vp-c-yellow-3);
-  --vp-c-brand-soft: var(--vp-c-yellow-soft);
+  /* Cassette greys (from logo.svg) */
+  --lt-ink: #2b2a2c;
+  --lt-graphite: #5e5f61;
+  --lt-spool: #8c8c8b;
+  --lt-shell: #aeaead;
+
+  /* Tape-amber accent ramp (light) */
+  --lt-amber: #9a571c; /* links / text accent — 5.6:1 on white */
+  --lt-amber-strong: #95551a; /* solid surfaces w/ light text — 5.8:1 */
+  --lt-amber-soft: rgba(154, 87, 28, 0.1);
+  --lt-amber-line: rgba(154, 87, 28, 0.24);
+  --lt-rec: #c2620e; /* the "● REC" indicator */
+
+  /* Recording console — a tape window: dark in both colour modes */
+  --lt-console-bg: #211f22;
+  --lt-console-fg: #e9e6e1;
+  --lt-console-dim: #9b9792;
+  --lt-console-line: rgba(255, 255, 255, 0.07);
+
+  /* Severity hues for the console (kept semantic) */
+  --lt-lv-trace: #9b9792;
+  --lt-lv-debug: #7aa6d6;
+  --lt-lv-info: #6fb074;
+  --lt-lv-warning: #d79a3f;
+  --lt-lv-error: #d2705f;
+  --lt-lv-fatal: #c2554a;
+
+  /* Minimal syntax palette for landing code cards */
+  --lt-syn-com: var(--vp-c-text-3);
+  --lt-syn-str: #3f7d54;
+  --lt-syn-kw: #5566a8;
+  --lt-syn-fn: var(--lt-amber);
+
+  /* Landing surfaces (light) */
+  --lt-paper: #fbfaf8;
+  --lt-card: #ffffff;
+  --lt-card-2: #f6f5f2;
+  --lt-hairline: rgba(43, 42, 44, 0.1);
+  --lt-hairline-strong: rgba(43, 42, 44, 0.16);
+
+  --lt-font-display:
+    "Space Grotesk Variable", "Inter Variable", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", roboto, sans-serif;
+
+  /* VitePress font families → self-hosted faces */
+  --vp-font-family-base:
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", roboto,
+    oxygen, ubuntu, cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  --vp-font-family-mono:
+    "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", "SF Mono", menlo,
+    monaco, consolas, "Liberation Mono", "Courier New", monospace;
 }
+
+.dark {
+  --lt-amber: #e0985a; /* links / text accent on dark — 7.3:1 */
+  --lt-amber-strong: #e0985a; /* solid surfaces use ink text on dark */
+  --lt-amber-soft: rgba(224, 152, 90, 0.13);
+  --lt-amber-line: rgba(224, 152, 90, 0.26);
+  --lt-rec: #f0a95c;
+
+  --lt-syn-str: #92c6a2;
+  --lt-syn-kw: #93a8d8;
+
+  --lt-paper: #161517;
+  --lt-card: #1d1c1f;
+  --lt-card-2: #232125;
+  --lt-hairline: rgba(255, 255, 255, 0.09);
+  --lt-hairline-strong: rgba(255, 255, 255, 0.16);
+}
+
+/* ── Brand colour overrides (applies to the whole site) ─────────────── */
+
+:root {
+  --vp-c-brand-1: var(--lt-amber);
+  --vp-c-brand-2: #a8611e;
+  --vp-c-brand-3: #a65e1c; /* solid brand bg, 4.95:1 on white text */
+  --vp-c-brand-soft: var(--lt-amber-soft);
+
+  /* Brand buttons: keep AA in both modes by pairing amber with light text */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: var(--lt-amber-strong);
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #874d17;
+  --vp-button-brand-active-bg: #784415;
+}
+
+.dark {
+  --vp-c-brand-1: var(--lt-amber);
+  --vp-c-brand-2: #e9a45e;
+  --vp-c-brand-3: #cc8849;
+  --vp-c-brand-soft: var(--lt-amber-soft);
+
+  /* On dark, the amber is bright → pair with ink text for contrast */
+  --vp-button-brand-text: #1d1208;
+  --vp-button-brand-bg: var(--lt-amber-strong);
+  --vp-button-brand-hover-text: #1d1208;
+  --vp-button-brand-hover-bg: #ecaa6c;
+  --vp-button-brand-active-bg: #d6914f;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────── */
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.VPNavBarTitle .title,
+h1.title {
+  font-family: var(--lt-font-display);
+  letter-spacing: -0.012em;
+}
+
+.vp-doc h1 {
+  letter-spacing: -0.022em;
+}
+
+/* ── Quiet docs refinements (readability preserved) ─────────────────── */
+
+:root {
+  --vp-c-divider: var(--lt-hairline);
+}
+
+.VPSidebarItem.is-active > .item .link .text {
+  font-weight: 600;
+}
+
+/* Faint amber edge on the active sidebar item, cassette-label style */
+.VPSidebarItem.level-0.is-active > .item .indicator,
+.VPSidebarItem.is-active > .item .indicator {
+  background-color: var(--vp-c-brand-1);
+}
+
+/* ── Footnotes & definition lists (preserved from before) ───────────── */
 
 hr.footnotes-sep {
   margin-top: 48px;
@@ -38,83 +178,95 @@ section.footnotes > ol > li > p:last-child {
 }
 
 main dl dd {
-  margin-top: .25rem;
+  margin-top: 0.25rem;
   margin-bottom: 1rem;
 }
 
-/* Hero Typography Enhancement */
-.VPHero .text {
-  letter-spacing: -0.02em;
-  line-height: 1.15 !important;
-  font-weight: 700;
+/* ── Landing page (scoped to .home-custom) ──────────────────────────── */
+
+.home-custom {
+  --lt-section-px: clamp(20px, 5vw, 64px);
+  --lt-maxw: 1200px;
 }
 
-/* Prevent orphaned words in hero text - replace with space on desktop */
-@media (min-width: 641px) {
-  .VPHero .text br {
-    display: inline;
-  }
-  
-  .VPHero .text br::before {
-    content: " ";
-    white-space: pre;
-  }
+.home-custom .lt-section {
+  padding-block: clamp(56px, 8vw, 112px);
+  padding-inline: var(--lt-section-px);
 }
 
-@media (max-width: 640px) {
-  .VPHero .text br {
-    display: block;
-  }
+.home-custom .lt-wrap {
+  max-width: var(--lt-maxw);
+  margin-inline: auto;
 }
 
-/* Enhance the tagline with brand colors */
-.VPHero .tagline {
-  font-size: 1.35rem !important;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  margin-top: 1.75rem !important;
+/* Section eyebrow — a small "track label" */
+.home-custom .lt-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  margin: 0 0 0.9rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--lt-amber);
+}
+
+.home-custom .lt-eyebrow::before {
+  content: "";
+  width: 1.6rem;
+  height: 1px;
+  background: var(--lt-amber-line);
+}
+
+.home-custom .lt-h2 {
+  margin: 0;
+  font-family: var(--lt-font-display);
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+  color: var(--vp-c-text-1);
+}
+
+.home-custom .lt-lede {
+  margin: 1rem 0 0;
+  max-width: 46ch;
+  font-size: 1.075rem;
+  line-height: 1.6;
   color: var(--vp-c-text-2);
-  position: relative;
 }
 
-/* Remove the accent line - looked like a bug */
-
-/* Better spacing and centering */
-.VPHero .main {
-  max-width: 720px;
-  margin: 0 auto;
+/* Reveal-on-scroll (progressive: SSR renders visible) */
+.home-custom .lt-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--lt-delay, 0ms);
+  will-change: opacity, transform;
 }
 
-/* Subtle emphasis for key words */
-.VPHero .text strong {
-  color: var(--vp-c-brand-1);
-  font-weight: 800;
+.home-custom .lt-reveal.is-visible {
+  opacity: 1;
+  transform: none;
 }
 
-/* Enhanced mobile responsiveness */
-@media (max-width: 768px) {
-  .VPHero .tagline {
-    font-size: 1.2rem !important;
-    padding: 0 1.5rem;
-    letter-spacing: 0.01em;
+@media (prefers-reduced-motion: reduce) {
+  .home-custom .lt-reveal,
+  .home-custom .lt-reveal.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
-  
-  .VPHero .text {
-    font-size: 2.5rem !important;
-    line-height: 1.2 !important;
-  }
-  
-  /* Removed accent line */
 }
 
-@media (max-width: 480px) {
-  .VPHero .text {
-    font-size: 2rem !important;
-    padding: 0 1rem;
-  }
-  
-  .VPHero .tagline {
-    font-size: 1.1rem !important;
-  }
+/* Visible keyboard focus everywhere on the landing */
+.home-custom a:focus-visible,
+.home-custom button:focus-visible {
+  outline: 2px solid var(--lt-amber);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
