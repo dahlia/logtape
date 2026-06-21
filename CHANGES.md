@@ -87,6 +87,13 @@ To be released.
         context.  The Express integration also supports the `httpVersion`
         field.
 
+ -  Added clearer predefined format names to `elysiaLogger()`.
+    `structured-combined` and `structured-common` are structured request log
+    presets, while `morgan-combined` and `morgan-common` produce
+    Morgan-compatible Apache access log text.  The existing `combined` and
+    `common` format names remain supported as deprecated aliases for the
+    corresponding structured presets.  [[#178]]
+
  -  Added clearer predefined format names to `expressLogger()`.
     `structured-combined` and `structured-common` are structured request log
     presets, while `morgan-combined` and `morgan-common` produce

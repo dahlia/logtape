@@ -48,6 +48,14 @@ async function setupLogtape(options: {
   return { logs, cleanup: () => reset() };
 }
 
+function useFixedDateNow(timestamp: number): () => void {
+  const originalDateNow = Date.now;
+  Date.now = () => timestamp;
+  return () => {
+    Date.now = originalDateNow;
+  };
+}
+
 function assertRecentResponseTime(
   responseTime: unknown,
   startedAt: number,
@@ -226,6 +234,45 @@ test("elysiaLogger(): combined format logs structured properties", async () => {
   }
 });
 
+test(
+  "elysiaLogger(): structured-combined format logs structured properties",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const app = new Elysia()
+        .use(elysiaLogger({ format: "structured-combined" }))
+        .get("/test", ({ set }) => {
+          set.headers["content-length"] = "123";
+          return "Hello";
+        });
+
+      await app.handle(
+        new Request("http://localhost/test", {
+          headers: {
+            "User-Agent": "test-agent/1.0",
+            "Referer": "http://example.com",
+            "X-Forwarded-For": "127.0.0.1",
+          },
+        }),
+      );
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.ok((props.url as string).includes("/test"));
+      assert.strictEqual(props.path, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.notStrictEqual(props.responseTime, null);
+      assert.strictEqual(props.contentLength, "123");
+      assert.strictEqual(props.remoteAddr, "127.0.0.1");
+      assert.strictEqual(props.userAgent, "test-agent/1.0");
+      assert.strictEqual(props.referrer, "http://example.com");
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
 // ============================================
 // Format Tests - Common
 // ============================================
@@ -254,6 +301,97 @@ test("elysiaLogger(): common format excludes referrer and userAgent", async () =
     assert.strictEqual(props.referrer, undefined);
     assert.strictEqual(props.userAgent, undefined);
   } finally {
+    await cleanup();
+  }
+});
+
+test(
+  "elysiaLogger(): structured-common format excludes referrer and userAgent",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const app = new Elysia()
+        .use(elysiaLogger({ format: "structured-common" }))
+        .get("/test", () => "Hello");
+
+      await app.handle(
+        new Request("http://localhost/test", {
+          headers: {
+            "User-Agent": "test-agent/1.0",
+            "Referer": "http://example.com",
+          },
+        }),
+      );
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.strictEqual(props.path, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.strictEqual(props.referrer, undefined);
+      assert.strictEqual(props.userAgent, undefined);
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
+// ============================================
+// Format Tests - Morgan
+// ============================================
+
+test("elysiaLogger(): morgan-combined format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({ format: "morgan-combined" }))
+      .post("/test", ({ set }) => {
+        set.status = 201;
+        set.headers["content-length"] = "42";
+        return "Created";
+      });
+
+    await app.handle(
+      new Request("http://localhost/test?name=alice", {
+        method: "POST",
+        headers: {
+          "Authorization": "Basic ZnJhbms6c2VjcmV0",
+          "Referer": "http://example.com/start",
+          "User-Agent": 'test-agent "quoted"',
+          "X-Forwarded-For": "203.0.113.7, 10.0.0.1",
+        },
+      }),
+    );
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '203.0.113.7 - frank [10/Oct/2000:13:55:36 +0000] "POST /test?name=alice HTTP/-" 201 42 "http://example.com/start" "test-agent \\"quoted\\""',
+    );
+  } finally {
+    restoreDateNow();
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): morgan-common format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({ format: "morgan-common" }))
+      .get("/test", () => "Hello");
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '- - - [10/Oct/2000:13:55:36 +0000] "GET /test HTTP/-" 200 -',
+    );
+  } finally {
+    restoreDateNow();
     await cleanup();
   }
 });
