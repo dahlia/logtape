@@ -18,6 +18,7 @@ import { reveal } from "./reveal";
 
 import LandingHero from "./components/LandingHero.vue";
 import LandingUnobtrusive from "./components/LandingUnobtrusive.vue";
+import LandingCategories from "./components/LandingCategories.vue";
 import LandingFeatures from "./components/LandingFeatures.vue";
 import LandingRuntimes from "./components/LandingRuntimes.vue";
 import LandingEcosystem from "./components/LandingEcosystem.vue";
@@ -33,6 +34,7 @@ export default {
     app.directive("reveal", reveal);
     app.component("LandingHero", LandingHero);
     app.component("LandingUnobtrusive", LandingUnobtrusive);
+    app.component("LandingCategories", LandingCategories);
     app.component("LandingFeatures", LandingFeatures);
     app.component("LandingRuntimes", LandingRuntimes);
     app.component("LandingEcosystem", LandingEcosystem);

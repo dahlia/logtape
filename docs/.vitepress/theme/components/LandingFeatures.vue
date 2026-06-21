@@ -16,12 +16,6 @@ const features: Feature[] = [
     link: "/manual/struct",
   },
   {
-    cue: 'getLogger(["app", "db"])',
-    title: "Hierarchical categories",
-    desc: "Namespaced loggers inherit their level and sinks down the tree, so each library gets clean isolation.",
-    link: "/manual/categories",
-  },
-  {
     cue: "info`hello ${name}`",
     title: "Template literals",
     desc: "A terse tagged-template form for when you just want a quick, readable line.",

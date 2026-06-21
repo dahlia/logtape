@@ -48,6 +48,7 @@
   --lt-card-2: #f6f5f2;
   --lt-hairline: rgba(43, 42, 44, 0.1);
   --lt-hairline-strong: rgba(43, 42, 44, 0.16);
+  --lt-tree-line: #8c897f;
 
   --lt-font-display:
     "Space Grotesk Variable",
@@ -100,6 +101,7 @@
   --lt-card-2: #232125;
   --lt-hairline: rgba(255, 255, 255, 0.09);
   --lt-hairline-strong: rgba(255, 255, 255, 0.16);
+  --lt-tree-line: rgba(255, 255, 255, 0.32);
 }
 
 /* ── Brand colour overrides (applies to the whole site) ─────────────── */
