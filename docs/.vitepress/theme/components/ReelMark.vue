@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A cassette tape reel/spool — the recurring brand motif.
+// A cassette tape reel/spool, the recurring brand motif.
 withDefaults(defineProps<{ size?: number; spin?: boolean }>(), {
   size: 22,
   spin: false,

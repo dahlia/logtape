@@ -60,7 +60,7 @@ const lines: LogLine[] = [
         <Console :lines="lines" label="my-app.log" />
         <p class="lt-hero__caption">
           Real LogTape output: leveled, categorized, and
-          <span>structured</span> — values stay first-class, not stringified.
+          <span>structured</span>. Values stay first-class, not stringified.
         </p>
       </div>
     </div>

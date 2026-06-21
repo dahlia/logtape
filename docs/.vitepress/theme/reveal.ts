@@ -1,7 +1,7 @@
 import type { Directive } from "vue";
 
 /**
- * `v-reveal` — a tiny scroll-reveal directive.
+ * `v-reveal`: a tiny scroll-reveal directive.
  *
  * SSR renders the element fully visible (the directive hooks never run on the
  * server), so the content is always present without JavaScript.  On the client

@@ -199,7 +199,7 @@ const REFERENCES = {
 export default defineConfig({
   title: "LogTape",
   description:
-    "Unobtrusive logging library with zero dependencies—library-first design for Deno, Node.js, Bun, browsers, and edge functions",
+    "Unobtrusive logging library with zero dependencies and a library-first design for Deno, Node.js, Bun, browsers, and edge functions",
   cleanUrls: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config

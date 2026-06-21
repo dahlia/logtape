@@ -15,7 +15,7 @@ export function charge(orderId: string) {
   // ...
 }`;
 
-const appCode = `// inside the application — opt in when you want
+const appCode = `// inside the application, opt in when you want
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
@@ -67,7 +67,7 @@ const lines: LogLine[] = [
           label="shopkit.log"
           :recording="recording"
           :stream="true"
-          silent-hint="// no configure() yet — every logger call is a no-op"
+          silent-hint="// no configure() yet, so every logger call is a no-op"
         />
         <div class="lt-unob__controls">
           <button
@@ -82,8 +82,8 @@ const lines: LogLine[] = [
           <span class="lt-unob__state">
             {{
               recording
-                ? "recording — the app wired up a sink"
-                : "idle — library logs are dropped"
+                ? "recording: the app wired up a sink"
+                : "idle: library logs are dropped"
             }}
           </span>
         </div>

@@ -22,7 +22,7 @@ const props = withDefaults(
     label: "app.log",
     recording: true,
     stream: false,
-    silentHint: "// logging not configured — every call is a no-op",
+    silentHint: "// logging not configured, so every call is a no-op",
   },
 );
 
