@@ -116,11 +116,19 @@ app.use(expressLogger({
 Predefined formats
 ------------------
 
- -  **combined**: Apache Combined Log Format with all properties (default)
- -  **common**: Apache Common Log Format (without referrer/userAgent)
- -  **dev**: Concise output for development (`GET /path 200 1.234 ms - 123`)
- -  **short**: Shorter format with remote address
- -  **tiny**: Minimal output
+The middleware supports structured presets and text presets:
+
+ -  `"structured-combined"`: Structured request properties with all fields
+    (default)
+ -  `"structured-common"`: Structured request properties without
+    `referrer`/`userAgent`
+ -  `"combined"`: Deprecated alias for `"structured-combined"`
+ -  `"common"`: Deprecated alias for `"structured-common"`
+ -  `"morgan-combined"`: Morgan-compatible Apache combined access log output
+ -  `"morgan-common"`: Morgan-compatible Apache common access log output
+ -  `"dev"`: Concise output for development (`GET /path 200 1.234 ms - 123`)
+ -  `"short"`: Shorter format with remote address
+ -  `"tiny"`: Minimal output
 
 
 Custom format function

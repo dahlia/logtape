@@ -48,6 +48,14 @@ async function setupLogtape(options: {
   return { logs, cleanup: () => reset() };
 }
 
+function useFixedDateNow(timestamp: number): () => void {
+  const originalDateNow = Date.now;
+  Date.now = () => timestamp;
+  return () => {
+    Date.now = originalDateNow;
+  };
+}
+
 // Mock Express request
 function createMockRequest(
   overrides: Partial<ExpressRequest> = {},
@@ -312,6 +320,37 @@ test("expressLogger(): combined format logs structured properties", async () => 
   }
 });
 
+test(
+  "expressLogger(): structured-combined format logs structured properties",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const middleware = expressLogger({ format: "structured-combined" });
+      const req = createMockRequest();
+      const res = createMockResponse({ statusCode: 200 });
+      res.setHeader("content-length", "123");
+      const next: ExpressNextFunction = () => {};
+
+      middleware(req, res, next);
+      finishResponse(res);
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.strictEqual(props.url, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.notStrictEqual(props.responseTime, null);
+      assert.strictEqual(props.contentLength, "123");
+      assert.strictEqual(props.remoteAddr, "127.0.0.1");
+      assert.strictEqual(props.userAgent, "test-agent/1.0");
+      assert.strictEqual(props.referrer, "http://example.com");
+      assert.strictEqual(props.httpVersion, "1.1");
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
 // ============================================
 // Format Tests - Common
 // ============================================
@@ -335,6 +374,105 @@ test("expressLogger(): common format excludes referrer and userAgent", async () 
     assert.strictEqual(props.referrer, undefined);
     assert.strictEqual(props.userAgent, undefined);
   } finally {
+    await cleanup();
+  }
+});
+
+test(
+  "expressLogger(): structured-common format excludes referrer and userAgent",
+  async () => {
+    const { logs, cleanup } = await setupLogtape();
+    try {
+      const middleware = expressLogger({ format: "structured-common" });
+      const req = createMockRequest();
+      const res = createMockResponse();
+      const next: ExpressNextFunction = () => {};
+
+      middleware(req, res, next);
+      finishResponse(res);
+
+      assert.strictEqual(logs.length, 1);
+      const props = logs[0].properties;
+      assert.strictEqual(props.method, "GET");
+      assert.strictEqual(props.url, "/test");
+      assert.strictEqual(props.status, 200);
+      assert.strictEqual(props.referrer, undefined);
+      assert.strictEqual(props.userAgent, undefined);
+    } finally {
+      await cleanup();
+    }
+  },
+);
+
+// ============================================
+// Format Tests - Morgan
+// ============================================
+
+test("expressLogger(): morgan-combined format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const middleware = expressLogger({ format: "morgan-combined" });
+    const req = createMockRequest({
+      ip: "203.0.113.7",
+      originalUrl: "/test?name=alice",
+      get: (header: string) => {
+        const headers: Record<string, string> = {
+          "authorization": "Basic ZnJhbms6c2VjcmV0",
+          "user-agent": 'test-agent "quoted"',
+          "referrer": "http://example.com/start",
+          "referer": "http://example.com/start",
+        };
+        return headers[header.toLowerCase()];
+      },
+    });
+    const res = createMockResponse({ statusCode: 201 });
+    res.setHeader("content-length", "42");
+    const next: ExpressNextFunction = () => {};
+
+    middleware(req, res, next);
+    finishResponse(res);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '203.0.113.7 - frank [10/Oct/2000:13:55:36 +0000] "GET /test?name=alice HTTP/1.1" 201 42 "http://example.com/start" "test-agent \\"quoted\\""',
+    );
+  } finally {
+    restoreDateNow();
+    await cleanup();
+  }
+});
+
+test("expressLogger(): morgan-common format returns access log", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  const restoreDateNow = useFixedDateNow(Date.UTC(2000, 9, 10, 13, 55, 36));
+  try {
+    const middleware = expressLogger({ format: "morgan-common" });
+    const req = createMockRequest({
+      ip: "",
+      socket: {},
+      get: (header: string) => {
+        const headers: Record<string, string> = {
+          "user-agent": "test-agent/1.0",
+          "referrer": "http://example.com/start",
+        };
+        return headers[header.toLowerCase()];
+      },
+    });
+    const res = createMockResponse({ statusCode: 204 });
+    const next: ExpressNextFunction = () => {};
+
+    middleware(req, res, next);
+    finishResponse(res);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      '- - - [10/Oct/2000:13:55:36 +0000] "GET /test HTTP/1.1" 204 -',
+    );
+  } finally {
+    restoreDateNow();
     await cleanup();
   }
 });
