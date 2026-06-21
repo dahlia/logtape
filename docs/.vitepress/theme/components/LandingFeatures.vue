@@ -70,7 +70,7 @@ const features: Feature[] = [
     link: "/lint/",
   },
   {
-    cue: "getLogger().getMessages()",
+    cue: "recorder.assertLogged({ … })",
     title: "Testing utilities",
     desc: "Capture and assert on emitted logs so your logging itself stays under test.",
     link: "/manual/testing",
