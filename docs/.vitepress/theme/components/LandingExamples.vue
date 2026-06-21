@@ -106,7 +106,7 @@ const active = ref(0);
 
 <style scoped>
 .lt-ex {
-  background: var(--lt-card-2);
+  background: var(--lt-paper);
   border-bottom: 1px solid var(--lt-hairline);
 }
 

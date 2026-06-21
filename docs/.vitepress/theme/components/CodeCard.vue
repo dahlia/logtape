@@ -37,6 +37,11 @@ const apis = new Set([
   "withContext",
   "getContextLocalStorage",
   "reset",
+  "redactByField",
+  "redactByFieldAsync",
+  "redactByPattern",
+  "createHmacPseudonymizer",
+  "getTextFormatter",
 ]);
 
 function esc(s: string): string {

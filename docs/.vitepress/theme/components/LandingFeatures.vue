@@ -52,12 +52,6 @@ const features: Feature[] = [
     link: "/manual/formatters",
   },
   {
-    cue: "redactByField(/token/)",
-    title: "Built-in redaction",
-    desc: "Scrub secrets by pattern or by field before a record ever reaches a sink.",
-    link: "/manual/redaction",
-  },
-  {
     cue: "no-message-interpolation",
     title: "Lint rules",
     desc: "Catch logging anti-patterns at development time with dedicated lint rules.",
