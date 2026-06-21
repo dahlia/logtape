@@ -20,7 +20,6 @@ import LandingHero from "./components/LandingHero.vue";
 import LandingUnobtrusive from "./components/LandingUnobtrusive.vue";
 import LandingCategories from "./components/LandingCategories.vue";
 import LandingFeatures from "./components/LandingFeatures.vue";
-import LandingRuntimes from "./components/LandingRuntimes.vue";
 import LandingEcosystem from "./components/LandingEcosystem.vue";
 import LandingExtend from "./components/LandingExtend.vue";
 import LandingRedaction from "./components/LandingRedaction.vue";
@@ -37,7 +36,6 @@ export default {
     app.component("LandingUnobtrusive", LandingUnobtrusive);
     app.component("LandingCategories", LandingCategories);
     app.component("LandingFeatures", LandingFeatures);
-    app.component("LandingRuntimes", LandingRuntimes);
     app.component("LandingEcosystem", LandingEcosystem);
     app.component("LandingExtend", LandingExtend);
     app.component("LandingRedaction", LandingRedaction);

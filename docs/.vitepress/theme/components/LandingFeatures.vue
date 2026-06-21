@@ -99,7 +99,7 @@ const features: Feature[] = [
 
 <style scoped>
 .lt-feat {
-  background: var(--lt-paper);
+  background: var(--lt-card-2);
   border-bottom: 1px solid var(--lt-hairline);
 }
 

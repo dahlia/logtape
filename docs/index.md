@@ -11,7 +11,6 @@ title: "LogTape: unobtrusive logging for modern JavaScript"
 <LandingUnobtrusive />
 <LandingCategories />
 <LandingFeatures />
-<LandingRuntimes />
 <LandingEcosystem />
 <LandingExtend />
 <LandingRedaction />

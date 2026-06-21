@@ -3,6 +3,7 @@ import { withBase } from "vitepress";
 import Console, { type LogLine } from "./Console.vue";
 import InstallTabs from "./InstallTabs.vue";
 import ReelMark from "./ReelMark.vue";
+import RuntimeIcon from "./RuntimeIcon.vue";
 
 const lines: LogLine[] = [
   { level: "info", cat: "app·server", msg: "Listening on port [[3000]]." },
@@ -36,7 +37,7 @@ const lines: LogLine[] = [
 
         <ul class="lt-hero__chips">
           <li>0 dependencies</li>
-          <li>Deno · Node · Bun · browser · edge</li>
+          <li>every JavaScript runtime</li>
           <li>5.3 KB min+gzip</li>
           <li>TypeScript-native</li>
         </ul>
@@ -54,6 +55,31 @@ const lines: LogLine[] = [
         </div>
 
         <InstallTabs class="lt-hero__install" />
+
+        <div class="lt-hero__runson">
+          <span class="lt-hero__runson-label">Runs on</span>
+          <div class="lt-hero__runson-items">
+            <span class="lt-rt"><RuntimeIcon name="node" /> Node.js</span>
+            <span class="lt-rt"><RuntimeIcon name="deno" /> Deno</span>
+            <span class="lt-rt"><RuntimeIcon name="bun" /> Bun</span>
+            <span class="lt-rt">
+              <span class="lt-rt__cluster">
+                <RuntimeIcon name="chrome" />
+                <RuntimeIcon name="firefox" />
+                <RuntimeIcon name="safari" />
+              </span>
+              Browsers
+            </span>
+            <span class="lt-rt">
+              <span class="lt-rt__cluster">
+                <RuntimeIcon name="cloudflareworkers" />
+                <RuntimeIcon name="vercel" />
+                <RuntimeIcon name="netlify" />
+              </span>
+              Edge
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="lt-hero__stage" v-reveal>
@@ -194,6 +220,52 @@ const lines: LogLine[] = [
 .lt-hero__install {
   margin-top: 1.9rem;
   max-width: min(30rem, 100%);
+}
+
+.lt-hero__runson {
+  display: flex;
+  align-items: baseline;
+  gap: 1.15rem;
+  margin-top: 1.5rem;
+}
+
+.lt-hero__runson-label {
+  flex: none;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+}
+
+.lt-hero__runson-items {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1.15rem;
+}
+
+.lt-rt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+}
+
+.lt-rt__cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.lt-hero__runson :deep(.lt-rticon) {
+  width: 17px;
+  height: 17px;
 }
 
 .lt-hero__caption {

@@ -84,7 +84,7 @@ const tree: Node[] = [
 
 <style scoped>
 .lt-cat {
-  background: var(--lt-card-2);
+  background: var(--lt-paper);
   border-bottom: 1px solid var(--lt-hairline);
 }
 
