@@ -32,7 +32,7 @@ const lines: LogLine[] = [
         <p class="lt-hero__lede">
           LogTape is a logging library built library-first. Your code records
           freely; the application decides if, where, and how those logs play
-          back. Zero dependencies, every runtime, 5.3&nbsp;KB.
+          back.
         </p>
 
         <ul class="lt-hero__chips">
