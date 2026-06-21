@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import RuntimeIcon from "./RuntimeIcon.vue";
+
 const runtimes = [
-  { name: "Deno", note: "native, via JSR" },
-  { name: "Node.js", note: "ESM + CommonJS" },
-  { name: "Bun", note: "first-class" },
-  { name: "Browsers", note: "styled console" },
-  { name: "Edge", note: "Workers & functions" },
-];
+  { name: "Deno", icon: "deno", note: "native, via JSR" },
+  { name: "Node.js", icon: "node", note: "ESM + CommonJS" },
+  { name: "Bun", icon: "bun", note: "first-class" },
+  { name: "Browsers", icon: "browsers", note: "styled console" },
+  { name: "Edge", icon: "edge", note: "Workers & functions" },
+] as const;
 </script>
 
 <template>
@@ -21,6 +23,7 @@ const runtimes = [
       </div>
       <ul class="lt-rt__list">
         <li v-for="r in runtimes" :key="r.name">
+          <RuntimeIcon :name="r.icon" class="lt-rt__icon" />
           <span class="lt-rt__name">{{ r.name }}</span>
           <span class="lt-rt__note">{{ r.note }}</span>
         </li>
@@ -55,10 +58,15 @@ const runtimes = [
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 1rem 1rem 1.05rem;
+  padding: 1.05rem 1rem 1.1rem;
   border: 1px solid var(--lt-hairline);
   border-radius: 11px;
   background: var(--lt-card);
+}
+
+.lt-rt__icon {
+  color: var(--vp-c-text-2);
+  margin-bottom: 0.55rem;
 }
 
 .lt-rt__name {
