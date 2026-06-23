@@ -467,11 +467,11 @@ export function getSentrySink(
           data: attributes,
         });
       }
-    } catch (err) {
-      // Never throw from a sink; keep failures silent but visible in debug
-      try {
-        console.debug("[@logtape/sentry] sink error", err);
-      } catch { /* ignore console errors */ }
+    } catch (error) {
+      getLogger(["logtape", "meta", "sentry"]).error(
+        "Failed to send log events to Sentry",
+        { error },
+      );
     }
   };
 }
