@@ -8,6 +8,15 @@ Version 2.2.1
 
 To be released.
 
+### @logtape/sentry
+
+ -  Fixed the Sentry sink to report internal errors to the meta logger
+    (`["logtape", "meta", "sentry"]`) instead of `console.debug()`,
+    making sink failures observable in tests and production.
+    [[#181] by Sebastian Wesley-Smith]
+
+[#181]: https://github.com/dahlia/logtape/issues/181
+
 
 Version 2.2.0
 -------------
