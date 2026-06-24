@@ -3,6 +3,10 @@ import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
 import { getSentrySink, type SentryNamespace } from "./mod.ts";
 
+// Resolved per runtime so expectations match the sink's own formatting
+// (util.inspect on Node/Bun, Deno.inspect on Deno, JSON.stringify elsewhere).
+import { inspect } from "#util";
+
 // Helper to create a mock log record
 function createMockLogRecord(overrides: Partial<LogRecord> = {}): LogRecord {
   return {
@@ -137,6 +141,36 @@ test("sink handles circular references in properties", () => {
   }));
 });
 
+test("sink handles circular references in interpolated message values", () => {
+  const capturedMessages: string[] = [];
+  const sentry = createMockSentryNamespace({
+    captureMessage: (message) => {
+      capturedMessages.push(message.toString());
+      return "message-id";
+    },
+  });
+  const sink = getSentrySink({ sentry });
+
+  // A circular value (resembling a Response with a back-reference) used as a
+  // message interpolation value.  Previously this hit JSON.stringify's circular
+  // structure error inside getParameterizedString(), which the sink swallowed,
+  // so captureMessage was never reached.  Now inspect() (util.inspect /
+  // Deno.inspect) renders it instead.
+  const circular: Record<string, unknown> = { body: "ok" };
+  circular.self = circular;
+
+  sink(createMockLogRecord({
+    level: "error",
+    message: ["Saw error: ", circular, ""],
+    rawMessage: "Saw error: {error}",
+    properties: { error: circular },
+  }));
+
+  assert.strictEqual(capturedMessages.length, 1);
+  assert.ok(capturedMessages[0].startsWith("Saw error: "));
+  assert.ok(capturedMessages[0].length > "Saw error: ".length);
+});
+
 // =============================================================================
 // Behavior verification tests
 // =============================================================================
@@ -238,7 +272,9 @@ test("sink uses configured Sentry namespace for error messages", () => {
     message: ["Error from ", "namespace"],
   }));
 
-  assert.deepStrictEqual(capturedMessages, ['Error from "namespace"']);
+  assert.deepStrictEqual(capturedMessages, [
+    `Error from ${inspect("namespace")}`,
+  ]);
 });
 
 test("sink uses configured Sentry namespace for exceptions", () => {
@@ -302,7 +338,7 @@ test("sink uses configured Sentry namespace for breadcrumbs", () => {
   assert.deepStrictEqual(breadcrumbs[0], {
     category: "test.category",
     level: "info",
-    message: 'Hello, "world"!',
+    message: `Hello, ${inspect("world")}!`,
     timestamp: 1,
     data: {
       "sentry.origin": "auto.logging.logtape",

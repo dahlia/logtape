@@ -12,6 +12,10 @@ import type {
 } from "@sentry/core";
 // Import namespace to safely check for public logger API (added in v9.41.0)
 import * as SentryCore from "@sentry/core";
+// Cross-runtime inspect: Deno.inspect / util.inspect (handles circular
+// references); falls back to JSON.stringify in browsers. Resolved via the
+// `#util` import map per runtime.
+import { inspect } from "#util";
 
 /**
  * Converts a LogTape {@link LogRecord} into a Sentry {@link ParameterizedString}.
@@ -42,29 +46,6 @@ function getParameterizedString(record: LogRecord): ParameterizedString {
   paramStr.__sentry_template_values__ = tplValues;
   return paramStr;
 }
-
-/**
- * A platform-specific inspect function. In Deno, this is {@link Deno.inspect},
- * and in Node.js/Bun it is {@link util.inspect}. If neither is available, it
- * falls back to {@link JSON.stringify}.
- *
- * @param value The value to inspect.
- * @returns The string representation of the value.
- */
-const inspect: (value: unknown) => string =
-  // @ts-ignore: Deno global
-  "Deno" in globalThis && "inspect" in globalThis.Deno &&
-    // @ts-ignore: Deno global
-    typeof globalThis.Deno.inspect === "function"
-    // @ts-ignore: Deno global
-    ? globalThis.Deno.inspect
-    // @ts-ignore: Node.js global
-    : "util" in globalThis && "inspect" in globalThis.util &&
-        // @ts-ignore: Node.js global
-        typeof globalThis.util.inspect === "function"
-    // @ts-ignore: Node.js global
-    ? globalThis.util.inspect
-    : JSON.stringify;
 
 // Level normalization helpers
 
