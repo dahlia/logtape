@@ -1512,7 +1512,7 @@ export function getLogger(category: string | readonly string[] = []): Logger {
 const globalRootLoggerSymbol = Symbol.for("logtape.rootLogger");
 
 function isMetaLoggerCategory(category: readonly string[]): boolean {
-  return category.length === 2 &&
+  return category.length >= 2 &&
     category[0] === "logtape" &&
     category[1] === "meta";
 }

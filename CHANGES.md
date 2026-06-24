@@ -8,6 +8,14 @@ Version 2.2.1
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed a bug where `withCategoryPrefix()` was incorrectly applied to
+    sub-loggers of the meta logger (e.g., `["logtape", "meta", "sink"]`).
+    [[#182] by Sebastian Wesley-Smith]
+
+[#182]: https://github.com/dahlia/logtape/pull/182
+
 ### @logtape/sentry
 
  -  Fixed the Sentry sink to report internal errors to the meta logger
