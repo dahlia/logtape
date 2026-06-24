@@ -6,9 +6,35 @@
     ".": "./src/mod.ts"
   },
   "imports": {
+    "#util": "src/util.deno.ts",
     "@sentry/core": "npm:@sentry/core@^9.46.0"
   },
   "tasks": {
-    "build": "pnpm build"
-  }
+    "build": "pnpm build",
+    "test": "deno test",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  },
+  "exclude": [
+    "dist/",
+    "npm/",
+    "node_modules/"
+  ]
 }

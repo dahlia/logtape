@@ -9,6 +9,39 @@ Version 2.3.0
 To be released.
 
 
+Version 2.2.1
+-------------
+
+Released on June 24, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `withCategoryPrefix()` was incorrectly applied to
+    sub-loggers of the meta logger (e.g., `["logtape", "meta", "sink"]`).
+    [[#182] by Sebastian Wesley-Smith]
+
+[#182]: https://github.com/dahlia/logtape/pull/182
+
+### @logtape/sentry
+
+ -  Fixed the Sentry sink to report internal errors to the meta logger
+    (`["logtape", "meta", "sentry"]`) instead of `console.debug()`,
+    making sink failures observable in tests and production.
+    [[#181] by Sebastian Wesley-Smith]
+
+ -  Fixed a `TypeError: Converting circular structure to JSON` raised while
+    rendering interpolated message values (e.g. logging a `Response` or any
+    value containing a circular reference as
+    `logger.error("…{error}", { error })`). The sink now uses the same
+    cross-runtime `inspect` helper as *@logtape/logtape* and *@logtape/pretty*
+    (`Deno.inspect()` on Deno, `util.inspect()` on Node.js/Bun) via the `#util`
+    import map, instead of a fallible `globalThis`-detection fallback that
+    silently degraded to `JSON.stringify()` on Node.js.  [[#180]]
+
+[#180]: https://github.com/dahlia/logtape/issues/180
+[#181]: https://github.com/dahlia/logtape/issues/181
+
+
 Version 2.2.0
 -------------
 
