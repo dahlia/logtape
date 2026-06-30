@@ -8,6 +8,18 @@ Version 2.3.0
 
 To be released.
 
+### @logtape/file
+
+ -  Added `TimeRotatingFileSinkOptions.parseFilename` option to customize how
+    `getTimeRotatingFileSink()` extracts dates from custom log filenames during
+    `maxAgeMs` cleanup.  The option has the type
+    `(filename: string) => Date | null`; returning `null` skips the file.
+
+ -  Added optional `statSync()` method to `TimeRotatingFileSinkDriver` and
+    `AsyncTimeRotatingFileSinkDriver`.  This lets custom base time-rotating file
+    sink drivers support the default modification-time cleanup fallback when
+    `filename` is set and `parseFilename` is not set.
+
 
 Version 2.2.2
 -------------

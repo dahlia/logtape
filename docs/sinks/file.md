@@ -282,7 +282,10 @@ are rotated:
 ### Custom filename patterns
 
 You can customize the filename pattern using the
-`~TimeRotatingFileSinkOptions.filename` option:
+`~TimeRotatingFileSinkOptions.filename` option.  When you also configure
+`~TimeRotatingFileSinkOptions.maxAgeMs`, you can provide
+`~TimeRotatingFileSinkOptions.parseFilename` so cleanup can extract the log
+date from your custom filenames:
 
 ~~~~ typescript twoslash
 // @noErrors: 2345
@@ -294,6 +297,10 @@ await configure({
     file: getTimeRotatingFileSink({
       directory: "./logs",
       filename: (date: Date) => `app-${date.toISOString().slice(0, 10)}.txt`,
+      parseFilename: (filename: string) => {
+        const match = filename.match(/^app-(\d{4}-\d{2}-\d{2})\.txt$/);
+        return match == null ? null : new Date(match[1]);
+      },
     }),
   },
   // Omitted for brevity
@@ -323,12 +330,12 @@ await configure({
 ~~~~
 
 > [!IMPORTANT]
-> When `~TimeRotatingFileSinkOptions.filename` is configured, cleanup uses each
-> file's modification time (`mtime`) instead of parsing dates from filenames in
-> the built-in `getTimeRotatingFileSink()` implementation, and only removes
-> files whose names match the configured `filename` function for that `mtime`.
-> Use a dedicated log directory for time-rotating file sinks so unrelated files
-> are not removed when they are older than
+> When `~TimeRotatingFileSinkOptions.filename` is configured and
+> `~TimeRotatingFileSinkOptions.parseFilename` is omitted, cleanup uses each
+> file's modification time (`mtime`) instead of parsing dates from filenames.
+> It only removes files whose names match the configured `filename` function for
+> that `mtime`.  Use a dedicated log directory for time-rotating file sinks so
+> unrelated files are not removed when they are older than
 > `~TimeRotatingFileSinkOptions.maxAgeMs`.
 
 > [!TIP]

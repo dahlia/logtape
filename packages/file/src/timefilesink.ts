@@ -35,6 +35,18 @@ export interface TimeRotatingFileSinkOptions
   filename?: (date: Date) => string;
 
   /**
+   * A function that extracts the date from a log filename for cleanup.
+   * When this returns `null`, the file is skipped during cleanup.
+   *
+   * If not specified, cleanup parses the default filename patterns when
+   * `filename` is not set.  When `filename` is set, cleanup uses each file's
+   * modification time and checks that `filename(mtime)` matches the file name.
+   *
+   * @since 2.3.0
+   */
+  parseFilename?: (filename: string) => Date | null;
+
+  /**
    * The rotation interval.  Defaults to `"daily"`.
    */
   interval?: TimeRotationInterval;
@@ -43,8 +55,8 @@ export interface TimeRotatingFileSinkOptions
    * The maximum age of log files in milliseconds.  Files older than this
    * will be deleted.  If not specified, old files are not deleted.
    *
-   * When using `getTimeRotatingFileSink()` with `filename` set, cleanup uses
-   * each file's modification time instead of parsing dates from filenames.
+   * When `filename` is set and `parseFilename` is not set, cleanup uses each
+   * file's modification time instead of parsing dates from filenames.
    */
   maxAgeMs?: number;
 }
@@ -60,6 +72,15 @@ export interface TimeRotatingFileSinkDriver<TFile>
    * @returns An array of filenames in the directory.
    */
   readdirSync(path: string): string[];
+
+  /**
+   * Get file information.  This is used for cleanup when `filename` is set and
+   * `parseFilename` is not set.
+   * @param path A path to the file.
+   * @returns File information.
+   * @since 2.3.0
+   */
+  statSync?(path: string): { mtime: Date | null };
 
   /**
    * Delete a file.
@@ -94,6 +115,15 @@ export interface AsyncTimeRotatingFileSinkDriver<TFile>
    * @returns An array of filenames in the directory.
    */
   readdirSync(path: string): string[];
+
+  /**
+   * Get file information.  This is used for cleanup when `filename` is set and
+   * `parseFilename` is not set.
+   * @param path A path to the file.
+   * @returns File information.
+   * @since 2.3.0
+   */
+  statSync?(path: string): { mtime: Date | null };
 
   /**
    * Delete a file.
@@ -278,6 +308,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
   const interval = options.interval ?? "daily";
   const hasCustomFilename = options.filename !== undefined;
   const filenameGenerator = options.filename ?? getDefaultFilename(interval);
+  const parseFilename = options.parseFilename;
   const maxAgeMs = options.maxAgeMs;
   const cleanupInterval = maxAgeMs === undefined
     ? getRotationIntervalMs(interval)
@@ -340,7 +371,9 @@ export function getBaseTimeRotatingFileSink<TFile>(
       if (file === currentFilename) continue;
 
       let fileDate: Date | null = null;
-      if (hasCustomFilename) {
+      if (parseFilename !== undefined) {
+        fileDate = parseFilename(file);
+      } else if (hasCustomFilename) {
         if (statSync === undefined) continue;
         try {
           fileDate = statSync(options.joinPath(directory, file)).mtime;

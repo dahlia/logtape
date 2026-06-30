@@ -34,19 +34,11 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-type StatSyncDriver = {
-  statSync(path: string): { mtime: Date | null };
-};
-
-type TestTimeRotatingFileSinkDriver<TFile> =
-  & TimeRotatingFileSinkDriver<TFile>
-  & StatSyncDriver;
-
 function makeTempDirSync(): string {
   return fs.mkdtempSync(join(tmpdir(), "logtape-time-"));
 }
 
-function getDenoDriver(): TestTimeRotatingFileSinkDriver<Deno.FsFile> {
+function getDenoDriver(): TimeRotatingFileSinkDriver<Deno.FsFile> {
   return {
     openSync(path: string) {
       return Deno.openSync(path, { create: true, append: true });
@@ -76,7 +68,7 @@ function getDenoDriver(): TestTimeRotatingFileSinkDriver<Deno.FsFile> {
   };
 }
 
-function getNodeDriver(): TestTimeRotatingFileSinkDriver<number> {
+function getNodeDriver(): TimeRotatingFileSinkDriver<number> {
   return {
     openSync(path: string) {
       return fs.openSync(path, "a");
@@ -92,12 +84,10 @@ function getNodeDriver(): TestTimeRotatingFileSinkDriver<number> {
   };
 }
 
-function getDriver(): TestTimeRotatingFileSinkDriver<Deno.FsFile | number> {
+function getDriver(): TimeRotatingFileSinkDriver<Deno.FsFile | number> {
   return isDeno
-    ? getDenoDriver() as TestTimeRotatingFileSinkDriver<
-      Deno.FsFile | number
-    >
-    : getNodeDriver() as TestTimeRotatingFileSinkDriver<Deno.FsFile | number>;
+    ? getDenoDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>
+    : getNodeDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>;
 }
 
 function getDenoAsyncDriver(): AsyncTimeRotatingFileSinkDriver<Deno.FsFile> {
@@ -425,6 +415,63 @@ test("getBaseTimeRotatingFileSink() cleans up custom filenames by mtime", () => 
 
   sink(debug);
   sink[Symbol.dispose]();
+
+  const files = fs.readdirSync(directory);
+  assert.strictEqual(files.includes(oldFilename), false);
+  assert.strictEqual(files.includes(recentFilename), true);
+  assert.strictEqual(files.includes(unrelatedFilename), true);
+});
+
+test("getBaseTimeRotatingFileSink() cleans up with parseFilename", () => {
+  const directory = makeTempDirSync();
+  const driver = getDriver();
+
+  const oldFilename = "app-2025-01-01.txt";
+  const oldFilePath = join(directory, oldFilename);
+  fs.writeFileSync(oldFilePath, "old content");
+  const recentMtime = new Date();
+  fs.utimesSync(oldFilePath, recentMtime, recentMtime);
+
+  const recentFilename = "app-2025-01-10.txt";
+  const recentFilePath = join(directory, recentFilename);
+  fs.writeFileSync(recentFilePath, "recent content");
+  fs.utimesSync(recentFilePath, recentMtime, recentMtime);
+
+  const unrelatedFilename = "archive-2025-01-01.txt";
+  const unrelatedFilePath = join(directory, unrelatedFilename);
+  fs.writeFileSync(unrelatedFilePath, "unrelated content");
+  fs.utimesSync(unrelatedFilePath, recentMtime, recentMtime);
+
+  const realNow = Date.now;
+  Date.now = () => new Date(2025, 0, 12).getTime();
+  try {
+    const sink = getBaseTimeRotatingFileSink({
+      ...driver,
+      directory,
+      filename: (date) =>
+        `app-${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${
+          pad2(date.getDate())
+        }.txt`,
+      parseFilename: (file) => {
+        const match = file.match(/^app-(\d{4})-(\d{2})-(\d{2})\.txt$/);
+        if (match === null) return null;
+        const [, year, month, day] = match;
+        return new Date(
+          parseInt(year!, 10),
+          parseInt(month!, 10) - 1,
+          parseInt(day!, 10),
+        );
+      },
+      interval: "daily",
+      maxAgeMs: 5 * 24 * 60 * 60 * 1000,
+      bufferSize: 0,
+    });
+
+    sink(debug);
+    sink[Symbol.dispose]();
+  } finally {
+    Date.now = realNow;
+  }
 
   const files = fs.readdirSync(directory);
   assert.strictEqual(files.includes(oldFilename), false);

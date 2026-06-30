@@ -67,6 +67,7 @@ export const nodeAsyncDriver: AsyncRotatingFileSinkDriver<number | void> = {
 export const nodeTimeDriver: TimeRotatingFileSinkDriver<number | void> = {
   ...nodeDriver,
   readdirSync: fs.readdirSync as (path: string) => string[],
+  statSync: fs.statSync,
   unlinkSync: fs.unlinkSync,
   mkdirSync: fs.mkdirSync,
   joinPath: join,
@@ -81,6 +82,7 @@ export const nodeAsyncTimeDriver: AsyncTimeRotatingFileSinkDriver<
 > = {
   ...nodeAsyncDriver,
   readdirSync: fs.readdirSync as (path: string) => string[],
+  statSync: fs.statSync,
   unlinkSync: fs.unlinkSync,
   mkdirSync: fs.mkdirSync,
   joinPath: join,
@@ -174,11 +176,9 @@ export function getTimeRotatingFileSink(
   options: TimeRotatingFileSinkOptions,
 ): Sink & (Disposable | AsyncDisposable) {
   if (options.nonBlocking) {
-    const driver = { ...nodeAsyncTimeDriver, statSync: fs.statSync };
-    return getBaseTimeRotatingFileSink({ ...options, ...driver });
+    return getBaseTimeRotatingFileSink({ ...options, ...nodeAsyncTimeDriver });
   }
-  const driver = { ...nodeTimeDriver, statSync: fs.statSync };
-  return getBaseTimeRotatingFileSink({ ...options, ...driver });
+  return getBaseTimeRotatingFileSink({ ...options, ...nodeTimeDriver });
 }
 
 // cSpell: ignore filesink

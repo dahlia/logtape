@@ -73,6 +73,7 @@ export const denoTimeDriver: TimeRotatingFileSinkDriver<Deno.FsFile> = {
   readdirSync(path: string) {
     return [...Deno.readDirSync(path)].map((entry) => entry.name);
   },
+  statSync: globalThis?.Deno.statSync,
   unlinkSync: globalThis?.Deno.removeSync,
   mkdirSync(path: string, options?: { recursive?: boolean }) {
     Deno.mkdirSync(path, options);
@@ -90,6 +91,7 @@ export const denoAsyncTimeDriver: AsyncTimeRotatingFileSinkDriver<Deno.FsFile> =
     readdirSync(path: string) {
       return [...Deno.readDirSync(path)].map((entry) => entry.name);
     },
+    statSync: globalThis?.Deno.statSync,
     unlinkSync: globalThis?.Deno.removeSync,
     mkdirSync(path: string, options?: { recursive?: boolean }) {
       Deno.mkdirSync(path, options);
@@ -185,14 +187,9 @@ export function getTimeRotatingFileSink(
   options: TimeRotatingFileSinkOptions,
 ): Sink & (Disposable | AsyncDisposable) {
   if (options.nonBlocking) {
-    const driver = {
-      ...denoAsyncTimeDriver,
-      statSync: globalThis?.Deno.statSync,
-    };
-    return getBaseTimeRotatingFileSink({ ...options, ...driver });
+    return getBaseTimeRotatingFileSink({ ...options, ...denoAsyncTimeDriver });
   }
-  const driver = { ...denoTimeDriver, statSync: globalThis?.Deno.statSync };
-  return getBaseTimeRotatingFileSink({ ...options, ...driver });
+  return getBaseTimeRotatingFileSink({ ...options, ...denoTimeDriver });
 }
 
 // cSpell: ignore filesink
