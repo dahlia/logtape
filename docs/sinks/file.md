@@ -321,6 +321,15 @@ await configure({
 });
 ~~~~
 
+> [!IMPORTANT]
+> When `~TimeRotatingFileSinkOptions.filename` is configured, cleanup uses each
+> file's modification time (`mtime`) instead of parsing dates from filenames in
+> the built-in `getTimeRotatingFileSink()` implementation, and only removes
+> files whose names match the configured `filename` function for that `mtime`.
+> Use a dedicated log directory for time-rotating file sinks so unrelated files
+> are not removed when they are older than
+> `~TimeRotatingFileSinkOptions.maxAgeMs`.
+
 > [!TIP]
 > Like regular file sinks, time-based rotating file sinks support buffering
 > through the `~FileSinkOptions.bufferSize` option (default: 8192 characters)

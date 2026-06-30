@@ -41,6 +41,9 @@ export interface TimeRotatingFileSinkOptions
   /**
    * The maximum age of log files in milliseconds.  Files older than this
    * will be deleted.  If not specified, old files are not deleted.
+   *
+   * When using `getTimeRotatingFileSink()` with `filename` set, cleanup uses
+   * each file's modification time instead of parsing dates from filenames.
    */
   maxAgeMs?: number;
 }
@@ -204,6 +207,44 @@ function getRotationIntervalMs(interval: TimeRotationInterval): number {
   }
 }
 
+interface StatSyncDriver {
+  statSync(path: string): { mtime: Date | null };
+}
+
+function hasStatSyncDriver(options: object): options is StatSyncDriver {
+  return "statSync" in options && typeof options.statSync === "function";
+}
+
+function parseDefaultFilename(file: string): Date | null {
+  const dateMatch = file.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2}))?\.log$/,
+  );
+  const weekMatch = file.match(/^(\d{4})-W(\d{2})\.log$/);
+
+  if (dateMatch) {
+    const [, year, month, day, hour] = dateMatch;
+    return new Date(
+      parseInt(year!, 10),
+      parseInt(month!, 10) - 1,
+      parseInt(day!, 10),
+      hour ? parseInt(hour, 10) : 0,
+    );
+  }
+
+  if (weekMatch) {
+    const [, year, week] = weekMatch;
+    const jan4 = new Date(parseInt(year!, 10), 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const fileDate = new Date(jan4);
+    fileDate.setDate(
+      jan4.getDate() - dayOfWeek + 1 + (parseInt(week!, 10) - 1) * 7,
+    );
+    return fileDate;
+  }
+
+  return null;
+}
+
 /**
  * Get a platform-independent time-rotating file sink.
  *
@@ -234,6 +275,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const interval = options.interval ?? "daily";
+  const hasCustomFilename = options.filename !== undefined;
   const filenameGenerator = options.filename ?? getDefaultFilename(interval);
   const maxAgeMs = options.maxAgeMs;
   const cleanupInterval = maxAgeMs === undefined
@@ -242,6 +284,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
   const bufferSize = options.bufferSize ?? 1024 * 8;
   const flushInterval = options.flushInterval ?? 5000;
   const directory = options.directory;
+  const statSync = hasStatSyncDriver(options) ? options.statSync : undefined;
 
   // Ensure directory exists
   try {
@@ -293,34 +336,22 @@ export function getBaseTimeRotatingFileSink<TFile>(
     }
 
     for (const file of files) {
-      if (!file.endsWith(".log")) continue;
       if (file === currentFilename) continue;
 
-      // Try to parse the date from the filename
-      const dateMatch = file.match(
-        /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2}))?\.log$/,
-      );
-      const weekMatch = file.match(/^(\d{4})-W(\d{2})\.log$/);
-
       let fileDate: Date | null = null;
-
-      if (dateMatch) {
-        const [, year, month, day, hour] = dateMatch;
-        fileDate = new Date(
-          parseInt(year!, 10),
-          parseInt(month!, 10) - 1,
-          parseInt(day!, 10),
-          hour ? parseInt(hour, 10) : 0,
-        );
-      } else if (weekMatch) {
-        const [, year, week] = weekMatch;
-        // Get the date of the first day of the week
-        const jan4 = new Date(parseInt(year!, 10), 0, 4);
-        const dayOfWeek = jan4.getDay() || 7;
-        fileDate = new Date(jan4);
-        fileDate.setDate(
-          jan4.getDate() - dayOfWeek + 1 + (parseInt(week!, 10) - 1) * 7,
-        );
+      if (hasCustomFilename) {
+        if (statSync === undefined) continue;
+        try {
+          fileDate = statSync(options.joinPath(directory, file)).mtime;
+        } catch {
+          continue;
+        }
+        if (fileDate === null || filenameGenerator(fileDate) !== file) {
+          continue;
+        }
+      } else {
+        if (!file.endsWith(".log")) continue;
+        fileDate = parseDefaultFilename(file);
       }
 
       if (fileDate && now - fileDate.getTime() > maxAgeMs) {

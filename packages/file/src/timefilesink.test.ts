@@ -23,11 +23,19 @@ import {
   type TimeRotatingFileSinkDriver,
 } from "./timefilesink.ts";
 
+type StatSyncDriver = {
+  statSync(path: string): { mtime: Date | null };
+};
+
+type TestTimeRotatingFileSinkDriver<TFile> =
+  & TimeRotatingFileSinkDriver<TFile>
+  & StatSyncDriver;
+
 function makeTempDirSync(): string {
   return fs.mkdtempSync(join(tmpdir(), "logtape-time-"));
 }
 
-function getDenoDriver(): TimeRotatingFileSinkDriver<Deno.FsFile> {
+function getDenoDriver(): TestTimeRotatingFileSinkDriver<Deno.FsFile> {
   return {
     openSync(path: string) {
       return Deno.openSync(path, { create: true, append: true });
@@ -40,6 +48,9 @@ function getDenoDriver(): TimeRotatingFileSinkDriver<Deno.FsFile> {
     },
     closeSync(fd) {
       fd.close();
+    },
+    statSync(path: string) {
+      return Deno.statSync(path);
     },
     readdirSync(path: string) {
       return [...Deno.readDirSync(path)].map((entry) => entry.name);
@@ -54,7 +65,7 @@ function getDenoDriver(): TimeRotatingFileSinkDriver<Deno.FsFile> {
   };
 }
 
-function getNodeDriver(): TimeRotatingFileSinkDriver<number> {
+function getNodeDriver(): TestTimeRotatingFileSinkDriver<number> {
   return {
     openSync(path: string) {
       return fs.openSync(path, "a");
@@ -62,6 +73,7 @@ function getNodeDriver(): TimeRotatingFileSinkDriver<number> {
     writeSync: fs.writeSync,
     flushSync: fs.fsyncSync,
     closeSync: fs.closeSync,
+    statSync: fs.statSync,
     readdirSync: fs.readdirSync as (path: string) => string[],
     unlinkSync: fs.unlinkSync,
     mkdirSync: fs.mkdirSync,
@@ -69,10 +81,12 @@ function getNodeDriver(): TimeRotatingFileSinkDriver<number> {
   };
 }
 
-function getDriver(): TimeRotatingFileSinkDriver<Deno.FsFile | number> {
+function getDriver(): TestTimeRotatingFileSinkDriver<Deno.FsFile | number> {
   return isDeno
-    ? getDenoDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>
-    : getNodeDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>;
+    ? getDenoDriver() as TestTimeRotatingFileSinkDriver<
+      Deno.FsFile | number
+    >
+    : getNodeDriver() as TestTimeRotatingFileSinkDriver<Deno.FsFile | number>;
 }
 
 function getDenoAsyncDriver(): AsyncTimeRotatingFileSinkDriver<Deno.FsFile> {
@@ -296,6 +310,47 @@ test("getBaseTimeRotatingFileSink() with maxAgeMs cleans up old files", () => {
   // Should have 2 files: recent and today's
   assert.strictEqual(files.includes(oldFilename), false);
   assert.strictEqual(files.includes(recentFilename), true);
+});
+
+test("getBaseTimeRotatingFileSink() cleans up custom filenames by mtime", () => {
+  const directory = makeTempDirSync();
+  const driver = getDriver();
+  const filename = (date: Date): string =>
+    `app-${date.toISOString().slice(0, 10)}.txt`;
+
+  const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+  const oldFilename = filename(oldDate);
+  const oldFilePath = join(directory, oldFilename);
+  fs.writeFileSync(oldFilePath, "old content");
+  fs.utimesSync(oldFilePath, oldDate, oldDate);
+
+  const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+  const recentFilename = filename(recentDate);
+  const recentFilePath = join(directory, recentFilename);
+  fs.writeFileSync(recentFilePath, "recent content");
+  fs.utimesSync(recentFilePath, recentDate, recentDate);
+
+  const unrelatedFilename = "archive.txt";
+  const unrelatedFilePath = join(directory, unrelatedFilename);
+  fs.writeFileSync(unrelatedFilePath, "unrelated content");
+  fs.utimesSync(unrelatedFilePath, oldDate, oldDate);
+
+  const sink = getBaseTimeRotatingFileSink({
+    ...driver,
+    directory,
+    filename,
+    interval: "daily",
+    maxAgeMs: 5 * 24 * 60 * 60 * 1000,
+    bufferSize: 0,
+  });
+
+  sink(debug);
+  sink[Symbol.dispose]();
+
+  const files = fs.readdirSync(directory);
+  assert.strictEqual(files.includes(oldFilename), false);
+  assert.strictEqual(files.includes(recentFilename), true);
+  assert.strictEqual(files.includes(unrelatedFilename), true);
 });
 
 test("getBaseTimeRotatingFileSink() throttles cleanup scans", () => {
