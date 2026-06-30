@@ -173,9 +173,11 @@ export function getTimeRotatingFileSink(
   options: TimeRotatingFileSinkOptions,
 ): Sink & (Disposable | AsyncDisposable) {
   if (options.nonBlocking) {
-    return getBaseTimeRotatingFileSink({ ...options, ...nodeAsyncTimeDriver });
+    const driver = { ...nodeAsyncTimeDriver, statSync: fs.statSync };
+    return getBaseTimeRotatingFileSink({ ...options, ...driver });
   }
-  return getBaseTimeRotatingFileSink({ ...options, ...nodeTimeDriver });
+  const driver = { ...nodeTimeDriver, statSync: fs.statSync };
+  return getBaseTimeRotatingFileSink({ ...options, ...driver });
 }
 
 // cSpell: ignore filesink

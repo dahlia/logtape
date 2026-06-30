@@ -8,6 +8,15 @@ Version 2.1.6
 
 To be released.
 
+### @logtape/file
+
+ -  Fixed a bug where `getTimeRotatingFileSink()` did not delete old files
+    when both `filename` and `maxAgeMs` were configured.  Time-rotating file
+    sinks now use file modification times for cleanup when a custom filename
+    generator is configured.  [[#183]]
+
+[#183]: https://github.com/dahlia/logtape/issues/183
+
 
 Version 2.1.5
 -------------
@@ -242,6 +251,19 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.15
+--------------
+
+Released on July 1, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where `getTimeRotatingFileSink()` did not delete old files
+    when both `filename` and `maxAgeMs` were configured.  Time-rotating file
+    sinks now use file modification times for cleanup when a custom filename
+    generator is configured.  [[#183]]
 
 
 Version 2.0.14
