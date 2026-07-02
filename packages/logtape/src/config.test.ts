@@ -10,6 +10,7 @@ import {
   compileScopedConfig,
   disposeScopedConfig,
   disposeScopedConfigSync,
+  emitWithScopedConfig,
   scopedConfigHasSink,
 } from "./scoped-config.ts";
 import type { Sink } from "./sink.ts";
@@ -1255,6 +1256,52 @@ test("scoped configuration caches sink dispatch plans", () => {
   assert.strictEqual(scopedConfig.dispatchCache.size, 1);
   assert.strictEqual(scopedConfigHasSink(scopedConfig, ["app"], "info"), true);
   assert.strictEqual(scopedConfig.dispatchCache.size, 1);
+});
+
+test("scoped configuration caches filter lookup", () => {
+  const logs: LogRecord[] = [];
+  const filter: Filter = (record) => record.category[0] === "app";
+  const scopedConfig = compileScopedConfig(
+    {
+      sinks: { sink: logs.push.bind(logs) },
+      filters: { filter },
+      loggers: [
+        { category: "app", filters: ["filter"], sinks: ["sink"] },
+        { category: ["app:child"], sinks: ["sink"] },
+      ],
+    },
+    true,
+    (message) => new ConfigError(message),
+  );
+  const emit = (category: readonly string[]): void => {
+    const record: LogRecord = {
+      category,
+      level: "info",
+      message: ["cached"],
+      properties: {},
+      rawMessage: "cached",
+      timestamp: Date.now(),
+    };
+    emitWithScopedConfig(
+      scopedConfig,
+      record,
+      undefined,
+      (sink) => sink(record),
+    );
+  };
+
+  assert.strictEqual(scopedConfig.filterCache.size, 0);
+  emit(["app", "child"]);
+  assert.strictEqual(scopedConfig.filterCache.size, 1);
+  emit(["app", "child"]);
+  assert.strictEqual(scopedConfig.filterCache.size, 1);
+  emit(["app:child"]);
+
+  assert.strictEqual(scopedConfig.filterCache.size, 2);
+  assert.deepStrictEqual(
+    logs.map((record) => record.category),
+    [["app", "child"], ["app", "child"], ["app:child"]],
+  );
 });
 
 test("withConfig() preserves callback and disposal errors", async () => {

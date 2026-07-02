@@ -33,6 +33,10 @@ export interface ScopedLoggerConfigLike<
 export interface CompiledScopedConfig {
   readonly nodes: ReadonlyMap<string, CompiledScopedLogger>;
   readonly dispatchCache: Map<string, ScopedSinkDispatchPlan>;
+  readonly filterCache: Map<
+    string,
+    readonly ((record: LogRecord) => boolean)[]
+  >;
   parent: CompiledScopedConfig | undefined;
   disposed: boolean;
   readonly syncFilters: Set<Disposable>;
@@ -59,6 +63,7 @@ const defaultScopedLogger: CompiledScopedLogger = {
   parentSinks: "inherit",
   sinks: [],
 };
+const noFilters: readonly ((record: LogRecord) => boolean)[] = [];
 
 export function compileScopedConfig<
   TSinkId extends string,
@@ -199,6 +204,7 @@ export function compileScopedConfig<
     asyncSinks,
     dispatchCache: new Map(),
     disposed: false,
+    filterCache: new Map(),
     nodes,
     parent: undefined,
     syncFilters,
@@ -473,14 +479,27 @@ function filterScopedRecord(
   category: readonly string[],
   record: LogRecord,
 ): boolean {
+  const key = categoryKey(category);
+  let filters = scopedConfig.filterCache.get(key);
+  if (filters == null) {
+    filters = getScopedFilters(scopedConfig, category);
+    scopedConfig.filterCache.set(key, filters);
+  }
+  return filters.every((filter) => filter(record));
+}
+
+function getScopedFilters(
+  scopedConfig: CompiledScopedConfig,
+  category: readonly string[],
+): readonly ((record: LogRecord) => boolean)[] {
   for (let length = category.length; length >= 0; length--) {
     const logger = scopedConfig.nodes.get(
       categoryKey(category.slice(0, length)),
     );
     if (logger == null || logger.filters.length < 1) continue;
-    return logger.filters.every((filter) => filter(record));
+    return logger.filters;
   }
-  return true;
+  return noFilters;
 }
 
 function disposeSyncDisposables(
