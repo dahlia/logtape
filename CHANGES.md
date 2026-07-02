@@ -57,7 +57,8 @@ To be released.
         reporter options such as `lowestLevel`, `mode`, `sink`, and
         `formatter`.
      -  Preserved Bun test options such as `retry`, `repeats`, and `timeout`,
-        and shorthand helpers such as `test.skip()`, `test.todo()`,
+        and runtime-provided shorthand helpers such as `test.skip()`,
+        `test.todo()`,
         `test.only()`, `test.if()`, `test.skipIf()`, `test.todoIf()`,
         `test.failing()`, `test.concurrent()`, `test.serial()`, and
         `test.each()`, including callback-style tests.
@@ -81,8 +82,8 @@ To be released.
         required by the reporter when LogTape has not been configured yet.
      -  Added `createTest()` function for configuring reporter options such as
         `lowestLevel`, `mode`, `sink`, and `formatter`.
-     -  Preserved Deno test options and shorthand helpers such as
-        `test.ignore()`, `test.only()`, and `test.each()`.
+     -  Preserved Deno test options and runtime-provided shorthand helpers
+        such as `test.ignore()`, `test.only()`, and `test.each()`.
      -  Wrapped `TestContext.step()` callbacks and re-exported Deno test hooks
         such as `beforeAll()`, `beforeEach()`, `afterEach()`, and `afterAll()`.
 

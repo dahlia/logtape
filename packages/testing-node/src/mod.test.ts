@@ -15,14 +15,15 @@ import { createIt, createTest, it } from "./mod.ts";
 
 const isDeno = "Deno" in globalThis;
 const isBun = "Bun" in globalThis;
-// Bun's node:test shim does not support registering test() inside another
-// test() yet, which these wrapper integration tests intentionally exercise.
-const skipNestedNodeTest = isBun;
+// Deno's and Bun's node:test shims do not support registering test() inside
+// another test() yet, which these wrapper integration tests intentionally
+// exercise.
+const skipNestedNodeTest = isDeno || isBun;
 
 nodeTest("createTest(): reports logs from expected synchronous failures", {
-  skip: isDeno || skipNestedNodeTest,
+  skip: skipNestedNodeTest,
 }, async () => {
-  if (isDeno || skipNestedNodeTest) return;
+  if (skipNestedNodeTest) return;
 
   const reported: LogRecord[] = [];
   await configureForTestingNode();
@@ -136,9 +137,9 @@ nodeTest("createTest(): supports callback-style tests", {
 });
 
 nodeTest("createTest(): reports logs when callback-style tests fail", {
-  skip: isDeno || skipNestedNodeTest,
+  skip: skipNestedNodeTest,
 }, async () => {
-  if (isDeno || skipNestedNodeTest) return;
+  if (skipNestedNodeTest) return;
 
   const reported: LogRecord[] = [];
   await configureForTestingNode();

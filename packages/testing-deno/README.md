@@ -30,5 +30,6 @@ explicit setup, configure LogTape once from a shared Deno `--preload` module
 and import `test` from `@logtape/testing-deno`.
 
 The adapter preserves Deno test options and helpers such as `test.ignore()`,
-`test.only()`, `test.each()`, `beforeAll()`, and `beforeEach()`, and wraps
-`TestContext.step()` callbacks so logs from failed steps are reported too.
+`test.only()`, runtime-provided `test.each()`, `beforeAll()`, and
+`beforeEach()`, and wraps `TestContext.step()` callbacks so logs from failed
+steps are reported too.

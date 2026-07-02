@@ -366,9 +366,10 @@ The adapter preserves Deno test options such as `ignore`, `only`,
 `permissions`, `sanitizeOps`, `sanitizeResources`, `sanitizeExit`, and
 `timeout`; passes them through to `Deno.test()`; and wraps only the callback.
 It also preserves shorthand helpers such as `test.ignore()`, `test.only()`,
-and `test.each()`, wraps `TestContext.step()` callbacks, and re-exports Deno
-test hooks such as `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
-and `sanitizer()` unchanged.
+and, when the current Deno runtime provides it, `test.each()`, wraps
+`TestContext.step()` callbacks, and re-exports Deno test hooks such as
+`beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`, and `sanitizer()`
+unchanged.
 
 As with `createFailureLogReporter()`, the process-wide LogTape configuration
 must provide `~Config.contextLocalStorage`.
@@ -511,8 +512,9 @@ The adapter preserves Bun test options such as `retry`, `repeats`, and
 also preserves shorthand helpers such as `test.skip()`, `test.todo()`,
 `test.only()`, `test.if()`, `test.skipIf()`, `test.todoIf()`,
 `test.failing()`, `test.concurrent()`, `test.serial()`, and `test.each()`,
-supports callback-style tests, and exports a wrapped `it()` alias with
-`createIt()` for custom reporter options.  Other `bun:test` helpers, including
+when Bun exposes them in the current environment, supports callback-style
+tests, and exports a wrapped `it()` alias with `createIt()` for custom reporter
+options.  Other `bun:test` helpers, including
 `describe()`, `beforeAll()`, `afterAll()`, `beforeEach()`, `afterEach()`,
 `expect`, `expectTypeOf`, `mock()`, `spyOn()`, `jest`, `vi`, `xdescribe()`,
 `xit()`, and `xtest()`, are re-exported unchanged.

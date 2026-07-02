@@ -6,6 +6,9 @@ const repositoryRoot = dirname(dirname(packageRoot));
 const modUrl = new URL("./mod.ts", import.meta.url).href;
 const autoloadUrl = new URL("./autoload.ts", import.meta.url).href;
 const logtapeSpecifier = "@logtape/logtape";
+const hasDenoTestEach =
+  typeof (Deno.test as unknown as { readonly each?: unknown }).each ===
+    "function";
 
 Deno.test("createTest(): reports logs from failed tests", async () => {
   const result = await runDenoTest(`
@@ -222,8 +225,13 @@ Deno.test("createTest(): reports logs from failed steps", async () => {
   assert.match(result.output, /reported:Step diagnostic\./);
 });
 
-Deno.test("createTest(): preserves test.each() callback arguments", async () => {
-  const result = await runDenoTest(`
+Deno.test({
+  name: "createTest(): preserves test.each() callback arguments",
+  ignore: !hasDenoTestEach,
+  async fn() {
+    if (!hasDenoTestEach) return;
+
+    const result = await runDenoTest(`
     import { AsyncLocalStorage } from "node:async_hooks";
     import {
       configureSync,
@@ -266,14 +274,20 @@ Deno.test("createTest(): preserves test.each() callback arguments", async () => 
     });
   `);
 
-  assertSuccess(result);
-  assert.match(result.output, /reported:Scalar 1\./);
-  assert.match(result.output, /reported:Scalar 2\./);
-  assert.match(result.output, /reported:Tuple 3\/4\./);
+    assertSuccess(result);
+    assert.match(result.output, /reported:Scalar 1\./);
+    assert.match(result.output, /reported:Scalar 2\./);
+    assert.match(result.output, /reported:Tuple 3\/4\./);
+  },
 });
 
-Deno.test("createTest(): reports logs from failed test.each() steps", async () => {
-  const result = await runDenoTest(`
+Deno.test({
+  name: "createTest(): reports logs from failed test.each() steps",
+  ignore: !hasDenoTestEach,
+  async fn() {
+    if (!hasDenoTestEach) return;
+
+    const result = await runDenoTest(`
     import assert from "node:assert/strict";
     import { AsyncLocalStorage } from "node:async_hooks";
     import {
@@ -308,8 +322,9 @@ Deno.test("createTest(): reports logs from failed test.each() steps", async () =
     });
   `);
 
-  assert.notStrictEqual(result.code, 0);
-  assert.match(result.output, /reported:Parameterized step diagnostic\./);
+    assert.notStrictEqual(result.code, 0);
+    assert.match(result.output, /reported:Parameterized step diagnostic\./);
+  },
 });
 
 Deno.test("autoload: configures LogTape when it has not been configured", async () => {

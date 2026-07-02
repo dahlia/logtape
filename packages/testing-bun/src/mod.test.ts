@@ -486,7 +486,9 @@ test("createTest(): exposes Bun test helpers", async () => {
           "serial",
         ]
       ) {
-        expect(typeof wrapped[key]).toBe("function");
+        expect(hasFunctionProperty(wrapped, key)).toBe(
+          hasFunctionProperty(bunTest, key),
+        );
       }
       expect(typeof test).toBe("function");
       expect(typeof expectTypeOf).toBe("function");
@@ -496,6 +498,14 @@ test("createTest(): exposes Bun test helpers", async () => {
       expect(typeof xit).toBe("function");
       expect(typeof xtest).toBe("function");
     });
+
+    function hasFunctionProperty(value, property) {
+      try {
+        return typeof value[property] === "function";
+      } catch {
+        return false;
+      }
+    }
   `);
 
   assertSuccess(result);

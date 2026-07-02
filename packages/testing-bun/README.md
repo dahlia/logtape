@@ -62,11 +62,12 @@ const test = createTest({
 
 The package preserves Bun test options and shorthand helpers such as
 `test.skip()`, `test.todo()`, `test.only()`, `test.if()`, `test.failing()`,
-`test.concurrent()`, `test.serial()`, and `test.each()`.  It also exports a
-wrapped `it()` alias and `createIt()`.  Other `bun:test` helpers, including
-`describe()`, `beforeAll()`, `afterAll()`, `beforeEach()`, `afterEach()`,
-`expect`, `expectTypeOf`, `mock()`, `spyOn()`, `jest`, `vi`, `xdescribe()`,
-`xit()`, and `xtest()`, are re-exported unchanged.
+`test.concurrent()`, `test.serial()`, and `test.each()` when Bun exposes them
+in the current environment.  It also exports a wrapped `it()` alias and
+`createIt()`.  Other `bun:test` helpers, including `describe()`,
+`beforeAll()`, `afterAll()`, `beforeEach()`, `afterEach()`, `expect`,
+`expectTypeOf`, `mock()`, `spyOn()`, `jest`, `vi`, `xdescribe()`, `xit()`, and
+`xtest()`, are re-exported unchanged.
 
 
 Docs
