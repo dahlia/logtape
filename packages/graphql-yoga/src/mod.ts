@@ -126,12 +126,15 @@ function logYogaArgs(
   level: LogLevel,
   args: readonly unknown[],
 ): void {
+  if (args.length < 1) {
+    logWithMessage(logger, level, "GraphQL Yoga log");
+    return;
+  }
+
   const [first, ...rest] = args;
   const properties = rest.length > 0 ? { args: rest } : undefined;
 
-  if (args.length < 1) {
-    logWithMessage(logger, level, "GraphQL Yoga log");
-  } else if (first instanceof Error) {
+  if (first instanceof Error) {
     logError(logger, level, first, properties);
   } else if (typeof first === "string") {
     logWithMessage(logger, level, "{message}", {
