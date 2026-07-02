@@ -2,6 +2,15 @@ import type { ContextLocalStorage } from "./context.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
+import {
+  type CompiledScopedConfig,
+  compileScopedConfig,
+  disposeScopedConfig,
+  disposeScopedConfigSync,
+  runWithScopedConfig,
+  type ScopedConfigLike,
+  throwCombinedErrors,
+} from "./scoped-config.ts";
 import { getConsoleSink, type Sink } from "./sink.ts";
 
 /**
@@ -35,6 +44,22 @@ export interface Config<TSinkId extends string, TFilterId extends string> {
    */
   reset?: boolean;
 }
+
+/**
+ * A scoped configuration for the current execution context.
+ *
+ * Unlike {@link Config}, this type does not include `reset` or
+ * `contextLocalStorage`.  Scoped configuration changes only the logging policy
+ * for a callback; the context-local storage must already be initialized by the
+ * process-global configuration.
+ *
+ * @since 2.3.0
+ */
+export type ScopedConfig<TSinkId extends string, TFilterId extends string> =
+  ScopedConfigLike<TSinkId, TFilterId>;
+
+type SyncCallbackResult<TResult> = TResult extends PromiseLike<unknown> ? never
+  : TResult;
 
 /**
  * A logger configuration.
@@ -82,6 +107,9 @@ export interface LoggerConfig<
  * The current configuration, if any.  Otherwise, `null`.
  */
 let currentConfig: Config<string, string> | null = null;
+let activeScopedConfigCount = 0;
+const activeScopedConfigs: Set<CompiledScopedConfig> = new Set();
+let globalConfigMutationInProgress = false;
 
 /**
  * Strong references to the loggers.
@@ -125,7 +153,7 @@ function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
 }
 
 function registerDisposeHook(allowAsync: boolean): void {
-  const handler = allowAsync ? dispose : disposeSync;
+  const handler = allowAsync ? disposeInternal : disposeSyncInternal;
 
   if (
     // deno-lint-ignore no-explicit-any
@@ -199,18 +227,24 @@ export async function configure<
   TSinkId extends string,
   TFilterId extends string,
 >(config: Config<TSinkId, TFilterId>): Promise<void> {
-  if (currentConfig != null && !config.reset) {
-    throw new ConfigError(
-      "Already configured; if you want to reset, turn on the reset flag.",
-    );
-  }
-  await reset();
-  try {
-    configureInternal(config, true);
-  } catch (e) {
-    if (e instanceof ConfigError) await reset();
-    throw e;
-  }
+  await runGlobalConfigMutation("configure()", async () => {
+    if (currentConfig != null && !config.reset) {
+      throw new ConfigError(
+        "Already configured; if you want to reset, turn on the reset flag.",
+      );
+    }
+    await disposeInternal();
+    resetInternal();
+    try {
+      configureInternal(config, true);
+    } catch (e) {
+      if (e instanceof ConfigError) {
+        await disposeInternal();
+        resetInternal();
+      }
+      throw e;
+    }
+  });
 }
 
 /**
@@ -249,24 +283,202 @@ export async function configure<
 export function configureSync<TSinkId extends string, TFilterId extends string>(
   config: Config<TSinkId, TFilterId>,
 ): void {
-  if (currentConfig != null && !config.reset) {
-    throw new ConfigError(
-      "Already configured; if you want to reset, turn on the reset flag.",
-    );
-  }
-  if (asyncFilterDisposables.size > 0 || asyncSinkDisposables.size > 0) {
-    throw new ConfigError(
-      "Previously configured async disposables are still active. " +
-        "Use configure() instead or explicitly dispose them using dispose().",
-    );
-  }
-  resetSync();
+  runGlobalConfigMutationSync("configureSync()", () => {
+    if (currentConfig != null && !config.reset) {
+      throw new ConfigError(
+        "Already configured; if you want to reset, turn on the reset flag.",
+      );
+    }
+    if (asyncFilterDisposables.size > 0 || asyncSinkDisposables.size > 0) {
+      throw new ConfigError(
+        "Previously configured async disposables are still active. " +
+          "Use configure() instead or explicitly dispose them using dispose().",
+      );
+    }
+    disposeSyncInternal();
+    resetInternal();
+    try {
+      configureInternal(config, false);
+    } catch (e) {
+      if (e instanceof ConfigError) {
+        disposeSyncInternal();
+        resetInternal();
+      }
+      throw e;
+    }
+  });
+}
+
+/**
+ * Runs a callback with a LogTape configuration scoped to the current execution
+ * context.
+ *
+ * The process-global configuration must already provide
+ * `contextLocalStorage`.  The scoped configuration fully overrides global
+ * logger routing while the callback and its async work run.
+ *
+ * @param config The scoped configuration.
+ * @param callback The callback to run.
+ * @returns The callback's resolved return value.
+ * @since 2.3.0
+ */
+export async function withConfig<
+  TSinkId extends string,
+  TFilterId extends string,
+  TResult,
+>(
+  config: ScopedConfig<TSinkId, TFilterId>,
+  callback: () => TResult,
+): Promise<Awaited<TResult>> {
+  const contextLocalStorage = getConfiguredContextLocalStorage("withConfig()");
+  const scopedConfig = compileScopedConfig(
+    config,
+    true,
+    (message) => new ConfigError(message),
+  );
+
+  let result: Awaited<TResult>;
+  let callbackError: unknown;
+  let callbackFailed = false;
+  activeScopedConfigCount++;
+  activeScopedConfigs.add(scopedConfig);
   try {
-    configureInternal(config, false);
-  } catch (e) {
-    if (e instanceof ConfigError) resetSync();
-    throw e;
+    result = await runWithScopedConfig(
+      contextLocalStorage,
+      scopedConfig,
+      callback,
+    );
+  } catch (error) {
+    callbackFailed = true;
+    callbackError = error;
   }
+
+  try {
+    await disposeScopedConfig(
+      scopedConfig,
+      getRetainedDisposables(scopedConfig),
+    );
+  } catch (disposeError) {
+    if (callbackFailed) {
+      throwCombinedErrors(callbackError, disposeError);
+    }
+    throw disposeError;
+  } finally {
+    activeScopedConfigs.delete(scopedConfig);
+    activeScopedConfigCount--;
+  }
+
+  if (callbackFailed) throw callbackError;
+  return result!;
+}
+
+/**
+ * Runs a synchronous callback with a LogTape configuration scoped to the
+ * current execution context.
+ *
+ * The scoped configuration must not contain async disposable sinks or filters.
+ *
+ * @param config The scoped configuration.
+ * @param callback The callback to run.
+ * @returns The callback's return value.
+ * @since 2.3.0
+ */
+export function withConfigSync<
+  TSinkId extends string,
+  TFilterId extends string,
+  TResult,
+>(
+  config: ScopedConfig<TSinkId, TFilterId>,
+  callback: () => SyncCallbackResult<TResult>,
+): SyncCallbackResult<TResult> {
+  const contextLocalStorage = getConfiguredContextLocalStorage(
+    "withConfigSync()",
+  );
+  const scopedConfig = compileScopedConfig(
+    config,
+    false,
+    (message) => new ConfigError(message),
+  );
+
+  let result: SyncCallbackResult<TResult>;
+  let callbackError: unknown;
+  let callbackFailed = false;
+  activeScopedConfigCount++;
+  activeScopedConfigs.add(scopedConfig);
+  try {
+    result = runWithScopedConfig(contextLocalStorage, scopedConfig, callback);
+    if (isThenable(result)) {
+      void Promise.resolve(result).catch(() => {});
+      callbackFailed = true;
+      callbackError = new ConfigError(
+        "withConfigSync() callback must not return a promise. " +
+          "Use withConfig() for async callbacks.",
+      );
+    }
+  } catch (error) {
+    callbackFailed = true;
+    callbackError = error;
+  }
+
+  try {
+    disposeScopedConfigSync(scopedConfig, getRetainedDisposables(scopedConfig));
+  } catch (disposeError) {
+    if (callbackFailed) {
+      throwCombinedErrors(callbackError, disposeError);
+    }
+    throw disposeError;
+  } finally {
+    activeScopedConfigs.delete(scopedConfig);
+    activeScopedConfigCount--;
+  }
+
+  if (callbackFailed) throw callbackError;
+  return result!;
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return value != null &&
+    (typeof value === "object" || typeof value === "function") &&
+    "then" in value &&
+    typeof value.then === "function";
+}
+
+function getGlobalDisposables(): ReadonlySet<Disposable | AsyncDisposable> {
+  return new Set<Disposable | AsyncDisposable>([
+    ...filterDisposables,
+    ...asyncFilterDisposables,
+    ...sinkDisposables,
+    ...asyncSinkDisposables,
+  ]);
+}
+
+function getRetainedDisposables(
+  scopedConfig: CompiledScopedConfig,
+): ReadonlySet<Disposable | AsyncDisposable> {
+  const disposables = new Set<Disposable | AsyncDisposable>(
+    getGlobalDisposables(),
+  );
+  for (const activeScopedConfig of activeScopedConfigs) {
+    if (activeScopedConfig === scopedConfig || activeScopedConfig.disposed) {
+      continue;
+    }
+    addScopedConfigDisposables(disposables, activeScopedConfig);
+  }
+  return disposables;
+}
+
+function addScopedConfigDisposables(
+  disposables: Set<Disposable | AsyncDisposable>,
+  scopedConfig: CompiledScopedConfig,
+): void {
+  for (const disposable of scopedConfig.syncFilters) {
+    disposables.add(disposable);
+  }
+  for (const disposable of scopedConfig.asyncFilters) {
+    disposables.add(disposable);
+  }
+  for (const disposable of scopedConfig.syncSinks) disposables.add(disposable);
+  for (const disposable of scopedConfig.asyncSinks) disposables.add(disposable);
 }
 
 function configureInternal<
@@ -379,8 +591,10 @@ export function getConfig(): Config<string, string> | null {
  * Reset the configuration.  Mostly for testing purposes.
  */
 export async function reset(): Promise<void> {
-  await dispose();
-  resetInternal();
+  await runGlobalConfigMutation("reset()", async () => {
+    await disposeInternal();
+    resetInternal();
+  });
 }
 
 /**
@@ -389,8 +603,10 @@ export async function reset(): Promise<void> {
  * @since 0.9.0
  */
 export function resetSync(): void {
-  disposeSync();
-  resetInternal();
+  runGlobalConfigMutationSync("resetSync()", () => {
+    disposeSyncInternal();
+    resetInternal();
+  });
 }
 
 function resetInternal(): void {
@@ -405,6 +621,10 @@ function resetInternal(): void {
  * Dispose of the disposables.
  */
 export async function dispose(): Promise<void> {
+  await runGlobalConfigMutation("dispose()", disposeInternal);
+}
+
+async function disposeInternal(): Promise<void> {
   const errors: unknown[] = [];
   try {
     disposeSyncFilters();
@@ -435,6 +655,10 @@ export async function dispose(): Promise<void> {
  * @since 0.9.0
  */
 export function disposeSync(): void {
+  runGlobalConfigMutationSync("disposeSync()", disposeSyncInternal);
+}
+
+function disposeSyncInternal(): void {
   const errors: unknown[] = [];
   try {
     disposeSyncFilters();
@@ -447,6 +671,72 @@ export function disposeSync(): void {
     errors.push(error);
   }
   throwDisposeErrors(errors);
+}
+
+function getConfiguredContextLocalStorage(
+  functionName: string,
+): ContextLocalStorage<Record<string, unknown>> {
+  if (globalConfigMutationInProgress) {
+    throw new ConfigError(
+      `${functionName} cannot be called while LogTape is being reconfigured.`,
+    );
+  }
+  if (currentConfig == null) {
+    throw new ConfigError(
+      `${functionName} requires LogTape to be configured first.`,
+    );
+  }
+  const contextLocalStorage = LoggerImpl.getLogger().contextLocalStorage;
+  if (contextLocalStorage == null) {
+    throw new ConfigError(
+      `${functionName} requires Config.contextLocalStorage to be configured.`,
+    );
+  }
+  return contextLocalStorage;
+}
+
+async function runGlobalConfigMutation<T>(
+  functionName: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  assertCanMutateGlobalConfig(functionName);
+  globalConfigMutationInProgress = true;
+  try {
+    return await callback();
+  } finally {
+    globalConfigMutationInProgress = false;
+  }
+}
+
+function runGlobalConfigMutationSync<T>(
+  functionName: string,
+  callback: () => T,
+): T {
+  assertCanMutateGlobalConfig(functionName);
+  globalConfigMutationInProgress = true;
+  try {
+    return callback();
+  } finally {
+    globalConfigMutationInProgress = false;
+  }
+}
+
+function assertCanMutateGlobalConfig(functionName: string): void {
+  if (globalConfigMutationInProgress) {
+    throw new ConfigError(
+      `${functionName} cannot be called while LogTape is being reconfigured.`,
+    );
+  }
+  assertNoScopedConfig(functionName);
+}
+
+function assertNoScopedConfig(functionName: string): void {
+  if (activeScopedConfigCount > 0) {
+    throw new ConfigError(
+      `${functionName} cannot be called while a scoped configuration is ` +
+        "active. Use nested withConfig() instead.",
+    );
+  }
 }
 
 function disposeSyncFilters(): void {

@@ -153,7 +153,7 @@ Coding conventions
 
 ### Naming conventions
 
-1.  *Modules*: Use camelCase for filenames and import specifiers.
+1.  *Modules*: Use kebab-case for filenames and import specifiers.
 2.  *Classes/Interfaces*: Use PascalCase.
 3.  *Variables/Functions/Methods*: Use camelCase.
 4.  *Constants*: Use camelCase for constants (NOT ALL\_CAPS).
@@ -499,9 +499,20 @@ files at once.
 
  -  *Italics* (`*text*`): Use for package names (*@logtape/logtape*,
     *@logtape/otel*), emphasis, and to distinguish concepts
+
  -  *Bold* (`**text**`): Use sparingly for strong emphasis
+
  -  *Inline code* (`` `code` ``): Use for code spans, function names,
     filenames, and command-line options
+
+ -  *JSR references*: Use the syntax supported by
+    [markdown-it-jsr-ref].
+    A leading `~` is only valid for member references where the rendered text
+    should hide the owner name, such as `~ClassName.fieldName` or
+    `~ClassName.methodName()`.  Do not write standalone references like
+    `~ClassName`; use `ClassName` instead.
+
+[markdown-it-jsr-ref]: https://github.com/dahlia/markdown-it-jsr-ref#syntax
 
 ### Lists
 

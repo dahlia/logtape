@@ -8,6 +8,21 @@ Version 2.3.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added `withConfig()` and `withConfigSync()` functions for applying a
+    LogTape configuration only within the current execution context.  Scoped
+    configurations require `Config.contextLocalStorage`, support nesting, and
+    fully override the process-wide logger routing while active.
+    `withConfigSync()` rejects callbacks that return promises.  [[#185], [#188]]
+
+ -  Added `ScopedConfig` type for scoped configuration objects.  It has the
+    same sink, filter, and logger shape as `Config`, but excludes the
+    process-wide `reset` and `contextLocalStorage` options.  [[#185], [#188]]
+
+[#185]: https://github.com/dahlia/logtape/issues/185
+[#188]: https://github.com/dahlia/logtape/pull/188
+
 ### @logtape/file
 
  -  Added `TimeRotatingFileSinkOptions.parseFilename` option to customize how

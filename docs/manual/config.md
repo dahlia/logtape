@@ -301,6 +301,207 @@ resetSync();
 > you should use `resetSync()`.
 
 
+Scoped configuration
+--------------------
+
+*This API is available since LogTape 2.3.0.*
+
+Most applications should call `configure()` once near the entry point and keep
+that process-wide logging policy in place.  Sometimes you need a temporary
+policy for one execution flow instead.  For example, a test helper may want to
+collect debug logs only while a test case runs, or a diagnostic block may want
+to send one request's logs to a separate sink.
+
+Use `withConfig()` for these cases:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  configure,
+  getConsoleSink,
+  getLogger,
+  withConfig,
+} from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "info",
+      sinks: ["console"],
+    },
+    {
+      category: ["logtape", "meta"],
+      lowestLevel: "warning",
+      sinks: ["console"],
+    },
+  ],
+  contextLocalStorage: new AsyncLocalStorage(),
+});
+
+await withConfig({
+  sinks: {
+    debug: getConsoleSink(),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "debug",
+      sinks: ["debug"],
+    },
+  ],
+}, async () => {
+  getLogger("my-app").debug("This is visible only in this async scope.");
+});
+
+getLogger("my-app").debug("This uses the process-wide configuration again.");
+~~~~
+
+`withConfig()` does not reconfigure LogTape globally.  It stores a scoped
+configuration in the current context-local storage, runs the callback, and then
+disposes the sinks and filters owned by that scoped configuration when the
+callback's return value settles.  Logs emitted by the callback, and by async
+work that the callback returns or awaits, use the scoped configuration.  Logs
+outside the callback continue to use the process-wide configuration.
+
+If the callback starts async work that continues after the callback has
+finished, LogTape does not keep using the disposed scoped configuration in that
+work.  Later logs fall back to the nearest still-active outer scoped
+configuration, or to the process-wide configuration if there is no active outer
+scope.
+
+Because scoped configuration is carried by context-local storage, LogTape must
+already be configured with the `~Config.contextLocalStorage` option.  If
+LogTape is not configured, or if the global configuration does not provide a
+context-local storage, `withConfig()` throws a `ConfigError`.  The
+context-local storage belongs to the process-wide configuration; a scoped
+configuration changes logging policy, not the mechanism used to carry scoped
+state.
+
+> [!CAUTION]
+> Scoped configuration is reliable only when the active LogTape logger
+> implementation in the current runtime also supports it.  If multiple
+> versions of LogTape are loaded into the same runtime, older versions may
+> share the global root logger but do not share scoped configuration state or
+> mutation guards.  Configure LogTape from one version, preferably the newest
+> one, and avoid calling `configure()`, `reset()`, or `dispose()` from another
+> loaded version while scoped configuration is in use.
+
+The scoped configuration is a full override while it is active.  It does not
+merge with the process-wide configuration:
+
+ -  Sinks and filters from the process-wide configuration are not inherited.
+ -  The meta logger is not automatically routed to the default console sink.
+ -  If you want meta logs inside the scope, configure a `["logtape"]` or
+    `["logtape", "meta"]` logger in the scoped configuration.
+
+Nested scopes are allowed.  An inner `withConfig()` overrides the outer scoped
+configuration for its callback, and the outer scoped configuration becomes
+active again when the inner callback finishes:
+
+~~~~ typescript twoslash
+import { getConsoleSink, getLogger, withConfig } from "@logtape/logtape";
+
+await withConfig({
+  sinks: { outer: getConsoleSink() },
+  loggers: [{ category: "my-app", lowestLevel: "info", sinks: ["outer"] }],
+}, async () => {
+  getLogger("my-app").info("Uses the outer scoped configuration.");
+
+  await withConfig({
+    sinks: { inner: getConsoleSink() },
+    loggers: [{ category: "my-app", lowestLevel: "debug", sinks: ["inner"] }],
+  }, async () => {
+    getLogger("my-app").debug("Uses the inner scoped configuration.");
+  });
+
+  getLogger("my-app").info("Uses the outer scoped configuration again.");
+});
+~~~~
+
+Scoped configuration uses the same context-local storage as
+[`withContext()`](./contexts.md) and
+[`withCategoryPrefix()`](./categories.md#category-prefix), but it uses a
+separate internal key.  That means implicit properties and category prefixes
+continue to work inside `withConfig()`:
+
+~~~~ typescript twoslash
+import {
+  getConsoleSink,
+  getLogger,
+  withCategoryPrefix,
+  withConfig,
+  withContext,
+} from "@logtape/logtape";
+
+await withContext({ requestId: "req-1" }, async () => {
+  await withCategoryPrefix("tenant-a", async () => {
+    await withConfig({
+      sinks: { console: getConsoleSink() },
+      loggers: [
+        {
+          category: ["tenant-a", "my-app"],
+          lowestLevel: "debug",
+          sinks: ["console"],
+        },
+      ],
+    }, async () => {
+      getLogger("my-app").debug("Includes the request ID and prefix.");
+    });
+  });
+});
+~~~~
+
+While a scoped configuration is active, LogTape rejects process-wide state
+changes.  Calling `configure()`, `configureSync()`, `reset()`, `resetSync()`,
+`dispose()`, or `disposeSync()` inside the callback throws `ConfigError`.
+If you need another temporary policy, use nested `withConfig()` instead.
+
+`getConfig()` always returns the process-wide configuration.  It is not an
+“effective configuration” API, and it does not return the scoped configuration
+currently active in the context.  Use it when you need to inspect the global
+configuration that was installed with `configure()`, not to discover the
+temporary policy selected by `withConfig()`.
+
+If the scoped sinks or filters implement `AsyncDisposable` or `Disposable`,
+`withConfig()` disposes them when the callback finishes.  If the callback fails
+and disposal also fails, LogTape throws an `AggregateError` that contains both
+the callback error and the disposal error.
+
+### Synchronous scoped configuration
+
+Use `withConfigSync()` when the callback and all scoped resources are
+synchronous:
+
+~~~~ typescript twoslash
+import { getConsoleSink, getLogger, withConfigSync } from "@logtape/logtape";
+
+withConfigSync({
+  sinks: {
+    console: getConsoleSink(),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "debug",
+      sinks: ["console"],
+    },
+  ],
+}, () => {
+  getLogger("my-app").debug("Scoped synchronous log.");
+});
+~~~~
+
+Like `configureSync()`, `withConfigSync()` cannot use sinks or filters that
+implement `AsyncDisposable`, and the callback must not return a promise.  Use
+`withConfig()` when the callback or scoped resources need asynchronous work or
+asynchronous disposal.
+
+
 Browser and SPA environments
 ----------------------------
 
