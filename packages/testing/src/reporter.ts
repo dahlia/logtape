@@ -106,43 +106,49 @@ export function createFailureLogReporter(
     formatter: options.formatter,
   });
 
-  return {
-    wrap<TArgs extends readonly unknown[], TResult>(
-      callback: (...args: TArgs) => TResult,
-    ): (...args: TArgs) => Promise<Awaited<TResult>> {
-      return (...args: TArgs) => this.run(() => callback(...args));
-    },
-    async run<TResult>(callback: () => TResult): Promise<Awaited<TResult>> {
-      const records: LogRecord[] = [];
-      const bufferSink: Sink = (record: LogRecord): void => {
-        records.push(materializeLogRecord(record));
-      };
+  async function run<TResult>(
+    callback: () => TResult,
+  ): Promise<Awaited<TResult>> {
+    const records: LogRecord[] = [];
+    const bufferSink: Sink = (record: LogRecord): void => {
+      records.push(materializeLogRecord(record));
+    };
 
-      let result: Awaited<TResult>;
-      try {
-        result = await withConfig({
-          sinks: { failureLogReporter: bufferSink },
-          loggers: [{
-            category: [],
-            lowestLevel,
-            parentSinks: "override",
-            sinks: ["failureLogReporter"],
-          }],
-        }, callback);
-      } catch (error) {
-        if (mode !== "never") {
-          try {
-            flushRecords(records, outputSink);
-          } catch {
-            // Keep the test runner focused on the original assertion error.
-          }
+    let result: Awaited<TResult>;
+    try {
+      result = await withConfig({
+        sinks: { failureLogReporter: bufferSink },
+        loggers: [{
+          category: [],
+          lowestLevel,
+          parentSinks: "override",
+          sinks: ["failureLogReporter"],
+        }],
+      }, callback);
+    } catch (error) {
+      if (mode !== "never") {
+        try {
+          flushRecords(records, outputSink);
+        } catch {
+          // Keep the test runner focused on the original assertion error.
         }
-        throw error;
       }
+      throw error;
+    }
 
-      if (mode === "always") flushRecords(records, outputSink);
-      return result;
-    },
+    if (mode === "always") flushRecords(records, outputSink);
+    return result;
+  }
+
+  function wrap<TArgs extends readonly unknown[], TResult>(
+    callback: (...args: TArgs) => TResult,
+  ): (...args: TArgs) => Promise<Awaited<TResult>> {
+    return (...args: TArgs) => run(() => callback(...args));
+  }
+
+  return {
+    run,
+    wrap,
   };
 }
 

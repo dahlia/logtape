@@ -1,5 +1,5 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import test from "node:test";
 
 import {
@@ -1034,6 +1034,29 @@ test("FailureLogReporter.wrap() preserves callback arguments and returns an asyn
       attempt: 2,
       name: "login",
     });
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter.wrap() works when destructured", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    const { wrap } = createFailureLogReporter({
+      mode: "always",
+      sink: (record) => reported.push(record),
+    });
+    const wrapped = wrap((name: string): string => {
+      getLogger(["app"]).info("Running {name}.", { name });
+      return name;
+    });
+
+    assert.strictEqual(await wrapped("destructured"), "destructured");
+    assert.deepStrictEqual(
+      reported.map((record) => renderRawMessage(record.rawMessage)),
+      ["Running {name}."],
+    );
   } finally {
     await reset();
   }
