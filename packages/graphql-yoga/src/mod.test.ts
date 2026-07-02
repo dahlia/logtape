@@ -89,6 +89,23 @@ test("getYogaLogger(): accepts custom level mapping", async () => {
   }
 });
 
+test("getYogaLogger(): ignores undefined level mapping values", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const levelsMap = {
+      debug: undefined,
+    } as Partial<Record<"debug", never>>;
+    const logger = getYogaLogger({ levelsMap });
+
+    logger.debug("Debug log");
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("YogaLogger method: logs string messages", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
@@ -228,6 +245,26 @@ test("YogaLogger method: preserves plain object keys with rest arguments", async
       operationName: "Hello",
       status: "ok",
       args: ["execute-start"],
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("YogaLogger method: avoids args property collisions", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getYogaLogger();
+    const executionArgs = { operationName: "Hello" };
+
+    logger.debug({ args: executionArgs, phase: "execute" }, "execute-start");
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "{*}");
+    assert.deepStrictEqual(logs[0].properties, {
+      args: executionArgs,
+      phase: "execute",
+      additionalArgs: ["execute-start"],
     });
   } finally {
     await cleanup();

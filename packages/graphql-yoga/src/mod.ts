@@ -96,9 +96,16 @@ const defaultLevelsMap: Readonly<Record<YogaLogLevel, LogLevel>> = {
  * @since 2.3.0
  */
 export function getYogaLogger(options: YogaLoggerOptions = {}): YogaLogger {
-  const category = normalizeCategory(options.category ?? ["graphql-yoga"]);
-  const logger = getLogTapeLogger(category);
-  const levelsMap = { ...defaultLevelsMap, ...options.levelsMap };
+  const category: readonly string[] = normalizeCategory(
+    options.category ?? ["graphql-yoga"],
+  );
+  const logger: LogTapeLogger = getLogTapeLogger(category);
+  const levelsMap: Readonly<Record<YogaLogLevel, LogLevel>> = {
+    debug: options.levelsMap?.debug ?? defaultLevelsMap.debug,
+    info: options.levelsMap?.info ?? defaultLevelsMap.info,
+    warn: options.levelsMap?.warn ?? defaultLevelsMap.warn,
+    error: options.levelsMap?.error ?? defaultLevelsMap.error,
+  };
 
   return {
     debug: (...args) => logYogaArgs(logger, levelsMap.debug, args),
@@ -132,13 +139,19 @@ function logYogaArgs(
       ...properties,
     });
   } else if (isPlainRecord(first)) {
-    logWithMessage(logger, level, "{*}", {
-      ...first,
-      ...properties,
-    });
+    logWithMessage(logger, level, "{*}", mergeRestArgs(first, rest));
   } else {
     logWithMessage(logger, level, "{*}", { args });
   }
+}
+
+function mergeRestArgs(
+  properties: Record<string, unknown>,
+  rest: readonly unknown[],
+): Record<string, unknown> {
+  if (rest.length < 1) return properties;
+  const restKey = Object.hasOwn(properties, "args") ? "additionalArgs" : "args";
+  return { ...properties, [restKey]: rest };
 }
 
 function logError(
