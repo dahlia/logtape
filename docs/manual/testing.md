@@ -159,10 +159,12 @@ callback succeeds, and reports them to a sink when the callback throws or
 rejects:
 
 > [!TIP]
-> If your tests use Node.js' built-in `node:test` runner, prefer the
-> [*Node.js test runner integration*](#node-js-test-runner-integration).  It
-> wraps `node:test` directly, preserves runner options, and avoids wrapping
-> each callback by hand.
+> If your tests use Deno's built-in test runner or Node.js' built-in
+> `node:test` runner, prefer the
+> [*Deno test runner integration*](#deno-test-runner-integration) or
+> [*Node.js test runner integration*](#node-js-test-runner-integration).  They
+> wrap the runner directly, preserve runner options, and avoid wrapping each
+> callback by hand.
 
 ~~~~ typescript twoslash
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -224,6 +226,151 @@ or `mode: "never"` to suppress reporting while keeping the shared wrapper in
 place.  By default the reporter writes formatted records to the console; pass
 `sink` to report records elsewhere, or `formatter` to customize the default
 console output.
+
+
+Deno test runner integration
+----------------------------
+
+*This API is available since LogTape 2.3.0.*
+
+For larger Deno test suites, use the [*@logtape/testing-deno*] package instead
+of wrapping every test callback manually.  It exports a `test` function
+compatible with Deno's built-in `Deno.test()` runner:
+
+~~~~ bash
+deno add jsr:@logtape/testing-deno
+~~~~
+
+[*@logtape/testing-deno*]: https://jsr.io/@logtape/testing-deno
+
+### Autoload entry point
+
+The easiest way to adopt the integration in a large Deno suite is to import
+the autoload entry point.  It configures the minimal
+`~Config.contextLocalStorage` needed by the failure log reporter when LogTape
+has not been configured yet:
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-deno/autoload";
+import { getLogger } from "@logtape/logtape";
+
+test("case", () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+The autoload entry point leaves an existing LogTape configuration alone when
+that configuration already provides `~Config.contextLocalStorage`.  If LogTape
+has already been configured without `~Config.contextLocalStorage`, autoload
+throws an error instead of replacing the existing configuration.
+
+### Shared preload module
+
+If you prefer explicit setup, import from `@logtape/testing-deno` and configure
+LogTape once from a shared setup module.  One option is to preload that module
+for the test run:
+
+~~~~ typescript [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  contextLocalStorage: new AsyncLocalStorage(),
+  sinks: {},
+  loggers: [
+    { category: ["logtape", "meta"], sinks: [] },
+  ],
+});
+~~~~
+
+~~~~ bash
+deno test --preload ./test/setup-logtape.ts
+~~~~
+
+Each test file can then import from `@logtape/testing-deno` without adding
+per-file setup steps:
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-deno";
+import { getLogger } from "@logtape/logtape";
+
+test("case", () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+### Top-level setup function
+
+If you cannot use `--preload`, put the shared setup in a function and call it
+once at the top level of each test file:
+
+~~~~ typescript [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+let configured = false;
+
+export async function setupLogTape(): Promise<void> {
+  if (configured) return;
+  configured = true;
+
+  await configure({
+    contextLocalStorage: new AsyncLocalStorage(),
+    sinks: {},
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+}
+~~~~
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-deno";
+import { getLogger } from "@logtape/logtape";
+import { setupLogTape } from "./setup-logtape.ts";
+
+await setupLogTape();
+
+test("case", () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.");
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+Use `createTest()` to configure the underlying failure log reporter:
+
+~~~~ typescript
+import { createTest } from "@logtape/testing-deno";
+
+const test = createTest({
+  lowestLevel: "debug",
+  mode: "on-failure",
+});
+
+test("case", () => {
+  // Logs emitted here are reported only if this callback fails.
+});
+~~~~
+
+The adapter preserves Deno test options such as `ignore`, `only`,
+`permissions`, `sanitizeOps`, `sanitizeResources`, `sanitizeExit`, and
+`timeout`; passes them through to `Deno.test()`; and wraps only the callback.
+It also preserves shorthand helpers such as `test.ignore()`, `test.only()`,
+and `test.each()`, wraps `TestContext.step()` callbacks, and re-exports Deno
+test hooks such as `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
+and `sanitizer()` unchanged.
+
+As with `createFailureLogReporter()`, the process-wide LogTape configuration
+must provide `~Config.contextLocalStorage`.
 
 
 Node.js test runner integration

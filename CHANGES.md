@@ -43,6 +43,26 @@ To be released.
 [#186]: https://github.com/dahlia/logtape/issues/186
 [#189]: https://github.com/dahlia/logtape/pull/189
 
+### @logtape/testing-deno
+
+ -  Added new *@logtape/testing-deno* package for using the failure log
+    reporter with Deno's built-in `Deno.test()` runner.  [[#187], [#190]]
+
+     -  Added `test` export that wraps test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-deno/autoload` subpath export for
+        automatically configuring the minimal `Config.contextLocalStorage`
+        required by the reporter when LogTape has not been configured yet.
+     -  Added `createTest()` function for configuring reporter options such as
+        `lowestLevel`, `mode`, `sink`, and `formatter`.
+     -  Preserved Deno test options and shorthand helpers such as
+        `test.ignore()`, `test.only()`, and `test.each()`.
+     -  Wrapped `TestContext.step()` callbacks and re-exported Deno test hooks
+        such as `beforeAll()`, `beforeEach()`, `afterEach()`, and `afterAll()`.
+
+[#187]: https://github.com/dahlia/logtape/issues/187
+[#190]: https://github.com/dahlia/logtape/pull/190
+
 ### @logtape/testing-node
 
  -  Added new *@logtape/testing-node* package for using the failure log
@@ -61,9 +81,6 @@ To be released.
         callback-style tests.
      -  Re-exported Node.js test runner helpers such as `describe()`,
         `before()`, `after()`, `beforeEach()`, and `afterEach()`.
-
-[#187]: https://github.com/dahlia/logtape/issues/187
-[#190]: https://github.com/dahlia/logtape/pull/190
 
 ### @logtape/file
 

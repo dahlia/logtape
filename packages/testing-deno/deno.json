@@ -1,0 +1,18 @@
+{
+  "name": "@logtape/testing-deno",
+  "version": "2.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./autoload": "./src/autoload.ts"
+  },
+  "exclude": [
+    "coverage/",
+    "npm/",
+    "dist/"
+  ],
+  "tasks": {
+    "test": "deno test --allow-read --allow-write --allow-run=deno",
+    "test-all": "deno task test"
+  }
+}
