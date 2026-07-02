@@ -586,6 +586,15 @@ test("withConfig() rejects invalid scoped configuration", async () => {
       () =>
         withConfig({
           sinks: {},
+          filters: "filter",
+          loggers: [],
+        } as never, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
           loggers: [{ category: "app" }, { category: ["app"] }],
         }, () => {}),
       ConfigError,

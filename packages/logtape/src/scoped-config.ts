@@ -77,6 +77,9 @@ export function compileScopedConfig<
   if (!Array.isArray(config.loggers)) {
     throw createError("Configuration must include a loggers array.");
   }
+  if (config.filters !== undefined && !isObjectLike(config.filters)) {
+    throw createError("Configuration filters must be an object.");
+  }
 
   const nodes = new Map<string, CompiledScopedLogger>();
   const configuredCategories = new Set<string>();
