@@ -189,6 +189,30 @@ Deno.test("createTest(): supports named function overloads", async () => {
   assertSuccess(result);
 });
 
+Deno.test("createTest(): preserves names with options before callback", async () => {
+  const result = await runDenoTest(`
+    import { AsyncLocalStorage } from "node:async_hooks";
+    import { configureSync } from ${JSON.stringify(logtapeSpecifier)};
+    import { createTest } from ${JSON.stringify(modUrl)};
+
+    configureSync({
+      contextLocalStorage: new AsyncLocalStorage(),
+      sinks: {},
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    });
+
+    const test = createTest();
+
+    test({ permissions: "none" }, function namedCase(context) {
+      if (context.name !== "namedCase") {
+        throw new Error("wrong test name: " + context.name);
+      }
+    });
+  `);
+
+  assertSuccess(result);
+});
+
 Deno.test("createTest(): reports logs from failed steps", async () => {
   const result = await runDenoTest(`
     import assert from "node:assert/strict";
@@ -412,7 +436,7 @@ async function runDenoTest(source: string): Promise<{
         }
       ` + source,
     );
-    const command = new Deno.Command(Deno.execPath(), {
+    const command = new Deno.Command("deno", {
       args: [
         "test",
         "--quiet",

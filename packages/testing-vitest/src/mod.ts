@@ -306,7 +306,6 @@ function createVitestTestFunction(
   baseTest: BaseVitestTestFunction,
   options: FailureLogReporterOptions,
   cache: WeakMap<BaseVitestTestFunction, VitestTestFunction> = new WeakMap(),
-  depth = 0,
 ): VitestTestFunction {
   const cached = cache.get(baseTest);
   if (cached != null) return cached;
@@ -319,22 +318,20 @@ function createVitestTestFunction(
     )) as unknown as VitestTestFunction;
   cache.set(baseTest, register);
 
-  if (depth < 2) {
-    for (const helperName of helperNames) {
-      const helper = getFunctionProperty(baseTest, helperName);
-      if (helper == null) continue;
-      Object.defineProperty(register, helperName, {
-        configurable: true,
-        enumerable: true,
-        value: createVitestTestFunction(
+  for (const helperName of helperNames) {
+    const helper = getFunctionProperty(baseTest, helperName);
+    if (helper == null) continue;
+    Object.defineProperty(register, helperName, {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return createVitestTestFunction(
           helper as BaseVitestTestFunction,
           options,
           cache,
-          depth + 1,
-        ),
-        writable: true,
-      });
-    }
+        );
+      },
+    });
   }
 
   for (const helperName of conditionalHelperNames) {
@@ -349,7 +346,6 @@ function createVitestTestFunction(
           conditionalTest as BaseVitestTestFunction,
           options,
           cache,
-          depth + 1,
         );
       }) as VitestTestFunction[typeof helperName],
       writable: true,

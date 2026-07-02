@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
-import nodeTest from "node:test";
+import nodeTest, { type TestContext } from "node:test";
 
 import {
   configure,
@@ -9,7 +9,6 @@ import {
   type LogRecord,
   reset,
 } from "@logtape/logtape";
-import type { TestContext } from "node:test";
 
 import { createIt, createTest, it } from "./mod.ts";
 

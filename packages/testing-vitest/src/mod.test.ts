@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import nodeTest from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -256,6 +256,35 @@ test("createTest(): preserves fails shorthand semantics", async () => {
 
   assertSuccess(result);
   assert.match(result.output, /reported:Known failure diagnostic\./);
+});
+
+test("createTest(): preserves deep shorthand chains", async () => {
+  const result = await runVitestTest(`
+    import { AsyncLocalStorage } from "node:async_hooks";
+    import {
+      configureSync,
+      getLogger,
+    } from ${JSON.stringify(logtapeSpecifier)};
+    import { createTest } from ${JSON.stringify(modUrl)};
+
+    configureSync({
+      contextLocalStorage: new AsyncLocalStorage(),
+      sinks: {},
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    });
+
+    const test = createTest({
+      sink: (record) => report("reported:" + record.rawMessage),
+    });
+
+    test.concurrent.only.fails("deep expected failure", () => {
+      getLogger(["app"]).info("Deep chained diagnostic.");
+      throw new Error("known concurrent bug");
+    });
+  `);
+
+  assertSuccess(result);
+  assert.match(result.output, /reported:Deep chained diagnostic\./);
 });
 
 test("createTest(): preserves test.each() callback arguments", async () => {

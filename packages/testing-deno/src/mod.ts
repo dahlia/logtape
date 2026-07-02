@@ -305,6 +305,23 @@ function wrapDenoTestArguments(
     ];
   }
 
+  const optionsArgument = args.at(-2);
+  if (
+    args.length === 2 && isDenoTestOptions(optionsArgument) &&
+    !("name" in optionsArgument)
+  ) {
+    return [
+      {
+        ...optionsArgument,
+        name: callback.name,
+        fn: wrapDenoTestCallback(
+          callback as unknown as DenoTestCallback,
+          options,
+        ),
+      },
+    ];
+  }
+
   return [
     ...args.slice(0, -1),
     wrapDenoTestCallback(callback as unknown as DenoTestCallback, options),
@@ -437,6 +454,11 @@ function wrapDenoStepCallback(
 function isDenoTestDefinition(value: unknown): value is DenoTestDefinition {
   return typeof value === "object" && value != null &&
     "fn" in value && typeof value.fn === "function";
+}
+
+function isDenoTestOptions(value: unknown): value is DenoTestOptions {
+  return typeof value === "object" && value != null &&
+    !isDenoTestDefinition(value);
 }
 
 function isDenoStepDefinition(
