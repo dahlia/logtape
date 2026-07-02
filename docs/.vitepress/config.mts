@@ -296,6 +296,8 @@ export default defineConfig({
         twoslashOptions: {
           compilerOptions: {
             lib: ["dom", "dom.iterable", "esnext"],
+            module: 99, // ts.ModuleKind.ESNext
+            moduleResolution: 100, // ts.ModuleResolutionKind.Bundler
             types: [
               "dom",
               "dom.iterable",

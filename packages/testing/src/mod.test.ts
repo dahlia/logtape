@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import test from "node:test";
 
 import {
   configure,
+  type ContextLocalStorage,
   getLogger,
   getTextFormatter,
   lazy,
@@ -12,11 +14,9 @@ import {
 } from "@logtape/logtape";
 import { redactByField } from "@logtape/redaction";
 
-import {
-  createLogRecorder,
-  type LogRecordMatch,
-  type PropertyMatcher,
-} from "./mod.ts";
+import { createLogRecorder } from "./recorder.ts";
+import type { LogRecordMatch, PropertyMatcher } from "./recorder.ts";
+import { createFailureLogReporter } from "./reporter.ts";
 
 test("createLogRecorder() stores records in order", () => {
   const recorder = createLogRecorder();
@@ -879,6 +879,33 @@ test("LogRecorder preserves extra accessors when messages are eager", () => {
   assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
 });
 
+test("LogRecorder snapshots records with only symbol accessors", () => {
+  const recorder = createLogRecorder();
+  const contextKey = Symbol("context");
+  let spanId = "span-123";
+  const record = {
+    ...logRecord({
+      message: ["User ", "alice", " logged in."],
+      properties: { userId: "alice" },
+      rawMessage: "User {userId} logged in.",
+    }),
+    get [contextKey](): { readonly spanId: string } {
+      return { spanId };
+    },
+  } as LogRecord & {
+    readonly [contextKey]: { readonly spanId: string };
+  };
+
+  recorder.sink(record);
+  spanId = "span-456";
+
+  const snapshot = recorder.records[0] as LogRecord & {
+    readonly [contextKey]?: { readonly spanId: string };
+  };
+  assert.notStrictEqual(snapshot, record);
+  assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
+});
+
 test("LogRecorder observes resolved lazy and redacted properties", async () => {
   const recorder = createLogRecorder();
   const sink = redactByField(recorder.sink, {
@@ -919,6 +946,345 @@ test("LogRecorder observes resolved lazy and redacted properties", async () => {
   }
 });
 
+test("FailureLogReporter.run() discards buffered records when callback resolves", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter({
+      lowestLevel: "debug",
+      sink: (record) => reported.push(record),
+    });
+
+    const result = await reporter.run(() => {
+      getLogger(["app"]).debug("Passing diagnostic.");
+      return "ok";
+    });
+
+    assert.strictEqual(result, "ok");
+    assert.deepStrictEqual(reported, []);
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter.run() reports buffered records when callback throws", async () => {
+  const reported: LogRecord[] = [];
+  const failure = new Error("assertion failed");
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter({
+      lowestLevel: "debug",
+      sink: (record) => reported.push(record),
+    });
+
+    await assert.rejects(
+      reporter.run(() => {
+        getLogger(["app"]).debug("Preparing fixture {fixture}.", {
+          fixture: "user",
+        });
+        getLogger(["app"]).info("Running assertion.");
+        throw failure;
+      }),
+      failure,
+    );
+
+    assert.deepStrictEqual(
+      reported.map((record) => [
+        record.level,
+        renderRawMessage(
+          record.rawMessage,
+        ),
+      ]),
+      [
+        ["debug", "Preparing fixture {fixture}."],
+        ["info", "Running assertion."],
+      ],
+    );
+    assert.deepStrictEqual(reported[0]?.properties, { fixture: "user" });
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter.run() reports buffered records when callback rejects", async () => {
+  const reported: LogRecord[] = [];
+  const failure = new Error("async assertion failed");
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter({
+      sink: (record) => reported.push(record),
+    });
+
+    await assert.rejects(
+      reporter.run(async () => {
+        getLogger(["app"]).info("Before await.");
+        await Promise.resolve();
+        getLogger(["app"]).warning("After await.");
+        throw failure;
+      }),
+      failure,
+    );
+
+    assert.deepStrictEqual(
+      reported.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Before await.", "After await."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter.wrap() preserves callback arguments and returns an async callback", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter({
+      mode: "always",
+      sink: (record) => reported.push(record),
+    });
+    const wrapped = reporter.wrap((name: string, attempt: number): string => {
+      getLogger(["app"]).info("Running {name} attempt {attempt}.", {
+        attempt,
+        name,
+      });
+      return `${name}:${attempt}`;
+    });
+
+    const wrappedResult = wrapped("login", 2);
+    assert.ok(wrappedResult instanceof Promise);
+    assert.strictEqual(await wrappedResult, "login:2");
+    assert.deepStrictEqual(
+      reported.map((record) => renderRawMessage(record.rawMessage)),
+      ["Running {name} attempt {attempt}."],
+    );
+    assert.deepStrictEqual(reported[0]?.properties, {
+      attempt: 2,
+      name: "login",
+    });
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter.wrap() works when destructured", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    const { wrap } = createFailureLogReporter({
+      mode: "always",
+      sink: (record) => reported.push(record),
+    });
+    const wrapped = wrap((name: string): string => {
+      getLogger(["app"]).info("Running {name}.", { name });
+      return name;
+    });
+
+    assert.strictEqual(await wrapped("destructured"), "destructured");
+    assert.deepStrictEqual(
+      reported.map((record) => renderRawMessage(record.rawMessage)),
+      ["Running {name}."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter.wrap() preserves callback this", async () => {
+  const context = { testName: "mocha-style" };
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter();
+    const wrapped = reporter.wrap(function (this: typeof context): string {
+      return this.testName;
+    });
+
+    assert.strictEqual(await wrapped.call(context), "mocha-style");
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter honors always and never report modes", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    await createFailureLogReporter({
+      mode: "always",
+      sink: (record) => reported.push(record),
+    }).run(() => {
+      getLogger(["app"]).info("Always mode.");
+    });
+
+    await assert.rejects(
+      createFailureLogReporter({
+        mode: "never",
+        sink: (record) => reported.push(record),
+      }).run(() => {
+        getLogger(["app"]).error("Never mode.");
+        throw new Error("hidden logs");
+      }),
+      /hidden logs/,
+    );
+
+    assert.deepStrictEqual(
+      reported.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Always mode."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter flushes records outside scoped capture", async () => {
+  const globalRecords: LogRecord[] = [];
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests(globalRecords);
+  try {
+    const reporter = createFailureLogReporter({
+      mode: "always",
+      sink: (record) => {
+        reported.push(record);
+        if (renderRawMessage(record.rawMessage) === "Inside reporter.") {
+          getLogger(["app"]).info("Reporting sink.");
+        }
+      },
+    });
+
+    await reporter.run(() => {
+      getLogger(["app"]).info("Inside reporter.");
+    });
+
+    assert.deepStrictEqual(
+      reported.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Inside reporter."],
+    );
+    assert.deepStrictEqual(
+      globalRecords.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Reporting sink."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter does not re-flush when an always-mode sink throws", async () => {
+  const sinkFailure = new Error("sink failed");
+  let attempts = 0;
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter({
+      mode: "always",
+      sink: () => {
+        attempts++;
+        throw sinkFailure;
+      },
+    });
+
+    await assert.rejects(
+      reporter.run(() => {
+        getLogger(["app"]).info("Successful callback.");
+      }),
+      sinkFailure,
+    );
+
+    assert.strictEqual(attempts, 1);
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter honors lowestLevel", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    await assert.rejects(
+      createFailureLogReporter({
+        lowestLevel: "warning",
+        sink: (record) => reported.push(record),
+      }).run(() => {
+        const logger = getLogger(["app"]);
+        logger.debug("Ignored debug.");
+        logger.info("Ignored info.");
+        logger.warning("Reported warning.");
+        throw new Error("failure");
+      }),
+      /failure/,
+    );
+
+    assert.deepStrictEqual(
+      reported.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Reported warning."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter snapshots lazy values before reporting", async () => {
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests();
+  try {
+    let currentUser = "alice";
+    const logger = getLogger(["app"]).with({
+      userId: lazy(() => currentUser),
+    });
+    const reporter = createFailureLogReporter({
+      sink: (record) => reported.push(record),
+    });
+
+    await assert.rejects(
+      reporter.run(() => {
+        logger.info("Loaded {userId}.");
+        currentUser = "bob";
+        throw new Error("failure");
+      }),
+      /failure/,
+    );
+
+    assert.deepStrictEqual(reported.map((record) => record.properties), [
+      { userId: "alice" },
+    ]);
+    assert.deepStrictEqual(
+      reported.map((record) => renderRawMessage(record.rawMessage)),
+      ["Loaded {userId}."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("FailureLogReporter uses scoped configuration without mutating global sinks", async () => {
+  const globalRecords: LogRecord[] = [];
+  const reported: LogRecord[] = [];
+  await configureForFailureReporterTests(globalRecords);
+  try {
+    getLogger(["app"]).info("Before reporter.");
+
+    await assert.rejects(
+      createFailureLogReporter({
+        sink: (record) => reported.push(record),
+      }).run(() => {
+        getLogger(["app"]).info("Inside reporter.");
+        throw new Error("failure");
+      }),
+      /failure/,
+    );
+
+    getLogger(["app"]).info("After reporter.");
+
+    assert.deepStrictEqual(
+      globalRecords.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Before reporter.", "After reporter."],
+    );
+    assert.deepStrictEqual(
+      reported.map((record) => renderMessageWithCoreFormatter(record)),
+      ["Inside reporter."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
 // Helpers
 
 function logRecord(record: Partial<LogRecord> = {}): LogRecord {
@@ -931,6 +1297,27 @@ function logRecord(record: Partial<LogRecord> = {}): LogRecord {
     timestamp: 1700000000000,
     ...record,
   };
+}
+
+async function configureForFailureReporterTests(
+  sinkRecords: LogRecord[] = [],
+): Promise<void> {
+  await configure({
+    contextLocalStorage: new AsyncLocalStorage() as ContextLocalStorage<
+      Record<string, unknown>
+    >,
+    sinks: {
+      global: (record) => sinkRecords.push(record),
+    },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [] },
+      {
+        category: ["app"],
+        lowestLevel: "debug",
+        sinks: ["global"],
+      },
+    ],
+  });
 }
 
 function renderMessageWithCoreFormatter(record: LogRecord): string {

@@ -9,7 +9,8 @@ Testing utilities for LogTape
 This package provides testing utilities for [LogTape].  It includes a log
 recorder that collects `LogRecord` values in memory and provides matcher-based
 assertions for category, level, rendered message, raw message, and structured
-properties.
+properties.  It also includes a failure log reporter that buffers records while
+a test callback runs and reports them only when the callback fails.
 
 [JSR badge]: https://jsr.io/badges/@logtape/testing
 [JSR]: https://jsr.io/@logtape/testing
@@ -40,7 +41,7 @@ Use `createLogRecorder()` as a sink in tests:
 
 ~~~~ typescript
 import { configure, getLogger, reset } from "@logtape/logtape";
-import { createLogRecorder } from "@logtape/testing";
+import { createLogRecorder } from "@logtape/testing/recorder";
 
 const recorder = createLogRecorder();
 
@@ -76,6 +77,24 @@ that need lower-level access.  Most property values are compared with
 `Object.is()`, `Date` values are compared by timestamp, and regular expression
 matcher values match string property values.  Rendered message matching uses
 the same value rendering as LogTape's default text formatter.
+
+Use `createFailureLogReporter()` when logs are useful only after a test fails:
+
+~~~~ typescript
+import { createFailureLogReporter } from "@logtape/testing/reporter";
+
+const reporter = createFailureLogReporter({
+  lowestLevel: "debug",
+});
+
+test("case", reporter.wrap(async () => {
+  // Logs emitted here are reported only if this callback throws.
+}));
+~~~~
+
+The root `@logtape/testing` entry point re-exports both utilities for
+compatibility, but new code can import `@logtape/testing/recorder` or
+`@logtape/testing/reporter` to depend on only the relevant API surface.
 
 
 Docs
