@@ -271,6 +271,30 @@ test("YogaLogger method: avoids args property collisions", async () => {
   }
 });
 
+test("YogaLogger method: avoids additionalArgs property collisions", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getYogaLogger();
+    const executionArgs = { operationName: "Hello" };
+    const existingAdditionalArgs = ["existing"];
+
+    logger.debug({
+      args: executionArgs,
+      additionalArgs: existingAdditionalArgs,
+    }, "execute-start");
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "{*}");
+    assert.deepStrictEqual(logs[0].properties, {
+      args: executionArgs,
+      additionalArgs: existingAdditionalArgs,
+      restArgs: ["execute-start"],
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
 test("YogaLogger method: logs non-plain values as args", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {

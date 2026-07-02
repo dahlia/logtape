@@ -153,8 +153,19 @@ function mergeRestArgs(
   rest: readonly unknown[],
 ): Record<string, unknown> {
   if (rest.length < 1) return properties;
-  const restKey = Object.hasOwn(properties, "args") ? "additionalArgs" : "args";
+  const restKey = getRestArgsKey(properties);
   return { ...properties, [restKey]: rest };
+}
+
+function getRestArgsKey(properties: Record<string, unknown>): string {
+  for (const key of ["args", "additionalArgs", "restArgs"]) {
+    if (!Object.hasOwn(properties, key)) return key;
+  }
+
+  for (let i = 2;; i++) {
+    const key = `additionalArgs${i}`;
+    if (!Object.hasOwn(properties, key)) return key;
+  }
 }
 
 function logError(
