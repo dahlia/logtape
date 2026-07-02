@@ -10,6 +10,7 @@ import {
   compileScopedConfig,
   disposeScopedConfig,
   disposeScopedConfigSync,
+  scopedConfigHasSink,
 } from "./scoped-config.ts";
 import type { Sink } from "./sink.ts";
 import {
@@ -936,6 +937,24 @@ test("disposeScopedConfigSync() clears resources after disposal errors", () => {
 
   disposeScopedConfigSync(scopedConfig);
   assert.deepStrictEqual(events, ["filter", "sink"]);
+});
+
+test("scoped configuration caches sink dispatch plans", () => {
+  const sink: Sink = () => {};
+  const scopedConfig = compileScopedConfig(
+    {
+      sinks: { sink },
+      loggers: [{ category: "app", sinks: ["sink"] }],
+    },
+    true,
+    (message) => new ConfigError(message),
+  );
+
+  assert.strictEqual(scopedConfig.dispatchCache.size, 0);
+  assert.strictEqual(scopedConfigHasSink(scopedConfig, ["app"], "info"), true);
+  assert.strictEqual(scopedConfig.dispatchCache.size, 1);
+  assert.strictEqual(scopedConfigHasSink(scopedConfig, ["app"], "info"), true);
+  assert.strictEqual(scopedConfig.dispatchCache.size, 1);
 });
 
 test("withConfig() preserves callback and disposal errors", async () => {

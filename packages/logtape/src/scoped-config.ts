@@ -32,6 +32,7 @@ export interface ScopedLoggerConfigLike<
 
 export interface CompiledScopedConfig {
   readonly nodes: ReadonlyMap<string, CompiledScopedLogger>;
+  readonly dispatchCache: Map<string, ScopedSinkDispatchPlan>;
   parent: CompiledScopedConfig | undefined;
   disposed: boolean;
   readonly syncFilters: Set<Disposable>;
@@ -164,6 +165,7 @@ export function compileScopedConfig<
   return {
     asyncFilters,
     asyncSinks,
+    dispatchCache: new Map(),
     disposed: false,
     nodes,
     parent: undefined,
@@ -353,12 +355,18 @@ function getScopedSinkDispatchPlan(
   category: readonly string[],
   level: LogLevel,
 ): ScopedSinkDispatchPlan {
-  return getScopedSinkDispatchPlanForPrefix(
-    scopedConfig,
-    category,
-    category.length,
-    level,
-  );
+  const cacheKey = `${categoryKey(category)}:${level}`;
+  let plan = scopedConfig.dispatchCache.get(cacheKey);
+  if (plan == null) {
+    plan = getScopedSinkDispatchPlanForPrefix(
+      scopedConfig,
+      category,
+      category.length,
+      level,
+    );
+    scopedConfig.dispatchCache.set(cacheKey, plan);
+  }
+  return plan;
 }
 
 function getScopedSinkDispatchPlanForPrefix(
