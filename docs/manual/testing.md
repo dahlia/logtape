@@ -90,7 +90,6 @@ bun add @logtape/testing
 :::
 
 ~~~~ typescript twoslash
-// @noErrors: 2307
 import { after, before, test } from "node:test";
 import { configure, getLogger, reset } from "@logtape/logtape";
 import { createLogRecorder } from "@logtape/testing/recorder";
@@ -159,8 +158,13 @@ buffers records while the wrapped callback runs, discards them when the
 callback succeeds, and reports them to a sink when the callback throws or
 rejects:
 
+> [!TIP]
+> If your tests use Node.js' built-in `node:test` runner, prefer the
+> [*Node.js test runner integration*](#node-js-test-runner-integration).  It
+> wraps `node:test` directly, preserves runner options, and avoids wrapping
+> each callback by hand.
+
 ~~~~ typescript twoslash
-// @noErrors: 2307
 import { AsyncLocalStorage } from "node:async_hooks";
 import { after, before, test } from "node:test";
 import { configure, getLogger, reset } from "@logtape/logtape";
@@ -203,7 +207,6 @@ returns an async callback.  Use `~FailureLogReporter.run()` when you want to
 invoke the callback directly:
 
 ~~~~ typescript twoslash
-// @noErrors: 2307
 import { createFailureLogReporter } from "@logtape/testing/reporter";
 
 const reporter = createFailureLogReporter({
@@ -221,6 +224,172 @@ or `mode: "never"` to suppress reporting while keeping the shared wrapper in
 place.  By default the reporter writes formatted records to the console; pass
 `sink` to report records elsewhere, or `formatter` to customize the default
 console output.
+
+
+Node.js test runner integration
+-------------------------------
+
+*This API is available since LogTape 2.3.0.*
+
+For larger Node.js test suites, use the [*@logtape/testing-node*] package
+instead of wrapping every test callback manually.  It exports a `test` function
+compatible with Node.js' built-in `node:test` runner:
+
+::: code-group
+
+~~~~ bash [npm]
+npm add @logtape/testing-node
+~~~~
+
+~~~~ bash [pnpm]
+pnpm add @logtape/testing-node
+~~~~
+
+~~~~ bash [Yarn]
+yarn add @logtape/testing-node
+~~~~
+
+~~~~ bash [Bun]
+bun add @logtape/testing-node
+~~~~
+
+:::
+
+[*@logtape/testing-node*]: https://jsr.io/@logtape/testing-node
+
+### Autoload entry point
+
+The easiest way to adopt the integration in a large suite is to import the
+autoload entry point.  It configures the minimal `~Config.contextLocalStorage`
+needed by the failure log reporter when LogTape has not been configured yet:
+
+~~~~ typescript twoslash [test/user.test.ts]
+import { test } from "@logtape/testing-node/autoload";
+import { getLogger } from "@logtape/logtape";
+
+test("case", async () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+The autoload entry point leaves an existing LogTape configuration alone when
+that configuration already provides `~Config.contextLocalStorage`.  If LogTape
+has already been configured without `~Config.contextLocalStorage`, autoload
+throws an error instead of replacing the existing configuration.
+
+### Shared preload module
+
+If you prefer explicit setup, import from `@logtape/testing-node` and configure
+LogTape once from a shared setup module.  One option is to preload that module
+for the test run:
+
+~~~~ javascript [test/setup-logtape.mjs]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  contextLocalStorage: new AsyncLocalStorage(),
+  sinks: {},
+  loggers: [
+    { category: ["logtape", "meta"], sinks: [] },
+  ],
+});
+~~~~
+
+~~~~ bash
+node --import ./test/setup-logtape.mjs --test
+~~~~
+
+Each test file can then import from `@logtape/testing-node` without adding
+per-file setup hooks:
+
+~~~~ typescript twoslash [test/user.test.ts]
+import { test } from "@logtape/testing-node";
+import { getLogger } from "@logtape/logtape";
+
+test("case", async () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+The setup module is loaded once per test process.  With Node.js' default test
+isolation, that usually means each test file gets its own configured process
+without repeating `before()` and `after()` in every file.  If your runner setup
+reuses one long-lived process, such as a custom watch workflow, call `reset()`
+from that shared lifecycle instead.
+
+### Top-level setup function
+
+If you cannot use `--import`, put the shared setup in a function and call it
+once at the top level of each test file:
+
+~~~~ typescript twoslash [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+let configured = false;
+
+export async function setupLogTape(): Promise<void> {
+  if (configured) return;
+  configured = true;
+
+  await configure({
+    contextLocalStorage: new AsyncLocalStorage(),
+    sinks: {},
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+}
+~~~~
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-node";
+import { getLogger } from "@logtape/logtape";
+import { setupLogTape } from "./setup-logtape.ts";
+
+await setupLogTape();
+
+test("case", async () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.");
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+Use `createTest()` to configure the underlying failure log reporter:
+
+~~~~ typescript twoslash
+import { createTest } from "@logtape/testing-node";
+
+const test = createTest({
+  lowestLevel: "debug",
+  mode: "on-failure",
+});
+
+test("case", async () => {
+  // Logs emitted here are reported only if this callback fails.
+});
+~~~~
+
+The adapter preserves Node.js test options such as `concurrency`, `signal`,
+`skip`, `tags`, `timeout`, and `plan`; passes them through to `node:test`; and
+wraps only the callback.  It also preserves shorthand helpers such as
+`test.only()`, `test.skip()`, and `test.todo()`, supports callback-style tests,
+and exports a wrapped `it()` alias with `createIt()` for custom reporter
+options.  Other `node:test` helpers, including `describe()`, `before()`,
+`after()`, `beforeEach()`, and `afterEach()`, are re-exported unchanged.
+
+As with `createFailureLogReporter()`, the process-wide LogTape configuration
+must provide `~Config.contextLocalStorage`.
 
 
 Buffer sink

@@ -19,6 +19,7 @@ packages:
 - packages/sentry
 - packages/syslog
 - packages/testing
+- packages/testing-node
 - packages/cloudwatch-logs
 - packages/config
 - packages/windows-eventlog

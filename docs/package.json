@@ -28,6 +28,7 @@
     "@logtape/sentry": "workspace:",
     "@logtape/syslog": "workspace:",
     "@logtape/testing": "workspace:",
+    "@logtape/testing-node": "workspace:",
     "@logtape/windows-eventlog": "workspace:",
     "@opentelemetry/exporter-logs-otlp-http": "catalog:",
     "@opentelemetry/resources": "catalog:",

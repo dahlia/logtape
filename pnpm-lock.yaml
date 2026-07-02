@@ -222,6 +222,9 @@ importers:
       '@logtape/testing':
         specifier: 'workspace:'
         version: link:../packages/testing
+      '@logtape/testing-node':
+        specifier: 'workspace:'
+        version: link:../packages/testing-node
       '@logtape/windows-eventlog':
         specifier: 'workspace:'
         version: link:../packages/windows-eventlog
@@ -851,6 +854,22 @@ importers:
       '@logtape/redaction':
         specifier: workspace:^
         version: link:../redaction
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/testing-node:
+    dependencies:
+      '@logtape/testing':
+        specifier: workspace:^
+        version: link:../testing
+    devDependencies:
+      '@logtape/logtape':
+        specifier: workspace:^
+        version: link:../logtape
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)

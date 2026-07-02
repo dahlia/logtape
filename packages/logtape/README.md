@@ -129,6 +129,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/sentry*](/packages/sentry/)                     | [JSR][jsr:@logtape/sentry]           | [npm][npm:@logtape/sentry]           | [Sentry] sink                 |
 | [*@logtape/syslog*](/packages/syslog/)                     | [JSR][jsr:@logtape/syslog]           | [npm][npm:@logtape/syslog]           | Syslog sink                   |
 | [*@logtape/testing*](/packages/testing/)                   | [JSR][jsr:@logtape/testing]          | [npm][npm:@logtape/testing]          | Testing utilities             |
+| [*@logtape/testing-node*](/packages/testing-node/)         | [JSR][jsr:@logtape/testing-node]     | [npm][npm:@logtape/testing-node]     | Node.js test integration      |
 | [*@logtape/windows-eventlog*](/packages/windows-eventlog/) | [JSR][jsr:@logtape/windows-eventlog] | [npm][npm:@logtape/windows-eventlog] | Windows Event Log sink        |
 
 [jsr:@logtape/logtape]: https://jsr.io/@logtape/logtape
@@ -183,6 +184,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/syslog]: https://www.npmjs.com/package/@logtape/syslog
 [jsr:@logtape/testing]: https://jsr.io/@logtape/testing
 [npm:@logtape/testing]: https://www.npmjs.com/package/@logtape/testing
+[jsr:@logtape/testing-node]: https://jsr.io/@logtape/testing-node
+[npm:@logtape/testing-node]: https://www.npmjs.com/package/@logtape/testing-node
 [jsr:@logtape/windows-eventlog]: https://jsr.io/@logtape/windows-eventlog
 [npm:@logtape/windows-eventlog]: https://www.npmjs.com/package/@logtape/windows-eventlog
 
