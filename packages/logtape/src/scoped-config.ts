@@ -141,8 +141,7 @@ export function compileScopedConfig<
         );
       }
       asyncSinks.add(sink as AsyncDisposable);
-    }
-    if (Symbol.dispose in sink) syncSinks.add(sink as Disposable);
+    } else if (Symbol.dispose in sink) syncSinks.add(sink as Disposable);
   }
 
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
@@ -155,8 +154,7 @@ export function compileScopedConfig<
       }
       asyncFilters.add(filter as AsyncDisposable);
       asyncSinks.delete(filter as AsyncDisposable);
-    }
-    if (Symbol.dispose in filter) {
+    } else if (Symbol.dispose in filter) {
       syncFilters.add(filter as Disposable);
       syncSinks.delete(filter as Disposable);
     }

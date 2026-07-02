@@ -803,6 +803,41 @@ test("withConfig() disposes scoped resources when the scope exits", async () => 
   }
 });
 
+test("withConfig() prefers async disposal for dual disposable resources", async () => {
+  const events: string[] = [];
+  const sink: Sink & Disposable & AsyncDisposable = () => {};
+  sink[Symbol.dispose] = () => events.push("sync sink");
+  sink[Symbol.asyncDispose] = async () => {
+    await Promise.resolve();
+    events.push("async sink");
+  };
+  const filter: Filter & Disposable & AsyncDisposable = () => true;
+  filter[Symbol.dispose] = () => events.push("sync filter");
+  filter[Symbol.asyncDispose] = async () => {
+    await Promise.resolve();
+    events.push("async filter");
+  };
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { sink },
+      filters: { filter },
+      loggers: [{ category: "app", sinks: ["sink"], filters: ["filter"] }],
+    }, () => {});
+
+    assert.deepStrictEqual(events, ["async filter", "async sink"]);
+  } finally {
+    await reset();
+  }
+});
+
 test("withConfig() does not dispose resources still owned by parent scopes", async () => {
   const records: LogRecord[] = [];
   const events: string[] = [];
@@ -846,6 +881,70 @@ test("withConfig() does not dispose resources still owned by parent scopes", asy
     assert.deepStrictEqual(
       records.map((record) => record.rawMessage),
       ["inner", "outer"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() does not dispose resources still owned by sibling scopes", async () => {
+  const records: LogRecord[] = [];
+  const events: string[] = [];
+  const sharedSink: Sink & Disposable = (record) => {
+    records.push(record);
+  };
+  sharedSink[Symbol.dispose] = () => events.push("sink");
+  const sharedFilter: Filter & Disposable = () => true;
+  sharedFilter[Symbol.dispose] = () => events.push("filter");
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    let finishFirst!: () => void;
+    let markSecondEntered!: () => void;
+    const releaseFirst = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const secondEntered = new Promise<void>((resolve) => {
+      markSecondEntered = resolve;
+    });
+    const firstDone = withConfig({
+      sinks: { shared: sharedSink },
+      filters: { shared: sharedFilter },
+      loggers: [
+        { category: "app", filters: ["shared"], sinks: ["shared"] },
+      ],
+    }, async () => {
+      await secondEntered;
+      await releaseFirst;
+      getLogger("app").info("first");
+    });
+    const secondDone = withConfig({
+      sinks: { shared: sharedSink },
+      filters: { shared: sharedFilter },
+      loggers: [
+        { category: "app", filters: ["shared"], sinks: ["shared"] },
+      ],
+    }, () => {
+      markSecondEntered();
+      assert.deepStrictEqual(events, []);
+      getLogger("app").info("second");
+    });
+
+    await secondDone;
+    assert.deepStrictEqual(events, []);
+    finishFirst();
+    await firstDone;
+
+    assert.deepStrictEqual(events, ["filter", "sink"]);
+    assert.deepStrictEqual(
+      records.map((record) => record.rawMessage).sort(),
+      ["first", "second"],
     );
   } finally {
     await reset();

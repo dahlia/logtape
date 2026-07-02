@@ -3,6 +3,7 @@ import { type FilterLike, toFilter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
 import {
+  type CompiledScopedConfig,
   compileScopedConfig,
   disposeScopedConfig,
   disposeScopedConfigSync,
@@ -107,6 +108,7 @@ export interface LoggerConfig<
  */
 let currentConfig: Config<string, string> | null = null;
 let activeScopedConfigCount = 0;
+const activeScopedConfigs: Set<CompiledScopedConfig> = new Set();
 let globalConfigMutationInProgress = false;
 
 /**
@@ -339,6 +341,7 @@ export async function withConfig<
   let callbackError: unknown;
   let callbackFailed = false;
   activeScopedConfigCount++;
+  activeScopedConfigs.add(scopedConfig);
   try {
     result = await runWithScopedConfig(
       contextLocalStorage,
@@ -351,13 +354,17 @@ export async function withConfig<
   }
 
   try {
-    await disposeScopedConfig(scopedConfig, getGlobalDisposables());
+    await disposeScopedConfig(
+      scopedConfig,
+      getRetainedDisposables(scopedConfig),
+    );
   } catch (disposeError) {
     if (callbackFailed) {
       throwCombinedErrors(callbackError, disposeError);
     }
     throw disposeError;
   } finally {
+    activeScopedConfigs.delete(scopedConfig);
     activeScopedConfigCount--;
   }
 
@@ -397,6 +404,7 @@ export function withConfigSync<
   let callbackError: unknown;
   let callbackFailed = false;
   activeScopedConfigCount++;
+  activeScopedConfigs.add(scopedConfig);
   try {
     result = runWithScopedConfig(contextLocalStorage, scopedConfig, callback);
     if (isThenable(result)) {
@@ -413,13 +421,14 @@ export function withConfigSync<
   }
 
   try {
-    disposeScopedConfigSync(scopedConfig, getGlobalDisposables());
+    disposeScopedConfigSync(scopedConfig, getRetainedDisposables(scopedConfig));
   } catch (disposeError) {
     if (callbackFailed) {
       throwCombinedErrors(callbackError, disposeError);
     }
     throw disposeError;
   } finally {
+    activeScopedConfigs.delete(scopedConfig);
     activeScopedConfigCount--;
   }
 
@@ -441,6 +450,33 @@ function getGlobalDisposables(): ReadonlySet<Disposable | AsyncDisposable> {
     ...sinkDisposables,
     ...asyncSinkDisposables,
   ]);
+}
+
+function getRetainedDisposables(
+  scopedConfig: CompiledScopedConfig,
+): ReadonlySet<Disposable | AsyncDisposable> {
+  const disposables = new Set<Disposable | AsyncDisposable>(
+    getGlobalDisposables(),
+  );
+  for (const activeScopedConfig of activeScopedConfigs) {
+    if (activeScopedConfig === scopedConfig) continue;
+    addScopedConfigDisposables(disposables, activeScopedConfig);
+  }
+  return disposables;
+}
+
+function addScopedConfigDisposables(
+  disposables: Set<Disposable | AsyncDisposable>,
+  scopedConfig: CompiledScopedConfig,
+): void {
+  for (const disposable of scopedConfig.syncFilters) {
+    disposables.add(disposable);
+  }
+  for (const disposable of scopedConfig.asyncFilters) {
+    disposables.add(disposable);
+  }
+  for (const disposable of scopedConfig.syncSinks) disposables.add(disposable);
+  for (const disposable of scopedConfig.asyncSinks) disposables.add(disposable);
 }
 
 function configureInternal<
