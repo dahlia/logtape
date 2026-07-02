@@ -127,9 +127,15 @@ function logYogaArgs(
   } else if (first instanceof Error) {
     logError(logger, level, first, properties);
   } else if (typeof first === "string") {
-    logWithMessage(logger, level, first, properties);
-  } else if (args.length === 1 && isPlainRecord(first)) {
-    logWithMessage(logger, level, "{*}", first);
+    logWithMessage(logger, level, "{message}", {
+      message: first,
+      ...properties,
+    });
+  } else if (isPlainRecord(first)) {
+    logWithMessage(logger, level, "{*}", {
+      ...first,
+      ...properties,
+    });
   } else {
     logWithMessage(logger, level, "{*}", { args });
   }
@@ -142,11 +148,17 @@ function logError(
   properties?: Record<string, unknown>,
 ): void {
   if (level === "warning" || level === "error" || level === "fatal") {
-    const logMethod = logger[level].bind(logger) as (
-      error: Error,
-      properties?: Record<string, unknown>,
-    ) => void;
-    logMethod(error, properties);
+    switch (level) {
+      case "warning":
+        logger.warning(error, properties);
+        break;
+      case "error":
+        logger.error(error, properties);
+        break;
+      case "fatal":
+        logger.fatal(error, properties);
+        break;
+    }
     return;
   }
 
@@ -162,11 +174,26 @@ function logWithMessage(
   message: string,
   properties?: Record<string, unknown>,
 ): void {
-  const logMethod = logger[level].bind(logger) as (
-    message: string,
-    properties?: Record<string, unknown>,
-  ) => void;
-  logMethod(message, properties);
+  switch (level) {
+    case "trace":
+      logger.trace(message, properties);
+      break;
+    case "debug":
+      logger.debug(message, properties);
+      break;
+    case "info":
+      logger.info(message, properties);
+      break;
+    case "warning":
+      logger.warning(message, properties);
+      break;
+    case "error":
+      logger.error(message, properties);
+      break;
+    case "fatal":
+      logger.fatal(message, properties);
+      break;
+  }
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

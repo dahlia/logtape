@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import { configure, type LogRecord, reset } from "@logtape/logtape";
 import { createSchema, createYoga } from "graphql-yoga";
+
 import { getYogaLogger } from "./mod.ts";
 
 test("getYogaLogger(): uses default category ['graphql-yoga']", async () => {
@@ -95,8 +97,33 @@ test("YogaLogger method: logs string messages", async () => {
     logger.info("Processing GraphQL Parameters");
 
     assert.strictEqual(logs.length, 1);
-    assert.strictEqual(logs[0].rawMessage, "Processing GraphQL Parameters");
-    assert.deepStrictEqual(logs[0].properties, {});
+    assert.strictEqual(logs[0].rawMessage, "{message}");
+    assert.deepStrictEqual(logs[0].message, [
+      "",
+      "Processing GraphQL Parameters",
+      "",
+    ]);
+    assert.deepStrictEqual(logs[0].properties, {
+      message: "Processing GraphQL Parameters",
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("YogaLogger method: treats string messages as literal text", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getYogaLogger();
+
+    logger.debug("query { hello }");
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "{message}");
+    assert.deepStrictEqual(logs[0].message, ["", "query { hello }", ""]);
+    assert.deepStrictEqual(logs[0].properties, {
+      message: "query { hello }",
+    });
   } finally {
     await cleanup();
   }
@@ -110,11 +137,11 @@ test("YogaLogger method: preserves rest arguments as structured data", async () 
     logger.debug("GraphQL event", "execute-start", { operationName: "Hello" });
 
     assert.strictEqual(logs.length, 1);
-    assert.strictEqual(logs[0].rawMessage, "GraphQL event");
-    assert.deepStrictEqual(logs[0].properties.args, [
-      "execute-start",
-      { operationName: "Hello" },
-    ]);
+    assert.strictEqual(logs[0].rawMessage, "{message}");
+    assert.deepStrictEqual(logs[0].properties, {
+      message: "GraphQL event",
+      args: ["execute-start", { operationName: "Hello" }],
+    });
   } finally {
     await cleanup();
   }
@@ -153,6 +180,23 @@ test("YogaLogger method: logs errors with rest arguments", async () => {
   }
 });
 
+test("YogaLogger method: logs warning-level errors", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getYogaLogger();
+    const error = new Error("Validation failed");
+
+    logger.warn(error);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
+    assert.strictEqual(logs[0].rawMessage, "{error.message}");
+    assert.strictEqual(logs[0].properties.error, error);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("YogaLogger method: logs a single plain object as properties", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
@@ -165,6 +209,25 @@ test("YogaLogger method: logs a single plain object as properties", async () => 
     assert.deepStrictEqual(logs[0].properties, {
       operationName: "Hello",
       status: "ok",
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("YogaLogger method: preserves plain object keys with rest arguments", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getYogaLogger();
+
+    logger.info({ operationName: "Hello", status: "ok" }, "execute-start");
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "{*}");
+    assert.deepStrictEqual(logs[0].properties, {
+      operationName: "Hello",
+      status: "ok",
+      args: ["execute-start"],
     });
   } finally {
     await cleanup();
@@ -231,7 +294,7 @@ test("getYogaLogger(): integrates with GraphQL Yoga logging option", async () =>
     assert.ok(
       logs.some((record) =>
         record.category.join(".") === "graphql-yoga" &&
-        record.rawMessage === "Processing GraphQL Parameters"
+        record.properties.message === "Processing GraphQL Parameters"
       ),
     );
   } finally {
