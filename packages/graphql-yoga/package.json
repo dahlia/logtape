@@ -50,11 +50,11 @@
     "dist/"
   ],
   "peerDependencies": {
-    "@logtape/logtape": "workspace:^"
+    "@logtape/logtape": "workspace:^",
+    "graphql": "^15.2.0 || ^16.0.0",
+    "graphql-yoga": "^5.0.0"
   },
   "devDependencies": {
-    "@alinea/suite": "catalog:",
-    "@std/assert": "catalog:",
     "graphql": "catalog:",
     "graphql-yoga": "catalog:",
     "tsdown": "catalog:",
