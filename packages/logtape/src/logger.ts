@@ -6,6 +6,11 @@ import {
 import type { Filter } from "./filter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
+import {
+  emitWithScopedConfig,
+  getCurrentScopedConfig,
+  scopedConfigHasSink,
+} from "./scoped-config.ts";
 import type { Sink } from "./sink.ts";
 
 /**
@@ -1758,6 +1763,18 @@ export class LoggerImpl implements Logger {
         ...this.category,
       ])
       : this;
+    const scopedConfig = getCurrentScopedConfig(
+      LoggerImpl.getLogger().contextLocalStorage,
+    );
+    if (scopedConfig != null) {
+      return scopedConfigHasSink(
+        scopedConfig,
+        categoryPrefix.length > 0
+          ? [...categoryPrefix, ...this.category]
+          : this.category,
+        level,
+      );
+    }
     return dispatcher.isEnabledForResolved(level);
   }
 
@@ -1809,6 +1826,43 @@ export class LoggerImpl implements Logger {
   }
 
   private emitResolved(record: LogRecord, bypassSinks?: Set<Sink>): void {
+    const scopedConfig = getCurrentScopedConfig(
+      LoggerImpl.getLogger().contextLocalStorage,
+    );
+    if (scopedConfig != null) {
+      let snapshot: LogRecord | undefined;
+      let snapshotFailed: boolean = false;
+      emitWithScopedConfig(
+        scopedConfig,
+        record,
+        bypassSinks,
+        (sink, activeBypassSinks) => {
+          try {
+            if (shouldSnapshotForSink(sink)) {
+              try {
+                snapshot ??= snapshotLogRecordProperties(record);
+              } catch {
+                snapshotFailed = true;
+                snapshot = record;
+              }
+            }
+            sink(snapshot ?? record);
+          } catch (error) {
+            const bypassSinks2 = new Set(activeBypassSinks);
+            bypassSinks2.add(sink);
+            metaLogger.log(
+              "fatal",
+              "Failed to emit a log record to sink {sink}: {error}",
+              { sink, error, record },
+              bypassSinks2,
+            );
+          }
+          if (snapshotFailed) snapshot = record;
+        },
+      );
+      return;
+    }
+
     if (
       this.lowestLevel === null ||
       compareLogLevel(record.level, this.lowestLevel) < 0 ||

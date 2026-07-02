@@ -9,6 +9,9 @@ export {
   type LoggerConfig,
   reset,
   resetSync,
+  type ScopedConfig,
+  withConfig,
+  withConfigSync,
 } from "./config.ts";
 export {
   type ContextLocalStorage,

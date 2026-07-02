@@ -1,20 +1,775 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   type Config,
   ConfigError,
   configure,
   configureSync,
+  dispose,
+  disposeSync,
   getConfig,
   reset,
   resetSync,
+  withConfig,
+  withConfigSync,
 } from "./config.ts";
+import { withCategoryPrefix, withContext } from "./context.ts";
 import type { Filter } from "./filter.ts";
 import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
 const hasAddEventListener = typeof globalThis.addEventListener === "function";
+
+test("withConfig()", async () => {
+  const globalLogs: LogRecord[] = [];
+  const scopedLogs: LogRecord[] = [];
+
+  await configure({
+    sinks: {
+      global: globalLogs.push.bind(globalLogs),
+    },
+    loggers: [
+      { category: [], sinks: ["global"], lowestLevel: "info" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    getLogger("app").debug("before hidden");
+    getLogger("app").info("before");
+
+    const rv = await withConfig({
+      sinks: {
+        scoped: scopedLogs.push.bind(scopedLogs),
+      },
+      loggers: [
+        { category: [], sinks: ["scoped"], lowestLevel: "debug" },
+      ],
+    }, async () => {
+      getLogger("app").debug("inside");
+      await delay(0);
+      getLogger("app").info("inside later");
+      return 123;
+    });
+
+    getLogger("app").debug("after hidden");
+    getLogger("app").info("after");
+
+    assert.strictEqual(rv, 123);
+    assert.deepStrictEqual(
+      globalLogs.map((record) => record.rawMessage),
+      ["before", "after"],
+    );
+    assert.deepStrictEqual(
+      scopedLogs.map((record) => record.rawMessage),
+      ["inside", "inside later"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() requires global context-local storage", async () => {
+  await reset();
+
+  await assert.rejects(
+    () => withConfig({ sinks: {}, loggers: [] }, () => {}),
+    ConfigError,
+  );
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    reset: true,
+  });
+
+  try {
+    await assert.rejects(
+      () => withConfig({ sinks: {}, loggers: [] }, () => {}),
+      ConfigError,
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() supports nested and concurrent scopes", async () => {
+  const globalLogs: LogRecord[] = [];
+  const outerLogs: LogRecord[] = [];
+  const innerLogs: LogRecord[] = [];
+  const concurrentA: LogRecord[] = [];
+  const concurrentB: LogRecord[] = [];
+
+  await configure({
+    sinks: {
+      global: globalLogs.push.bind(globalLogs),
+    },
+    loggers: [
+      { category: [], sinks: ["global"], lowestLevel: "trace" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { outer: outerLogs.push.bind(outerLogs) },
+      loggers: [{ category: [], sinks: ["outer"], lowestLevel: "trace" }],
+    }, async () => {
+      getLogger("app").info("outer before");
+      await withConfig({
+        sinks: { inner: innerLogs.push.bind(innerLogs) },
+        loggers: [{ category: [], sinks: ["inner"], lowestLevel: "trace" }],
+      }, () => {
+        getLogger("app").info("inner");
+      });
+      getLogger("app").info("outer after");
+    });
+
+    await Promise.all([
+      withConfig({
+        sinks: { a: concurrentA.push.bind(concurrentA) },
+        loggers: [{ category: [], sinks: ["a"], lowestLevel: "trace" }],
+      }, async () => {
+        await delay(10);
+        getLogger("app").info("a");
+      }),
+      withConfig({
+        sinks: { b: concurrentB.push.bind(concurrentB) },
+        loggers: [{ category: [], sinks: ["b"], lowestLevel: "trace" }],
+      }, async () => {
+        await delay(0);
+        getLogger("app").info("b");
+      }),
+    ]);
+
+    assert.deepStrictEqual(
+      outerLogs.map((record) => record.rawMessage),
+      ["outer before", "outer after"],
+    );
+    assert.deepStrictEqual(
+      innerLogs.map((record) => record.rawMessage),
+      ["inner"],
+    );
+    assert.deepStrictEqual(
+      concurrentA.map((record) => record.rawMessage),
+      ["a"],
+    );
+    assert.deepStrictEqual(
+      concurrentB.map((record) => record.rawMessage),
+      ["b"],
+    );
+    assert.deepStrictEqual(globalLogs, []);
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() ignores disposed scoped configs in propagated async work", async () => {
+  const globalLogs: LogRecord[] = [];
+  const scopedLogs: LogRecord[] = [];
+  let scopedSinkDisposed = false;
+  let disposedScopedSinkCalls = 0;
+  const scopedSink: Sink & Disposable = (record) => {
+    if (scopedSinkDisposed) disposedScopedSinkCalls++;
+    scopedLogs.push(record);
+  };
+  scopedSink[Symbol.dispose] = () => {
+    scopedSinkDisposed = true;
+  };
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let spawned!: Promise<void>;
+
+  await configure({
+    sinks: {
+      global: globalLogs.push.bind(globalLogs),
+    },
+    loggers: [
+      { category: [], sinks: ["global"], lowestLevel: "info" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { scoped: scopedSink },
+      loggers: [{ category: [], sinks: ["scoped"], lowestLevel: "info" }],
+    }, () => {
+      getLogger("app").info("inside");
+      spawned = (async () => {
+        await gate;
+        getLogger("app").info("spawned");
+      })();
+    });
+
+    release();
+    await spawned;
+
+    assert.strictEqual(disposedScopedSinkCalls, 0);
+    assert.deepStrictEqual(
+      scopedLogs.map((record) => record.rawMessage),
+      ["inside"],
+    );
+    assert.deepStrictEqual(
+      globalLogs.map((record) => record.rawMessage),
+      ["spawned"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() falls back to active parent scopes", async () => {
+  const globalLogs: LogRecord[] = [];
+  const outerLogs: LogRecord[] = [];
+  const innerLogs: LogRecord[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let spawned!: Promise<void>;
+
+  await configure({
+    sinks: {
+      global: globalLogs.push.bind(globalLogs),
+    },
+    loggers: [
+      { category: [], sinks: ["global"], lowestLevel: "info" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { outer: outerLogs.push.bind(outerLogs) },
+      loggers: [{ category: [], sinks: ["outer"], lowestLevel: "info" }],
+    }, async () => {
+      await withConfig({
+        sinks: { inner: innerLogs.push.bind(innerLogs) },
+        loggers: [{ category: [], sinks: ["inner"], lowestLevel: "info" }],
+      }, () => {
+        getLogger("app").info("inner");
+        spawned = (async () => {
+          await gate;
+          getLogger("app").info("spawned");
+        })();
+      });
+
+      release();
+      await spawned;
+      getLogger("app").info("outer");
+    });
+
+    assert.deepStrictEqual(globalLogs, []);
+    assert.deepStrictEqual(
+      innerLogs.map((record) => record.rawMessage),
+      ["inner"],
+    );
+    assert.deepStrictEqual(
+      outerLogs.map((record) => record.rawMessage),
+      ["spawned", "outer"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() works with implicit contexts and category prefixes", async () => {
+  const logs: LogRecord[] = [];
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withContext({ requestId: "req-1" }, async () => {
+      await withCategoryPrefix(["tenant-a"], async () => {
+        await withConfig({
+          sinks: { scoped: logs.push.bind(logs) },
+          loggers: [
+            {
+              category: ["tenant-a", "app"],
+              sinks: ["scoped"],
+              lowestLevel: "debug",
+            },
+          ],
+        }, () => {
+          getLogger("app").debug("inside", { userId: 123 });
+        });
+      });
+    });
+
+    assert.deepStrictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].category, ["tenant-a", "app"]);
+    assert.deepStrictEqual(logs[0].properties, {
+      requestId: "req-1",
+      userId: 123,
+    });
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() applies scoped filters, levels, and parent sinks", async () => {
+  const rootLogs: LogRecord[] = [];
+  const dbLogs: LogRecord[] = [];
+  const auditLogs: LogRecord[] = [];
+  const filteredMessages: string[] = [];
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: {
+        audit: auditLogs.push.bind(auditLogs),
+        db: dbLogs.push.bind(dbLogs),
+        root: rootLogs.push.bind(rootLogs),
+      },
+      filters: {
+        allowed(record: LogRecord) {
+          filteredMessages.push(String(record.rawMessage));
+          return record.rawMessage === "allowed";
+        },
+      },
+      loggers: [
+        { category: [], sinks: ["root"], lowestLevel: "info" },
+        {
+          category: ["app", "db"],
+          sinks: ["db"],
+          filters: ["allowed"],
+          lowestLevel: "debug",
+        },
+        {
+          category: ["app", "audit"],
+          sinks: ["audit"],
+          parentSinks: "override",
+          lowestLevel: "warning",
+        },
+      ],
+    }, () => {
+      getLogger(["app", "db"]).info("blocked");
+      getLogger(["app", "db"]).info("allowed");
+      getLogger(["app", "audit"]).info("audit hidden");
+      getLogger(["app", "audit"]).warning("audit shown");
+    });
+
+    assert.deepStrictEqual(filteredMessages, ["blocked", "allowed"]);
+    assert.deepStrictEqual(
+      rootLogs.map((record) => record.rawMessage),
+      ["allowed"],
+    );
+    assert.deepStrictEqual(
+      dbLogs.map((record) => record.rawMessage),
+      ["allowed"],
+    );
+    assert.deepStrictEqual(
+      auditLogs.map((record) => record.rawMessage),
+      ["audit shown"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() preserves scoped lowestLevel null", async () => {
+  const rootLogs: LogRecord[] = [];
+  const disabledLogs: LogRecord[] = [];
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: {
+        disabled: disabledLogs.push.bind(disabledLogs),
+        root: rootLogs.push.bind(rootLogs),
+      },
+      loggers: [
+        { category: [], sinks: ["root"], lowestLevel: "trace" },
+        {
+          category: "disabled",
+          sinks: ["disabled"],
+          lowestLevel: null,
+        },
+      ],
+    }, () => {
+      assert.strictEqual(getLogger("disabled").isEnabledFor("fatal"), false);
+      getLogger("disabled").fatal("hidden");
+      getLogger("enabled").info("shown");
+    });
+
+    assert.deepStrictEqual(
+      rootLogs.map((record) => record.rawMessage),
+      ["shown"],
+    );
+    assert.deepStrictEqual(disabledLogs, []);
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() skips scoped filters when the level is disabled", async () => {
+  const logs: LogRecord[] = [];
+  const filteredMessages: string[] = [];
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { scoped: logs.push.bind(logs) },
+      filters: {
+        record(record: LogRecord) {
+          filteredMessages.push(String(record.rawMessage));
+          return true;
+        },
+      },
+      loggers: [
+        {
+          category: "app",
+          sinks: ["scoped"],
+          filters: ["record"],
+          lowestLevel: "warning",
+        },
+      ],
+    }, () => {
+      getLogger("app").debug("hidden");
+      getLogger("app").warning("shown");
+    });
+
+    assert.deepStrictEqual(filteredMessages, ["shown"]);
+    assert.deepStrictEqual(
+      logs.map((record) => record.rawMessage),
+      ["shown"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() makes isEnabledFor() observe scoped routing", async () => {
+  let evaluated = false;
+  const logs: LogRecord[] = [];
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { scoped: logs.push.bind(logs) },
+      loggers: [
+        { category: ["app"], sinks: ["scoped"], lowestLevel: "warning" },
+      ],
+    }, async () => {
+      assert.strictEqual(getLogger("app").isEnabledFor("debug"), false);
+      assert.strictEqual(getLogger("app").isEnabledFor("warning"), true);
+      await getLogger("app").debug("hidden {value}", async () => {
+        await Promise.resolve();
+        evaluated = true;
+        return { value: 1 };
+      });
+      getLogger("app").warning("shown");
+    });
+
+    assert.strictEqual(evaluated, false);
+    assert.deepStrictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].rawMessage, "shown");
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() rejects invalid scoped configuration", async () => {
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        withConfig({
+          // deno-lint-ignore no-explicit-any
+          sinks: {} as any,
+          loggers: [{ category: "app", sinks: ["missing"] }],
+        }, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          // deno-lint-ignore no-explicit-any
+          filters: {} as any,
+          loggers: [{ category: "app", filters: ["missing"] }],
+        }, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [{ category: "app" }, { category: ["app"] }],
+        }, () => {}),
+      ConfigError,
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() rejects global state mutation inside a scope", async () => {
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({ sinks: {}, loggers: [] }, async () => {
+      await assert.rejects(
+        () => configure({ sinks: {}, loggers: [] }),
+        ConfigError,
+      );
+      assert.throws(
+        () => configureSync({ sinks: {}, loggers: [] }),
+        ConfigError,
+      );
+      await assert.rejects(() => reset(), ConfigError);
+      assert.throws(() => resetSync(), ConfigError);
+      await assert.rejects(() => dispose(), ConfigError);
+      assert.throws(() => disposeSync(), ConfigError);
+    });
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() rejects global state mutation from sibling scopes", async () => {
+  const logs: LogRecord[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let scoped: Promise<void> | undefined;
+
+  await configure({
+    sinks: { global: logs.push.bind(logs) },
+    loggers: [
+      { category: [], sinks: ["global"], lowestLevel: "info" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    scoped = withConfig({
+      sinks: { scoped: logs.push.bind(logs) },
+      loggers: [{ category: [], sinks: ["scoped"], lowestLevel: "info" }],
+    }, async () => {
+      await gate;
+      getLogger("app").info("scoped");
+    });
+
+    await delay(0);
+    await assert.rejects(
+      () => configure({ sinks: {}, loggers: [], reset: true }),
+      ConfigError,
+    );
+    assert.throws(
+      () => configureSync({ sinks: {}, loggers: [], reset: true }),
+      ConfigError,
+    );
+    await assert.rejects(() => reset(), ConfigError);
+    assert.throws(() => resetSync(), ConfigError);
+    await assert.rejects(() => dispose(), ConfigError);
+    assert.throws(() => disposeSync(), ConfigError);
+
+    release();
+    await scoped;
+
+    assert.deepStrictEqual(
+      logs.map((record) => record.rawMessage),
+      ["scoped"],
+    );
+  } finally {
+    release();
+    await scoped?.catch(() => {});
+    await reset();
+  }
+});
+
+test("withConfig() disposes scoped resources when the scope exits", async () => {
+  const events: string[] = [];
+  const sink: Sink & AsyncDisposable = () => {};
+  sink[Symbol.asyncDispose] = () => {
+    events.push("sink");
+    return Promise.resolve();
+  };
+  const filter: Filter & AsyncDisposable = () => true;
+  filter[Symbol.asyncDispose] = () => {
+    events.push("filter");
+    return Promise.resolve();
+  };
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { sink },
+      filters: { filter },
+      loggers: [{ category: "app", sinks: ["sink"], filters: ["filter"] }],
+    }, () => {});
+
+    assert.deepStrictEqual(events, ["filter", "sink"]);
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() preserves callback and disposal errors", async () => {
+  const callbackError = new Error("callback failed");
+  const disposeError = new Error("dispose failed");
+  const sink: Sink & AsyncDisposable = () => {};
+  sink[Symbol.asyncDispose] = () => Promise.reject(disposeError);
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await assert.rejects(
+      withConfig({
+        sinks: { sink },
+        loggers: [{ category: "app", sinks: ["sink"] }],
+      }, () => {
+        throw callbackError;
+      }),
+      (error) => {
+        assert.ok(error instanceof AggregateError);
+        assert.deepStrictEqual(error.errors, [callbackError, disposeError]);
+        return true;
+      },
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfigSync()", async () => {
+  const logs: LogRecord[] = [];
+  const events: string[] = [];
+  const sink: Sink & Disposable = (record) => logs.push(record);
+  sink[Symbol.dispose] = () => events.push("sink");
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    const rv = withConfigSync({
+      sinks: { sink },
+      loggers: [{ category: "app", sinks: ["sink"], lowestLevel: "debug" }],
+    }, () => {
+      getLogger("app").debug("sync");
+      return 456;
+    });
+
+    assert.strictEqual(rv, 456);
+    assert.deepStrictEqual(logs.map((record) => record.rawMessage), ["sync"]);
+    assert.deepStrictEqual(events, ["sink"]);
+
+    const asyncSink: Sink & AsyncDisposable = () => {};
+    asyncSink[Symbol.asyncDispose] = () => Promise.resolve();
+    assert.throws(
+      () =>
+        withConfigSync({
+          sinks: { asyncSink },
+          loggers: [{ category: "app", sinks: ["asyncSink"] }],
+        }, () => {}),
+      ConfigError,
+    );
+
+    const asyncCallbackEvents: string[] = [];
+    const asyncCallbackSink: Sink & Disposable = () => {};
+    asyncCallbackSink[Symbol.dispose] = () => {
+      asyncCallbackEvents.push("sink");
+    };
+    assert.throws(
+      () =>
+        withConfigSync({
+          sinks: { asyncCallbackSink },
+          loggers: [{ category: "app", sinks: ["asyncCallbackSink"] }],
+          // @ts-expect-error withConfigSync() rejects async callbacks.
+        }, async () => {}),
+      ConfigError,
+    );
+    assert.deepStrictEqual(asyncCallbackEvents, ["sink"]);
+
+    assert.throws(
+      () =>
+        withConfigSync({
+          sinks: {},
+          loggers: [],
+          // @ts-expect-error withConfigSync() rejects async callbacks.
+        }, async () => {
+          await Promise.reject(new Error("async callback failed"));
+        }),
+      ConfigError,
+    );
+    await delay(0);
+  } finally {
+    await reset();
+  }
+});
 
 test("configure()", async () => {
   let disposed = 0;
