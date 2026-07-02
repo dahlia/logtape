@@ -1,6 +1,6 @@
 import type { ContextLocalStorage } from "./context.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
-import { compareLogLevel, type LogLevel } from "./level.ts";
+import { compareLogLevel, isLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 import type { Sink } from "./sink.ts";
 
@@ -67,6 +67,16 @@ export function compileScopedConfig<
   allowAsync: boolean,
   createError: (message: string) => Error,
 ): CompiledScopedConfig {
+  if (!isObjectLike(config)) {
+    throw createError("Configuration must be an object.");
+  }
+  if (!isObjectLike(config.sinks)) {
+    throw createError("Configuration must include a sinks object.");
+  }
+  if (!Array.isArray(config.loggers)) {
+    throw createError("Configuration must include a loggers array.");
+  }
+
   const nodes = new Map<string, CompiledScopedLogger>();
   const configuredCategories = new Set<string>();
   for (const logger of config.loggers) {
@@ -81,17 +91,27 @@ export function compileScopedConfig<
     configuredCategories.add(key);
 
     const sinks: Sink[] = [];
-    for (const sinkId of logger.sinks ?? []) {
+    const sinkIds: readonly TSinkId[] = logger.sinks ?? [];
+    for (const sinkId of sinkIds) {
       const sink = config.sinks[sinkId];
       if (!sink) throw createError(`Sink not found: ${sinkId}.`);
+      if (typeof sink !== "function") {
+        throw createError(`Sink must be a function: ${sinkId}.`);
+      }
       sinks.push(sink);
     }
 
     const filters: ((record: LogRecord) => boolean)[] = [];
-    for (const filterId of logger.filters ?? []) {
+    const filterIds: readonly TFilterId[] = logger.filters ?? [];
+    for (const filterId of filterIds) {
       const filter = config.filters?.[filterId];
       if (filter === undefined) {
         throw createError(`Filter not found: ${filterId}.`);
+      }
+      if (!isFilterLike(filter)) {
+        throw createError(
+          `Filter must be a function, log level, or null: ${filterId}.`,
+        );
       }
       filters.push(toFilter(filter));
     }
@@ -112,6 +132,7 @@ export function compileScopedConfig<
   const asyncSinks = new Set<AsyncDisposable>();
 
   for (const sink of Object.values<Sink>(config.sinks)) {
+    if (!isObjectLike(sink)) continue;
     if (Symbol.asyncDispose in sink) {
       if (!allowAsync) {
         throw createError(
@@ -124,7 +145,7 @@ export function compileScopedConfig<
   }
 
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
-    if (filter == null || typeof filter === "string") continue;
+    if (!isObjectLike(filter)) continue;
     if (Symbol.asyncDispose in filter) {
       if (!allowAsync) {
         throw createError(
@@ -267,6 +288,18 @@ export function throwCombinedErrors(
 
 function isCompiledScopedConfig(value: unknown): value is CompiledScopedConfig {
   return value != null && typeof value === "object" && "nodes" in value;
+}
+
+function isObjectLike(
+  value: unknown,
+): value is object | ((...args: never[]) => unknown) {
+  return value != null &&
+    (typeof value === "object" || typeof value === "function");
+}
+
+function isFilterLike(value: unknown): value is FilterLike {
+  return value == null || typeof value === "function" ||
+    (typeof value === "string" && isLogLevel(value));
 }
 
 function getActiveScopedConfig(
