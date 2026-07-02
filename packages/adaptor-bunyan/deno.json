@@ -1,6 +1,6 @@
 {
   "name": "@logtape/adaptor-bunyan",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
