@@ -232,8 +232,9 @@ Event capture
 *This feature is available since LogTape 1.3.0.*
 
 All `error` and `fatal` level logs create Sentry Issues. If the log contains
-an `Error` instance in its properties, `captureException` is used for better
-stack traces. Otherwise, `captureMessage` is used:
+an `Error` instance in its `error` property or Pino-style `err` property,
+`captureException` is used for better stack traces. Otherwise,
+`captureMessage` is used:
 
 ~~~~ typescript twoslash
 // @noErrors: 2305 2307
@@ -243,6 +244,7 @@ const logger = getLogger(["my-app"]);
 
 // Creates Issue with stack trace (uses captureException)
 logger.error("Database connection failed", { error: new Error("timeout") });
+logger.error("Job failed", { err: new Error("timeout") });
 
 // Creates Issue without stack trace (uses captureMessage)
 logger.error("User not found: {userId}", { userId: 123 });
