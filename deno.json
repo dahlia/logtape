@@ -20,6 +20,7 @@
     "./packages/sentry",
     "./packages/syslog",
     "./packages/testing",
+    "./packages/testing-bun",
     "./packages/testing-deno",
     "./packages/testing-node",
     "./packages/cloudwatch-logs",

@@ -159,8 +159,9 @@ callback succeeds, and reports them to a sink when the callback throws or
 rejects:
 
 > [!TIP]
-> If your tests use Deno's built-in test runner or Node.js' built-in
-> `node:test` runner, prefer the
+> If your tests use Bun's built-in `bun:test` runner, Deno's built-in test
+> runner, or Node.js' built-in `node:test` runner, prefer the
+> [*Bun test runner integration*](#bun-test-runner-integration),
 > [*Deno test runner integration*](#deno-test-runner-integration) or
 > [*Node.js test runner integration*](#node-js-test-runner-integration).  They
 > wrap the runner directly, preserve runner options, and avoid wrapping each
@@ -368,6 +369,153 @@ It also preserves shorthand helpers such as `test.ignore()`, `test.only()`,
 and `test.each()`, wraps `TestContext.step()` callbacks, and re-exports Deno
 test hooks such as `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
 and `sanitizer()` unchanged.
+
+As with `createFailureLogReporter()`, the process-wide LogTape configuration
+must provide `~Config.contextLocalStorage`.
+
+
+Bun test runner integration
+---------------------------
+
+*This API is available since LogTape 2.3.0.*
+
+For larger Bun test suites, use the [*@logtape/testing-bun*] package instead
+of wrapping every test callback manually.  It exports a `test` function
+compatible with Bun's built-in `bun:test` runner:
+
+~~~~ bash
+bun add @logtape/testing-bun
+~~~~
+
+[*@logtape/testing-bun*]: https://jsr.io/@logtape/testing-bun
+
+### Autoload entry point
+
+The easiest way to adopt the integration in a large Bun suite is to import the
+autoload entry point.  It configures the minimal `~Config.contextLocalStorage`
+needed by the failure log reporter when LogTape has not been configured yet:
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-bun/autoload";
+import { getLogger } from "@logtape/logtape";
+
+test("case", () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+The autoload entry point leaves an existing LogTape configuration alone when
+that configuration already provides `~Config.contextLocalStorage`.  If LogTape
+has already been configured without `~Config.contextLocalStorage`, autoload
+throws an error instead of replacing the existing configuration.
+
+### Shared preload module
+
+If you prefer explicit setup, import from `@logtape/testing-bun` and configure
+LogTape once from a shared setup module.  One option is to preload that module
+for the test run:
+
+~~~~ typescript [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  contextLocalStorage: new AsyncLocalStorage(),
+  sinks: {},
+  loggers: [
+    { category: ["logtape", "meta"], sinks: [] },
+  ],
+});
+~~~~
+
+~~~~ bash
+bun test --preload ./test/setup-logtape.ts
+~~~~
+
+Each test file can then import from `@logtape/testing-bun` without adding
+per-file setup hooks:
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-bun";
+import { getLogger } from "@logtape/logtape";
+
+test("case", () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+### Top-level setup function
+
+If you cannot use `--preload`, put the shared setup in a function and call it
+once at the top level of each test file:
+
+~~~~ typescript [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+let configured = false;
+
+export async function setupLogTape(): Promise<void> {
+  if (configured) return;
+  configured = true;
+
+  await configure({
+    contextLocalStorage: new AsyncLocalStorage(),
+    sinks: {},
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+}
+~~~~
+
+~~~~ typescript [test/user.test.ts]
+import { test } from "@logtape/testing-bun";
+import { getLogger } from "@logtape/logtape";
+import { setupLogTape } from "./setup-logtape.ts";
+
+await setupLogTape();
+
+test("case", () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}.");
+
+  // Run assertions.  The debug log is printed only if this test fails.
+});
+~~~~
+
+Use `createTest()` to configure the underlying failure log reporter:
+
+~~~~ typescript
+import { createTest } from "@logtape/testing-bun";
+
+const test = createTest({
+  lowestLevel: "debug",
+  mode: "on-failure",
+});
+
+test("case", () => {
+  // Logs emitted here are reported only if this callback fails.
+});
+~~~~
+
+The adapter preserves Bun test options such as `retry`, `repeats`, and
+`timeout`; passes them through to `bun:test`; and wraps only the callback.  It
+also preserves shorthand helpers such as `test.skip()`, `test.todo()`,
+`test.only()`, `test.if()`, `test.skipIf()`, `test.todoIf()`,
+`test.failing()`, `test.concurrent()`, `test.serial()`, and `test.each()`,
+supports callback-style tests, and exports a wrapped `it()` alias with
+`createIt()` for custom reporter options.  Other `bun:test` helpers, including
+`describe()`, `beforeAll()`, `afterAll()`, `beforeEach()`, `afterEach()`,
+`expect`, `expectTypeOf`, `mock()`, `spyOn()`, `jest`, `vi`, `xdescribe()`,
+`xit()`, and `xtest()`, are re-exported unchanged.
 
 As with `createFailureLogReporter()`, the process-wide LogTape configuration
 must provide `~Config.contextLocalStorage`.

@@ -43,6 +43,32 @@ To be released.
 [#186]: https://github.com/dahlia/logtape/issues/186
 [#189]: https://github.com/dahlia/logtape/pull/189
 
+### @logtape/testing-bun
+
+ -  Added new *@logtape/testing-bun* package for using the failure log
+    reporter with Bun's built-in `bun:test` runner.  [[#187], [#190]]
+
+     -  Added `test` and `it` exports that wrap test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-bun/autoload` subpath export for automatically
+        configuring the minimal `Config.contextLocalStorage` required by the
+        reporter when LogTape has not been configured yet.
+     -  Added `createTest()` and `createIt()` functions for configuring
+        reporter options such as `lowestLevel`, `mode`, `sink`, and
+        `formatter`.
+     -  Preserved Bun test options such as `retry`, `repeats`, and `timeout`,
+        and shorthand helpers such as `test.skip()`, `test.todo()`,
+        `test.only()`, `test.if()`, `test.skipIf()`, `test.todoIf()`,
+        `test.failing()`, `test.concurrent()`, `test.serial()`, and
+        `test.each()`, including callback-style tests.
+     -  Re-exported Bun test runner helpers such as `describe()`,
+        `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
+        `expect`, `expectTypeOf`, `mock()`, `spyOn()`, `jest`, `vi`,
+        `xdescribe()`, `xit()`, and `xtest()`.
+
+[#187]: https://github.com/dahlia/logtape/issues/187
+[#190]: https://github.com/dahlia/logtape/pull/190
+
 ### @logtape/testing-deno
 
  -  Added new *@logtape/testing-deno* package for using the failure log
@@ -59,9 +85,6 @@ To be released.
         `test.ignore()`, `test.only()`, and `test.each()`.
      -  Wrapped `TestContext.step()` callbacks and re-exported Deno test hooks
         such as `beforeAll()`, `beforeEach()`, `afterEach()`, and `afterAll()`.
-
-[#187]: https://github.com/dahlia/logtape/issues/187
-[#190]: https://github.com/dahlia/logtape/pull/190
 
 ### @logtape/testing-node
 

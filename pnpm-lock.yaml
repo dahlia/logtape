@@ -51,6 +51,9 @@ catalogs:
     '@std/path':
       specifier: jsr:^1.1.0
       version: 1.1.0
+    '@types/bun':
+      specifier: ^1.2.15
+      version: 1.2.15
     '@types/express':
       specifier: ^5.0.6
       version: 5.0.6
@@ -222,6 +225,9 @@ importers:
       '@logtape/testing':
         specifier: 'workspace:'
         version: link:../packages/testing
+      '@logtape/testing-bun':
+        specifier: 'workspace:'
+        version: link:../packages/testing-bun
       '@logtape/testing-node':
         specifier: 'workspace:'
         version: link:../packages/testing-node
@@ -250,7 +256,7 @@ importers:
         specifier: ^2.22.0
         version: 2.22.0(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.7)(vite@7.3.5(@types/node@22.15.31)(jiti@2.4.2)))(svelte@5.34.7)(vite@7.3.5(@types/node@22.15.31)(jiti@2.4.2))
       '@types/bun':
-        specifier: ^1.2.15
+        specifier: 'catalog:'
         version: 1.2.15
       '@types/bunyan':
         specifier: ^1.8.11
@@ -854,6 +860,25 @@ importers:
       '@logtape/redaction':
         specifier: workspace:^
         version: link:../redaction
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.7(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/testing-bun:
+    dependencies:
+      '@logtape/testing':
+        specifier: workspace:^
+        version: link:../testing
+    devDependencies:
+      '@logtape/logtape':
+        specifier: workspace:^
+        version: link:../logtape
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.2.15
       tsdown:
         specifier: 'catalog:'
         version: 0.12.7(typescript@5.8.3)

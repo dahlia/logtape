@@ -19,6 +19,7 @@ packages:
 - packages/sentry
 - packages/syslog
 - packages/testing
+- packages/testing-bun
 - packages/testing-node
 - packages/cloudwatch-logs
 - packages/config
@@ -49,6 +50,7 @@ catalog:
   "@std/async": jsr:^1.0.13
   "@std/dotenv": jsr:^0.225.5
   "@std/path": jsr:^1.1.0
+  "@types/bun": ^1.2.15
   "@types/express": ^5.0.6
   "@types/koa": ^2.15.0
   consolemock: ^1.1.0

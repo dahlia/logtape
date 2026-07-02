@@ -38,6 +38,7 @@ const jsrRefPackages: readonly (readonly [string, string])[] = [
   ["@logtape/sentry", ".jsr-cache-sentry.json"],
   ["@logtape/syslog", ".jsr-cache-syslog.json"],
   ["@logtape/testing", ".jsr-cache-testing.json"],
+  ["@logtape/testing-bun", ".jsr-cache-testing-bun.json"],
   ["@logtape/testing-deno", ".jsr-cache-testing-deno.json"],
   ["@logtape/testing-node", ".jsr-cache-testing-node.json"],
   ["@logtape/windows-eventlog", ".jsr-cache-windows-eventlog.json"],
@@ -208,6 +209,10 @@ const REFERENCES = {
     {
       text: "@logtape/testing",
       link: "https://jsr.io/@logtape/testing/doc",
+    },
+    {
+      text: "@logtape/testing-bun",
+      link: "https://jsr.io/@logtape/testing-bun/doc",
     },
     {
       text: "@logtape/testing-deno",
