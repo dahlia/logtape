@@ -34,10 +34,10 @@ export interface CompiledScopedConfig {
   readonly nodes: ReadonlyMap<string, CompiledScopedLogger>;
   parent: CompiledScopedConfig | undefined;
   disposed: boolean;
-  readonly syncFilters: ReadonlySet<Disposable>;
-  readonly asyncFilters: ReadonlySet<AsyncDisposable>;
-  readonly syncSinks: ReadonlySet<Disposable>;
-  readonly asyncSinks: ReadonlySet<AsyncDisposable>;
+  readonly syncFilters: Set<Disposable>;
+  readonly asyncFilters: Set<AsyncDisposable>;
+  readonly syncSinks: Set<Disposable>;
+  readonly asyncSinks: Set<AsyncDisposable>;
 }
 
 interface CompiledScopedLogger {
@@ -425,39 +425,53 @@ function filterScopedRecord(
 }
 
 function disposeSyncDisposables(
-  disposables: ReadonlySet<Disposable>,
+  disposables: Set<Disposable>,
   retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
 ): void {
   const errors: unknown[] = [];
-  for (const disposable of disposables) {
-    if (retainedDisposables.has(disposable)) continue;
-    try {
-      disposable[Symbol.dispose]();
-    } catch (error) {
-      errors.push(error);
+  try {
+    for (const disposable of disposables) {
+      try {
+        if (!retainedDisposables.has(disposable)) {
+          disposable[Symbol.dispose]();
+        }
+      } catch (error) {
+        errors.push(error);
+      } finally {
+        disposables.delete(disposable);
+      }
     }
+  } finally {
+    disposables.clear();
   }
   throwDisposeErrors(errors);
 }
 
 async function disposeAsyncDisposables(
-  disposables: ReadonlySet<AsyncDisposable>,
+  disposables: Set<AsyncDisposable>,
   retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
 ): Promise<void> {
-  const results = await Promise.allSettled(
-    Array.from(
-      filterRetainedDisposables(disposables, retainedDisposables),
-      (disposable) =>
-        Promise.resolve().then(() => disposable[Symbol.asyncDispose]()),
-    ),
+  const disposableList = filterRetainedDisposables(
+    disposables,
+    retainedDisposables,
   );
-  throwDisposeErrors(
-    results
-      .filter((result): result is PromiseRejectedResult =>
-        result.status === "rejected"
-      )
-      .map((result) => result.reason),
-  );
+  for (const disposable of disposableList) disposables.delete(disposable);
+  try {
+    const results = await Promise.allSettled(
+      disposableList.map((disposable) =>
+        Promise.resolve().then(() => disposable[Symbol.asyncDispose]())
+      ),
+    );
+    throwDisposeErrors(
+      results
+        .filter((result): result is PromiseRejectedResult =>
+          result.status === "rejected"
+        )
+        .map((result) => result.reason),
+    );
+  } finally {
+    disposables.clear();
+  }
 }
 
 function filterRetainedDisposables<

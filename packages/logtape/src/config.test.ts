@@ -6,6 +6,11 @@ import { withCategoryPrefix, withContext } from "./context.ts";
 import type { Filter } from "./filter.ts";
 import { getLogger, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
+import {
+  compileScopedConfig,
+  disposeScopedConfig,
+  disposeScopedConfigSync,
+} from "./scoped-config.ts";
 import type { Sink } from "./sink.ts";
 import {
   type Config,
@@ -844,6 +849,93 @@ test("withConfig() does not dispose resources still owned by parent scopes", asy
   } finally {
     await reset();
   }
+});
+
+test("disposeScopedConfig() clears resources after disposal errors", async () => {
+  const events: string[] = [];
+  const disposeError = new Error("dispose failed");
+  const syncFilter: Filter & Disposable = () => true;
+  syncFilter[Symbol.dispose] = () => {
+    events.push("sync filter");
+    throw disposeError;
+  };
+  const asyncFilter: Filter & AsyncDisposable = () => true;
+  asyncFilter[Symbol.asyncDispose] = async () => {
+    await Promise.resolve();
+    events.push("async filter");
+  };
+  const syncSink: Sink & Disposable = () => {};
+  syncSink[Symbol.dispose] = () => events.push("sync sink");
+  const asyncSink: Sink & AsyncDisposable = () => {};
+  asyncSink[Symbol.asyncDispose] = async () => {
+    await Promise.resolve();
+    events.push("async sink");
+  };
+
+  const scopedConfig = compileScopedConfig(
+    {
+      sinks: { asyncSink, syncSink },
+      filters: { asyncFilter, syncFilter },
+      loggers: [
+        {
+          category: "app",
+          filters: ["asyncFilter", "syncFilter"],
+          sinks: ["asyncSink", "syncSink"],
+        },
+      ],
+    },
+    true,
+    (message) => new ConfigError(message),
+  );
+
+  await assert.rejects(
+    () => disposeScopedConfig(scopedConfig),
+    (error) => error === disposeError,
+  );
+  assert.strictEqual(scopedConfig.syncFilters.size, 0);
+  assert.strictEqual(scopedConfig.asyncFilters.size, 0);
+  assert.strictEqual(scopedConfig.syncSinks.size, 0);
+  assert.strictEqual(scopedConfig.asyncSinks.size, 0);
+
+  await disposeScopedConfig(scopedConfig);
+  assert.deepStrictEqual(
+    events,
+    ["sync filter", "async filter", "sync sink", "async sink"],
+  );
+});
+
+test("disposeScopedConfigSync() clears resources after disposal errors", () => {
+  const events: string[] = [];
+  const disposeError = new Error("dispose failed");
+  const filter: Filter & Disposable = () => true;
+  filter[Symbol.dispose] = () => {
+    events.push("filter");
+    throw disposeError;
+  };
+  const sink: Sink & Disposable = () => {};
+  sink[Symbol.dispose] = () => events.push("sink");
+
+  const scopedConfig = compileScopedConfig(
+    {
+      sinks: { sink },
+      filters: { filter },
+      loggers: [
+        { category: "app", filters: ["filter"], sinks: ["sink"] },
+      ],
+    },
+    false,
+    (message) => new ConfigError(message),
+  );
+
+  assert.throws(
+    () => disposeScopedConfigSync(scopedConfig),
+    (error) => error === disposeError,
+  );
+  assert.strictEqual(scopedConfig.syncFilters.size, 0);
+  assert.strictEqual(scopedConfig.syncSinks.size, 0);
+
+  disposeScopedConfigSync(scopedConfig);
+  assert.deepStrictEqual(events, ["filter", "sink"]);
 });
 
 test("withConfig() preserves callback and disposal errors", async () => {
