@@ -543,14 +543,15 @@ Available packages
 
 ### Framework integrations
 
-| Package                | Description               |
-| ---------------------- | ------------------------- |
-| `@logtape/express`     | Express HTTP logging      |
-| `@logtape/fastify`     | Fastify HTTP logging      |
-| `@logtape/hono`        | Hono HTTP logging         |
-| `@logtape/koa`         | Koa HTTP logging          |
-| `@logtape/elysia`      | Elysia HTTP logging       |
-| `@logtape/drizzle-orm` | Drizzle ORM query logging |
+| Package                 | Description               |
+| ----------------------- | ------------------------- |
+| `@logtape/express`      | Express HTTP logging      |
+| `@logtape/fastify`      | Fastify HTTP logging      |
+| `@logtape/graphql-yoga` | GraphQL Yoga logging      |
+| `@logtape/hono`         | Hono HTTP logging         |
+| `@logtape/koa`          | Koa HTTP logging          |
+| `@logtape/elysia`       | Elysia HTTP logging       |
+| `@logtape/drizzle-orm`  | Drizzle ORM query logging |
 
 ### Formatters
 

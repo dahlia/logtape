@@ -811,6 +811,100 @@ logger.info({ data: { key: "value" } });
 ~~~~
 
 
+GraphQL Yoga
+------------
+
+[GraphQL Yoga] is a GraphQL server that works across JavaScript runtimes.
+LogTape provides a Yoga logger adapter through the *@logtape/graphql-yoga*
+package, allowing you to use LogTape as Yoga's logging backend:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/graphql-yoga
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/graphql-yoga
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/graphql-yoga
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/graphql-yoga
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/graphql-yoga
+~~~~
+
+:::
+
+Here's an example of using LogTape with GraphQL Yoga:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { getYogaLogger } from "@logtape/graphql-yoga";
+import { createSchema, createYoga } from "graphql-yoga";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["graphql-yoga"], sinks: ["console"], lowestLevel: "debug" }
+  ],
+});
+
+const yoga = createYoga({
+  schema: createSchema({
+    typeDefs: /* GraphQL */ `
+      type Query {
+        hello: String!
+      }
+    `,
+    resolvers: {
+      Query: {
+        hello: () => "world",
+      },
+    },
+  }),
+  logging: getYogaLogger(),
+});
+~~~~
+
+[GraphQL Yoga]: https://the-guild.dev/graphql/yoga-server
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { getYogaLogger } from "@logtape/graphql-yoga";
+// ---cut-before---
+const logger = getYogaLogger({
+  category: ["myapp", "graphql"],
+});
+~~~~
+
+### Custom log levels
+
+Yoga exposes `debug`, `info`, `warn`, and `error` logger methods.  By default,
+these map to LogTape's `debug`, `info`, `warning`, and `error` levels.  You can
+customize the mapping:
+
+~~~~ typescript twoslash
+import { getYogaLogger } from "@logtape/graphql-yoga";
+// ---cut-before---
+const logger = getYogaLogger({
+  levelsMap: {
+    debug: "trace",
+    warn: "error",
+  },
+});
+~~~~
+
+
 Koa
 ---
 
