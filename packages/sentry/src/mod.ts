@@ -74,14 +74,16 @@ function mapLevelForLogs(level: LogLevel): LogSeverityLevel {
   }
 }
 
+const defaultErrorPropertyNames = ["error", "err"] as const;
+
 function getErrorProperty(
   properties: Readonly<Record<string, unknown>>,
-): readonly [property: "error" | "err", error: Error] | undefined {
-  if (properties.error instanceof Error) {
-    return ["error", properties.error];
-  }
-  if (properties.err instanceof Error) {
-    return ["err", properties.err];
+  propertyNames: readonly string[],
+): readonly [property: string, error: Error] | undefined {
+  for (const property of propertyNames) {
+    if (properties[property] instanceof Error) {
+      return [property, properties[property]];
+    }
   }
   return undefined;
 }
@@ -222,6 +224,19 @@ export interface SentrySinkOptions {
    * @since 1.3.0
    */
   enableBreadcrumbs?: boolean;
+
+  /**
+   * Property names to inspect for an `Error` instance when deciding whether
+   * error-level records should be sent through Sentry's `captureException()`.
+   *
+   * Names are checked in order, and the first property containing an `Error`
+   * instance is used as the captured exception.  Set this to a custom list when
+   * your application or logger stores the primary exception under another name.
+   *
+   * @default `["error", "err"]`
+   * @since 2.3.0
+   */
+  errorPropertyNames?: readonly string[];
 
   /**
    * Optional hook to transform or filter records before sending to Sentry.
@@ -435,7 +450,10 @@ export function getSentrySink(
       // Capture as Sentry event (Issue) based on level and error presence
       // Use compareLogLevel() to handle future severity level additions
       const isErrorLevel = compareLogLevel(transformed.level, "error") >= 0;
-      const errorProperty = getErrorProperty(transformed.properties);
+      const errorProperty = getErrorProperty(
+        transformed.properties,
+        options.errorPropertyNames ?? defaultErrorPropertyNames,
+      );
 
       if (isErrorLevel && errorProperty != null) {
         // Error instance at error/fatal level -> captureException for stack trace

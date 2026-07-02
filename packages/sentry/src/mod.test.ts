@@ -244,6 +244,61 @@ test("sink prefers error property over err property", () => {
   assert.strictEqual(extra.err, err);
 });
 
+test("sink uses configured error property names", () => {
+  let capturedException: unknown;
+  let capturedHint: unknown;
+  const error = new Error("Default");
+  const exception = new Error("Custom");
+  const sink = getSentrySink({
+    errorPropertyNames: ["exception"],
+    sentry: createMockSentryNamespace({
+      captureException: (capturedExceptionValue, hint) => {
+        capturedException = capturedExceptionValue;
+        capturedHint = hint;
+        return "exception-id";
+      },
+    }),
+  });
+
+  sink(createMockLogRecord({
+    level: "error",
+    properties: { error, exception, requestId: "request-1" },
+  }));
+
+  const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
+  assert.strictEqual(capturedException, exception);
+  assert.strictEqual(extra.error, error);
+  assert.strictEqual("exception" in extra, false);
+  assert.strictEqual(extra.requestId, "request-1");
+});
+
+test("sink uses configured error property order", () => {
+  let capturedException: unknown;
+  let capturedHint: unknown;
+  const error = new Error("Default");
+  const exception = new Error("Custom");
+  const sink = getSentrySink({
+    errorPropertyNames: ["exception", "error"],
+    sentry: createMockSentryNamespace({
+      captureException: (capturedExceptionValue, hint) => {
+        capturedException = capturedExceptionValue;
+        capturedHint = hint;
+        return "exception-id";
+      },
+    }),
+  });
+
+  sink(createMockLogRecord({
+    level: "error",
+    properties: { error, exception },
+  }));
+
+  const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
+  assert.strictEqual(capturedException, exception);
+  assert.strictEqual(extra.error, error);
+  assert.strictEqual("exception" in extra, false);
+});
+
 test("sink without Error at error level does not trigger exception path", () => {
   let sawError = false;
   const sink = getSentrySink({

@@ -253,6 +253,30 @@ logger.error("User not found: {userId}", { userId: 123 });
 logger.info("Request received", { path: "/api/users" });
 ~~~~
 
+You can customize which property names are checked for an `Error` instance with
+the `errorPropertyNames` option. Names are checked in order, and the first
+matching `Error` is sent to `captureException`:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      errorPropertyNames: ["exception", "error", "err"],
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "error" },
+  ],
+});
+~~~~
+
 All logs are sent to Sentry's structured logging (when `enableLogs: true`) and
 can become breadcrumbs (when `enableBreadcrumbs: true`), providing full context
 when errors occur.

@@ -29,7 +29,7 @@ To be released.
     test callback and reporting them only when the callback fails by default.
     The reporter uses scoped configuration, preserves wrapped callback
     parameters, and supports `mode: "on-failure"`, `mode: "always"`, and
-    `mode: "never"`.  [[#186], [#189]]
+    `mode: "never"`.  [[#186], [#190]]
 
      -  Added `FailureLogReporter` interface with `wrap()` and `run()`
         methods.
@@ -41,7 +41,7 @@ To be released.
         `@logtape/testing` export for compatibility.
 
 [#186]: https://github.com/dahlia/logtape/issues/186
-[#189]: https://github.com/dahlia/logtape/pull/189
+[#190]: https://github.com/dahlia/logtape/pull/190
 
 ### @logtape/file
 
@@ -68,6 +68,15 @@ To be released.
      -  Added `YogaLogger` interface and `YogaLogLevel` type.
 
 [#184]: https://github.com/dahlia/logtape/pull/184
+
+### @logtape/sentry
+
+ -  Added `SentrySinkOptions.errorPropertyNames` option to customize which
+    structured log properties are checked for `Error` instances before the
+    Sentry sink chooses `captureException()`.  The default remains
+    `["error", "err"]`.  [[#189]]
+
+[#189]: https://github.com/dahlia/logtape/issues/189
 
 
 Version 2.2.3
