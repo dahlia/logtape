@@ -81,7 +81,38 @@ export function compileScopedConfig<
   const nodes = new Map<string, CompiledScopedLogger>();
   const configuredCategories = new Set<string>();
   for (const logger of config.loggers) {
-    const category = normalizeCategory(logger.category);
+    if (!isObjectLike(logger)) {
+      throw createError("Logger configuration must be an object.");
+    }
+    const loggerConfig = logger as ScopedLoggerConfigLike<TSinkId, TFilterId>;
+    const category = normalizeCategory(loggerConfig.category, createError);
+    if (
+      loggerConfig.sinks !== undefined && !Array.isArray(loggerConfig.sinks)
+    ) {
+      throw createError("Logger sinks must be an array.");
+    }
+    if (
+      loggerConfig.filters !== undefined &&
+      !Array.isArray(loggerConfig.filters)
+    ) {
+      throw createError("Logger filters must be an array.");
+    }
+    if (
+      loggerConfig.parentSinks !== undefined &&
+      loggerConfig.parentSinks !== "inherit" &&
+      loggerConfig.parentSinks !== "override"
+    ) {
+      throw createError(
+        'Logger parentSinks must be "inherit" or "override".',
+      );
+    }
+    if (
+      loggerConfig.lowestLevel !== undefined &&
+      loggerConfig.lowestLevel !== null &&
+      !isLogLevel(loggerConfig.lowestLevel)
+    ) {
+      throw createError("Logger lowestLevel must be a log level or null.");
+    }
     const key = categoryKey(category);
     if (configuredCategories.has(key)) {
       throw createError(
@@ -92,7 +123,7 @@ export function compileScopedConfig<
     configuredCategories.add(key);
 
     const sinks: Sink[] = [];
-    const sinkIds: readonly TSinkId[] = logger.sinks ?? [];
+    const sinkIds: readonly TSinkId[] = loggerConfig.sinks ?? [];
     for (const sinkId of sinkIds) {
       const sink = config.sinks[sinkId];
       if (!sink) throw createError(`Sink not found: ${sinkId}.`);
@@ -103,7 +134,7 @@ export function compileScopedConfig<
     }
 
     const filters: ((record: LogRecord) => boolean)[] = [];
-    const filterIds: readonly TFilterId[] = logger.filters ?? [];
+    const filterIds: readonly TFilterId[] = loggerConfig.filters ?? [];
     for (const filterId of filterIds) {
       const filter = config.filters?.[filterId];
       if (filter === undefined) {
@@ -119,10 +150,10 @@ export function compileScopedConfig<
 
     nodes.set(key, {
       filters,
-      lowestLevel: logger.lowestLevel === undefined
+      lowestLevel: loggerConfig.lowestLevel === undefined
         ? "trace"
-        : logger.lowestLevel,
-      parentSinks: logger.parentSinks ?? "inherit",
+        : loggerConfig.lowestLevel,
+      parentSinks: loggerConfig.parentSinks ?? "inherit",
       sinks,
     });
   }
@@ -349,8 +380,18 @@ function addScopedDisposables(
   for (const disposable of scopedConfig.asyncSinks) disposables.add(disposable);
 }
 
-function normalizeCategory(category: string | readonly string[]): string[] {
-  return typeof category === "string" ? [category] : [...category];
+function normalizeCategory(
+  category: unknown,
+  createError: (message: string) => Error,
+): string[] {
+  if (typeof category === "string") return [category];
+  if (!Array.isArray(category)) {
+    throw createError("Logger category must be a string or array of strings.");
+  }
+  if (category.some((part) => typeof part !== "string")) {
+    throw createError("Logger category must only contain strings.");
+  }
+  return [...category];
 }
 
 function categoryKey(category: readonly string[]): string {
@@ -443,17 +484,17 @@ function disposeSyncDisposables(
   disposables: Set<Disposable>,
   retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
 ): void {
+  const disposableList = filterRetainedDisposables(
+    disposables,
+    retainedDisposables,
+  );
   const errors: unknown[] = [];
   try {
-    for (const disposable of disposables) {
+    for (const disposable of disposableList) {
       try {
-        if (!retainedDisposables.has(disposable)) {
-          disposable[Symbol.dispose]();
-        }
+        disposable[Symbol.dispose]();
       } catch (error) {
         errors.push(error);
-      } finally {
-        disposables.delete(disposable);
       }
     }
   } finally {

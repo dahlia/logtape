@@ -590,6 +590,46 @@ test("withConfig() rejects invalid scoped configuration", async () => {
         }, () => {}),
       ConfigError,
     );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [null],
+        } as never, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [{ category: 1 }],
+        } as never, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [{ category: ["app", 1] }],
+        } as never, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [{ category: "app", sinks: "sink" }],
+        } as never, () => {}),
+      ConfigError,
+    );
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [{ category: "app", filters: "filter" }],
+        } as never, () => {}),
+      ConfigError,
+    );
   } finally {
     await reset();
   }
@@ -946,6 +986,68 @@ test("withConfig() does not dispose resources still owned by sibling scopes", as
       records.map((record) => record.rawMessage).sort(),
       ["first", "second"],
     );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() disposes resources after overlapping scopes finish", async () => {
+  const events: string[] = [];
+  const sharedSink: Sink & AsyncDisposable = () => {};
+  sharedSink[Symbol.asyncDispose] = async () => {
+    await Promise.resolve();
+    events.push("shared sink");
+  };
+  let releaseFirstDisposal!: () => void;
+  let markFirstDisposalStarted!: () => void;
+  const firstDisposalStarted = new Promise<void>((resolve) => {
+    markFirstDisposalStarted = resolve;
+  });
+  const firstDisposalRelease = new Promise<void>((resolve) => {
+    releaseFirstDisposal = resolve;
+  });
+  const firstFilter: Filter & AsyncDisposable = () => true;
+  firstFilter[Symbol.asyncDispose] = async () => {
+    markFirstDisposalStarted();
+    await firstDisposalRelease;
+    events.push("first filter");
+  };
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    let finishFirst!: () => void;
+    const releaseFirst = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const firstDone = withConfig({
+      sinks: { shared: sharedSink },
+      filters: { first: firstFilter },
+      loggers: [
+        { category: "app", filters: ["first"], sinks: ["shared"] },
+      ],
+    }, async () => {
+      await releaseFirst;
+    });
+    const secondDone = withConfig({
+      sinks: { shared: sharedSink },
+      loggers: [{ category: "app", sinks: ["shared"] }],
+    }, async () => {
+      finishFirst();
+      await firstDisposalStarted;
+    });
+
+    await secondDone;
+    assert.deepStrictEqual(events, ["shared sink"]);
+    releaseFirstDisposal();
+    await firstDone;
+
+    assert.deepStrictEqual(events, ["shared sink", "first filter"]);
   } finally {
     await reset();
   }

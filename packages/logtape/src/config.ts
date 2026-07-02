@@ -459,7 +459,9 @@ function getRetainedDisposables(
     getGlobalDisposables(),
   );
   for (const activeScopedConfig of activeScopedConfigs) {
-    if (activeScopedConfig === scopedConfig) continue;
+    if (activeScopedConfig === scopedConfig || activeScopedConfig.disposed) {
+      continue;
+    }
     addScopedConfigDisposables(disposables, activeScopedConfig);
   }
   return disposables;
