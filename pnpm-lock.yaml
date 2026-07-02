@@ -612,12 +612,6 @@ importers:
         specifier: workspace:^
         version: link:../logtape
     devDependencies:
-      '@alinea/suite':
-        specifier: 'catalog:'
-        version: 0.6.3
-      '@std/assert':
-        specifier: 'catalog:'
-        version: '@jsr/std__assert@1.0.19'
       graphql:
         specifier: 'catalog:'
         version: 16.14.2
