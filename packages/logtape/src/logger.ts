@@ -1831,7 +1831,7 @@ export class LoggerImpl implements Logger {
     );
     if (scopedConfig != null) {
       let snapshot: LogRecord | undefined;
-      let snapshotFailed: boolean = false;
+      let snapshotFailed = false;
       emitWithScopedConfig(
         scopedConfig,
         record,

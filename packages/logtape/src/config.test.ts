@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import { AsyncLocalStorage } from "node:async_hooks";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { withCategoryPrefix, withContext } from "./context.ts";
+import type { Filter } from "./filter.ts";
+import { getLogger, LoggerImpl } from "./logger.ts";
+import type { LogRecord } from "./record.ts";
+import type { Sink } from "./sink.ts";
 import {
   type Config,
   ConfigError,
@@ -15,11 +20,6 @@ import {
   withConfig,
   withConfigSync,
 } from "./config.ts";
-import { withCategoryPrefix, withContext } from "./context.ts";
-import type { Filter } from "./filter.ts";
-import { getLogger, LoggerImpl } from "./logger.ts";
-import type { LogRecord } from "./record.ts";
-import type { Sink } from "./sink.ts";
 
 const hasAddEventListener = typeof globalThis.addEventListener === "function";
 
@@ -635,6 +635,98 @@ test("withConfig() rejects global state mutation from sibling scopes", async () 
     await reset();
   }
 });
+
+test("withConfig() rejects scopes while global reconfiguration is pending", async () => {
+  let releaseDispose: (() => void) | undefined;
+  const disposeCanFinish = new Promise<void>((resolve) => {
+    releaseDispose = resolve;
+  });
+
+  const sink: Sink & AsyncDisposable = () => {};
+  sink[Symbol.asyncDispose] = () => disposeCanFinish;
+
+  try {
+    await configure({
+      sinks: { sink },
+      loggers: [
+        { category: "my-app", sinks: ["sink"] },
+        { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+      ],
+      contextLocalStorage: new AsyncLocalStorage(),
+      reset: true,
+    });
+
+    const resetPromise = reset();
+    await assert.rejects(
+      () => withConfig({ sinks: {}, loggers: [] }, () => {}),
+      ConfigError,
+    );
+
+    releaseDispose?.();
+    await resetPromise;
+  } finally {
+    releaseDispose?.();
+    await reset();
+  }
+});
+
+const skipUnloadDisposalTest = !("Deno" in globalThis);
+
+test(
+  "configure() unload disposal bypasses active scoped configuration guards",
+  { skip: skipUnloadDisposalTest },
+  async () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (skipUnloadDisposalTest) return;
+
+    const addEventListener = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "addEventListener",
+    );
+    let unloadHandler: (() => unknown) | undefined;
+    let disposed = false;
+    const sink: Sink & AsyncDisposable = () => {};
+    sink[Symbol.asyncDispose] = () => {
+      disposed = true;
+      return Promise.resolve();
+    };
+
+    try {
+      Object.defineProperty(globalThis, "addEventListener", {
+        configurable: true,
+        value(type: string, handler: () => unknown) {
+          if (type === "unload") unloadHandler = handler;
+        },
+        writable: true,
+      });
+
+      await configure({
+        sinks: { sink },
+        loggers: [
+          { category: "my-app", sinks: ["sink"] },
+          { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+        ],
+        contextLocalStorage: new AsyncLocalStorage(),
+        reset: true,
+      });
+
+      assert.notStrictEqual(unloadHandler, undefined);
+      await withConfig({ sinks: {}, loggers: [] }, async () => {
+        await unloadHandler?.();
+      });
+
+      assert.strictEqual(disposed, true);
+    } finally {
+      if (addEventListener == null) {
+        Reflect.deleteProperty(globalThis, "addEventListener");
+      } else {
+        Object.defineProperty(globalThis, "addEventListener", addEventListener);
+      }
+      await reset();
+    }
+  },
+);
 
 test("withConfig() disposes scoped resources when the scope exits", async () => {
   const events: string[] = [];

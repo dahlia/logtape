@@ -107,6 +107,7 @@ export interface LoggerConfig<
  */
 let currentConfig: Config<string, string> | null = null;
 let activeScopedConfigCount = 0;
+let globalConfigMutationInProgress = false;
 
 /**
  * Strong references to the loggers.
@@ -150,7 +151,7 @@ function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
 }
 
 function registerDisposeHook(allowAsync: boolean): void {
-  const handler = allowAsync ? dispose : disposeSync;
+  const handler = allowAsync ? disposeInternal : disposeSyncInternal;
 
   if (
     // deno-lint-ignore no-explicit-any
@@ -224,19 +225,24 @@ export async function configure<
   TSinkId extends string,
   TFilterId extends string,
 >(config: Config<TSinkId, TFilterId>): Promise<void> {
-  assertNoScopedConfig("configure()");
-  if (currentConfig != null && !config.reset) {
-    throw new ConfigError(
-      "Already configured; if you want to reset, turn on the reset flag.",
-    );
-  }
-  await reset();
-  try {
-    configureInternal(config, true);
-  } catch (e) {
-    if (e instanceof ConfigError) await reset();
-    throw e;
-  }
+  await runGlobalConfigMutation("configure()", async () => {
+    if (currentConfig != null && !config.reset) {
+      throw new ConfigError(
+        "Already configured; if you want to reset, turn on the reset flag.",
+      );
+    }
+    await disposeInternal();
+    resetInternal();
+    try {
+      configureInternal(config, true);
+    } catch (e) {
+      if (e instanceof ConfigError) {
+        await disposeInternal();
+        resetInternal();
+      }
+      throw e;
+    }
+  });
 }
 
 /**
@@ -275,25 +281,30 @@ export async function configure<
 export function configureSync<TSinkId extends string, TFilterId extends string>(
   config: Config<TSinkId, TFilterId>,
 ): void {
-  assertNoScopedConfig("configureSync()");
-  if (currentConfig != null && !config.reset) {
-    throw new ConfigError(
-      "Already configured; if you want to reset, turn on the reset flag.",
-    );
-  }
-  if (asyncFilterDisposables.size > 0 || asyncSinkDisposables.size > 0) {
-    throw new ConfigError(
-      "Previously configured async disposables are still active. " +
-        "Use configure() instead or explicitly dispose them using dispose().",
-    );
-  }
-  resetSync();
-  try {
-    configureInternal(config, false);
-  } catch (e) {
-    if (e instanceof ConfigError) resetSync();
-    throw e;
-  }
+  runGlobalConfigMutationSync("configureSync()", () => {
+    if (currentConfig != null && !config.reset) {
+      throw new ConfigError(
+        "Already configured; if you want to reset, turn on the reset flag.",
+      );
+    }
+    if (asyncFilterDisposables.size > 0 || asyncSinkDisposables.size > 0) {
+      throw new ConfigError(
+        "Previously configured async disposables are still active. " +
+          "Use configure() instead or explicitly dispose them using dispose().",
+      );
+    }
+    disposeSyncInternal();
+    resetInternal();
+    try {
+      configureInternal(config, false);
+    } catch (e) {
+      if (e instanceof ConfigError) {
+        disposeSyncInternal();
+        resetInternal();
+      }
+      throw e;
+    }
+  });
 }
 
 /**
@@ -533,9 +544,10 @@ export function getConfig(): Config<string, string> | null {
  * Reset the configuration.  Mostly for testing purposes.
  */
 export async function reset(): Promise<void> {
-  assertNoScopedConfig("reset()");
-  await dispose();
-  resetInternal();
+  await runGlobalConfigMutation("reset()", async () => {
+    await disposeInternal();
+    resetInternal();
+  });
 }
 
 /**
@@ -544,9 +556,10 @@ export async function reset(): Promise<void> {
  * @since 0.9.0
  */
 export function resetSync(): void {
-  assertNoScopedConfig("resetSync()");
-  disposeSync();
-  resetInternal();
+  runGlobalConfigMutationSync("resetSync()", () => {
+    disposeSyncInternal();
+    resetInternal();
+  });
 }
 
 function resetInternal(): void {
@@ -561,7 +574,10 @@ function resetInternal(): void {
  * Dispose of the disposables.
  */
 export async function dispose(): Promise<void> {
-  assertNoScopedConfig("dispose()");
+  await runGlobalConfigMutation("dispose()", disposeInternal);
+}
+
+async function disposeInternal(): Promise<void> {
   const errors: unknown[] = [];
   try {
     disposeSyncFilters();
@@ -592,7 +608,10 @@ export async function dispose(): Promise<void> {
  * @since 0.9.0
  */
 export function disposeSync(): void {
-  assertNoScopedConfig("disposeSync()");
+  runGlobalConfigMutationSync("disposeSync()", disposeSyncInternal);
+}
+
+function disposeSyncInternal(): void {
   const errors: unknown[] = [];
   try {
     disposeSyncFilters();
@@ -610,6 +629,11 @@ export function disposeSync(): void {
 function getConfiguredContextLocalStorage(
   functionName: string,
 ): ContextLocalStorage<Record<string, unknown>> {
+  if (globalConfigMutationInProgress) {
+    throw new ConfigError(
+      `${functionName} cannot be called while LogTape is being reconfigured.`,
+    );
+  }
   if (currentConfig == null) {
     throw new ConfigError(
       `${functionName} requires LogTape to be configured first.`,
@@ -622,6 +646,41 @@ function getConfiguredContextLocalStorage(
     );
   }
   return contextLocalStorage;
+}
+
+async function runGlobalConfigMutation<T>(
+  functionName: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  assertCanMutateGlobalConfig(functionName);
+  globalConfigMutationInProgress = true;
+  try {
+    return await callback();
+  } finally {
+    globalConfigMutationInProgress = false;
+  }
+}
+
+function runGlobalConfigMutationSync<T>(
+  functionName: string,
+  callback: () => T,
+): T {
+  assertCanMutateGlobalConfig(functionName);
+  globalConfigMutationInProgress = true;
+  try {
+    return callback();
+  } finally {
+    globalConfigMutationInProgress = false;
+  }
+}
+
+function assertCanMutateGlobalConfig(functionName: string): void {
+  if (globalConfigMutationInProgress) {
+    throw new ConfigError(
+      `${functionName} cannot be called while LogTape is being reconfigured.`,
+    );
+  }
+  assertNoScopedConfig(functionName);
 }
 
 function assertNoScopedConfig(functionName: string): void {
