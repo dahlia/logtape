@@ -1062,6 +1062,21 @@ test("FailureLogReporter.wrap() works when destructured", async () => {
   }
 });
 
+test("FailureLogReporter.wrap() preserves callback this", async () => {
+  const context = { testName: "mocha-style" };
+  await configureForFailureReporterTests();
+  try {
+    const reporter = createFailureLogReporter();
+    const wrapped = reporter.wrap(function (this: typeof context): string {
+      return this.testName;
+    });
+
+    assert.strictEqual(await wrapped.call(context), "mocha-style");
+  } finally {
+    await reset();
+  }
+});
+
 test("FailureLogReporter honors always and never report modes", async () => {
   const reported: LogRecord[] = [];
   await configureForFailureReporterTests();

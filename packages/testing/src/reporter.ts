@@ -60,9 +60,9 @@ export interface FailureLogReporter {
    * @param callback The test callback to wrap.
    * @returns An async callback with the same parameters.
    */
-  wrap<TArgs extends readonly unknown[], TResult>(
-    callback: (...args: TArgs) => TResult,
-  ): (...args: TArgs) => Promise<Awaited<TResult>>;
+  wrap<TThis, TArgs extends readonly unknown[], TResult>(
+    callback: (this: TThis, ...args: TArgs) => TResult,
+  ): (this: TThis, ...args: TArgs) => Promise<Awaited<TResult>>;
 
   /**
    * Runs a callback and reports matching LogTape records according to the
@@ -140,10 +140,15 @@ export function createFailureLogReporter(
     return result;
   }
 
-  function wrap<TArgs extends readonly unknown[], TResult>(
-    callback: (...args: TArgs) => TResult,
-  ): (...args: TArgs) => Promise<Awaited<TResult>> {
-    return (...args: TArgs) => run(() => callback(...args));
+  function wrap<TThis, TArgs extends readonly unknown[], TResult>(
+    callback: (this: TThis, ...args: TArgs) => TResult,
+  ): (this: TThis, ...args: TArgs) => Promise<Awaited<TResult>> {
+    return function (
+      this: TThis,
+      ...args: TArgs
+    ): Promise<Awaited<TResult>> {
+      return run(() => Reflect.apply(callback, this, args) as TResult);
+    };
   }
 
   return {
