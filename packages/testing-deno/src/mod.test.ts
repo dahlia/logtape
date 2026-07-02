@@ -412,14 +412,10 @@ async function runDenoTest(source: string): Promise<{
         }
       ` + source,
     );
-    const coverageDirectory = getCoverageDirectory();
     const command = new Deno.Command(Deno.execPath(), {
       args: [
         "test",
         "--quiet",
-        ...(coverageDirectory == null ? [] : [
-          `--coverage=${coverageDirectory}`,
-        ]),
         "--config",
         join(repositoryRoot, "deno.json"),
         "--allow-read",
@@ -453,12 +449,4 @@ function assertSuccess(result: {
   readonly output: string;
 }): void {
   assert.strictEqual(result.code, 0, result.output);
-}
-
-function getCoverageDirectory(): string | undefined {
-  try {
-    return Deno.env.get("DENO_COVERAGE_DIR");
-  } catch {
-    return undefined;
-  }
 }
