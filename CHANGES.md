@@ -8,6 +8,15 @@ Version 2.1.7
 
 To be released.
 
+### @logtape/sentry
+
+ -  Fixed the Sentry sink to treat the Pino-style `err` property as an
+    exception fallback when the `error` property does not contain an `Error`
+    instance, so error-level logs using `{ err }` are captured with stack
+    traces.  [[#189]]
+
+[#189]: https://github.com/dahlia/logtape/issues/189
+
 
 Version 2.1.6
 -------------
@@ -257,6 +266,19 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+======= Version 2.0.16
+----------------------
+
+Released on July 3, 2026.
+
+### @logtape/sentry
+
+ -  Fixed the Sentry sink to treat the Pino-style `err` property as an
+    exception fallback when the `error` property does not contain an `Error`
+    instance, so error-level logs using `{ err }` are captured with stack
+    traces.  [[#189]]
 
 
 Version 2.0.15
