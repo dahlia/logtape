@@ -27,6 +27,7 @@ const jsrRefPackages: readonly (readonly [string, string])[] = [
   ["@logtape/elysia", ".jsr-cache-elysia.json"],
   ["@logtape/express", ".jsr-cache-express.json"],
   ["@logtape/fastify", ".jsr-cache-fastify.json"],
+  ["@logtape/graphql-yoga", ".jsr-cache-graphql-yoga.json"],
   ["@logtape/file", ".jsr-cache-file.json"],
   ["@logtape/hono", ".jsr-cache-hono.json"],
   ["@logtape/koa", ".jsr-cache-koa.json"],
@@ -186,6 +187,10 @@ const REFERENCES = {
     { text: "@logtape/elysia", link: "https://jsr.io/@logtape/elysia/doc" },
     { text: "@logtape/express", link: "https://jsr.io/@logtape/express/doc" },
     { text: "@logtape/fastify", link: "https://jsr.io/@logtape/fastify/doc" },
+    {
+      text: "@logtape/graphql-yoga",
+      link: "https://jsr.io/@logtape/graphql-yoga/doc",
+    },
     { text: "@logtape/hono", link: "https://jsr.io/@logtape/hono/doc" },
     { text: "@logtape/koa", link: "https://jsr.io/@logtape/koa/doc" },
     { text: "@logtape/file", link: "https://jsr.io/@logtape/file/doc" },

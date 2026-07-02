@@ -9,6 +9,8 @@ JavaScript environments.
 Drizzle ORM
 -----------
 
+*The @logtape/drizzle-orm package is available since LogTape 1.3.0.*
+
 [Drizzle ORM] is a lightweight, TypeScript-first ORM that supports PostgreSQL,
 MySQL, and SQLite.  LogTape provides a Drizzle ORM adapter through the
 *@logtape/drizzle-orm* package, allowing you to use LogTape as Drizzle's
@@ -117,6 +119,8 @@ This allows you to:
 
 Express
 -------
+
+*The @logtape/express package is available since LogTape 1.3.0.*
 
 [Express] is the most popular Node.js web framework.  LogTape provides
 an Express middleware adapter through the *@logtape/express* package,
@@ -302,6 +306,8 @@ structured data that includes:
 
 Elysia
 ------
+
+*The @logtape/elysia package is available since LogTape 2.0.0.*
 
 [Elysia] is a fast, Bun-first web framework with end-to-end type safety.
 LogTape provides an Elysia plugin adapter through the *@logtape/elysia* package,
@@ -511,6 +517,8 @@ structured data that includes:
 Hono
 ----
 
+*The @logtape/hono package is available since LogTape 1.3.0.*
+
 [Hono] is a modern web framework that works across multiple JavaScript runtimes.
 LogTape provides a Hono adapter through the *@logtape/hono* package, allowing
 you to use LogTape as Hono's logging backend with HTTP request logging:
@@ -695,6 +703,8 @@ structured data that includes:
 Fastify
 -------
 
+*The @logtape/fastify package is available since LogTape 1.3.0.*
+
 [Fastify] is a fast and low-overhead web framework for Node.js.
 LogTape provides a [Pino]-compatible logger adapter through the
 *@logtape/fastify* package, allowing you to use LogTape as Fastify's
@@ -811,8 +821,106 @@ logger.info({ data: { key: "value" } });
 ~~~~
 
 
+GraphQL Yoga
+------------
+
+*The @logtape/graphql-yoga package is available since LogTape 2.3.0.*
+
+[GraphQL Yoga] is a GraphQL server that works across JavaScript runtimes.
+LogTape provides a Yoga logger adapter through the *@logtape/graphql-yoga*
+package, allowing you to use LogTape as Yoga's logging backend:
+
+::: code-group
+
+~~~~ sh [Deno]
+deno add jsr:@logtape/graphql-yoga
+~~~~
+
+~~~~ sh [npm]
+npm add @logtape/graphql-yoga
+~~~~
+
+~~~~ sh [pnpm]
+pnpm add @logtape/graphql-yoga
+~~~~
+
+~~~~ sh [Yarn]
+yarn add @logtape/graphql-yoga
+~~~~
+
+~~~~ sh [Bun]
+bun add @logtape/graphql-yoga
+~~~~
+
+:::
+
+Here's an example of using LogTape with GraphQL Yoga:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+import { getYogaLogger } from "@logtape/graphql-yoga";
+import { createSchema, createYoga } from "graphql-yoga";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["graphql-yoga"], sinks: ["console"], lowestLevel: "debug" }
+  ],
+});
+
+const yoga = createYoga({
+  schema: createSchema({
+    typeDefs: /* GraphQL */ `
+      type Query {
+        hello: String!
+      }
+    `,
+    resolvers: {
+      Query: {
+        hello: () => "world",
+      },
+    },
+  }),
+  logging: getYogaLogger(),
+});
+~~~~
+
+[GraphQL Yoga]: https://the-guild.dev/graphql/yoga-server
+
+### Custom category
+
+You can specify a custom category for the logger:
+
+~~~~ typescript twoslash
+import { getYogaLogger } from "@logtape/graphql-yoga";
+// ---cut-before---
+const logger = getYogaLogger({
+  category: ["myapp", "graphql"],
+});
+~~~~
+
+### Custom log levels
+
+Yoga exposes `debug`, `info`, `warn`, and `error` logger methods.  By default,
+these map to LogTape's `debug`, `info`, `warning`, and `error` levels.  You can
+customize the mapping:
+
+~~~~ typescript twoslash
+import { getYogaLogger } from "@logtape/graphql-yoga";
+// ---cut-before---
+const logger = getYogaLogger({
+  levelsMap: {
+    debug: "trace",
+    warn: "error",
+  },
+});
+~~~~
+
+
 Koa
 ---
+
+*The @logtape/koa package is available since LogTape 1.3.0.*
 
 [Koa] is a modern, lightweight web framework for Node.js that uses async/await
 throughout.  LogTape provides a Koa middleware adapter through the

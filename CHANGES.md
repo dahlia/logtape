@@ -20,6 +20,20 @@ To be released.
     sink drivers support the default modification-time cleanup fallback when
     `filename` is set and `parseFilename` is not set.
 
+### @logtape/graphql-yoga
+
+ -  Added new *@logtape/graphql-yoga* package for using LogTape as GraphQL
+    Yoga's logging backend.  [[#184]]
+
+     -  Added `getYogaLogger()` function to create a GraphQL Yoga-compatible
+        logger for the `createYoga({ logging })` option.
+     -  Added `YogaLoggerOptions` interface with
+        `category?: string | readonly string[]` and
+        `levelsMap?: Partial<Record<YogaLogLevel, LogLevel>>`.
+     -  Added `YogaLogger` interface and `YogaLogLevel` type.
+
+[#184]: https://github.com/dahlia/logtape/pull/184
+
 
 Version 2.2.2
 -------------

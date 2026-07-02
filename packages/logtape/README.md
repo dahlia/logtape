@@ -47,8 +47,9 @@ The highlights of LogTape are:
  -  *[Dead simple sinks]*: You can easily add your own sinks to LogTape.
 
  -  *[Framework integrations]*: First-class support for popular frameworks
-    like [Express], [Fastify], [Hono], [Koa], and [Drizzle ORM] with automatic
-    HTTP request logging and database query logging.
+    like [Express], [Fastify], [GraphQL Yoga], [Hono], [Koa], and [Drizzle ORM]
+    with automatic HTTP request logging, GraphQL server logging, and database
+    query logging.
 
 ![LogTape web console output](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/web-console.png)
 ![LogTape terminal output](https://raw.githubusercontent.com/dahlia/logtape/refs/heads/main/screenshots/terminal.png)
@@ -73,6 +74,7 @@ The highlights of LogTape are:
 [Framework integrations]: https://logtape.org/manual/integrations
 [Express]: https://expressjs.com/
 [Fastify]: https://fastify.dev/
+[GraphQL Yoga]: https://the-guild.dev/graphql/yoga-server
 [Hono]: https://hono.dev/
 [Koa]: https://koajs.com/
 [Drizzle ORM]: https://orm.drizzle.team/
@@ -116,6 +118,7 @@ list of the packages in the LogTape monorepo:
 | [*@logtape/elysia*](/packages/elysia/)                     | [JSR][jsr:@logtape/elysia]           | [npm][npm:@logtape/elysia]           | [Elysia] integration          |
 | [*@logtape/express*](/packages/express/)                   | [JSR][jsr:@logtape/express]          | [npm][npm:@logtape/express]          | [Express] integration         |
 | [*@logtape/fastify*](/packages/fastify/)                   | [JSR][jsr:@logtape/fastify]          | [npm][npm:@logtape/fastify]          | [Fastify] integration         |
+| [*@logtape/graphql-yoga*](/packages/graphql-yoga/)         | [JSR][jsr:@logtape/graphql-yoga]     | [npm][npm:@logtape/graphql-yoga]     | [GraphQL Yoga] integration    |
 | [*@logtape/hono*](/packages/hono/)                         | [JSR][jsr:@logtape/hono]             | [npm][npm:@logtape/hono]             | [Hono] integration            |
 | [*@logtape/koa*](/packages/koa/)                           | [JSR][jsr:@logtape/koa]              | [npm][npm:@logtape/koa]              | [Koa] integration             |
 | [*@logtape/lint*](/packages/lint/)                         | [JSR][jsr:@logtape/lint]             | [npm][npm:@logtape/lint]             | ESLint/Oxlint/Deno Lint rules |
@@ -156,6 +159,8 @@ list of the packages in the LogTape monorepo:
 [npm:@logtape/express]: https://www.npmjs.com/package/@logtape/express
 [jsr:@logtape/fastify]: https://jsr.io/@logtape/fastify
 [npm:@logtape/fastify]: https://www.npmjs.com/package/@logtape/fastify
+[jsr:@logtape/graphql-yoga]: https://jsr.io/@logtape/graphql-yoga
+[npm:@logtape/graphql-yoga]: https://www.npmjs.com/package/@logtape/graphql-yoga
 [jsr:@logtape/hono]: https://jsr.io/@logtape/hono
 [npm:@logtape/hono]: https://www.npmjs.com/package/@logtape/hono
 [jsr:@logtape/koa]: https://jsr.io/@logtape/koa

@@ -9,6 +9,7 @@
     "./packages/express",
     "./packages/fastify",
     "./packages/file",
+    "./packages/graphql-yoga",
     "./packages/hono",
     "./packages/koa",
     "./packages/elysia",
@@ -51,6 +52,8 @@
     "express": "npm:express@^5.2.1",
     "fast-check": "npm:fast-check@^4.7.0",
     "fastify": "npm:fastify@^5.0.0",
+    "graphql": "npm:graphql@^16.14.2",
+    "graphql-yoga": "npm:graphql-yoga@^5.21.2",
     "hono": "jsr:@hono/hono@^4.0.0",
     "koa": "npm:koa@^2.16.1",
     "tsdown": "npm:tsdown@^0.12.7"

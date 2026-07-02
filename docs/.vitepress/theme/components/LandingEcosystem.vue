@@ -34,6 +34,7 @@ const groups: Group[] = [
     items: [
       { name: "Express", link: "/manual/integrations" },
       { name: "Fastify", link: "/manual/integrations" },
+      { name: "GraphQL Yoga", link: "/manual/integrations" },
       { name: "Hono", link: "/manual/integrations" },
       { name: "Koa", link: "/manual/integrations" },
       { name: "Elysia", link: "/manual/integrations" },

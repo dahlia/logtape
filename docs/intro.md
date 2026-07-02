@@ -41,9 +41,9 @@ The highlights of LogTape are:
     to LogTape.
 
  -  [*Framework integrations*](./manual/integrations.md): First-class support
-    for popular web frameworks like [Express], [Fastify], [Hono], [Koa], and
-    ORMs like [Drizzle ORM] with automatic HTTP request logging and database
-    query logging.
+    for popular web frameworks like [Express], [Fastify], [GraphQL Yoga],
+    [Hono], [Koa], and ORMs like [Drizzle ORM] with automatic HTTP request
+    logging, GraphQL server logging, and database query logging.
 
 ![LogTape web console output](./screenshots/web-console.png)
 ![LogTape terminal output](./screenshots/terminal.png)
@@ -53,6 +53,7 @@ The highlights of LogTape are:
 [Bun]: https://bun.sh/
 [Express]: https://expressjs.com/
 [Fastify]: https://fastify.dev/
+[GraphQL Yoga]: https://the-guild.dev/graphql/yoga-server
 [Hono]: https://hono.dev/
 [Koa]: https://koajs.com/
 [Drizzle ORM]: https://orm.drizzle.team/
