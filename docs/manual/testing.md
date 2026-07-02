@@ -160,12 +160,12 @@ rejects:
 
 > [!TIP]
 > If your tests use Bun's built-in `bun:test` runner, Deno's built-in test
-> runner, or Node.js' built-in `node:test` runner, prefer the
+> runner, Node.js' built-in `node:test` runner, or Vitest, prefer the
 > [*Bun test runner integration*](#bun-test-runner-integration),
-> [*Deno test runner integration*](#deno-test-runner-integration) or
-> [*Node.js test runner integration*](#node-js-test-runner-integration).  They
-> wrap the runner directly, preserve runner options, and avoid wrapping each
-> callback by hand.
+> [*Deno test runner integration*](#deno-test-runner-integration),
+> [*Node.js test runner integration*](#node-js-test-runner-integration), or
+> [*Vitest integration*](#vitest-integration).  They wrap the runner directly,
+> preserve runner options, and avoid wrapping each callback by hand.
 
 ~~~~ typescript twoslash
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -190,11 +190,11 @@ before(async () => {
 after(reset);
 
 test("case", reporter.wrap(async () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}", {
+  getLogger(["my-lib"]).info("Fixture state: {state}", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this callback fails.
+  // Run assertions.  The info log is printed only if this callback fails.
 }));
 ~~~~
 
@@ -256,11 +256,11 @@ import { test } from "@logtape/testing-deno/autoload";
 import { getLogger } from "@logtape/logtape";
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -300,11 +300,11 @@ import { test } from "@logtape/testing-deno";
 import { getLogger } from "@logtape/logtape";
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -341,9 +341,9 @@ import { setupLogTape } from "./setup-logtape.ts";
 await setupLogTape();
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.");
+  getLogger(["my-lib"]).info("Fixture state: {state}.");
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -400,11 +400,11 @@ import { test } from "@logtape/testing-bun/autoload";
 import { getLogger } from "@logtape/logtape";
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -444,11 +444,11 @@ import { test } from "@logtape/testing-bun";
 import { getLogger } from "@logtape/logtape";
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -485,9 +485,9 @@ import { setupLogTape } from "./setup-logtape.ts";
 await setupLogTape();
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.");
+  getLogger(["my-lib"]).info("Fixture state: {state}.");
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -563,11 +563,11 @@ import { test } from "@logtape/testing-node/autoload";
 import { getLogger } from "@logtape/logtape";
 
 test("case", async () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -607,11 +607,11 @@ import { test } from "@logtape/testing-node";
 import { getLogger } from "@logtape/logtape";
 
 test("case", async () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -654,9 +654,9 @@ import { setupLogTape } from "./setup-logtape.ts";
 await setupLogTape();
 
 test("case", async () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.");
+  getLogger(["my-lib"]).info("Fixture state: {state}.");
 
-  // Run assertions.  The debug log is printed only if this test fails.
+  // Run assertions.  The info log is printed only if this test fails.
 });
 ~~~~
 
@@ -682,6 +682,209 @@ wraps only the callback.  It also preserves shorthand helpers such as
 and exports a wrapped `it()` alias with `createIt()` for custom reporter
 options.  Other `node:test` helpers, including `describe()`, `before()`,
 `after()`, `beforeEach()`, and `afterEach()`, are re-exported unchanged.
+
+As with `createFailureLogReporter()`, the process-wide LogTape configuration
+must provide `~Config.contextLocalStorage`.
+
+
+Vitest integration
+------------------
+
+*This API is available since LogTape 2.3.0.*
+
+For larger Vitest suites, use the [*@logtape/testing-vitest*] package instead
+of wrapping every test callback manually.  It exports `test` and `it`
+functions compatible with Vitest:
+
+::: code-group
+
+~~~~ bash [npm]
+npm add @logtape/testing-vitest
+~~~~
+
+~~~~ bash [pnpm]
+pnpm add @logtape/testing-vitest
+~~~~
+
+~~~~ bash [Yarn]
+yarn add @logtape/testing-vitest
+~~~~
+
+~~~~ bash [Bun]
+bun add @logtape/testing-vitest
+~~~~
+
+~~~~ bash [Deno]
+deno add jsr:@logtape/testing-vitest npm:vitest
+~~~~
+
+:::
+
+Use this package when your tests are run by Vitest.  If you use Deno's
+built-in test runner instead of Vitest, use
+[*Deno test runner integration*](#deno-test-runner-integration).
+
+[*@logtape/testing-vitest*]: https://jsr.io/@logtape/testing-vitest
+
+### Autoload entry point
+
+The easiest way to adopt the integration in a large suite is to import the
+autoload entry point.  It configures the minimal `~Config.contextLocalStorage`
+needed by the failure log reporter when LogTape has not been configured yet:
+
+~~~~ typescript [test/user.test.ts]
+import { test, expect } from "@logtape/testing-vitest/autoload";
+import { getLogger } from "@logtape/logtape";
+
+test("case", () => {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  expect(1 + 1).toBe(2);
+  // The info log is printed only if this test fails.
+});
+~~~~
+
+The autoload entry point leaves an existing LogTape configuration alone when
+that configuration already provides `~Config.contextLocalStorage`.  If LogTape
+has already been configured without `~Config.contextLocalStorage`, autoload
+throws an error instead of replacing the existing configuration.
+
+### Shared setup file
+
+If you prefer explicit setup, import from `@logtape/testing-vitest` and
+configure LogTape once from a shared setup file.  Add that file to Vitest's
+`setupFiles` option so it runs before every test file in the same test
+process:
+
+~~~~ typescript [vitest.config.ts]
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    setupFiles: ["./test/setup-logtape.ts"],
+  },
+});
+~~~~
+
+~~~~ typescript [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+await configure({
+  contextLocalStorage: new AsyncLocalStorage(),
+  sinks: {},
+  loggers: [
+    { category: ["logtape", "meta"], sinks: [] },
+  ],
+});
+~~~~
+
+Each test file can then import from `@logtape/testing-vitest` without adding
+per-file setup hooks:
+
+~~~~ typescript [test/user.test.ts]
+import { test, expect } from "@logtape/testing-vitest";
+import { getLogger } from "@logtape/logtape";
+
+test("case", () => {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
+    state: "ready",
+  });
+
+  expect(1 + 1).toBe(2);
+  // The info log is printed only if this test fails.
+});
+~~~~
+
+Vitest's `globalSetup` runs in a different global scope than test workers, so
+it is not the right place for this in-process LogTape configuration.  Use
+`setupFiles` when you want the configuration available to test callbacks in
+the same process.
+
+### Top-level setup function
+
+If you cannot use Vitest's `setupFiles` option, put the shared setup in a
+function and call it once at the top level of each test file:
+
+~~~~ typescript [test/setup-logtape.ts]
+import { AsyncLocalStorage } from "node:async_hooks";
+import { configure } from "@logtape/logtape";
+
+let configured = false;
+
+export async function setupLogTape(): Promise<void> {
+  if (configured) return;
+  configured = true;
+
+  await configure({
+    contextLocalStorage: new AsyncLocalStorage(),
+    sinks: {},
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+}
+~~~~
+
+~~~~ typescript [test/user.test.ts]
+import { test, expect } from "@logtape/testing-vitest";
+import { getLogger } from "@logtape/logtape";
+import { setupLogTape } from "./setup-logtape.ts";
+
+await setupLogTape();
+
+test("case", () => {
+  getLogger(["my-lib"]).info("Fixture state: {state}.");
+
+  expect(1 + 1).toBe(2);
+  // The info log is printed only if this test fails.
+});
+~~~~
+
+Use `createTest()` to configure the underlying failure log reporter:
+
+~~~~ typescript
+import { createTest, expect } from "@logtape/testing-vitest";
+
+const test = createTest({
+  lowestLevel: "debug",
+  mode: "on-failure",
+});
+
+test("case", () => {
+  expect(1 + 1).toBe(2);
+  // Logs emitted here are reported only if this callback fails.
+});
+~~~~
+
+Use `createVitest()` when you want a namespace-like object with wrapped
+`test()` and `it()` functions plus the usual Vitest helpers:
+
+~~~~ typescript
+import { createVitest } from "@logtape/testing-vitest";
+
+const { test, expect, vi } = createVitest({
+  lowestLevel: "debug",
+});
+
+test("case", () => {
+  expect(typeof vi.fn).toBe("function");
+});
+~~~~
+
+The adapter preserves Vitest test options such as `retry`, `repeats`,
+`timeout`, `concurrent`, `skip`, `only`, `todo`, `fails`, `tags`, and `meta`;
+passes them through to Vitest; and wraps only the callback.  It also preserves
+shorthand helpers such as `test.skip()`, `test.todo()`, `test.only()`,
+`test.fails()`, `test.concurrent()`, `test.sequential()`, `test.skipIf()`,
+`test.runIf()`, `test.each()`, `test.for()`, and `test.extend()`, and exports
+a wrapped `it()` alias with `createIt()` for custom reporter options.  Other
+Vitest helpers, including `describe()`, `suite()`, `beforeAll()`,
+`beforeEach()`, `afterEach()`, `afterAll()`, `aroundAll()`, `aroundEach()`,
+`expect`, `expectTypeOf`, `vi`, `vitest`, `bench()`, `onTestFailed()`, and
+`onTestFinished()`, are re-exported unchanged.
 
 As with `createFailureLogReporter()`, the process-wide LogTape configuration
 must provide `~Config.contextLocalStorage`.

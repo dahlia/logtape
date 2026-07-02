@@ -23,6 +23,7 @@
     "./packages/testing-bun",
     "./packages/testing-deno",
     "./packages/testing-node",
+    "./packages/testing-vitest",
     "./packages/cloudwatch-logs",
     "./packages/config",
     "./packages/windows-eventlog",
@@ -59,7 +60,8 @@
     "graphql-yoga": "npm:graphql-yoga@^5.21.2",
     "hono": "jsr:@hono/hono@^4.0.0",
     "koa": "npm:koa@^2.16.1",
-    "tsdown": "npm:tsdown@^0.12.7"
+    "tsdown": "npm:tsdown@^0.12.7",
+    "vitest": "npm:vitest@^4.1.6"
   },
   "unstable": [
     "fs"

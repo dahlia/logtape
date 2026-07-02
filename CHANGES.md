@@ -46,7 +46,7 @@ To be released.
 ### @logtape/testing-bun
 
  -  Added new *@logtape/testing-bun* package for using the failure log
-    reporter with Bun's built-in `bun:test` runner.  [[#187], [#190]]
+    reporter with Bun's built-in `bun:test` runner.  [[#187], [#191]]
 
      -  Added `test` and `it` exports that wrap test callbacks with
         `createFailureLogReporter()`.
@@ -67,12 +67,12 @@ To be released.
         `xdescribe()`, `xit()`, and `xtest()`.
 
 [#187]: https://github.com/dahlia/logtape/issues/187
-[#190]: https://github.com/dahlia/logtape/pull/190
+[#191]: https://github.com/dahlia/logtape/pull/191
 
 ### @logtape/testing-deno
 
  -  Added new *@logtape/testing-deno* package for using the failure log
-    reporter with Deno's built-in `Deno.test()` runner.  [[#187], [#190]]
+    reporter with Deno's built-in `Deno.test()` runner.  [[#187], [#191]]
 
      -  Added `test` export that wraps test callbacks with
         `createFailureLogReporter()`.
@@ -89,7 +89,7 @@ To be released.
 ### @logtape/testing-node
 
  -  Added new *@logtape/testing-node* package for using the failure log
-    reporter with Node.js' built-in `node:test` runner.  [[#187], [#190]]
+    reporter with Node.js' built-in `node:test` runner.  [[#187], [#191]]
 
      -  Added `test` and `it` exports that wrap test callbacks with
         `createFailureLogReporter()`.
@@ -104,6 +104,28 @@ To be released.
         callback-style tests.
      -  Re-exported Node.js test runner helpers such as `describe()`,
         `before()`, `after()`, `beforeEach()`, and `afterEach()`.
+
+### @logtape/testing-vitest
+
+ -  Added new *@logtape/testing-vitest* package for using the failure log
+    reporter with Vitest.  [[#187], [#191]]
+
+     -  Added `test` and `it` exports that wrap test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-vitest/autoload` subpath export for
+        automatically configuring the minimal `Config.contextLocalStorage`
+        required by the reporter when LogTape has not been configured yet.
+     -  Added `createTest()`, `createIt()`, and `createVitest()` functions for
+        configuring reporter options such as `lowestLevel`, `mode`, `sink`,
+        and `formatter`.
+     -  Preserved Vitest test options and shorthand helpers such as
+        `test.skip()`, `test.todo()`, `test.only()`, `test.fails()`,
+        `test.concurrent()`, `test.sequential()`, `test.skipIf()`,
+        `test.runIf()`, `test.each()`, `test.for()`, and `test.extend()`.
+     -  Re-exported Vitest helpers such as `describe()`, `suite()`,
+        `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
+        `aroundAll()`, `aroundEach()`, `expect`, `expectTypeOf`, `vi`,
+        `vitest`, `bench()`, `onTestFailed()`, and `onTestFinished()`.
 
 ### @logtape/file
 

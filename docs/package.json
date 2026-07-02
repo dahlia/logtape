@@ -30,6 +30,7 @@
     "@logtape/testing": "workspace:",
     "@logtape/testing-bun": "workspace:",
     "@logtape/testing-node": "workspace:",
+    "@logtape/testing-vitest": "workspace:",
     "@logtape/windows-eventlog": "workspace:",
     "@opentelemetry/exporter-logs-otlp-http": "catalog:",
     "@opentelemetry/resources": "catalog:",
