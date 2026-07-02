@@ -6,7 +6,7 @@ export function materializeLogRecord(record: LogRecord): LogRecord {
   const descriptors = Object.getOwnPropertyDescriptors(
     record,
   ) as PropertyDescriptorMap;
-  if (!hasStringAccessorDescriptor(descriptors)) {
+  if (!hasAccessorDescriptor(descriptors)) {
     return record;
   }
   const messageDescriptor = descriptors.message;
@@ -37,10 +37,10 @@ export function materializeLogRecord(record: LogRecord): LogRecord {
   ) as LogRecord;
 }
 
-function hasStringAccessorDescriptor(
+function hasAccessorDescriptor(
   descriptors: PropertyDescriptorMap,
 ): boolean {
-  for (const key of Object.getOwnPropertyNames(descriptors)) {
+  for (const key of Reflect.ownKeys(descriptors)) {
     const descriptor = descriptors[key];
     if (descriptor != null && !isDataDescriptor(descriptor)) return true;
   }

@@ -879,6 +879,33 @@ test("LogRecorder preserves extra accessors when messages are eager", () => {
   assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
 });
 
+test("LogRecorder snapshots records with only symbol accessors", () => {
+  const recorder = createLogRecorder();
+  const contextKey = Symbol("context");
+  let spanId = "span-123";
+  const record = {
+    ...logRecord({
+      message: ["User ", "alice", " logged in."],
+      properties: { userId: "alice" },
+      rawMessage: "User {userId} logged in.",
+    }),
+    get [contextKey](): { readonly spanId: string } {
+      return { spanId };
+    },
+  } as LogRecord & {
+    readonly [contextKey]: { readonly spanId: string };
+  };
+
+  recorder.sink(record);
+  spanId = "span-456";
+
+  const snapshot = recorder.records[0] as LogRecord & {
+    readonly [contextKey]?: { readonly spanId: string };
+  };
+  assert.notStrictEqual(snapshot, record);
+  assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
+});
+
 test("LogRecorder observes resolved lazy and redacted properties", async () => {
   const recorder = createLogRecorder();
   const sink = redactByField(recorder.sink, {
