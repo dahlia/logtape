@@ -797,6 +797,55 @@ test("withConfig() disposes scoped resources when the scope exits", async () => 
   }
 });
 
+test("withConfig() does not dispose resources still owned by parent scopes", async () => {
+  const records: LogRecord[] = [];
+  const events: string[] = [];
+  const sharedSink: Sink & Disposable = (record) => {
+    records.push(record);
+  };
+  sharedSink[Symbol.dispose] = () => events.push("sink");
+  const sharedFilter: Filter & Disposable = () => true;
+  sharedFilter[Symbol.dispose] = () => events.push("filter");
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { shared: sharedSink },
+      filters: { shared: sharedFilter },
+      loggers: [
+        { category: "app", filters: ["shared"], sinks: ["shared"] },
+      ],
+    }, async () => {
+      await withConfig({
+        sinks: { shared: sharedSink },
+        filters: { shared: sharedFilter },
+        loggers: [
+          { category: "app", filters: ["shared"], sinks: ["shared"] },
+        ],
+      }, () => {
+        getLogger("app").info("inner");
+      });
+
+      assert.deepStrictEqual(events, []);
+      getLogger("app").info("outer");
+    });
+
+    assert.deepStrictEqual(events, ["filter", "sink"]);
+    assert.deepStrictEqual(
+      records.map((record) => record.rawMessage),
+      ["inner", "outer"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
 test("withConfig() preserves callback and disposal errors", async () => {
   const callbackError = new Error("callback failed");
   const disposeError = new Error("dispose failed");

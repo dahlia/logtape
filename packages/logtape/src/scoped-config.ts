@@ -233,25 +233,26 @@ export function emitWithScopedConfig(
 export async function disposeScopedConfig(
   scopedConfig: CompiledScopedConfig,
 ): Promise<void> {
+  const parentDisposables = getParentScopedDisposables(scopedConfig);
   scopedConfig.disposed = true;
   const errors: unknown[] = [];
   try {
-    disposeSyncDisposables(scopedConfig.syncFilters);
+    disposeSyncDisposables(scopedConfig.syncFilters, parentDisposables);
   } catch (error) {
     errors.push(error);
   }
   try {
-    await disposeAsyncDisposables(scopedConfig.asyncFilters);
+    await disposeAsyncDisposables(scopedConfig.asyncFilters, parentDisposables);
   } catch (error) {
     errors.push(error);
   }
   try {
-    disposeSyncDisposables(scopedConfig.syncSinks);
+    disposeSyncDisposables(scopedConfig.syncSinks, parentDisposables);
   } catch (error) {
     errors.push(error);
   }
   try {
-    await disposeAsyncDisposables(scopedConfig.asyncSinks);
+    await disposeAsyncDisposables(scopedConfig.asyncSinks, parentDisposables);
   } catch (error) {
     errors.push(error);
   }
@@ -261,15 +262,16 @@ export async function disposeScopedConfig(
 export function disposeScopedConfigSync(
   scopedConfig: CompiledScopedConfig,
 ): void {
+  const parentDisposables = getParentScopedDisposables(scopedConfig);
   scopedConfig.disposed = true;
   const errors: unknown[] = [];
   try {
-    disposeSyncDisposables(scopedConfig.syncFilters);
+    disposeSyncDisposables(scopedConfig.syncFilters, parentDisposables);
   } catch (error) {
     errors.push(error);
   }
   try {
-    disposeSyncDisposables(scopedConfig.syncSinks);
+    disposeSyncDisposables(scopedConfig.syncSinks, parentDisposables);
   } catch (error) {
     errors.push(error);
   }
@@ -308,6 +310,34 @@ function getActiveScopedConfig(
   let activeConfig: CompiledScopedConfig | undefined = scopedConfig;
   while (activeConfig?.disposed) activeConfig = activeConfig.parent;
   return activeConfig;
+}
+
+function getParentScopedDisposables(
+  scopedConfig: CompiledScopedConfig,
+): ReadonlySet<Disposable | AsyncDisposable> {
+  const disposables = new Set<Disposable | AsyncDisposable>();
+  let parent = scopedConfig.parent;
+  while (parent != null) {
+    const activeParent = getActiveScopedConfig(parent);
+    if (activeParent == null) break;
+    addScopedDisposables(disposables, activeParent);
+    parent = activeParent.parent;
+  }
+  return disposables;
+}
+
+function addScopedDisposables(
+  disposables: Set<Disposable | AsyncDisposable>,
+  scopedConfig: CompiledScopedConfig,
+): void {
+  for (const disposable of scopedConfig.syncFilters) {
+    disposables.add(disposable);
+  }
+  for (const disposable of scopedConfig.asyncFilters) {
+    disposables.add(disposable);
+  }
+  for (const disposable of scopedConfig.syncSinks) disposables.add(disposable);
+  for (const disposable of scopedConfig.asyncSinks) disposables.add(disposable);
 }
 
 function normalizeCategory(category: string | readonly string[]): string[] {
@@ -394,9 +424,13 @@ function filterScopedRecord(
   return true;
 }
 
-function disposeSyncDisposables(disposables: ReadonlySet<Disposable>): void {
+function disposeSyncDisposables(
+  disposables: ReadonlySet<Disposable>,
+  retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
+): void {
   const errors: unknown[] = [];
   for (const disposable of disposables) {
+    if (retainedDisposables.has(disposable)) continue;
     try {
       disposable[Symbol.dispose]();
     } catch (error) {
@@ -408,10 +442,11 @@ function disposeSyncDisposables(disposables: ReadonlySet<Disposable>): void {
 
 async function disposeAsyncDisposables(
   disposables: ReadonlySet<AsyncDisposable>,
+  retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
 ): Promise<void> {
   const results = await Promise.allSettled(
     Array.from(
-      disposables,
+      filterRetainedDisposables(disposables, retainedDisposables),
       (disposable) =>
         Promise.resolve().then(() => disposable[Symbol.asyncDispose]()),
     ),
@@ -423,6 +458,17 @@ async function disposeAsyncDisposables(
       )
       .map((result) => result.reason),
   );
+}
+
+function filterRetainedDisposables<
+  TDisposable extends Disposable | AsyncDisposable,
+>(
+  disposables: ReadonlySet<TDisposable>,
+  retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
+): TDisposable[] {
+  return Array.from(
+    disposables,
+  ).filter((disposable) => !retainedDisposables.has(disposable));
 }
 
 function throwDisposeErrors(errors: readonly unknown[]): void {
