@@ -74,6 +74,18 @@ function mapLevelForLogs(level: LogLevel): LogSeverityLevel {
   }
 }
 
+function getErrorProperty(
+  properties: Readonly<Record<string, unknown>>,
+): readonly [property: "error" | "err", error: Error] | undefined {
+  if (properties.error instanceof Error) {
+    return ["error", properties.error];
+  }
+  if (properties.err instanceof Error) {
+    return ["err", properties.err];
+  }
+  return undefined;
+}
+
 /**
  * A Sentry client instance type (used for v1.1.x backward compatibility).
  *
@@ -423,11 +435,14 @@ export function getSentrySink(
       // Capture as Sentry event (Issue) based on level and error presence
       // Use compareLogLevel() to handle future severity level additions
       const isErrorLevel = compareLogLevel(transformed.level, "error") >= 0;
+      const errorProperty = getErrorProperty(transformed.properties);
 
-      if (isErrorLevel && transformed.properties.error instanceof Error) {
+      if (isErrorLevel && errorProperty != null) {
         // Error instance at error/fatal level -> captureException for stack trace
-        const { error, ...rest } = attributes;
-        captureException(error as Error, {
+        const [property, error] = errorProperty;
+        const rest = { ...attributes };
+        delete rest[property];
+        captureException(error, {
           level: eventLevel,
           extra: { message, ...rest },
         });
