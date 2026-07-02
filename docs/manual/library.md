@@ -129,7 +129,7 @@ bun add @logtape/testing
 ~~~~ typescript twoslash
 // @noErrors: 2307
 import { configure, reset } from "@logtape/logtape";
-import { createLogRecorder } from "@logtape/testing";
+import { createLogRecorder } from "@logtape/testing/recorder";
 import { Database } from "my-awesome-lib";
 
 const recorder = createLogRecorder();

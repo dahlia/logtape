@@ -2,7 +2,11 @@
   "name": "@logtape/testing",
   "version": "2.3.0",
   "license": "MIT",
-  "exports": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./recorder": "./src/recorder.ts",
+    "./reporter": "./src/reporter.ts"
+  },
   "tasks": {
     "build": "pnpm build",
     "test": "deno test",

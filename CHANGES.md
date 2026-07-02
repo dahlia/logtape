@@ -23,6 +23,26 @@ To be released.
 [#185]: https://github.com/dahlia/logtape/issues/185
 [#188]: https://github.com/dahlia/logtape/pull/188
 
+### @logtape/testing
+
+ -  Added `createFailureLogReporter()` for buffering LogTape records during a
+    test callback and reporting them only when the callback fails by default.
+    The reporter uses scoped configuration, preserves wrapped callback
+    parameters, and supports `mode: "on-failure"`, `mode: "always"`, and
+    `mode: "never"`.  [[#186], [#189]]
+
+     -  Added `FailureLogReporter` interface with `wrap()` and `run()`
+        methods.
+     -  Added `FailureLogReporterOptions` interface with `mode`,
+        `lowestLevel`, `sink`, and `formatter` options.
+     -  Added `FailureLogReportMode` type.
+     -  Added `@logtape/testing/recorder` and
+        `@logtape/testing/reporter` subpath exports while keeping the root
+        `@logtape/testing` export for compatibility.
+
+[#186]: https://github.com/dahlia/logtape/issues/186
+[#189]: https://github.com/dahlia/logtape/pull/189
+
 ### @logtape/file
 
  -  Added `TimeRotatingFileSinkOptions.parseFilename` option to customize how

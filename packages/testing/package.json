@@ -41,6 +41,22 @@
       "import": "./dist/mod.js",
       "require": "./dist/mod.cjs"
     },
+    "./recorder": {
+      "types": {
+        "import": "./dist/recorder.d.ts",
+        "require": "./dist/recorder.d.cts"
+      },
+      "import": "./dist/recorder.js",
+      "require": "./dist/recorder.cjs"
+    },
+    "./reporter": {
+      "types": {
+        "import": "./dist/reporter.d.ts",
+        "require": "./dist/reporter.d.cts"
+      },
+      "import": "./dist/reporter.js",
+      "require": "./dist/reporter.cjs"
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,

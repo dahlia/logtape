@@ -91,12 +91,13 @@ bun add @logtape/testing
 
 ~~~~ typescript twoslash
 // @noErrors: 2307
+import { after, before, test } from "node:test";
 import { configure, getLogger, reset } from "@logtape/logtape";
-import { createLogRecorder } from "@logtape/testing";
+import { createLogRecorder } from "@logtape/testing/recorder";
 
 const recorder = createLogRecorder();
 
-try {
+before(async () => {
   await configure({
     sinks: {
       recorder: recorder.sink,  // [!code highlight]
@@ -110,7 +111,11 @@ try {
       { category: ["logtape", "meta"], sinks: [] },
     ],
   });
+});
 
+after(reset);
+
+test("case", () => {
   getLogger(["my-lib"]).info("User {userId} logged in.", {
     userId: 123,
   });
@@ -121,9 +126,7 @@ try {
     message: "User 123 logged in.",
     properties: { userId: 123 },
   });
-} finally {
-  await reset();
-}
+});
 ~~~~
 
 The recorder stores records in sink call order.  It snapshots lazy callback
@@ -143,6 +146,81 @@ properties, await the log call before asserting.  If your test also uses async
 sinks, still call `await dispose()` or `await reset()` as usual.
 
 [*@logtape/testing*]: https://jsr.io/@logtape/testing
+
+
+Failure log reporter
+--------------------
+
+*This API is available since LogTape 2.3.0.*
+
+When logs are useful only after a test fails, use
+`createFailureLogReporter()` from the [*@logtape/testing*] package.  It
+buffers records while the wrapped callback runs, discards them when the
+callback succeeds, and reports them to a sink when the callback throws or
+rejects:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { AsyncLocalStorage } from "node:async_hooks";
+import { after, before, test } from "node:test";
+import { configure, getLogger, reset } from "@logtape/logtape";
+import { createFailureLogReporter } from "@logtape/testing/reporter";
+
+const reporter = createFailureLogReporter({
+  lowestLevel: "debug",
+});
+
+before(async () => {
+  await configure({
+    contextLocalStorage: new AsyncLocalStorage(),
+    sinks: {},
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+  });
+});
+
+after(reset);
+
+test("case", reporter.wrap(async () => {
+  getLogger(["my-lib"]).debug("Fixture state: {state}", {
+    state: "ready",
+  });
+
+  // Run assertions.  The debug log is printed only if this callback fails.
+}));
+~~~~
+
+The reporter uses scoped configuration, so it does not call `configure()` or
+`reset()` for each wrapped callback and does not mutate process-wide logger
+routing while a test is running.  The process-wide configuration still must
+provide `~Config.contextLocalStorage`, because scoped configuration needs it to
+isolate the callback's logging policy.
+
+Use `~FailureLogReporter.wrap()` when passing a callback to a test runner.  It
+preserves callback parameters such as a test context or fixtures, and it always
+returns an async callback.  Use `~FailureLogReporter.run()` when you want to
+invoke the callback directly:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { createFailureLogReporter } from "@logtape/testing/reporter";
+
+const reporter = createFailureLogReporter({
+  lowestLevel: "debug",
+  mode: "on-failure",
+});
+
+await reporter.run(async () => {
+  // Logs emitted here are reported only if this callback fails.
+});
+~~~~
+
+Set `mode: "always"` to report buffered records even when the callback passes,
+or `mode: "never"` to suppress reporting while keeping the shared wrapper in
+place.  By default the reporter writes formatted records to the console; pass
+`sink` to report records elsewhere, or `formatter` to customize the default
+console output.
 
 
 Buffer sink
