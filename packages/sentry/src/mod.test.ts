@@ -142,6 +142,56 @@ test("sink with Error at error level triggers exception path", () => {
   assert.strictEqual(sawError, true);
 });
 
+test("sink uses err property as exception fallback", () => {
+  let capturedException: unknown;
+  let capturedHint: unknown;
+  const error = new Error("Test");
+  const sink = getSentrySink({
+    captureMessage: () => "message-id",
+    captureException: (exception, hint) => {
+      capturedException = exception;
+      capturedHint = hint;
+      return "exception-id";
+    },
+  });
+
+  sink(createMockLogRecord({
+    level: "error",
+    properties: { error: "not an Error", err: error, requestId: "request-1" },
+  }));
+
+  const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
+  assert.strictEqual(capturedException, error);
+  assert.strictEqual("err" in extra, false);
+  assert.strictEqual(extra.error, "not an Error");
+  assert.strictEqual(extra.requestId, "request-1");
+});
+
+test("sink prefers error property over err property", () => {
+  let capturedException: unknown;
+  let capturedHint: unknown;
+  const error = new Error("Primary");
+  const err = new Error("Fallback");
+  const sink = getSentrySink({
+    captureMessage: () => "message-id",
+    captureException: (exception, hint) => {
+      capturedException = exception;
+      capturedHint = hint;
+      return "exception-id";
+    },
+  });
+
+  sink(createMockLogRecord({
+    level: "error",
+    properties: { error, err },
+  }));
+
+  const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
+  assert.strictEqual(capturedException, error);
+  assert.strictEqual("error" in extra, false);
+  assert.strictEqual(extra.err, err);
+});
+
 test("sink without Error at error level does not trigger exception path", () => {
   let sawError = false;
   const sink = getSentrySink({
