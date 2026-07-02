@@ -1,3 +1,6 @@
+// deno-coverage-ignore-file -- This package targets node:test.  Deno's
+// node:test shim rejects the nested registrations needed by the integration
+// tests, so coverage for this module comes from the Node.js and Bun jobs.
 import nodeTest, { it as nodeIt } from "node:test";
 import type { TestContext } from "node:test";
 

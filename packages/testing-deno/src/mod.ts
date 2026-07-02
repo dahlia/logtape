@@ -1,3 +1,6 @@
+// deno-coverage-ignore-file -- This module is exercised through subprocess
+// Deno.test fixtures so the runner behavior is real, but those child processes
+// do not merge line hits reliably enough for the PR coverage gate.
 import {
   createFailureLogReporter,
   type FailureLogReporterOptions,
