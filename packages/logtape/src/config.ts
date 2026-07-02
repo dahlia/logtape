@@ -351,7 +351,7 @@ export async function withConfig<
   }
 
   try {
-    await disposeScopedConfig(scopedConfig);
+    await disposeScopedConfig(scopedConfig, getGlobalDisposables());
   } catch (disposeError) {
     if (callbackFailed) {
       throwCombinedErrors(callbackError, disposeError);
@@ -413,7 +413,7 @@ export function withConfigSync<
   }
 
   try {
-    disposeScopedConfigSync(scopedConfig);
+    disposeScopedConfigSync(scopedConfig, getGlobalDisposables());
   } catch (disposeError) {
     if (callbackFailed) {
       throwCombinedErrors(callbackError, disposeError);
@@ -432,6 +432,15 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
     (typeof value === "object" || typeof value === "function") &&
     "then" in value &&
     typeof value.then === "function";
+}
+
+function getGlobalDisposables(): ReadonlySet<Disposable | AsyncDisposable> {
+  return new Set<Disposable | AsyncDisposable>([
+    ...filterDisposables,
+    ...asyncFilterDisposables,
+    ...sinkDisposables,
+    ...asyncSinkDisposables,
+  ]);
 }
 
 function configureInternal<

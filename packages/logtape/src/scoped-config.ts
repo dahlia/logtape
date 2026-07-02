@@ -234,8 +234,12 @@ export function emitWithScopedConfig(
 
 export async function disposeScopedConfig(
   scopedConfig: CompiledScopedConfig,
+  retainedDisposables?: ReadonlySet<Disposable | AsyncDisposable>,
 ): Promise<void> {
-  const parentDisposables = getParentScopedDisposables(scopedConfig);
+  const parentDisposables = getParentScopedDisposables(
+    scopedConfig,
+    retainedDisposables,
+  );
   scopedConfig.disposed = true;
   const errors: unknown[] = [];
   try {
@@ -263,8 +267,12 @@ export async function disposeScopedConfig(
 
 export function disposeScopedConfigSync(
   scopedConfig: CompiledScopedConfig,
+  retainedDisposables?: ReadonlySet<Disposable | AsyncDisposable>,
 ): void {
-  const parentDisposables = getParentScopedDisposables(scopedConfig);
+  const parentDisposables = getParentScopedDisposables(
+    scopedConfig,
+    retainedDisposables,
+  );
   scopedConfig.disposed = true;
   const errors: unknown[] = [];
   try {
@@ -316,8 +324,9 @@ function getActiveScopedConfig(
 
 function getParentScopedDisposables(
   scopedConfig: CompiledScopedConfig,
+  extraRetained?: ReadonlySet<Disposable | AsyncDisposable>,
 ): ReadonlySet<Disposable | AsyncDisposable> {
-  const disposables = new Set<Disposable | AsyncDisposable>();
+  const disposables = new Set<Disposable | AsyncDisposable>(extraRetained);
   let parent = scopedConfig.parent;
   while (parent != null) {
     const activeParent = getActiveScopedConfig(parent);

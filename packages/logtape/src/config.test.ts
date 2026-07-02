@@ -852,6 +852,96 @@ test("withConfig() does not dispose resources still owned by parent scopes", asy
   }
 });
 
+test("withConfig() does not dispose resources still owned globally", async () => {
+  const records: LogRecord[] = [];
+  const events: string[] = [];
+  const sharedSink: Sink & Disposable = (record) => {
+    records.push(record);
+  };
+  sharedSink[Symbol.dispose] = () => events.push("sink");
+  const sharedFilter: Filter & Disposable = () => true;
+  sharedFilter[Symbol.dispose] = () => events.push("filter");
+
+  await configure({
+    sinks: { shared: sharedSink },
+    filters: { shared: sharedFilter },
+    loggers: [
+      { category: "app", filters: ["shared"], sinks: ["shared"] },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: { shared: sharedSink },
+      filters: { shared: sharedFilter },
+      loggers: [
+        { category: "app", filters: ["shared"], sinks: ["shared"] },
+      ],
+    }, () => {
+      getLogger("app").info("scoped");
+    });
+
+    assert.deepStrictEqual(events, []);
+    getLogger("app").info("global");
+    assert.deepStrictEqual(
+      records.map((record) => record.rawMessage),
+      ["scoped", "global"],
+    );
+  } finally {
+    await reset();
+  }
+
+  assert.deepStrictEqual(events, ["filter", "sink"]);
+});
+
+test("withConfigSync() does not dispose resources still owned globally", () => {
+  const records: LogRecord[] = [];
+  const events: string[] = [];
+  const sharedSink: Sink & Disposable = (record) => {
+    records.push(record);
+  };
+  sharedSink[Symbol.dispose] = () => events.push("sink");
+  const sharedFilter: Filter & Disposable = () => true;
+  sharedFilter[Symbol.dispose] = () => events.push("filter");
+
+  configureSync({
+    sinks: { shared: sharedSink },
+    filters: { shared: sharedFilter },
+    loggers: [
+      { category: "app", filters: ["shared"], sinks: ["shared"] },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    withConfigSync({
+      sinks: { shared: sharedSink },
+      filters: { shared: sharedFilter },
+      loggers: [
+        { category: "app", filters: ["shared"], sinks: ["shared"] },
+      ],
+    }, () => {
+      getLogger("app").info("scoped");
+    });
+
+    assert.deepStrictEqual(events, []);
+    getLogger("app").info("global");
+    assert.deepStrictEqual(
+      records.map((record) => record.rawMessage),
+      ["scoped", "global"],
+    );
+  } finally {
+    resetSync();
+  }
+
+  assert.deepStrictEqual(events, ["filter", "sink"]);
+});
+
 test("disposeScopedConfig() clears resources after disposal errors", async () => {
   const events: string[] = [];
   const disposeError = new Error("dispose failed");
