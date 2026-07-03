@@ -633,7 +633,7 @@ async function runVitestTest(source: string): Promise<{
     );
 
     const output = await runPnpm(
-      ["exec", "vitest", "run", testFile],
+      ["exec", "vitest", "run", "--allowOnly", testFile],
       packageRoot,
     );
     let reportOutput = "";

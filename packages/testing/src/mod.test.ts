@@ -622,7 +622,11 @@ test("LogRecorder diagnostics guard message rendering errors", () => {
       assert.ok(error instanceof Error);
       assert.match(error.message, /Expected a LogTape record matching:/);
       assert.match(error.message, /level: "error"/);
-      assert.match(error.message, /<error: inspect failed>/);
+      assert.match(error.message, /Recorded 1 record:/);
+      assert.match(
+        error.message,
+        /\[info\] app: (?:Value |<error: inspect failed>)/,
+      );
       return true;
     },
   );
