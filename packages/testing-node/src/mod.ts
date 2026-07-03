@@ -289,17 +289,42 @@ function wrapNodeCallback(
         Reflect.apply(callback, this, args);
       void wrap(() =>
         new Promise<void>((resolve, reject) => {
+          let callbackReturned = false;
+          let doneCalled = false;
+          let pendingDone = false;
+          let pendingDoneError: unknown;
           let settled = false;
-          const wrappedDone: NodeDoneCallback = ((error?: unknown) => {
+          const settle = (error?: unknown): void => {
             if (settled) return;
             settled = true;
             if (error == null) resolve();
             else reject(error);
+          };
+          const wrappedDone: NodeDoneCallback = ((error?: unknown) => {
+            if (doneCalled) return;
+            doneCalled = true;
+            if (!callbackReturned) {
+              pendingDone = true;
+              pendingDoneError = error;
+              return;
+            }
+            settle(error);
           }) as NodeDoneCallback;
 
           try {
-            runCallback(context, wrappedDone);
+            const result = runCallback(context, wrappedDone);
+            callbackReturned = true;
+            if (isPromiseLike(result)) {
+              reject(
+                new TypeError(
+                  "Callback-style node:test functions must not return a Promise.",
+                ),
+              );
+              return;
+            }
+            if (pendingDone) settle(pendingDoneError);
           } catch (error) {
+            callbackReturned = true;
             reject(error);
           }
         })
@@ -313,6 +338,12 @@ function wrapNodeCallback(
   return function (this: unknown, context: TestContext): unknown {
     return wrap(() => Reflect.apply(callback, this, [context]))();
   };
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === "object" && value != null &&
+    "then" in value &&
+    typeof value.then === "function";
 }
 
 export type { TestContext };

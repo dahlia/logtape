@@ -195,6 +195,39 @@ nodeTest("createTest(): reports logs when callback-style tests fail", {
 });
 
 nodeTest(
+  "createTest(): rejects callback-style tests that return promises",
+  { skip: skipNestedNodeTest },
+  async () => {
+    if (skipNestedNodeTest) return;
+
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const test = createTest({
+        sink: (record) => reported.push(record),
+      });
+
+      await test("invalid callback completion", { expectFailure: true }, (
+        _context,
+        done,
+      ) => {
+        assert.ok(done);
+        getLogger(["app"]).info("Invalid completion diagnostic.");
+        done();
+        return Promise.resolve();
+      });
+
+      assert.deepStrictEqual(
+        reported.map((record) => record.rawMessage),
+        ["Invalid completion diagnostic."],
+      );
+    } finally {
+      await reset();
+    }
+  },
+);
+
+nodeTest(
   "createTest(): supports subtests created from a test context",
   { skip: skipNestedNodeTest },
   async () => {
