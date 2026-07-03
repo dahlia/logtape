@@ -95,6 +95,9 @@ test("case", reporter.wrap(async () => {
 The root `@logtape/testing` entry point re-exports both utilities for
 compatibility, but new code can import `@logtape/testing/recorder` or
 `@logtape/testing/reporter` to depend on only the relevant API surface.
+Use `getFailureLogReporterOptionsFromEnv()` when an integration needs to parse
+`LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` from a runtime-supplied
+environment variable getter.
 
 
 Docs

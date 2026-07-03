@@ -35,6 +35,9 @@ To be released.
         methods.
      -  Added `FailureLogReporterOptions` interface with `mode`,
         `lowestLevel`, `sink`, and `formatter` options.
+     -  Added `getFailureLogReporterOptionsFromEnv()` function and
+        `FailureLogReporterEnvOptions` interface for parsing reporter options
+        from runtime-supplied environment variable readers.
      -  Added `FailureLogReportMode` type.
      -  Added `@logtape/testing/recorder` and
         `@logtape/testing/reporter` subpath exports while keeping the root
@@ -42,6 +45,99 @@ To be released.
 
 [#186]: https://github.com/dahlia/logtape/issues/186
 [#190]: https://github.com/dahlia/logtape/pull/190
+
+### @logtape/testing-bun
+
+ -  Added new *@logtape/testing-bun* package for using the failure log
+    reporter with Bun's built-in `bun:test` runner.  [[#187], [#191]]
+
+     -  Added `test` and `it` exports that wrap test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-bun/autoload` subpath export for automatically
+        configuring the minimal `Config.contextLocalStorage` required by the
+        reporter when LogTape has not been configured yet.  It can read
+        `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to configure its
+        default reporter.
+     -  Added `createTest()` and `createIt()` functions for configuring
+        reporter options such as `lowestLevel`, `mode`, `sink`, and
+        `formatter`.
+     -  Preserved Bun test options such as `retry`, `repeats`, and `timeout`,
+        and runtime-provided shorthand helpers such as `test.skip()`,
+        `test.todo()`,
+        `test.only()`, `test.if()`, `test.skipIf()`, `test.todoIf()`,
+        `test.failing()`, `test.concurrent()`, `test.serial()`, and
+        `test.each()`, including callback-style tests.
+     -  Re-exported Bun test runner helpers such as `describe()`,
+        `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
+        `expect`, `expectTypeOf`, `mock()`, `spyOn()`, `jest`, `vi`,
+        `xdescribe()`, `xit()`, and `xtest()`.
+
+[#187]: https://github.com/dahlia/logtape/issues/187
+[#191]: https://github.com/dahlia/logtape/pull/191
+
+### @logtape/testing-deno
+
+ -  Added new *@logtape/testing-deno* package for using the failure log
+    reporter with Deno's built-in `Deno.test()` runner.  [[#187], [#191]]
+
+     -  Added `test` export that wraps test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-deno/autoload` subpath export for
+        automatically configuring the minimal `Config.contextLocalStorage`
+        required by the reporter when LogTape has not been configured yet.  It
+        can read `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to
+        configure its default reporter when env access is granted.
+     -  Added `createTest()` function for configuring reporter options such as
+        `lowestLevel`, `mode`, `sink`, and `formatter`.
+     -  Preserved Deno test options and runtime-provided shorthand helpers
+        such as `test.ignore()`, `test.only()`, and `test.each()`.
+     -  Wrapped `TestContext.step()` callbacks and re-exported Deno test hooks
+        such as `beforeAll()`, `beforeEach()`, `afterEach()`, and `afterAll()`.
+
+### @logtape/testing-node
+
+ -  Added new *@logtape/testing-node* package for using the failure log
+    reporter with Node.js' built-in `node:test` runner.  [[#187], [#191]]
+
+     -  Added `test` and `it` exports that wrap test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-node/autoload` subpath export for automatically
+        configuring the minimal `Config.contextLocalStorage` required by the
+        reporter when LogTape has not been configured yet.  It can read
+        `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to configure its
+        default reporter.
+     -  Added `createTest()` and `createIt()` functions for configuring
+        reporter options such as `lowestLevel`, `mode`, `sink`, and
+        `formatter`.
+     -  Preserved Node.js test options and shorthand helpers such as
+        `test.only()`, `test.skip()`, and `test.todo()`, including
+        callback-style tests.
+     -  Re-exported Node.js test runner helpers such as `describe()`,
+        `before()`, `after()`, `beforeEach()`, and `afterEach()`.
+
+### @logtape/testing-vitest
+
+ -  Added new *@logtape/testing-vitest* package for using the failure log
+    reporter with Vitest.  [[#187], [#191]]
+
+     -  Added `test` and `it` exports that wrap test callbacks with
+        `createFailureLogReporter()`.
+     -  Added `@logtape/testing-vitest/autoload` subpath export for
+        automatically configuring the minimal `Config.contextLocalStorage`
+        required by the reporter when LogTape has not been configured yet.  It
+        can read `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to
+        configure its default reporter.
+     -  Added `createTest()`, `createIt()`, and `createVitest()` functions for
+        configuring reporter options such as `lowestLevel`, `mode`, `sink`,
+        and `formatter`.
+     -  Preserved Vitest test options and shorthand helpers such as
+        `test.skip()`, `test.todo()`, `test.only()`, `test.fails()`,
+        `test.concurrent()`, `test.sequential()`, `test.skipIf()`,
+        `test.runIf()`, `test.each()`, `test.for()`, and `test.extend()`.
+     -  Re-exported Vitest helpers such as `describe()`, `suite()`,
+        `beforeAll()`, `beforeEach()`, `afterEach()`, `afterAll()`,
+        `aroundAll()`, `aroundEach()`, `expect`, `expectTypeOf`, `vi`,
+        `vitest`, `bench()`, `onTestFailed()`, and `onTestFinished()`.
 
 ### @logtape/file
 

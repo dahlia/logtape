@@ -1,0 +1,74 @@
+{
+  "name": "@logtape/testing-vitest",
+  "version": "2.3.0",
+  "description": "Vitest integration for LogTape failure log reporting",
+  "keywords": [
+    "logging",
+    "log",
+    "logger",
+    "logtape",
+    "testing",
+    "test",
+    "vitest"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://logtape.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/logtape.git",
+    "directory": "packages/testing-vitest/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/logtape/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "type": "module",
+  "module": "./dist/mod.js",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/mod.d.ts",
+      "import": "./dist/mod.js"
+    },
+    "./autoload": {
+      "types": "./dist/autoload.d.ts",
+      "import": "./dist/autoload.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "./dist/autoload.js"
+  ],
+  "files": [
+    "dist/"
+  ],
+  "dependencies": {
+    "@logtape/testing": "workspace:^"
+  },
+  "peerDependencies": {
+    "@logtape/logtape": "workspace:^",
+    "vitest": "catalog:"
+  },
+  "devDependencies": {
+    "@logtape/logtape": "workspace:^",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test",
+    "test:deno": "deno test --allow-read --allow-write --allow-env --allow-run=pnpm",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test --allow-read --allow-write --allow-env --allow-run=pnpm"
+  }
+}

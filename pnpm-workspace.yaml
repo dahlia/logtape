@@ -19,6 +19,9 @@ packages:
 - packages/sentry
 - packages/syslog
 - packages/testing
+- packages/testing-bun
+- packages/testing-node
+- packages/testing-vitest
 - packages/cloudwatch-logs
 - packages/config
 - packages/windows-eventlog
@@ -48,6 +51,7 @@ catalog:
   "@std/async": jsr:^1.0.13
   "@std/dotenv": jsr:^0.225.5
   "@std/path": jsr:^1.1.0
+  "@types/bun": ^1.2.15
   "@types/express": ^5.0.6
   "@types/koa": ^2.15.0
   consolemock: ^1.1.0
@@ -62,6 +66,7 @@ catalog:
   koa: ^2.16.1
   tsdown: ^0.12.7
   typescript: ^5.8.3
+  vitest: ^4.1.6
 
 ignoredBuiltDependencies:
 - koffi

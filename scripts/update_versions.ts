@@ -20,11 +20,18 @@ for (const member of metadata.workspace) {
     await Deno.writeTextFile(file, `${JSON.stringify(data, undefined, 2)}\n`);
   }
 
-  const file2 = join(root, member, "package.json");
-  const json2 = await Deno.readTextFile(file2);
-  const data2 = JSON.parse(json2);
-  if ("version" in data2) {
-    data2.version = version;
-    await Deno.writeTextFile(file2, `${JSON.stringify(data2, undefined, 2)}\n`);
+  const packageJson = join(root, member, "package.json");
+  try {
+    const json2 = await Deno.readTextFile(packageJson);
+    const data2 = JSON.parse(json2);
+    if ("version" in data2) {
+      data2.version = version;
+      await Deno.writeTextFile(
+        packageJson,
+        `${JSON.stringify(data2, undefined, 2)}\n`,
+      );
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
   }
 }

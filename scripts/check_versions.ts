@@ -12,11 +12,15 @@ for (const member of metadata.workspace) {
     versions[join(member, "deno.json")] = data.version;
   }
 
-  const file2 = join(root, member, "package.json");
-  const json2 = await Deno.readTextFile(file2);
-  const data2 = JSON.parse(json2);
-  if ("version" in data2) {
-    versions[join(member, "package.json")] = data2.version;
+  const packageJson = join(root, member, "package.json");
+  try {
+    const json2 = await Deno.readTextFile(packageJson);
+    const data2 = JSON.parse(json2);
+    if ("version" in data2) {
+      versions[join(member, "package.json")] = data2.version;
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
   }
 }
 let version: string | undefined;

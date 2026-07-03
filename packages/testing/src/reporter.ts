@@ -2,6 +2,7 @@ import {
   getConsoleSink,
   type LogLevel,
   type LogRecord,
+  parseLogLevel,
   type Sink,
   type TextFormatter,
   withConfig,
@@ -44,6 +45,26 @@ export interface FailureLogReporterOptions {
    * The text formatter used by the default console sink.
    */
   readonly formatter?: TextFormatter;
+}
+
+/**
+ * Options for {@link getFailureLogReporterOptionsFromEnv}.
+ *
+ * @since 2.3.0
+ */
+export interface FailureLogReporterEnvOptions {
+  /**
+   * Reads an environment variable by name.
+   *
+   * The caller supplies this function so the shared parser can stay
+   * runtime-agnostic.
+   */
+  readonly getEnv: (name: string) => string | undefined;
+
+  /**
+   * The environment variable prefix.  Defaults to `"LOGTAPE_TEST_"`.
+   */
+  readonly prefix?: string;
 }
 
 /**
@@ -157,9 +178,51 @@ export function createFailureLogReporter(
   };
 }
 
+/**
+ * Reads failure log reporter options from environment variables.
+ *
+ * This helper parses `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` by
+ * default.  It does not access the environment directly; pass a runtime
+ * specific `getEnv` callback such as `(name) => process.env[name]`.
+ *
+ * @param options Environment parsing options.
+ * @returns Reporter options parsed from the environment.
+ * @throws {TypeError} If an environment variable has an invalid value.
+ * @since 2.3.0
+ */
+export function getFailureLogReporterOptionsFromEnv(
+  options: FailureLogReporterEnvOptions,
+): FailureLogReporterOptions {
+  const prefix = options.prefix ?? "LOGTAPE_TEST_";
+  const reporterOptions: {
+    mode?: FailureLogReportMode;
+    lowestLevel?: LogLevel;
+  } = {};
+  const mode = options.getEnv(`${prefix}MODE`);
+  if (mode != null) {
+    reporterOptions.mode = parseFailureLogReportMode(mode);
+  }
+  const lowestLevel = options.getEnv(`${prefix}LOWEST_LEVEL`);
+  if (lowestLevel != null) {
+    reporterOptions.lowestLevel = parseLogLevel(lowestLevel.trim());
+  }
+  return reporterOptions;
+}
+
 function flushRecords(
   records: readonly LogRecord[],
   sink: Sink,
 ): void {
   for (const record of records) sink(record);
+}
+
+function parseFailureLogReportMode(mode: string): FailureLogReportMode {
+  switch (mode.trim().toLowerCase()) {
+    case "on-failure":
+    case "always":
+    case "never":
+      return mode.trim().toLowerCase() as FailureLogReportMode;
+    default:
+      throw new TypeError(`Invalid failure log report mode: ${mode}.`);
+  }
 }
