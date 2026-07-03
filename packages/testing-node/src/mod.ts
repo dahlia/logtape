@@ -310,7 +310,7 @@ function wrapNodeCallback(
     };
   }
 
-  return function (this: unknown, context: TestContext): Promise<unknown> {
+  return function (this: unknown, context: TestContext): unknown {
     return wrap(() => Reflect.apply(callback, this, [context]))();
   };
 }

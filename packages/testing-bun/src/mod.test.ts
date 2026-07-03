@@ -399,6 +399,45 @@ test("createTest(): supports done callbacks in test.each()", async () => {
   assert.match(result.output, /reported:Each done diagnostic\./);
 });
 
+test("createTest(): preserves long test.each() callback arity", async () => {
+  const result = await runBunTest(`
+    import { AsyncLocalStorage } from "node:async_hooks";
+    import {
+      configureSync,
+      getLogger,
+    } from ${JSON.stringify(logtapeSpecifier)};
+    import { createTest } from ${JSON.stringify(modUrl)};
+
+    configureSync({
+      contextLocalStorage: new AsyncLocalStorage(),
+      sinks: {},
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    });
+
+    const test = createTest({
+      mode: "always",
+      sink: (record) => report("reported:" + record.rawMessage),
+    });
+
+    test.each([[1, 2, 3, 4]])(
+      "case %#",
+      (a, b, c, d, done) => {
+        if ([a, b, c, d].join(",") !== "1,2,3,4") {
+          done(new Error("wrong values"));
+          return;
+        }
+        setTimeout(() => {
+          getLogger(["app"]).info("Long each done diagnostic.");
+          done();
+        }, 0);
+      },
+    );
+  `);
+
+  assertSuccess(result);
+  assert.match(result.output, /reported:Long each done diagnostic\./);
+});
+
 test("createTest(): wraps the it() alias", async () => {
   const result = await runBunTest(`
     import { AsyncLocalStorage } from "node:async_hooks";

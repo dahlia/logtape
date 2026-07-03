@@ -16,11 +16,11 @@ import { test } from "@logtape/testing-deno/autoload";
 import { getLogger } from "@logtape/logtape";
 
 test("case", () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // The debug log is reported only if this test fails.
+  // The info log is reported only if this test fails.
 });
 ~~~~
 

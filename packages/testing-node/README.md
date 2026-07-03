@@ -38,11 +38,11 @@ import { test } from "@logtape/testing-node/autoload";
 import { getLogger } from "@logtape/logtape";
 
 test("case", async () => {
-  getLogger(["my-lib"]).debug("Fixture state: {state}.", {
+  getLogger(["my-lib"]).info("Fixture state: {state}.", {
     state: "ready",
   });
 
-  // Logs emitted here are printed only if this callback fails.
+  // The info log is printed only if this callback fails.
 });
 ~~~~
 

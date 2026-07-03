@@ -117,6 +117,10 @@ interface BunEachRegisterFunction {
 type BunDoneCallback = (error?: unknown) => void;
 type AnyFunction = (...args: never[]) => unknown;
 type BunFunction = (...args: unknown[]) => unknown;
+type BunEachInvoker = (
+  thisArg: unknown,
+  args: readonly unknown[],
+) => unknown;
 type ExpectTypeOfFunction = (...args: unknown[]) => unknown;
 type OnTestFinishedFunction = (callback: () => unknown) => void;
 type BaseBunTestFunction = AnyFunction & {
@@ -414,7 +418,7 @@ function wrapBunTestCallback(
     };
   }
 
-  return function (this: unknown): Promise<unknown> {
+  return function (this: unknown): unknown {
     return reporter.run(() => Reflect.apply(callback, this, []));
   };
 }
@@ -434,47 +438,24 @@ function wrapBunEachCallback(
       maxCaseArgumentCount,
     );
 
-  switch (callback.length) {
-    case 0:
-      return function (this: unknown): unknown {
-        return invoke(this, Array.from(arguments));
-      };
-    case 1:
-      return function (this: unknown, _arg0: unknown): unknown {
-        return invoke(this, Array.from(arguments));
-      };
-    case 2:
-      return function (
-        this: unknown,
-        _arg0: unknown,
-        _arg1: unknown,
-      ): unknown {
-        return invoke(this, Array.from(arguments));
-      };
-    case 3:
-      return function (
-        this: unknown,
-        _arg0: unknown,
-        _arg1: unknown,
-        _arg2: unknown,
-      ): unknown {
-        return invoke(this, Array.from(arguments));
-      };
-    case 4:
-      return function (
-        this: unknown,
-        _arg0: unknown,
-        _arg1: unknown,
-        _arg2: unknown,
-        _arg3: unknown,
-      ): unknown {
-        return invoke(this, Array.from(arguments));
-      };
-    default:
-      return function (this: unknown, ...args: never[]): unknown {
-        return invoke(this, args);
-      };
-  }
+  return createArityPreservingFunction(callback.length, invoke);
+}
+
+function createArityPreservingFunction(
+  length: number,
+  invoke: BunEachInvoker,
+): AnyFunction {
+  const parameters = Array.from(
+    { length },
+    (_, index) => `arg${index}`,
+  ).join(", ");
+  const createFunction = Function(
+    "invoke",
+    `return function (${parameters}) {` +
+      " return invoke(this, Array.from(arguments));" +
+      " };",
+  ) as (invoke: BunEachInvoker) => AnyFunction;
+  return createFunction(invoke);
 }
 
 function runBunEachCallback(
