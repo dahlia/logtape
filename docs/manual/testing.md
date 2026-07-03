@@ -226,7 +226,9 @@ Set `mode: "always"` to report buffered records even when the callback passes,
 or `mode: "never"` to suppress reporting while keeping the shared wrapper in
 place.  By default the reporter writes formatted records to the console; pass
 `sink` to report records elsewhere, or `formatter` to customize the default
-console output.
+console output.  Use `getFailureLogReporterOptionsFromEnv()` when you want to
+parse `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` through a
+runtime-specific environment variable getter.
 
 
 Deno test runner integration
@@ -268,6 +270,14 @@ The autoload entry point leaves an existing LogTape configuration alone when
 that configuration already provides `~Config.contextLocalStorage`.  If LogTape
 has already been configured without `~Config.contextLocalStorage`, autoload
 throws an error instead of replacing the existing configuration.
+
+Set `LOGTAPE_TEST_MODE` to `on-failure`, `always`, or `never`, and
+`LOGTAPE_TEST_LOWEST_LEVEL` to a LogTape level such as `debug` or `info` to
+configure the default reporter used by the autoload `test` export.  In Deno,
+grant env access with
+`--allow-env=LOGTAPE_TEST_MODE,LOGTAPE_TEST_LOWEST_LEVEL` to avoid permission
+prompts and CI failures.  If env access is denied, or if Deno cannot prompt
+for it, autoload treats the variables as unset.
 
 ### Shared preload module
 
@@ -413,6 +423,10 @@ The autoload entry point leaves an existing LogTape configuration alone when
 that configuration already provides `~Config.contextLocalStorage`.  If LogTape
 has already been configured without `~Config.contextLocalStorage`, autoload
 throws an error instead of replacing the existing configuration.
+
+Set `LOGTAPE_TEST_MODE` to `on-failure`, `always`, or `never`, and
+`LOGTAPE_TEST_LOWEST_LEVEL` to a LogTape level such as `debug` or `info` to
+configure the default reporter used by the autoload `test` and `it` exports.
 
 ### Shared preload module
 
@@ -577,6 +591,10 @@ The autoload entry point leaves an existing LogTape configuration alone when
 that configuration already provides `~Config.contextLocalStorage`.  If LogTape
 has already been configured without `~Config.contextLocalStorage`, autoload
 throws an error instead of replacing the existing configuration.
+
+Set `LOGTAPE_TEST_MODE` to `on-failure`, `always`, or `never`, and
+`LOGTAPE_TEST_LOWEST_LEVEL` to a LogTape level such as `debug` or `info` to
+configure the default reporter used by the autoload `test` and `it` exports.
 
 ### Shared preload module
 
@@ -752,6 +770,10 @@ The autoload entry point leaves an existing LogTape configuration alone when
 that configuration already provides `~Config.contextLocalStorage`.  If LogTape
 has already been configured without `~Config.contextLocalStorage`, autoload
 throws an error instead of replacing the existing configuration.
+
+Set `LOGTAPE_TEST_MODE` to `on-failure`, `always`, or `never`, and
+`LOGTAPE_TEST_LOWEST_LEVEL` to a LogTape level such as `debug` or `info` to
+configure the default reporter used by the autoload `test` and `it` exports.
 
 ### Shared setup file
 

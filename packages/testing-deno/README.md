@@ -29,6 +29,13 @@ by the reporter when LogTape has not already been configured.  If you prefer
 explicit setup, configure LogTape once from a shared Deno `--preload` module
 and import `test` from `@logtape/testing-deno`.
 
+Set `LOGTAPE_TEST_MODE` to `on-failure`, `always`, or `never`, and
+`LOGTAPE_TEST_LOWEST_LEVEL` to a LogTape level such as `debug` or `info` to
+configure the default reporter used by the autoload `test` export.  Grant env
+access with `--allow-env=LOGTAPE_TEST_MODE,LOGTAPE_TEST_LOWEST_LEVEL` to avoid
+permission prompts and CI failures.  If env access is denied, or if Deno
+cannot prompt for it, autoload treats the variables as unset.
+
 The adapter preserves Deno test options and helpers such as `test.ignore()`,
 `test.only()`, runtime-provided `test.each()`, `beforeAll()`, and
 `beforeEach()`, and wraps `TestContext.step()` callbacks so logs from failed

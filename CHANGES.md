@@ -35,6 +35,9 @@ To be released.
         methods.
      -  Added `FailureLogReporterOptions` interface with `mode`,
         `lowestLevel`, `sink`, and `formatter` options.
+     -  Added `getFailureLogReporterOptionsFromEnv()` function and
+        `FailureLogReporterEnvOptions` interface for parsing reporter options
+        from runtime-supplied environment variable readers.
      -  Added `FailureLogReportMode` type.
      -  Added `@logtape/testing/recorder` and
         `@logtape/testing/reporter` subpath exports while keeping the root
@@ -52,7 +55,9 @@ To be released.
         `createFailureLogReporter()`.
      -  Added `@logtape/testing-bun/autoload` subpath export for automatically
         configuring the minimal `Config.contextLocalStorage` required by the
-        reporter when LogTape has not been configured yet.
+        reporter when LogTape has not been configured yet.  It can read
+        `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to configure its
+        default reporter.
      -  Added `createTest()` and `createIt()` functions for configuring
         reporter options such as `lowestLevel`, `mode`, `sink`, and
         `formatter`.
@@ -79,7 +84,9 @@ To be released.
         `createFailureLogReporter()`.
      -  Added `@logtape/testing-deno/autoload` subpath export for
         automatically configuring the minimal `Config.contextLocalStorage`
-        required by the reporter when LogTape has not been configured yet.
+        required by the reporter when LogTape has not been configured yet.  It
+        can read `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to
+        configure its default reporter when env access is granted.
      -  Added `createTest()` function for configuring reporter options such as
         `lowestLevel`, `mode`, `sink`, and `formatter`.
      -  Preserved Deno test options and runtime-provided shorthand helpers
@@ -96,7 +103,9 @@ To be released.
         `createFailureLogReporter()`.
      -  Added `@logtape/testing-node/autoload` subpath export for automatically
         configuring the minimal `Config.contextLocalStorage` required by the
-        reporter when LogTape has not been configured yet.
+        reporter when LogTape has not been configured yet.  It can read
+        `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to configure its
+        default reporter.
      -  Added `createTest()` and `createIt()` functions for configuring
         reporter options such as `lowestLevel`, `mode`, `sink`, and
         `formatter`.
@@ -115,7 +124,9 @@ To be released.
         `createFailureLogReporter()`.
      -  Added `@logtape/testing-vitest/autoload` subpath export for
         automatically configuring the minimal `Config.contextLocalStorage`
-        required by the reporter when LogTape has not been configured yet.
+        required by the reporter when LogTape has not been configured yet.  It
+        can read `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` to
+        configure its default reporter.
      -  Added `createTest()`, `createIt()`, and `createVitest()` functions for
         configuring reporter options such as `lowestLevel`, `mode`, `sink`,
         and `formatter`.

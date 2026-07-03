@@ -58,6 +58,10 @@ LogTape, that configuration must include `contextLocalStorage`; otherwise, use
 `@logtape/testing-vitest` and manage setup explicitly from Vitest's
 `setupFiles` option.
 
+Set `LOGTAPE_TEST_MODE` to `on-failure`, `always`, or `never`, and
+`LOGTAPE_TEST_LOWEST_LEVEL` to a LogTape level such as `debug` or `info` to
+configure the default reporter used by the autoload `test` and `it` exports.
+
 Use `createTest()` when a suite needs custom reporter options:
 
 ~~~~ typescript

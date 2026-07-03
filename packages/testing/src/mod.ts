@@ -7,6 +7,8 @@ export {
 export {
   createFailureLogReporter,
   type FailureLogReporter,
+  type FailureLogReporterEnvOptions,
   type FailureLogReporterOptions,
   type FailureLogReportMode,
+  getFailureLogReporterOptionsFromEnv,
 } from "./reporter.ts";

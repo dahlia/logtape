@@ -6,32 +6,28 @@ import {
   type ContextLocalStorage,
   getConfig,
 } from "@logtape/logtape";
+import {
+  type FailureLogReporterOptions,
+  getFailureLogReporterOptionsFromEnv,
+} from "@logtape/testing/reporter";
 
 import {
   afterAll,
   afterEach,
   beforeAll,
   beforeEach,
-  concurrent,
+  type BunTestFunction,
   createIt,
   createTest,
-  default as test,
   describe,
-  each,
   expect,
   expectTypeOf,
-  failing,
-  it,
   jest,
   mock,
-  only,
   onTestFinished,
-  serial,
   setDefaultTimeout,
   setSystemTime,
-  skip,
   spyOn,
-  todo,
   vi,
   xdescribe,
   xit,
@@ -64,6 +60,20 @@ if (config == null) {
       "configuration to provide contextLocalStorage.",
   );
 }
+
+const reporterOptions: FailureLogReporterOptions =
+  getFailureLogReporterOptionsFromEnv({
+    getEnv: (name) => process.env[name],
+  });
+const test: BunTestFunction = createTest(reporterOptions);
+const it: BunTestFunction = createIt(reporterOptions);
+const concurrent: BunTestFunction["concurrent"] = test.concurrent;
+const each: BunTestFunction["each"] = test.each;
+const failing: BunTestFunction["failing"] = test.failing;
+const only: BunTestFunction["only"] = test.only;
+const serial: BunTestFunction["serial"] = test.serial;
+const skip: BunTestFunction["skip"] = test.skip;
+const todo: BunTestFunction["todo"] = test.todo;
 
 export {
   afterAll,

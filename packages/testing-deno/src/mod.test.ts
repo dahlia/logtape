@@ -413,9 +413,39 @@ Deno.test("autoload: rejects existing configuration without contextLocalStorage"
   assert.strictEqual(result.code, 0);
 });
 
+Deno.test("autoload: validates reporter options from environment variables", async () => {
+  const result = await runDenoTest(
+    `
+      import assert from "node:assert/strict";
+
+      Deno.test("invalid autoload env", async () => {
+        await assert.rejects(
+          import(${JSON.stringify(autoloadUrl + "?invalid-env")}),
+          /Invalid failure log report mode/,
+        );
+      });
+    `,
+    {
+      allowEnv: true,
+      env: {
+        LOGTAPE_TEST_MODE: "sometimes",
+        LOGTAPE_TEST_LOWEST_LEVEL: "debug",
+      },
+    },
+  );
+
+  assertSuccess(result);
+});
+
 // Helpers
 
-async function runDenoTest(source: string): Promise<{
+async function runDenoTest(
+  source: string,
+  options: {
+    readonly allowEnv?: boolean;
+    readonly env?: Readonly<Record<string, string>>;
+  } = {},
+): Promise<{
   readonly code: number;
   readonly output: string;
 }> {
@@ -436,17 +466,24 @@ async function runDenoTest(source: string): Promise<{
         }
       ` + source,
     );
+    const args = [
+      "test",
+      "--quiet",
+      "--config",
+      join(repositoryRoot, "deno.json"),
+      "--allow-read",
+      "--allow-write",
+    ];
+    if (options.allowEnv === true) {
+      args.push("--allow-env=LOGTAPE_TEST_MODE,LOGTAPE_TEST_LOWEST_LEVEL");
+    }
+    args.push(testFile);
     const command = new Deno.Command("deno", {
       args: [
-        "test",
-        "--quiet",
-        "--config",
-        join(repositoryRoot, "deno.json"),
-        "--allow-read",
-        "--allow-write",
-        testFile,
+        ...args,
       ],
       cwd: packageRoot,
+      env: options.env,
       stdout: "piped",
       stderr: "piped",
     });

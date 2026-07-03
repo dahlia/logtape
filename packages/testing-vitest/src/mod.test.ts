@@ -552,6 +552,26 @@ test("autoload: rejects existing configuration without contextLocalStorage", asy
   assertSuccess(result);
 });
 
+test("autoload: validates reporter options from environment variables", async () => {
+  const result = await runVitestTest(
+    `
+      import { expect, test } from "vitest";
+
+      test("invalid autoload env", async () => {
+        await expect(
+          import(${JSON.stringify(autoloadUrl + "?invalid-env")})
+        ).rejects.toThrow(/Invalid failure log report mode/);
+      });
+    `,
+    {
+      LOGTAPE_TEST_MODE: "sometimes",
+      LOGTAPE_TEST_LOWEST_LEVEL: "debug",
+    },
+  );
+
+  assertSuccess(result);
+});
+
 test("createTest(): exposes Vitest test helpers", async () => {
   const result = await runVitestTest(`
     import { expect, test as vitestTest } from "vitest";
@@ -612,7 +632,10 @@ test("createTest(): exposes Vitest test helpers", async () => {
 
 // Helpers
 
-async function runVitestTest(source: string): Promise<{
+async function runVitestTest(
+  source: string,
+  env: Readonly<Record<string, string>> = {},
+): Promise<{
   readonly code: number;
   readonly output: string;
 }> {
@@ -635,6 +658,7 @@ async function runVitestTest(source: string): Promise<{
     const output = await runPnpm(
       ["exec", "vitest", "run", "--allowOnly", testFile],
       packageRoot,
+      env,
     );
     let reportOutput = "";
     try {
@@ -654,6 +678,7 @@ async function runVitestTest(source: string): Promise<{
 async function runPnpm(
   args: readonly string[],
   cwd: string,
+  env: Readonly<Record<string, string>> = {},
 ): Promise<
   { readonly code: number; readonly stdout: string; readonly stderr: string }
 > {
@@ -663,6 +688,7 @@ async function runPnpm(
       env: {
         ...process.env,
         NO_COLOR: "1",
+        ...env,
       },
     });
     return { code: 0, stdout, stderr };

@@ -16,7 +16,10 @@ import { redactByField } from "@logtape/redaction";
 
 import { createLogRecorder } from "./recorder.ts";
 import type { LogRecordMatch, PropertyMatcher } from "./recorder.ts";
-import { createFailureLogReporter } from "./reporter.ts";
+import {
+  createFailureLogReporter,
+  getFailureLogReporterOptionsFromEnv,
+} from "./reporter.ts";
 
 test("createLogRecorder() stores records in order", () => {
   const recorder = createLogRecorder();
@@ -1137,6 +1140,66 @@ test("FailureLogReporter honors always and never report modes", async () => {
   } finally {
     await reset();
   }
+});
+
+test("getFailureLogReporterOptionsFromEnv() parses reporter options", () => {
+  const env = new Map([
+    ["LOGTAPE_TEST_MODE", " ALWAYS "],
+    ["LOGTAPE_TEST_LOWEST_LEVEL", " DEBUG "],
+  ]);
+
+  assert.deepStrictEqual(
+    getFailureLogReporterOptionsFromEnv({
+      getEnv: (name) => env.get(name),
+    }),
+    { mode: "always", lowestLevel: "debug" },
+  );
+});
+
+test("getFailureLogReporterOptionsFromEnv() supports custom prefixes", () => {
+  const env = new Map([
+    ["MY_TEST_MODE", "never"],
+    ["MY_TEST_LOWEST_LEVEL", "warning"],
+  ]);
+
+  assert.deepStrictEqual(
+    getFailureLogReporterOptionsFromEnv({
+      getEnv: (name) => env.get(name),
+      prefix: "MY_TEST_",
+    }),
+    { mode: "never", lowestLevel: "warning" },
+  );
+});
+
+test("getFailureLogReporterOptionsFromEnv() ignores missing variables", () => {
+  assert.deepStrictEqual(
+    getFailureLogReporterOptionsFromEnv({
+      getEnv: () => undefined,
+    }),
+    {},
+  );
+});
+
+test("getFailureLogReporterOptionsFromEnv() rejects invalid mode", () => {
+  assert.throws(
+    () =>
+      getFailureLogReporterOptionsFromEnv({
+        getEnv: (name) =>
+          name === "LOGTAPE_TEST_MODE" ? "sometimes" : undefined,
+      }),
+    TypeError,
+  );
+});
+
+test("getFailureLogReporterOptionsFromEnv() rejects invalid lowest level", () => {
+  assert.throws(
+    () =>
+      getFailureLogReporterOptionsFromEnv({
+        getEnv: (name) =>
+          name === "LOGTAPE_TEST_LOWEST_LEVEL" ? "verbose" : undefined,
+      }),
+    TypeError,
+  );
 });
 
 test("FailureLogReporter flushes records outside scoped capture", async () => {

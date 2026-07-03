@@ -6,6 +6,10 @@ import {
   type ContextLocalStorage,
   getConfig,
 } from "@logtape/logtape";
+import {
+  type FailureLogReporterOptions,
+  getFailureLogReporterOptionsFromEnv,
+} from "@logtape/testing/reporter";
 
 import {
   afterAll,
@@ -17,30 +21,21 @@ import {
   beforeEach,
   bench,
   chai,
-  concurrent,
   createExpect,
   createIt,
   createTest,
   createVitest,
-  default as test,
   describe,
-  each,
   expect,
   expectTypeOf,
-  fails,
-  for as for_,
   inject,
-  it,
-  only,
   onTestFailed,
   onTestFinished,
-  sequential,
   should,
-  skip,
   suite,
-  todo,
   vi,
   vitest,
+  type VitestTestFunction,
 } from "./mod.ts";
 
 export type {
@@ -71,6 +66,21 @@ if (config == null) {
       "configuration to provide contextLocalStorage.",
   );
 }
+
+const reporterOptions: FailureLogReporterOptions =
+  getFailureLogReporterOptionsFromEnv({
+    getEnv: (name) => process.env[name],
+  });
+const test: VitestTestFunction = createTest(reporterOptions);
+const it: VitestTestFunction = createIt(reporterOptions);
+const concurrent: VitestTestFunction["concurrent"] = test.concurrent;
+const each: VitestTestFunction["each"] = test.each;
+const fails: VitestTestFunction["fails"] = test.fails;
+const for_: VitestTestFunction["for"] = test.for;
+const only: VitestTestFunction["only"] = test.only;
+const sequential: VitestTestFunction["sequential"] = test.sequential;
+const skip: VitestTestFunction["skip"] = test.skip;
+const todo: VitestTestFunction["todo"] = test.todo;
 
 export {
   afterAll,

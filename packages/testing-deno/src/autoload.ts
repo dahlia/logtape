@@ -6,6 +6,10 @@ import {
   type ContextLocalStorage,
   getConfig,
 } from "@logtape/logtape";
+import {
+  type FailureLogReporterOptions,
+  getFailureLogReporterOptionsFromEnv,
+} from "@logtape/testing/reporter";
 
 import {
   afterAll,
@@ -13,10 +17,7 @@ import {
   beforeAll,
   beforeEach,
   createTest,
-  default as test,
-  each,
-  ignore,
-  only,
+  type DenoTestFunction,
   sanitizer,
 } from "./mod.ts";
 
@@ -47,6 +48,21 @@ if (config == null) {
     "@logtape/testing-deno/autoload requires the existing LogTape " +
       "configuration to provide contextLocalStorage.",
   );
+}
+
+const reporterOptions: FailureLogReporterOptions =
+  getFailureLogReporterOptionsFromEnv({ getEnv });
+const test: DenoTestFunction = createTest(reporterOptions);
+const each: DenoTestFunction["each"] = test.each;
+const ignore: DenoTestFunction["ignore"] = test.ignore;
+const only: DenoTestFunction["only"] = test.only;
+
+function getEnv(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
 }
 
 export {

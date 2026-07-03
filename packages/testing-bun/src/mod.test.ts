@@ -528,6 +528,26 @@ test("autoload: rejects existing configuration without contextLocalStorage", asy
   assertSuccess(result);
 });
 
+test("autoload: reads reporter options from environment variables", async () => {
+  const result = await runBunTest(
+    `
+      import { getLogger } from ${JSON.stringify(logtapeSpecifier)};
+      import { test } from ${JSON.stringify(autoloadUrl)};
+
+      test("autoload env options", () => {
+        getLogger(["app"]).debug("Autoload env diagnostic.");
+      });
+    `,
+    {
+      LOGTAPE_TEST_MODE: "always",
+      LOGTAPE_TEST_LOWEST_LEVEL: "debug",
+    },
+  );
+
+  assertSuccess(result);
+  assert.match(result.output, /Autoload env diagnostic\./);
+});
+
 test("createTest(): exposes Bun test helpers", async () => {
   const result = await runBunTest(`
     import { expect, test as bunTest } from "bun:test";
@@ -585,7 +605,10 @@ test("createTest(): exposes Bun test helpers", async () => {
 
 // Helpers
 
-async function runBunTest(source: string): Promise<{
+async function runBunTest(
+  source: string,
+  env: Readonly<Record<string, string>> = {},
+): Promise<{
   readonly code: number;
   readonly output: string;
 }> {
@@ -605,7 +628,7 @@ async function runBunTest(source: string): Promise<{
       ` + source,
     );
 
-    const output = await runBun(["test", testFile], packageRoot);
+    const output = await runBun(["test", testFile], packageRoot, env);
     let reportOutput = "";
     try {
       reportOutput = await readFile(reportFile, "utf8");
@@ -624,6 +647,7 @@ async function runBunTest(source: string): Promise<{
 async function runBun(
   args: readonly string[],
   cwd: string,
+  env: Readonly<Record<string, string>> = {},
 ): Promise<
   { readonly code: number; readonly stdout: string; readonly stderr: string }
 > {
@@ -633,6 +657,7 @@ async function runBun(
       env: {
         ...process.env,
         NO_COLOR: "1",
+        ...env,
       },
     });
     return { code: 0, stdout, stderr };
