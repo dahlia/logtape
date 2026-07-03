@@ -32,6 +32,7 @@
     "npm:@opentelemetry/semantic-conventions@^1.38.0": "1.38.0",
     "npm:@sentry/core@^9.41.0": "9.47.1",
     "npm:@sentry/core@^9.46.0": "9.47.1",
+    "npm:@types/bun@^1.2.15": "1.2.16",
     "npm:@types/bun@^1.2.16": "1.2.16",
     "npm:@types/bunyan@^1.8.11": "1.8.11",
     "npm:@types/express@^5.0.6": "5.0.6",

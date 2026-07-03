@@ -1,3 +1,4 @@
+// @ts-types="npm:@types/bun@^1.2.15"
 import {
   afterAll,
   afterEach,
@@ -13,6 +14,7 @@ import {
   spyOn,
   test as bunTest,
 } from "bun:test";
+// @ts-types="npm:@types/bun@^1.2.15"
 import * as bunTestModule from "bun:test";
 
 import {
