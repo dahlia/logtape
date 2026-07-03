@@ -396,21 +396,7 @@ function wrapBunTestCallback(
   if (callback.length >= 1) {
     return function (this: unknown, done: BunDoneCallback): void {
       const wrapped = reporter.wrap(() =>
-        new Promise<void>((resolve, reject) => {
-          let settled = false;
-          const wrappedDone: BunDoneCallback = (error?: unknown) => {
-            if (settled) return;
-            settled = true;
-            if (error == null) resolve();
-            else reject(error);
-          };
-
-          try {
-            Reflect.apply(callback, this, [wrappedDone]);
-          } catch (error) {
-            reject(error);
-          }
-        })
+        runBunDoneCallback(callback, this, [])
       );
 
       void wrapped().then(
@@ -474,24 +460,7 @@ function runBunEachCallback(
   ) {
     const done = lastArgument as BunDoneCallback;
     void reporter.run(() =>
-      new Promise<void>((resolve, reject) => {
-        let settled = false;
-        const wrappedDone: BunDoneCallback = (error?: unknown) => {
-          if (settled) return;
-          settled = true;
-          if (error == null) resolve();
-          else reject(error);
-        };
-
-        try {
-          Reflect.apply(callback, thisArg, [
-            ...args.slice(0, -1),
-            wrappedDone,
-          ]);
-        } catch (error) {
-          reject(error);
-        }
-      })
+      runBunDoneCallback(callback, thisArg, args.slice(0, -1))
     ).then(
       () => done(),
       (error: unknown) => done(error),
@@ -500,6 +469,45 @@ function runBunEachCallback(
   }
 
   return reporter.run(() => Reflect.apply(callback, thisArg, args));
+}
+
+function runBunDoneCallback(
+  callback: AnyFunction,
+  thisArg: unknown,
+  args: readonly unknown[],
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let callbackReturned = false;
+    let doneCalled = false;
+    let pendingDone = false;
+    let pendingDoneError: unknown;
+    let settled = false;
+    const settle = (error?: unknown): void => {
+      if (settled) return;
+      settled = true;
+      if (error == null) resolve();
+      else reject(error);
+    };
+    const wrappedDone: BunDoneCallback = (error?: unknown) => {
+      if (doneCalled) return;
+      doneCalled = true;
+      if (!callbackReturned) {
+        pendingDone = true;
+        pendingDoneError = error;
+        return;
+      }
+      settle(error);
+    };
+
+    try {
+      Reflect.apply(callback, thisArg, [...args, wrappedDone]);
+      callbackReturned = true;
+      if (pendingDone) settle(pendingDoneError);
+    } catch (error) {
+      callbackReturned = true;
+      reject(error);
+    }
+  });
 }
 
 function getMaxCaseArgumentCount(cases: readonly unknown[]): number {

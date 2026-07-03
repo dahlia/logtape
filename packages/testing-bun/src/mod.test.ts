@@ -207,6 +207,36 @@ test("createTest(): reports asynchronous done callback failures", async () => {
   assert.match(result.output, /reported:Callback diagnostic\./);
 });
 
+test("createTest(): reports throws after synchronous done callbacks", async () => {
+  const result = await runBunTest(`
+    import { AsyncLocalStorage } from "node:async_hooks";
+    import {
+      configureSync,
+      getLogger,
+    } from ${JSON.stringify(logtapeSpecifier)};
+    import { createTest } from ${JSON.stringify(modUrl)};
+
+    configureSync({
+      contextLocalStorage: new AsyncLocalStorage(),
+      sinks: {},
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    });
+
+    const test = createTest({
+      sink: (record) => report("reported:" + record.rawMessage),
+    });
+
+    test("done then throw", (done) => {
+      getLogger(["app"]).info("Synchronous done diagnostic.");
+      done();
+      throw new Error("after done");
+    });
+  `);
+
+  assert.notStrictEqual(result.code, 0);
+  assert.match(result.output, /reported:Synchronous done diagnostic\./);
+});
+
 test("createTest(): preserves skip and todo shorthand behavior", async () => {
   const result = await runBunTest(`
     import { createTest } from ${JSON.stringify(modUrl)};
@@ -397,6 +427,37 @@ test("createTest(): supports done callbacks in test.each()", async () => {
 
   assertSuccess(result);
   assert.match(result.output, /reported:Each done diagnostic\./);
+});
+
+test("createTest(): reports test.each() throws after done", async () => {
+  const result = await runBunTest(`
+    import { AsyncLocalStorage } from "node:async_hooks";
+    import {
+      configureSync,
+      getLogger,
+    } from ${JSON.stringify(logtapeSpecifier)};
+    import { createTest } from ${JSON.stringify(modUrl)};
+
+    configureSync({
+      contextLocalStorage: new AsyncLocalStorage(),
+      sinks: {},
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    });
+
+    const test = createTest({
+      sink: (record) => report("reported:" + record.rawMessage),
+    });
+
+    test.each([1])("case %#", (value, done) => {
+      if (value !== 1) done(new Error("wrong value"));
+      getLogger(["app"]).info("Each done then throw diagnostic.");
+      done();
+      throw new Error("each after done");
+    });
+  `);
+
+  assert.notStrictEqual(result.code, 0);
+  assert.match(result.output, /reported:Each done then throw diagnostic\./);
 });
 
 test("createTest(): preserves long test.each() callback arity", async () => {
