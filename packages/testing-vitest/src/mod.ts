@@ -310,7 +310,7 @@ function createVitestTestFunction(
   const cached = cache.get(baseTest);
   if (cached != null) return cached;
 
-  const register = ((...args: unknown[]) =>
+  const register: VitestTestFunction = ((...args: unknown[]) =>
     Reflect.apply(
       baseTest,
       undefined,

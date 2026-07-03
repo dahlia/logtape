@@ -366,6 +366,39 @@ test("createTest(): wraps test.each() options before callback", async () => {
   assert.match(result.output, /reported:Each options-before diagnostic\./);
 });
 
+test("createTest(): supports done callbacks in test.each()", async () => {
+  const result = await runBunTest(`
+    import { AsyncLocalStorage } from "node:async_hooks";
+    import {
+      configureSync,
+      getLogger,
+    } from ${JSON.stringify(logtapeSpecifier)};
+    import { createTest } from ${JSON.stringify(modUrl)};
+
+    configureSync({
+      contextLocalStorage: new AsyncLocalStorage(),
+      sinks: {},
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    });
+
+    const test = createTest({
+      mode: "always",
+      sink: (record) => report("reported:" + record.rawMessage),
+    });
+
+    test.each([1])("case %#", (value, done) => {
+      if (value !== 1) done(new Error("wrong value"));
+      setTimeout(() => {
+        getLogger(["app"]).info("Each done diagnostic.");
+        done();
+      }, 0);
+    });
+  `);
+
+  assertSuccess(result);
+  assert.match(result.output, /reported:Each done diagnostic\./);
+});
+
 test("createTest(): wraps the it() alias", async () => {
   const result = await runBunTest(`
     import { AsyncLocalStorage } from "node:async_hooks";

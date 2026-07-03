@@ -196,7 +196,7 @@ function createDenoTestFunction(
   baseTest: BaseDenoTestFunction,
   options: FailureLogReporterOptions,
 ): DenoTestFunction {
-  const register = ((...args: unknown[]) =>
+  const register: DenoTestFunction = ((...args: unknown[]) =>
     Reflect.apply(
       baseTest,
       undefined,
@@ -396,9 +396,9 @@ function wrapDenoTestContext(
   options: FailureLogReporterOptions,
 ): Deno.TestContext {
   return new Proxy(context, {
-    get(target, property, receiver) {
-      if (property !== "step") return Reflect.get(target, property, receiver);
-      const step = Reflect.get(target, property, receiver);
+    get(target, property) {
+      if (property !== "step") return Reflect.get(target, property);
+      const step = Reflect.get(target, property);
       if (typeof step !== "function") return step;
       return (...args: unknown[]) =>
         Reflect.apply(

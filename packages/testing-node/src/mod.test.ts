@@ -104,6 +104,35 @@ nodeTest("createTest(): preserves node:test options", {
   }
 });
 
+nodeTest("createTest(): passes context to rest-parameter callbacks", {
+  skip: skipNestedNodeTest,
+}, async () => {
+  if (skipNestedNodeTest) return;
+
+  const reported: LogRecord[] = [];
+  await configureForTestingNode();
+  try {
+    const test = createTest({
+      mode: "always",
+      sink: (record) => reported.push(record),
+    });
+
+    await test("rest context", (...args: unknown[]) => {
+      const [context] = args;
+      assert.ok(context);
+      assert.strictEqual((context as TestContext).name, "rest context");
+      getLogger(["app"]).info("Rest callback diagnostic.");
+    });
+
+    assert.deepStrictEqual(
+      reported.map((record) => record.rawMessage),
+      ["Rest callback diagnostic."],
+    );
+  } finally {
+    await reset();
+  }
+});
+
 nodeTest("createTest(): supports callback-style tests", {
   skip: skipNestedNodeTest,
 }, async () => {

@@ -197,7 +197,7 @@ function createNodeTestFunction(
   options: FailureLogReporterOptions,
   includeExtendedProperties = true,
 ): NodeTestFunction {
-  const register = ((...args: unknown[]) =>
+  const register: NodeTestFunction = ((...args: unknown[]) =>
     Reflect.apply(
       baseTest,
       undefined,
@@ -307,12 +307,6 @@ function wrapNodeCallback(
         () => done(),
         (error: unknown) => done(error),
       );
-    };
-  }
-
-  if (callback.length === 0) {
-    return function (this: unknown): Promise<unknown> {
-      return wrap(() => Reflect.apply(callback, this, []))();
     };
   }
 

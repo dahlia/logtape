@@ -278,7 +278,7 @@ function createBunTestFunction(
   baseTest: BaseBunTestFunction,
   options: FailureLogReporterOptions,
 ): BunTestFunction {
-  const register = ((...args: unknown[]) =>
+  const register: BunTestFunction = ((...args: unknown[]) =>
     Reflect.apply(
       baseTest,
       undefined,
@@ -335,12 +335,13 @@ function createWrappedEach(
   options: FailureLogReporterOptions,
 ): BunEachFunction {
   return ((...cases: readonly unknown[]) => {
+    const maxCaseArgumentCount = getMaxCaseArgumentCount(cases);
     const registerEach = Reflect.apply(baseEach, baseTest, cases);
     return ((...args: unknown[]) =>
       Reflect.apply(
         registerEach as AnyFunction,
         undefined,
-        wrapBunEachArguments(args, options),
+        wrapBunEachArguments(args, options, maxCaseArgumentCount),
       )) as BunEachRegisterFunction;
   }) as BunEachFunction;
 }
@@ -362,6 +363,7 @@ function wrapBunTestArguments(
 function wrapBunEachArguments(
   args: readonly unknown[],
   options: FailureLogReporterOptions,
+  maxCaseArgumentCount: number,
 ): unknown[] {
   const callbackIndex = args.findIndex((arg, index) =>
     index > 0 && typeof arg === "function"
@@ -370,7 +372,11 @@ function wrapBunEachArguments(
 
   return [
     ...args.slice(0, callbackIndex),
-    wrapBunEachCallback(args[callbackIndex] as AnyFunction, options),
+    wrapBunEachCallback(
+      args[callbackIndex] as AnyFunction,
+      options,
+      maxCaseArgumentCount,
+    ),
     ...args.slice(callbackIndex + 1),
   ];
 }
@@ -416,11 +422,113 @@ function wrapBunTestCallback(
 function wrapBunEachCallback(
   callback: AnyFunction,
   options: FailureLogReporterOptions,
+  maxCaseArgumentCount: number,
 ): AnyFunction {
   const reporter = createFailureLogReporter(options);
-  return function (this: unknown, ...args: never[]) {
-    return reporter.run(() => Reflect.apply(callback, this, args));
-  };
+  const invoke = (thisArg: unknown, args: readonly unknown[]): unknown =>
+    runBunEachCallback(
+      reporter,
+      callback,
+      thisArg,
+      args,
+      maxCaseArgumentCount,
+    );
+
+  switch (callback.length) {
+    case 0:
+      return function (this: unknown): unknown {
+        return invoke(this, Array.from(arguments));
+      };
+    case 1:
+      return function (this: unknown, _arg0: unknown): unknown {
+        return invoke(this, Array.from(arguments));
+      };
+    case 2:
+      return function (
+        this: unknown,
+        _arg0: unknown,
+        _arg1: unknown,
+      ): unknown {
+        return invoke(this, Array.from(arguments));
+      };
+    case 3:
+      return function (
+        this: unknown,
+        _arg0: unknown,
+        _arg1: unknown,
+        _arg2: unknown,
+      ): unknown {
+        return invoke(this, Array.from(arguments));
+      };
+    case 4:
+      return function (
+        this: unknown,
+        _arg0: unknown,
+        _arg1: unknown,
+        _arg2: unknown,
+        _arg3: unknown,
+      ): unknown {
+        return invoke(this, Array.from(arguments));
+      };
+    default:
+      return function (this: unknown, ...args: never[]): unknown {
+        return invoke(this, args);
+      };
+  }
+}
+
+function runBunEachCallback(
+  reporter: ReturnType<typeof createFailureLogReporter>,
+  callback: AnyFunction,
+  thisArg: unknown,
+  args: readonly unknown[],
+  maxCaseArgumentCount: number,
+): unknown {
+  const lastArgument = args.at(-1);
+  if (
+    callback.length > maxCaseArgumentCount &&
+    typeof lastArgument === "function"
+  ) {
+    const done = lastArgument as BunDoneCallback;
+    void reporter.run(() =>
+      new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const wrappedDone: BunDoneCallback = (error?: unknown) => {
+          if (settled) return;
+          settled = true;
+          if (error == null) resolve();
+          else reject(error);
+        };
+
+        try {
+          Reflect.apply(callback, thisArg, [
+            ...args.slice(0, -1),
+            wrappedDone,
+          ]);
+        } catch (error) {
+          reject(error);
+        }
+      })
+    ).then(
+      () => done(),
+      (error: unknown) => done(error),
+    );
+    return undefined;
+  }
+
+  return reporter.run(() => Reflect.apply(callback, thisArg, args));
+}
+
+function getMaxCaseArgumentCount(cases: readonly unknown[]): number {
+  const rows = cases.length === 1 && Array.isArray(cases[0])
+    ? cases[0] as readonly unknown[]
+    : cases;
+  let maxArgumentCount = 0;
+  for (const row of rows) {
+    const argumentCount = Array.isArray(row) ? row.length : 1;
+    maxArgumentCount = Math.max(maxArgumentCount, argumentCount);
+  }
+  return maxArgumentCount;
 }
 
 function getFunctionProperty(
