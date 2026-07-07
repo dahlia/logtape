@@ -51,7 +51,7 @@
     "log4js": "^6.9.1",
     "markdown-it-deflist": "^3.0.0",
     "markdown-it-footnote": "^4.0.0",
-    "markdown-it-jsr-ref": "^0.4.4",
+    "markdown-it-jsr-ref": "^0.5.0",
     "pino": "^9.7.0",
     "postgres": "^3.4.7",
     "vitepress": "2.0.0-alpha.17",
