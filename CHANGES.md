@@ -8,6 +8,16 @@ Version 2.0.17
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed a bug where repeated `configure()` or `configureSync()` calls could
+    leave duplicate process exit hooks registered on Node.js and Bun, causing
+    `MaxListenersExceededWarning` in long-running test suites or hot-reload
+    processes.  LogTape now removes its runtime disposal hook when resetting
+    configuration.  [[#192]]
+
+[#192]: https://github.com/dahlia/logtape/issues/192
+
 
 Version 2.0.16
 --------------
