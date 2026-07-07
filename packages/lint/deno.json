@@ -1,6 +1,6 @@
 {
   "name": "@logtape/lint",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "license": "MIT",
   "imports": {
     "eslint": "npm:eslint@^9.0.0"
