@@ -138,6 +138,8 @@ const asyncFilterDisposables: Set<AsyncDisposable> = new Set();
  */
 const asyncSinkDisposables: Set<AsyncDisposable> = new Set();
 
+let unregisterDisposeHook: (() => void) | undefined;
+
 /**
  * Check if a config is for the meta logger.
  */
@@ -153,6 +155,9 @@ function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
 }
 
 function registerDisposeHook(allowAsync: boolean): void {
+  unregisterDisposeHook?.();
+  unregisterDisposeHook = undefined;
+
   const handler = allowAsync ? disposeInternal : disposeSyncInternal;
 
   if (
@@ -167,6 +172,12 @@ function registerDisposeHook(allowAsync: boolean): void {
     const onMethod = proc?.["on"];
     if (typeof onMethod === "function") {
       onMethod.call(proc, "exit", handler);
+      unregisterDisposeHook = () => {
+        const offMethod = proc?.["off"] ?? proc?.["removeListener"];
+        if (typeof offMethod === "function") {
+          offMethod.call(proc, "exit", handler);
+        }
+      };
       return;
     }
   }
@@ -176,11 +187,23 @@ function registerDisposeHook(allowAsync: boolean): void {
   // deno-lint-ignore no-explicit-any
   const addEventListenerMethod = (globalThis as any).addEventListener;
   if (typeof addEventListenerMethod !== "function") return;
+  // deno-lint-ignore no-explicit-any
+  const removeEventListenerMethod = (globalThis as any).removeEventListener;
 
   if ("Deno" in globalThis) {
     addEventListenerMethod.call(globalThis, "unload", handler);
+    if (typeof removeEventListenerMethod === "function") {
+      unregisterDisposeHook = () => {
+        removeEventListenerMethod.call(globalThis, "unload", handler);
+      };
+    }
   } else {
     addEventListenerMethod.call(globalThis, "pagehide", handler);
+    if (typeof removeEventListenerMethod === "function") {
+      unregisterDisposeHook = () => {
+        removeEventListenerMethod.call(globalThis, "pagehide", handler);
+      };
+    }
   }
 }
 
@@ -610,6 +633,8 @@ export function resetSync(): void {
 }
 
 function resetInternal(): void {
+  unregisterDisposeHook?.();
+  unregisterDisposeHook = undefined;
   const rootLogger = LoggerImpl.getLogger([]);
   rootLogger.resetDescendants();
   delete rootLogger.contextLocalStorage;

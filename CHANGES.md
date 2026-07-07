@@ -175,6 +175,22 @@ To be released.
 [#189]: https://github.com/dahlia/logtape/issues/189
 
 
+Version 2.2.4
+-------------
+
+Released on July 7, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where repeated `configure()` or `configureSync()` calls could
+    leave duplicate process exit hooks registered on Node.js and Bun, causing
+    `MaxListenersExceededWarning` in long-running test suites or hot-reload
+    processes.  LogTape now removes its runtime disposal hook when resetting
+    configuration.  [[#192]]
+
+[#192]: https://github.com/dahlia/logtape/issues/192
+
+
 Version 2.2.3
 -------------
 
@@ -432,6 +448,20 @@ Released on June 22, 2026.
     [[#176]]
 
 [#176]: https://github.com/dahlia/logtape/issues/176
+
+
+Version 2.1.8
+-------------
+
+Released on July 7, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where repeated `configure()` or `configureSync()` calls could
+    leave duplicate process exit hooks registered on Node.js and Bun, causing
+    `MaxListenersExceededWarning` in long-running test suites or hot-reload
+    processes.  LogTape now removes its runtime disposal hook when resetting
+    configuration.  [[#192]]
 
 
 Version 2.1.7
@@ -695,8 +725,22 @@ Released on May 17, 2026.
 [#164]: https://github.com/dahlia/logtape/pull/164
 
 
-======= Version 2.0.16
-----------------------
+Version 2.0.17
+--------------
+
+Released on July 7, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where repeated `configure()` or `configureSync()` calls could
+    leave duplicate process exit hooks registered on Node.js and Bun, causing
+    `MaxListenersExceededWarning` in long-running test suites or hot-reload
+    processes.  LogTape now removes its runtime disposal hook when resetting
+    configuration.  [[#192]]
+
+
+Version 2.0.16
+--------------
 
 Released on July 3, 2026.
 

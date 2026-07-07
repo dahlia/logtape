@@ -29,6 +29,80 @@ import {
 } from "./config.ts";
 
 const hasAddEventListener = typeof globalThis.addEventListener === "function";
+const hasProcessExitListeners = (() => {
+  // deno-lint-ignore no-explicit-any
+  const proc = (globalThis as any).process;
+  return !("Deno" in globalThis) &&
+    typeof proc?.on === "function" &&
+    typeof proc?.listeners === "function" &&
+    (typeof proc?.off === "function" ||
+      typeof proc?.removeListener === "function");
+})();
+
+function restoreGlobalProperty(
+  property: string,
+  descriptor: PropertyDescriptor | undefined,
+): void {
+  if (descriptor == null) Reflect.deleteProperty(globalThis, property);
+  else Object.defineProperty(globalThis, property, descriptor);
+}
+
+function quietConfig(): Config<string, string> {
+  return {
+    sinks: {},
+    loggers: [
+      { category: "my-app" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+  };
+}
+
+function stubGlobalEventHooks(): {
+  activeListeners: Map<string, Set<unknown>>;
+  removedListeners: unknown[];
+  restore: () => void;
+} {
+  const addEventListenerDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "addEventListener",
+  );
+  const removeEventListenerDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "removeEventListener",
+  );
+  const activeListeners = new Map<string, Set<unknown>>();
+  const removedListeners: unknown[] = [];
+
+  Object.defineProperty(globalThis, "addEventListener", {
+    configurable: true,
+    value(type: string, listener: unknown) {
+      const listeners = activeListeners.get(type) ?? new Set<unknown>();
+      listeners.add(listener);
+      activeListeners.set(type, listeners);
+    },
+    writable: true,
+  });
+  Object.defineProperty(globalThis, "removeEventListener", {
+    configurable: true,
+    value(type: string, listener: unknown) {
+      activeListeners.get(type)?.delete(listener);
+      removedListeners.push(listener);
+    },
+    writable: true,
+  });
+
+  return {
+    activeListeners,
+    removedListeners,
+    restore() {
+      restoreGlobalProperty("addEventListener", addEventListenerDescriptor);
+      restoreGlobalProperty(
+        "removeEventListener",
+        removeEventListenerDescriptor,
+      );
+    },
+  };
+}
 
 test("withConfig()", async () => {
   const globalLogs: LogRecord[] = [];
@@ -1717,6 +1791,112 @@ test(
     }
   },
 );
+
+test(
+  "configure() removes the process exit dispose hook on reset",
+  { skip: !hasProcessExitListeners },
+  async () => {
+    if (!hasProcessExitListeners) return;
+
+    // deno-lint-ignore no-explicit-any
+    const proc = (globalThis as any).process;
+    const before = proc.listeners("exit");
+
+    try {
+      for (let i = 0; i < 15; i++) {
+        await configure({ ...quietConfig(), reset: true });
+      }
+      assert.strictEqual(proc.listeners("exit").length, before.length + 1);
+    } finally {
+      await reset();
+    }
+
+    assert.deepStrictEqual(proc.listeners("exit"), before);
+  },
+);
+
+test(
+  "configureSync() removes the process exit dispose hook on reset",
+  { skip: !hasProcessExitListeners },
+  () => {
+    if (!hasProcessExitListeners) return;
+
+    // deno-lint-ignore no-explicit-any
+    const proc = (globalThis as any).process;
+    const before = proc.listeners("exit");
+
+    try {
+      for (let i = 0; i < 15; i++) {
+        configureSync({ ...quietConfig(), reset: true });
+      }
+      assert.strictEqual(proc.listeners("exit").length, before.length + 1);
+    } finally {
+      resetSync();
+    }
+
+    assert.deepStrictEqual(proc.listeners("exit"), before);
+  },
+);
+
+test("configure() removes the Deno unload dispose hook on reset", async () => {
+  const denoDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Deno");
+  const eventHooks = stubGlobalEventHooks();
+
+  let remainingListeners = 0;
+  try {
+    Object.defineProperty(globalThis, "Deno", {
+      configurable: true,
+      value: {},
+      writable: true,
+    });
+
+    await configure(quietConfig());
+    assert.strictEqual(eventHooks.activeListeners.get("unload")?.size, 1);
+
+    await configure({ ...quietConfig(), reset: true });
+    assert.strictEqual(eventHooks.activeListeners.get("unload")?.size, 1);
+    assert.strictEqual(eventHooks.removedListeners.length, 1);
+  } finally {
+    await reset();
+    remainingListeners = eventHooks.activeListeners.get("unload")?.size ?? 0;
+    restoreGlobalProperty("Deno", denoDescriptor);
+    eventHooks.restore();
+  }
+  assert.strictEqual(remainingListeners, 0);
+});
+
+test("configureSync() removes the pagehide dispose hook on reset", () => {
+  const denoDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Deno");
+  const edgeRuntimeDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "EdgeRuntime",
+  );
+  const eventHooks = stubGlobalEventHooks();
+
+  let remainingListeners = 0;
+  try {
+    Reflect.deleteProperty(globalThis, "Deno");
+    Object.defineProperty(globalThis, "EdgeRuntime", {
+      configurable: true,
+      value: "edge-runtime",
+      writable: true,
+    });
+
+    configureSync(quietConfig());
+    assert.strictEqual(eventHooks.activeListeners.get("pagehide")?.size, 1);
+
+    configureSync({ ...quietConfig(), reset: true });
+    assert.strictEqual(eventHooks.activeListeners.get("pagehide")?.size, 1);
+    assert.strictEqual(eventHooks.removedListeners.length, 1);
+  } finally {
+    resetSync();
+    remainingListeners = eventHooks.activeListeners.get("pagehide")?.size ?? 0;
+    restoreGlobalProperty("Deno", denoDescriptor);
+    restoreGlobalProperty("EdgeRuntime", edgeRuntimeDescriptor);
+    eventHooks.restore();
+  }
+  assert.strictEqual(remainingListeners, 0);
+});
 
 test("configureSync()", async () => {
   let disposed = 0;

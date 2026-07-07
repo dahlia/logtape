@@ -1,6 +1,6 @@
 [tools]
 bun = "1"
-node = "24"
+node = "24.14.0"
 deno = "2"
 pnpm = "10.33.1"
 
