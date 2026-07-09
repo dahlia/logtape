@@ -172,7 +172,16 @@ To be released.
     Sentry sink chooses `captureException()`.  The default remains
     `["error", "err"]`.  [[#189]]
 
+ -  Added `logs` and `breadcrumbs` options to `getSentrySink()` for controlling
+    which log levels are sent through Sentry's Logs API and which become Sentry
+    breadcrumbs.  `breadcrumbs: true` replaces `enableBreadcrumbs: true`, and
+    the new `SentryLogsOptions` and `SentryBreadcrumbOptions` interfaces
+    describe the corresponding option objects.  `enableBreadcrumbs` is now
+    deprecated but remains supported for compatibility.  [[#193], [#194]]
+
 [#189]: https://github.com/dahlia/logtape/issues/189
+[#193]: https://github.com/dahlia/logtape/issues/193
+[#194]: https://github.com/dahlia/logtape/pull/194
 
 
 Version 2.2.4
