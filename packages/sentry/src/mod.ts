@@ -76,6 +76,39 @@ function mapLevelForLogs(level: LogLevel): LogSeverityLevel {
 
 const defaultErrorPropertyNames = ["error", "err"] as const;
 
+/**
+ * Options for records sent through Sentry's Logs API.
+ *
+ * @since 2.3.0
+ */
+export interface SentryLogsOptions {
+  /**
+   * Minimum level for records sent through Sentry's Logs API.
+   *
+   * @default `"trace"`
+   */
+  level?: LogLevel;
+}
+
+/**
+ * Options for records added as Sentry breadcrumbs.
+ *
+ * @since 2.3.0
+ */
+export interface SentryBreadcrumbOptions {
+  /**
+   * Minimum level for records added as breadcrumbs.
+   *
+   * @default `"trace"`
+   */
+  level?: LogLevel;
+
+  /**
+   * Maximum level for records added as breadcrumbs.
+   */
+  maxLevel?: LogLevel;
+}
+
 function getErrorProperty(
   properties: Readonly<Record<string, unknown>>,
   propertyNames: readonly string[],
@@ -216,14 +249,39 @@ export interface SentrySinkOptions {
   /**
    * Enable automatic breadcrumb creation for log events.
    *
-   * When enabled, all logs become breadcrumbs in Sentry's isolation scope,
-   * providing a complete context trail when errors occur. Breadcrumbs are
-   * lightweight and only appear in error reports for debugging.
+   * When enabled, non-error logs become breadcrumbs in Sentry's isolation
+   * scope, providing a complete context trail when errors occur. Breadcrumbs
+   * are lightweight and only appear in error reports for debugging.
    *
    * @default false
+   * @deprecated Use `breadcrumbs` instead.
    * @since 1.3.0
    */
   enableBreadcrumbs?: boolean;
+
+  /**
+   * Enables and configures automatic breadcrumb creation for log events.
+   *
+   * Set this to `true` to use the default breadcrumb behavior, or pass an
+   * options object to control which non-error log levels become breadcrumbs.
+   *
+   * When this option is set, it takes precedence over the deprecated
+   * `enableBreadcrumbs` option.
+   *
+   * @default false
+   * @since 2.3.0
+   */
+  breadcrumbs?: boolean | SentryBreadcrumbOptions;
+
+  /**
+   * Configures records sent through Sentry's Logs API.
+   *
+   * The Sentry SDK must still have structured logging enabled with
+   * `enableLogs: true` or `_experiments.enableLogs: true`.
+   *
+   * @since 2.3.0
+   */
+  logs?: SentryLogsOptions;
 
   /**
    * Property names to inspect for an `Error` instance when deciding whether
@@ -306,7 +364,7 @@ export interface SentrySinkOptions {
  * await configure({
  *   sinks: {
  *     sentry: getSentrySink({
- *       enableBreadcrumbs: true,
+ *       breadcrumbs: true,
  *     }),
  *   },
  *   loggers: [
@@ -433,7 +491,7 @@ export function getSentrySink(
       // Send structured log if Sentry logging is enabled (v9.41.0+)
       // Uses public logger API when available (SDK 9.41.0+)
       const client = sentry.getClient();
-      if (client) {
+      if (client && shouldSendToLogs(transformed, options.logs)) {
         const { enableLogs, _experiments } = client.getOptions();
         const loggingEnabled = enableLogs ?? _experiments?.enableLogs;
 
@@ -470,7 +528,7 @@ export function getSentrySink(
           level: eventLevel,
           extra: attributes,
         });
-      } else if (options.enableBreadcrumbs) {
+      } else if (shouldAddBreadcrumb(transformed, options)) {
         // Non-error levels -> breadcrumbs only (if enabled)
         const isolationScope = sentry.getIsolationScope();
         isolationScope?.addBreadcrumb({
@@ -488,4 +546,32 @@ export function getSentrySink(
       );
     }
   };
+}
+
+function shouldSendToLogs(
+  record: LogRecord,
+  options: SentryLogsOptions | undefined,
+): boolean {
+  return options?.level == null ||
+    compareLogLevel(record.level, options.level) >= 0;
+}
+
+function shouldAddBreadcrumb(
+  record: LogRecord,
+  options: SentrySinkOptions,
+): boolean {
+  const breadcrumbOptions = options.breadcrumbs;
+  if (breadcrumbOptions === false) return false;
+  if (breadcrumbOptions === true) return true;
+  if (breadcrumbOptions == null) return options.enableBreadcrumbs === true;
+
+  if (
+    breadcrumbOptions.level != null &&
+    compareLogLevel(record.level, breadcrumbOptions.level) < 0
+  ) {
+    return false;
+  }
+
+  return breadcrumbOptions.maxLevel == null ||
+    compareLogLevel(record.level, breadcrumbOptions.maxLevel) <= 0;
 }

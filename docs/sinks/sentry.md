@@ -136,7 +136,7 @@ Sentry.init({ dsn: process.env.SENTRY_DSN });
 await configure({
   sinks: {
     sentry: getSentrySink({
-      enableBreadcrumbs: true,
+      breadcrumbs: true,
     }),
   },
   loggers: [
@@ -145,9 +145,37 @@ await configure({
 });
 ~~~~
 
-When enabled, all log levels become breadcrumbs in Sentry, providing complete
-context for debugging. Use LogTape's `lowestLevel` to control which logs reach
-the sink.
+When enabled, non-error log levels become breadcrumbs in Sentry, providing
+complete context for debugging.  Use LogTape's `lowestLevel` to control which
+logs reach the sink.
+
+You can also configure which levels become breadcrumbs:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      breadcrumbs: {
+        level: "info",
+        maxLevel: "warning",
+      },
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "debug" },
+  ],
+});
+~~~~
+
+The old `enableBreadcrumbs` option is still supported, but it is deprecated.
+Use `breadcrumbs: true` instead.
 
 ![LogTape records show up in the breadcrumbs of a Sentry issue.](../screenshots/sentry.png)
 
@@ -180,6 +208,71 @@ await configure({
 The sink automatically detects when the Logs API is available (SDK 9.41.0+ with
 `enableLogs: true`) and uses it for structured logging. When unavailable, logs
 are sent as events and breadcrumbs only.
+
+Use the `logs.level` option to set the minimum level sent through Sentry's Logs
+API:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN, enableLogs: true });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      logs: { level: "warning" },
+      breadcrumbs: { level: "trace", maxLevel: "info" },
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "trace" },
+  ],
+});
+~~~~
+
+This sends `warning` and higher records to Sentry's Logs API while keeping lower
+levels as breadcrumbs for later error reports.
+
+
+Routing logs and breadcrumbs by level
+-------------------------------------
+
+*This feature is available since LogTape 2.3.0.*
+
+Sometimes you may want verbose records to appear only as breadcrumbs, while
+sending higher-level records to Sentry's Logs API.  Do not use `withFilter()`
+for this case, because it filters records before they reach the Sentry sink and
+therefore prevents them from becoming breadcrumbs.
+
+Configure the sink-level `logs` and `breadcrumbs` options instead:
+
+~~~~ typescript twoslash
+// @noErrors: 2305 2307
+import * as Sentry from "@sentry/node";
+import { configure } from "@logtape/logtape";
+import { getSentrySink } from "@logtape/sentry";
+
+Sentry.init({ dsn: process.env.SENTRY_DSN, enableLogs: true });
+
+await configure({
+  sinks: {
+    sentry: getSentrySink({
+      logs: { level: "warning" },
+      breadcrumbs: { maxLevel: "info" },
+    }),
+  },
+  loggers: [
+    { category: [], sinks: ["sentry"], lowestLevel: "trace" },
+  ],
+});
+~~~~
+
+In this configuration, `trace`, `debug`, and `info` records become breadcrumbs.
+`warning`, `error`, and `fatal` records are sent through Sentry's Logs API.
+Error-level records still create Sentry issues as described below.
 
 
 Filtering and transformation
@@ -223,7 +316,9 @@ await configure({
 });
 ~~~~
 
-Returning `null` from `beforeSend` drops the log record entirely.
+Returning `null` from `beforeSend` drops the log record entirely, including
+structured logs, events, and breadcrumbs.  Use `logs.level` and `breadcrumbs`
+when you only need level-based routing between Sentry outputs.
 
 
 Event capture
@@ -277,9 +372,9 @@ await configure({
 });
 ~~~~
 
-All logs are sent to Sentry's structured logging (when `enableLogs: true`) and
-can become breadcrumbs (when `enableBreadcrumbs: true`), providing full context
-when errors occur.
+All logs are sent to Sentry's structured logging by default when
+`enableLogs: true`.  Non-error logs can become breadcrumbs when `breadcrumbs`
+is enabled, providing full context when errors occur.
 
 For more details, see the `getSentrySink()` function and `SentrySinkOptions`
 interface in the API reference.

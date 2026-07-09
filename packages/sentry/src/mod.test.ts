@@ -362,6 +362,121 @@ test("sink accepts enableBreadcrumbs option", () => {
   sink(createMockLogRecord({ level: "debug" }));
 });
 
+test("sink accepts breadcrumbs option", () => {
+  const breadcrumbs: unknown[] = [];
+  const sentry = createMockSentryNamespace({
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb),
+    }),
+  });
+  const sink = getSentrySink({ sentry, breadcrumbs: true });
+
+  sink(createMockLogRecord({ level: "info" }));
+
+  assert.strictEqual(breadcrumbs.length, 1);
+});
+
+test("breadcrumbs option takes precedence over enableBreadcrumbs", () => {
+  const breadcrumbs: unknown[] = [];
+  const sentry = createMockSentryNamespace({
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb),
+    }),
+  });
+  const sink = getSentrySink({
+    sentry,
+    enableBreadcrumbs: true,
+    breadcrumbs: false,
+  });
+
+  sink(createMockLogRecord({ level: "info" }));
+
+  assert.deepStrictEqual(breadcrumbs, []);
+});
+
+test("logs level filters records sent through Sentry Logs API", () => {
+  const logs: string[] = [];
+  const sentry = createMockSentryNamespace({
+    getClient: () => ({
+      getOptions: () => ({ enableLogs: true }),
+    }),
+    logger: {
+      info: (message) => logs.push(message.toString()),
+      warn: (message) => logs.push(message.toString()),
+    },
+  });
+  const sink = getSentrySink({ sentry, logs: { level: "warning" } });
+
+  sink(createMockLogRecord({ level: "info", message: ["Info"] }));
+  sink(createMockLogRecord({ level: "warning", message: ["Warning"] }));
+
+  assert.deepStrictEqual(logs, ["Warning"]);
+});
+
+test("breadcrumbs level filters records below the minimum level", () => {
+  const breadcrumbs: unknown[] = [];
+  const sentry = createMockSentryNamespace({
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb),
+    }),
+  });
+  const sink = getSentrySink({
+    sentry,
+    breadcrumbs: { level: "info" },
+  });
+
+  sink(createMockLogRecord({ level: "debug" }));
+  sink(createMockLogRecord({ level: "info" }));
+
+  assert.strictEqual(breadcrumbs.length, 1);
+});
+
+test("breadcrumbs maxLevel filters records above the maximum level", () => {
+  const breadcrumbs: unknown[] = [];
+  const sentry = createMockSentryNamespace({
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb),
+    }),
+  });
+  const sink = getSentrySink({
+    sentry,
+    breadcrumbs: { maxLevel: "info" },
+  });
+
+  sink(createMockLogRecord({ level: "info" }));
+  sink(createMockLogRecord({ level: "warning" }));
+
+  assert.strictEqual(breadcrumbs.length, 1);
+});
+
+test("logs and breadcrumbs levels can route records separately", () => {
+  const logs: string[] = [];
+  const breadcrumbs: string[] = [];
+  const sentry = createMockSentryNamespace({
+    getClient: () => ({
+      getOptions: () => ({ enableLogs: true }),
+    }),
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb.message),
+    }),
+    logger: {
+      info: (message) => logs.push(message.toString()),
+      warn: (message) => logs.push(message.toString()),
+    },
+  });
+  const sink = getSentrySink({
+    sentry,
+    logs: { level: "warning" },
+    breadcrumbs: { level: "trace", maxLevel: "info" },
+  });
+
+  sink(createMockLogRecord({ level: "info", message: ["Info"] }));
+  sink(createMockLogRecord({ level: "warning", message: ["Warning"] }));
+
+  assert.deepStrictEqual(logs, ["Warning"]);
+  assert.deepStrictEqual(breadcrumbs, ["Info"]);
+});
+
 test("sink uses configured Sentry namespace for error messages", () => {
   const capturedMessages: string[] = [];
   const sentry = createMockSentryNamespace({
