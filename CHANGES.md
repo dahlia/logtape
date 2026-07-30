@@ -183,6 +183,14 @@ To be released.
 [#193]: https://github.com/dahlia/logtape/issues/193
 [#194]: https://github.com/dahlia/logtape/pull/194
 
+### Agent Skill
+
+ -  The official LogTape Agent Skill can now be discovered and installed
+    directly from the LogTape repository with
+    `npx skills add dahlia/logtape`.  The skill remains available through the
+    *@logtape/logtape* npm package, and the repository can also be added as a
+    Claude Code plugin marketplace.
+
 
 Version 2.2.4
 -------------

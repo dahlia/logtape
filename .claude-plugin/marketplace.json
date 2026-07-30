@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-plugin-marketplace.json",
+  "name": "logtape",
+  "description": "Official Agent Skills for LogTape.",
+  "owner": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "plugins": [
+    {
+      "name": "logtape",
+      "displayName": "LogTape",
+      "description": "Guidance for using LogTape in JavaScript and TypeScript projects.",
+      "source": "./packages/logtape",
+      "skills": [
+        "./skills/logtape"
+      ],
+      "strict": false
+    }
+  ]
+}
