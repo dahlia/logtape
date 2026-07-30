@@ -306,7 +306,7 @@ tasks are available through `mise run`:
 mise tasks
 
 # Install dependencies
-mise run deps
+mise deps
 
 # Check code (formatting, linting, type checking)
 mise run check
