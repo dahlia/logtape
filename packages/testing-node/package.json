@@ -1,6 +1,6 @@
 {
   "name": "@logtape/testing-node",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Node.js test runner integration for LogTape failure log reporting",
   "keywords": [
     "logging",
