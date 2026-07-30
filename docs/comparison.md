@@ -309,8 +309,9 @@ await configure({
   loggers: [
     { category: ["myapp"], lowestLevel: "info", sinks: ["console"] },
     { category: ["myapp", "auth"], lowestLevel: "debug", sinks: ["file"] },
-    // ["myapp", "auth"] inherits console sink AND adds file sink
-    // ["myapp", "auth", "oauth"] would inherit both sinks
+    // Debug records from ["myapp", "auth"] go only to the file sink.
+    // Info and higher records go to both the console and file sinks.
+    // Descendants such as ["myapp", "auth", "oauth"] inherit the same routing.
   ],
 });
 ~~~~

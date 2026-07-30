@@ -270,24 +270,22 @@ await configure({
 });
 ~~~~
 
-This configuration will log all levels from `"info"` up for most of the app,
-but will include all levels including `"trace"` logs for database operations.
+This configuration sends `"info"` and higher records from the app to the
+console sink.  For the database category, `"trace"` and `"debug"` records go
+only to the file sink, while `"info"` and higher records go to both sinks.
 
 > [!NOTE]
-> The `~LoggerConfig.lowestLevel` is applied to the logger itself, not to its
-> sinks.  In other words, the `~LoggerConfig.lowestLevel` property determines
-> which log records are emitted by the logger.  For example, if the parent
-> logger has a `~LoggerConfig.lowestLevel` of `"debug"` with a sink `"console"`,
-> and the child logger has a `~LoggerConfig.lowestLevel` of `"info"`,
-> the child logger still won't emit `"debug"` records to the `"console"` sink.
+> The `~LoggerConfig.lowestLevel` belongs to the logger configuration, not to
+> the sink itself.  When a child inherits a parent's sinks, the parent's
+> threshold still applies to those sinks.  Lowering the child's threshold does
+> not cause an inherited parent sink to accept records below the parent's
+> `~LoggerConfig.lowestLevel`.
+>
+> See also [*Sink inheritance and overriding*] for a complete example.
 
 The `~LoggerConfig.lowestLevel` property does not inherit from parent loggers,
-but it is `"trace"` by default for all loggers.  If you want to make child
-loggers inherit the severity level from their parent logger, you can use the
-`~LoggerConfig.filters` option instead.
-
-If you want make child loggers inherit the severity level from their parent
-logger, you can use the `~LoggerConfig.filters` option instead:
+and it is `"trace"` by default for every logger.  To make child loggers inherit
+a severity threshold, use the `~LoggerConfig.filters` option instead:
 
 ~~~~ typescript{4,9,13} twoslash
 // @noErrors: 2345
@@ -321,6 +319,8 @@ the parent logger, so it will log all levels from `"info"` up.
 > filters log records with the specified severity level and above.
 >
 > See also the [*Level filter* section](./filters.md#level-filter).
+
+[*Sink inheritance and overriding*]: ./categories.md#sink-inheritance-and-overriding
 
 
 Listing severity levels

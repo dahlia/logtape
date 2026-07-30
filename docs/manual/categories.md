@@ -31,18 +31,23 @@ await configure({
 })
 ~~~~
 
+With this configuration, a `"debug"` record from `["my-app", "my-module"]`
+goes only to the console sink.  An `"info"` record goes to both the console and
+file sinks because it also meets the parent logger's `"info"` threshold.
+
 
 Sink inheritance and overriding
 -------------------------------
 
 When you configure a logger, you can specify multiple sinks for the logger.
-The logger inherits the sinks from its parent loggers.  If a logger has multiple
-sinks, the logger sends log messages to all of its sinks.
+By default, the logger combines its own sinks with the sinks that its parent
+would use for each log record.  A parent sink is inherited only when the
+record's level meets the parent logger's `~LoggerConfig.lowestLevel`.
+Inheritance does not copy the parent's sink identifiers into the child logger's
+configuration.
 
 For example, the following configuration sets up two sinks, `a` and `b`, and
-configures two loggers.  The logger `["my-app"]` sends log messages to sink `a`,
-and the logger `["my-app", "my-module"]` sends log messages to sink both `a` and
-`b`:
+configures the child logger to accept a lower level than its parent:
 
 ~~~~ typescript twoslash
 import { type LogRecord, configure, getLogger } from "@logtape/logtape";
@@ -56,19 +61,30 @@ await configure({
     b: b.push.bind(b),
   },
   loggers: [
-    { category: ["my-app"], sinks: ["a"] },
-    { category: ["my-app", "my-module"], sinks: ["b"] },
+    { category: ["my-app"], lowestLevel: "info", sinks: ["a"] },
+    {
+      category: ["my-app", "my-module"],
+      lowestLevel: "debug",
+      sinks: ["b"],
+    },
   ],
 });
 
-getLogger(["my-app"]).info("foo");
-// a = [{ message: "foo", ... }]
-// b = []
+getLogger(["my-app", "my-module"]).debug("details");
+// a = []
+// b = [{ message: "details", ... }]
 
-getLogger(["my-app", "my-module"]).info("bar");
-// a = [{ message: "foo", ... }, { message: "bar", ... }]
-// b = [                         { message: "bar", ... }]
+getLogger(["my-app", "my-module"]).info("ready");
+// a = [{ message: "ready", ... }]
+// b = [{ message: "details", ... }, { message: "ready", ... }]
 ~~~~
+
+The `"debug"` record reaches only sink `b`: the child logger accepts it, but the
+parent logger does not.  The `"info"` record reaches both sinks.
+
+Inherited and local sink lists are concatenated without removing duplicates.
+If the same sink is configured on both a child and an enabled parent, that sink
+receives the record twice.
 
 You can override the sinks inherited from the parent loggers by specifying
 `parentSinks: "override"` in the logger configuration.  This is useful when you
@@ -136,24 +152,26 @@ categories beforehand.
 You can also combine the root logger with more specific loggers:
 
 ~~~~ typescript twoslash
+import { getFileSink } from "@logtape/file";
 import { configure, getConsoleSink } from "@logtape/logtape";
 
 await configure({
   sinks: {
     console: getConsoleSink(),
+    file: getFileSink("app.log"),
   },
   loggers: [
-    // Catch-all logger for everything at info level
-    { category: [], sinks: ["console"], lowestLevel: "info" },
+    // Write all categories to the file at info level
+    { category: [], sinks: ["file"], lowestLevel: "info" },
     // More verbose logging for your specific app
     { category: ["my-app"], sinks: ["console"], lowestLevel: "debug" },
   ],
 });
 ~~~~
 
-In this configuration, the root logger will handle all log messages at the
-`info` level or higher, while the `["my-app"]` logger will handle messages
-from the `my-app` category at the `debug` level or higher.
+In this configuration, the file sink receives `"info"` and higher records from
+every category.  The console sink also receives records from the `["my-app"]`
+category, including `"debug"` records.
 
 
 Child loggers

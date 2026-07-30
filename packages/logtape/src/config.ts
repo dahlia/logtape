@@ -80,18 +80,22 @@ export interface LoggerConfig<
   sinks?: TSinkId[];
 
   /**
-   * Whether to inherit the parent's sinks.  If `inherit`, the parent's sinks
-   * are used along with the specified sinks.  If `override`, the parent's
-   * sinks are not used, and only the specified sinks are used.
+   * Whether to inherit the sinks that the parent would use for a record's
+   * level.  If `inherit`, those sinks are used along with the specified sinks.
+   * The parent's `lowestLevel` continues to apply to the inherited sinks.  If
+   * `override`, only the specified sinks are used.
    *
    * The default is `inherit`.
-   * @default `"inherit"
+   * @default "inherit"
    * @since 0.6.0
    */
   parentSinks?: "inherit" | "override";
 
   /**
-   * The filter identifiers to use.
+   * The filter identifiers to use.  If no filters are specified, the logger
+   * uses the filters from the nearest ancestor that has them.  Specifying one
+   * or more filters replaces the inherited filters instead of combining with
+   * them.
    */
   filters?: TFilterId[];
 

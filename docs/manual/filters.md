@@ -46,9 +46,9 @@ await configure({
 Inheritance
 -----------
 
-Child loggers inherit filters from their parent loggers.  Even if a child logger
-has its own filters, the child logger filters out log messages that are filtered
-out by its parent logger filters plus its own filters.
+When a logger has no filters of its own, it uses the filters from the nearest
+ancestor that has them.  Assigning one or more filters to a child logger
+replaces the inherited filters instead of combining with them.
 
 For example, the following example sets two filters, `hasUserInfo` and
 `tooSlow`, and assigns the `hasUserInfo` filter to the parent logger and
@@ -85,11 +85,19 @@ await configure({
 });
 ~~~~
 
-In this example, any log messages under the `["my-app"]` category including
-the `["my-app", "database"]` category are passed to the console sink only if
-they have the `userInfo` property.  In addition, the log messages under the
-`["my-app", "database"]` category are passed to the console sink only if they
-have the `elapsed` with a value greater than or equal to 100 milliseconds.
+In this example, loggers under the `["my-app"]` category inherit the
+`hasUserInfo` filter unless they have their own filters.  The
+`["my-app", "database"]` logger declares the `tooSlow` filter, so its records
+need an `elapsed` value greater than or equal to 100 milliseconds, but do not
+need a `userInfo` property.  To apply both filters to the database logger,
+specify both filter names:
+
+~~~~ typescript
+{
+  category: ["my-app", "database"],
+  filters: ["hasUserInfo", "tooSlow"],
+}
+~~~~
 
 
 Level filter

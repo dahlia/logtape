@@ -114,7 +114,7 @@ await configure({
     {
       category: "my-app",
       lowestLevel: "info",
-      sinks: ["console", "file"],
+      sinks: ["console"],
     },
     {
       category: ["my-app", "database"],
@@ -125,7 +125,7 @@ await configure({
     {
       category: ["my-app", "user-service"],
       lowestLevel: "info",
-      sinks: ["console", "file"],
+      sinks: ["file"],
       filters: ["containsUserData"],
     },
   ],
@@ -136,8 +136,10 @@ For severity levels,
 see [*Configuring severity levels*](./levels.md#configuring-severity-levels).
 
 > [!NOTE]
-> By default, loggers inherit the sinks of their ascendants.  You can override
-> them by specifying the `parentSinks: "override"` option in the logger.
+> By default, loggers inherit the sinks that their ancestors have enabled for
+> each record's level.  Each ancestor's `lowestLevel` remains in effect.  You
+> can skip those inherited sinks by specifying the
+> `parentSinks: "override"` option.
 
 > [!WARNING]
 > Defining loggers with the same category is disallowed.  If there are
