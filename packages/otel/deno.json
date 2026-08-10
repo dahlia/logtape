@@ -5,8 +5,35 @@
   "exports": {
     ".": "./src/mod.ts"
   },
+  "imports": {
+    "#util": "src/util.deno.ts"
+  },
   "tasks": {
     "build": "pnpm build",
-    "test": "deno test --allow-net --allow-env"
-  }
+    "test": "deno test",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  },
+  "exclude": [
+    "dist/",
+    "npm/",
+    "node_modules/"
+  ]
 }

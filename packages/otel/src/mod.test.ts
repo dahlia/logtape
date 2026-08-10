@@ -468,6 +468,35 @@ test("sink handles array values in properties", () => {
   ]);
 });
 
+test("sink handles circular references in interpolated message values", () => {
+  const { provider, emittedRecords } = createMockLoggerProvider();
+  const sink = getOpenTelemetrySink({
+    loggerProvider: provider as never,
+    objectRenderer: "inspect",
+  });
+
+  // A circular value (resembling a Response with a back-reference) used as a
+  // message interpolation value.  Previously this hit JSON.stringify's circular
+  // structure error inside getParameterizedString(), which the sink swallowed,
+  // so captureMessage was never reached.  Now inspect() (util.inspect /
+  // Deno.inspect) renders it instead.
+  const circular: Record<string, unknown> = { body: "ok" };
+  circular.self = circular;
+
+  sink(createMockLogRecord({
+    level: "error",
+    message: ["Saw error: ", circular, ""],
+    rawMessage: "Saw error: {error}",
+    properties: { error: circular },
+  }));
+
+  assert.strictEqual(emittedRecords.length, 1);
+
+  const body = emittedRecords[0].body as string;
+  assert.ok(body.startsWith("Saw error: "));
+  assert.ok(body.length > "Saw error: ".length);
+});
+
 test("sink handles Date objects in properties", () => {
   const { provider, emittedRecords } = createMockLoggerProvider();
   const sink = getOpenTelemetrySink({
