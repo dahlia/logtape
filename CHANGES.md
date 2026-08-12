@@ -9,6 +9,23 @@ Version 2.4.0
 To be released.
 
 
+Version 2.3.1
+-------------
+
+Released on August 12, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `fingersCrossed()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from wrapped sinks, preventing them from
+    flushing buffered records or releasing resources during logging shutdown.
+    As a result, `configureSync()` now rejects wrapped sinks that implement
+    `AsyncDisposable`; use `configure()` for such sinks.
+    [[#201]]
+
+[#201]: https://github.com/dahlia/logtape/issues/201
+
+
 Version 2.3.0
 -------------
 
@@ -196,6 +213,20 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.5
+-------------
+
+Released on August 12, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `fingersCrossed()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from wrapped sinks, preventing them from
+    flushing buffered records or releasing resources during logging shutdown.
+    As a result, `configureSync()` now rejects wrapped sinks that implement
+    `AsyncDisposable`; use `configure()` for such sinks.  [[#201]]
 
 
 Version 2.2.4
@@ -473,6 +504,20 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.9
+-------------
+
+Released on August 12, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `fingersCrossed()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from wrapped sinks, preventing them from
+    flushing buffered records or releasing resources during logging shutdown.
+    As a result, `configureSync()` now rejects wrapped sinks that implement
+    `AsyncDisposable`; use `configure()` for such sinks.  [[#201]]
+
+
 Version 2.1.8
 -------------
 
@@ -746,6 +791,20 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.18
+--------------
+
+Released on August 12, 2026.
+
+### @logtape/logtape
+
+ -  Fixed a bug where `fingersCrossed()` did not preserve `Disposable` and
+    `AsyncDisposable` cleanup methods from wrapped sinks, preventing them from
+    flushing buffered records or releasing resources during logging shutdown.
+    As a result, `configureSync()` now rejects wrapped sinks that implement
+    `AsyncDisposable`; use `configure()` for such sinks.  [[#201]]
 
 
 Version 2.0.17
