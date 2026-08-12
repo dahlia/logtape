@@ -698,9 +698,25 @@ interface BufferMetadata {
  * @since 1.1.0
  */
 export function fingersCrossed(
+  sink: Sink & Disposable & AsyncDisposable,
+  options?: FingersCrossedOptions,
+): Sink & Disposable & AsyncDisposable;
+export function fingersCrossed(
+  sink: Sink & AsyncDisposable,
+  options?: FingersCrossedOptions,
+): Sink & AsyncDisposable & Partial<Disposable>;
+export function fingersCrossed(
+  sink: Sink & Disposable,
+  options?: FingersCrossedOptions,
+): Sink & Disposable;
+export function fingersCrossed(
+  sink: Sink,
+  options?: FingersCrossedOptions,
+): Sink & Partial<Disposable>;
+export function fingersCrossed(
   sink: Sink,
   options: FingersCrossedOptions = {},
-): Sink | (Sink & Disposable) {
+): Sink & Partial<Disposable & AsyncDisposable> {
   const triggerLevel = options.triggerLevel ?? "error";
   const bufferLevel = options.bufferLevel;
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
@@ -713,6 +729,34 @@ export function fingersCrossed(
   const maxContexts = isolateByContext?.maxContexts;
   const hasTtl = bufferTtlMs != null && bufferTtlMs > 0;
   const hasLru = maxContexts != null && maxContexts > 0;
+
+  function wrapSink(
+    wrapped: Sink,
+    disposeSelf?: () => void,
+  ): Sink & Partial<Disposable & AsyncDisposable> {
+    const disposableSink = sink as
+      & Sink
+      & Partial<Disposable & AsyncDisposable>;
+    const disposableWrapped = wrapped as
+      & Sink
+      & Partial<Disposable & AsyncDisposable>;
+    const disposeSink = disposableSink[Symbol.dispose];
+    const asyncDisposeSink = disposableSink[Symbol.asyncDispose];
+
+    if (disposeSelf != null || disposeSink != null) {
+      disposableWrapped[Symbol.dispose] = () => {
+        disposeSelf?.();
+        disposeSink?.call(sink);
+      };
+    }
+    if (asyncDisposeSink != null) {
+      disposableWrapped[Symbol.asyncDispose] = async () => {
+        disposeSelf?.();
+        await asyncDisposeSink.call(sink);
+      };
+    }
+    return disposableWrapped;
+  }
 
   // Validate trigger level early
   try {
@@ -915,7 +959,7 @@ export function fingersCrossed(
     const buffer: LogRecord[] = [];
     let triggered = false;
 
-    return (record: LogRecord) => {
+    return wrapSink((record: LogRecord) => {
       if (triggered) {
         // Already triggered, pass through directly
         sink(record);
@@ -949,7 +993,7 @@ export function fingersCrossed(
           buffer.shift();
         }
       }
-    };
+    });
   } else {
     // Category and/or context-isolated buffers
     const buffers = new Map<string, BufferMetadata>();
@@ -1079,16 +1123,14 @@ export function fingersCrossed(
       }
     };
 
-    // Add disposal functionality to clean up timer
-    if (cleanupTimer !== null) {
-      (fingersCrossedSink as Sink & Disposable)[Symbol.dispose] = () => {
+    return wrapSink(
+      fingersCrossedSink,
+      cleanupTimer === null ? undefined : () => {
         if (cleanupTimer !== null) {
           clearInterval(cleanupTimer);
           cleanupTimer = null;
         }
-      };
-    }
-
-    return fingersCrossedSink;
+      },
+    );
   }
 }
