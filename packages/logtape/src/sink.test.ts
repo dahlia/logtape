@@ -1123,6 +1123,106 @@ test("fromAsyncSink() - meta-child records are not suppressed by marker", async 
   }
 });
 
+test("fingersCrossed() forwards Symbol.dispose", () => {
+  // @ts-ignore: consolemock is not typed
+  const mock: ConsoleMock = makeConsoleMock();
+  const rawSink = getConsoleSink({
+    console: mock,
+    nonBlocking: {
+      bufferSize: 100,
+      flushInterval: 1000,
+    },
+  });
+  const sink = fingersCrossed(rawSink) as Sink & Partial<Disposable>;
+
+  sink(error);
+  assert.strictEqual(mock.history().length, 0);
+
+  sink[Symbol.dispose]?.();
+
+  assert.strictEqual(mock.history().length, 1);
+});
+
+test("fingersCrossed() forwards Symbol.asyncDispose", async () => {
+  const rawSink = ((_record: LogRecord) => {}) as
+    & Sink
+    & AsyncDisposable
+    & { disposed: boolean };
+  rawSink.disposed = false;
+  rawSink[Symbol.asyncDispose] = async function (this: typeof rawSink) {
+    await Promise.resolve();
+    assert.strictEqual(this, rawSink);
+    this.disposed = true;
+  };
+
+  const sink = fingersCrossed(rawSink);
+
+  await sink[Symbol.asyncDispose]();
+
+  assert.strictEqual(rawSink.disposed, true);
+});
+
+test("fingersCrossed() composes TTL and wrapped sink disposal", () => {
+  const rawSink = ((_record: LogRecord) => {}) as
+    & Sink
+    & Disposable
+    & { disposed: boolean };
+  rawSink.disposed = false;
+  rawSink[Symbol.dispose] = function (this: typeof rawSink) {
+    assert.strictEqual(this, rawSink);
+    this.disposed = true;
+  };
+  const sink = fingersCrossed(rawSink, {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 100,
+    },
+  }) as Sink & Disposable;
+
+  sink[Symbol.dispose]();
+
+  assert.strictEqual(rawSink.disposed, true);
+});
+
+test("fingersCrossed() composes TTL and async sink disposal", async () => {
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let cleanupTimer: ReturnType<typeof setInterval> | undefined;
+  let cleanupTimerCleared = false;
+  globalThis.setInterval = ((callback: () => void, delay?: number) => {
+    cleanupTimer = originalSetInterval(callback, delay);
+    return cleanupTimer;
+  }) as typeof setInterval;
+  globalThis.clearInterval = ((timer: ReturnType<typeof setInterval>) => {
+    if (timer === cleanupTimer) cleanupTimerCleared = true;
+    originalClearInterval(timer);
+  }) as typeof clearInterval;
+
+  try {
+    const rawSink = ((_record: LogRecord) => {}) as Sink & AsyncDisposable;
+    let disposed = false;
+    rawSink[Symbol.asyncDispose] = async () => {
+      await Promise.resolve();
+      disposed = true;
+    };
+    const sink = fingersCrossed(rawSink, {
+      isolateByContext: {
+        keys: ["requestId"],
+        bufferTtlMs: 100,
+      },
+    });
+
+    await sink[Symbol.asyncDispose]();
+
+    assert.strictEqual(disposed, true);
+    assert.strictEqual(cleanupTimerCleared, true);
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+    if (!cleanupTimerCleared) originalClearInterval(cleanupTimer);
+  }
+});
+
 test("fingersCrossed() - basic functionality", () => {
   const buffer: LogRecord[] = [];
   const sink = fingersCrossed(buffer.push.bind(buffer));
