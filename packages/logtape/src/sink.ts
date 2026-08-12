@@ -90,6 +90,16 @@ export interface StreamSinkOptions {
   encoder?: { encode(text: string): Uint8Array };
 
   /**
+   * Whether to close the stream when the sink is disposed.  Set this to
+   * `false` for caller-owned streams that need to remain open after disposal.
+   * The sink still waits for pending writes and releases its writer lock.
+   *
+   * @default `true`
+   * @since 2.4.0
+   */
+  closeStream?: boolean;
+
+  /**
    * Enable non-blocking mode with optional buffer configuration.
    * When enabled, log records are buffered and flushed in the background.
    *
@@ -156,6 +166,7 @@ export function getStreamSink(
 ): Sink & AsyncDisposable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
+  const closeStream = options.closeStream ?? true;
   const writer = stream.getWriter();
 
   if (!options.nonBlocking) {
@@ -167,8 +178,12 @@ export function getStreamSink(
         .then(() => writer.write(bytes));
     };
     sink[Symbol.asyncDispose] = async () => {
-      await lastPromise;
-      await writer.close();
+      try {
+        await lastPromise;
+        if (closeStream) await writer.close();
+      } finally {
+        writer.releaseLock();
+      }
     };
     return markSinkAsImmediate(sink);
   }
@@ -240,11 +255,18 @@ export function getStreamSink(
       clearInterval(flushTimer);
       flushTimer = null;
     }
-    await flush();
     try {
-      await writer.close();
-    } catch {
-      // Writer might already be closed or errored
+      await activeFlush;
+      await flush();
+      if (closeStream) {
+        try {
+          await writer.close();
+        } catch {
+          // Writer might already be closed or errored
+        }
+      }
+    } finally {
+      writer.releaseLock();
     }
   };
 

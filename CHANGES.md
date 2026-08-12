@@ -8,6 +8,13 @@ Version 2.4.0
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added the `StreamSinkOptions.closeStream` option to dispose stream sinks
+    without closing caller-owned streams. [[#203]]
+
+[#203]: https://github.com/dahlia/logtape/issues/203
+
 
 Version 2.3.1
 -------------

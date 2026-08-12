@@ -109,12 +109,16 @@ interface ConsoleMock extends Console {
 
 test("getStreamSink()", async () => {
   let buffer: string = "";
+  let closed = false;
   const decoder = new TextDecoder();
   const sink = getStreamSink(
     new WritableStream({
       write(chunk: Uint8Array) {
         buffer += decoder.decode(chunk);
         return Promise.resolve();
+      },
+      close() {
+        closed = true;
       },
     }),
   );
@@ -136,6 +140,40 @@ test("getStreamSink()", async () => {
 2023-11-14 22:13:20.000 +00:00 [FTL] my-app·junk: Hello, 123 & 456!
 `,
   );
+  assert.strictEqual(closed, true);
+});
+
+test("getStreamSink() with closeStream: false", async () => {
+  // Arrange
+  let buffer = "";
+  let closed = false;
+  const decoder = new TextDecoder();
+  const stream = new WritableStream({
+    write(chunk: Uint8Array) {
+      buffer += decoder.decode(chunk);
+    },
+    close() {
+      closed = true;
+    },
+  });
+  const sink = getStreamSink(stream, { closeStream: false });
+
+  // Act
+  sink(info);
+  await sink[Symbol.asyncDispose]();
+
+  // Assert
+  assert.strictEqual(
+    buffer,
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "Hello, 123 & 456!\n",
+  );
+  assert.strictEqual(closed, false);
+  const writer = stream.getWriter();
+  await writer.write(new TextEncoder().encode("after disposal"));
+  await writer.close();
+  writer.releaseLock();
+  assert.ok(buffer.endsWith("after disposal"));
 });
 
 test("getStreamSink() with nonBlocking - simple boolean", async () => {
@@ -299,6 +337,90 @@ test("getStreamSink() with nonBlocking - flush on dispose", async () => {
 `,
   );
 });
+
+test(
+  "getStreamSink() with nonBlocking and closeStream: false",
+  async () => {
+    // Arrange
+    let buffer = "";
+    let closed = false;
+    const decoder = new TextDecoder();
+    const stream = new WritableStream({
+      write(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk);
+      },
+      close() {
+        closed = true;
+      },
+    });
+    const sink = getStreamSink(stream, {
+      closeStream: false,
+      nonBlocking: {
+        bufferSize: 100,
+        flushInterval: 5000,
+      },
+    });
+
+    // Act
+    sink(info);
+    await sink[Symbol.asyncDispose]();
+
+    // Assert
+    assert.strictEqual(
+      buffer,
+      "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+        "Hello, 123 & 456!\n",
+    );
+    assert.strictEqual(closed, false);
+    const writer = stream.getWriter();
+    await writer.close();
+    writer.releaseLock();
+  },
+);
+
+test(
+  "getStreamSink() with nonBlocking waits for an active flush on dispose",
+  async () => {
+    // Arrange
+    let markWriteStarted: () => void = () => {};
+    let finishWrite: () => void = () => {};
+    const writeStarted = new Promise<void>((resolve) => {
+      markWriteStarted = resolve;
+    });
+    const writeCanFinish = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    const stream = new WritableStream({
+      async write() {
+        markWriteStarted();
+        await writeCanFinish;
+      },
+    });
+    const sink = getStreamSink(stream, {
+      closeStream: false,
+      nonBlocking: { bufferSize: 1 },
+    });
+
+    // Act
+    sink(info);
+    await beforeDeadline(writeStarted, "The buffered write did not start");
+    let disposed = false;
+    const disposePromise = Promise.resolve(sink[Symbol.asyncDispose]()).then(
+      () => {
+        disposed = true;
+      },
+    );
+    await delay(0);
+
+    // Assert
+    assert.strictEqual(disposed, false);
+    finishWrite();
+    await beforeDeadline(disposePromise, "The stream sink was not disposed");
+    const writer = stream.getWriter();
+    await writer.close();
+    writer.releaseLock();
+  },
+);
 
 test("getStreamSink() with nonBlocking - buffer overflow protection", async () => {
   let buffer: string = "";
@@ -3291,4 +3413,23 @@ function recordWithLevel(level: LogLevel): LogRecord {
     timestamp: 0,
     properties: {},
   };
+}
+
+async function beforeDeadline<T>(
+  promise: Promise<T>,
+  message: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = globalThis.setTimeout(() => {
+          reject(new Error(message));
+        }, 1000);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId);
+  }
 }

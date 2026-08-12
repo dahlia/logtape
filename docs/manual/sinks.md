@@ -184,6 +184,26 @@ await configure({
 > Node.js stream.  You can use [`Writable.toWeb()`] method to convert a Node.js
 > stream to a `WritableStream`.
 
+By default, disposing a stream sink closes its `WritableStream`.  For a
+caller-owned stream that needs to remain open, such as a Node.js standard
+stream, set `closeStream` to `false`:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import "@types/node";
+import { getStreamSink } from "@logtape/logtape";
+import stream from "node:stream";
+
+const stderrSink = getStreamSink(
+  stream.Writable.toWeb(process.stderr),
+  { closeStream: false },
+);
+~~~~
+
+Disposing the sink still waits for pending writes, flushes buffered records
+when non-blocking mode is enabled, and releases the writer lock without closing
+the stream.
+
 See also `getStreamSink()` function and `StreamSinkOptions` interface
 in the API reference for more details.
 
