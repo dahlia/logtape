@@ -256,8 +256,8 @@ export class MySDK {
   private logger = getLogger(["my-sdk"]);
 
   async query(sql: string) {
+    this.logger.debug("Starting query", { sql });
     return withCategoryPrefix(["my-sdk"], () => {
-      this.logger.debug("Starting query", { sql });
       // Logs from internal-db-lib will appear as ["my-sdk", "internal-db-lib"]
       return internalDbLib.query(sql);
     });
@@ -266,7 +266,10 @@ export class MySDK {
 ~~~~
 
 With this approach, application developers can configure logging for all of
-your SDK's internal logs using a single category configuration.
+your SDK's internal logs using a single category configuration.  Keep logs
+from your SDK's own namespaced logger outside the callback: the prefix applies
+to every log record within the callback, including records whose categories
+already start with the same segments.
 
 > [!IMPORTANT]
 > In order to use `withCategoryPrefix()`, the application must configure

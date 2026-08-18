@@ -325,6 +325,12 @@ export function sdkFunction() {
 If `coreLibraryFunction()` logs with `getLogger(["core-library"])`, the final
 category will become `["my-sdk", "core-library"]`.
 
+The prefix is always prepended to the existing category.  LogTape does not
+remove overlapping segments, so a logger with the category `["my-sdk"]` used
+within the callback above would produce `["my-sdk", "my-sdk"]`.  Use the
+prefix around calls to internal libraries, and keep logs from your own
+namespaced logger outside the callback.
+
 You can also pass a string instead of an array:
 
 ~~~~ typescript twoslash
