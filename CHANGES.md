@@ -10,10 +10,14 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added `FingersCrossedSink.flush()` and `FingersCrossedSink.discard()`
+    methods and the `FingersCrossedOptions.bufferAction` callback for flushing
+    or discarding isolated buffers when a request or job completes.  [[#205]]
  -  Added the `StreamSinkOptions.closeStream` option to dispose stream sinks
     without closing caller-owned streams. [[#203]]
 
 [#203]: https://github.com/dahlia/logtape/issues/203
+[#205]: https://github.com/dahlia/logtape/issues/205
 
 
 Version 2.3.1

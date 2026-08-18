@@ -2677,6 +2677,300 @@ test("fingersCrossed() - context isolation after trigger", () => {
   assert.deepStrictEqual(buffer[3], req2Error);
 });
 
+test("fingersCrossed() - context isolation supports delimiter text in categories", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+  const requestDebug: LogRecord = {
+    ...debug,
+    category: ["a]:b"],
+    properties: { requestId: "req-1" },
+  };
+  const requestError: LogRecord = {
+    ...error,
+    category: ["a]:b"],
+    properties: { requestId: "req-1" },
+  };
+
+  // Act
+  sink(requestDebug);
+  sink(requestError);
+
+  // Assert
+  assert.deepStrictEqual(output, [requestDebug, requestError]);
+});
+
+test("fingersCrossed() - bufferAction flushes and releases a context", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+    bufferAction: (record) =>
+      record.properties.requestCompleted === true ? "flush" : undefined,
+  });
+  const requestDebug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  const requestCompleted: LogRecord = {
+    ...info,
+    properties: { requestId: "req-1", requestCompleted: true },
+  };
+
+  // Act
+  sink(requestDebug);
+  sink(requestCompleted);
+  sink(requestDebug);
+
+  // Assert
+  assert.deepStrictEqual(output, [requestDebug, requestCompleted]);
+  sink.flush({ context: { requestId: "req-1" } });
+  assert.deepStrictEqual(output, [
+    requestDebug,
+    requestCompleted,
+    requestDebug,
+  ]);
+});
+
+test("fingersCrossed() - bufferAction discards an already-triggered context", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+    bufferAction: (record) =>
+      record.properties.requestCompleted === true ? "discard" : undefined,
+  });
+  const requestError: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  const requestCompleted: LogRecord = {
+    ...info,
+    properties: { requestId: "req-1", requestCompleted: true },
+  };
+  const nextRequestDebug: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+
+  // Act
+  sink(requestError);
+  sink(requestCompleted);
+  sink(nextRequestDebug);
+
+  // Assert
+  assert.deepStrictEqual(output, [requestError]);
+  sink.flush({ context: { requestId: "req-1" } });
+  assert.deepStrictEqual(output, [requestError, nextRequestDebug]);
+});
+
+test("fingersCrossed() - discard() selects a context across categories", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+  const appRequest1: LogRecord = {
+    ...debug,
+    category: ["app"],
+    properties: { requestId: "req-1" },
+  };
+  const databaseRequest1: LogRecord = {
+    ...info,
+    category: ["database"],
+    properties: { requestId: "req-1" },
+  };
+  const appRequest2: LogRecord = {
+    ...debug,
+    category: ["app"],
+    properties: { requestId: "req-2" },
+  };
+
+  // Act
+  sink(appRequest1);
+  sink(databaseRequest1);
+  sink(appRequest2);
+  sink.discard({ context: { requestId: "req-1" } });
+  sink({ ...error, properties: { requestId: "req-1" } });
+  sink({ ...error, properties: { requestId: "req-2" } });
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    { ...error, properties: { requestId: "req-1" } },
+    appRequest2,
+    { ...error, properties: { requestId: "req-2" } },
+  ]);
+});
+
+test("fingersCrossed() - flush() and discard() control the global buffer", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output));
+
+  // Act
+  sink(debug);
+  sink.flush();
+  sink(info);
+  sink.discard();
+  sink(error);
+  sink.discard();
+  sink(debug);
+
+  // Assert
+  assert.deepStrictEqual(output, [debug, error]);
+  sink.flush();
+  assert.deepStrictEqual(output, [debug, error, debug]);
+});
+
+test("fingersCrossed() - flush() clears global state before sink errors", () => {
+  // Arrange
+  const attempts: LogRecord[] = [];
+  let shouldThrow = true;
+  const sink = fingersCrossed((record) => {
+    attempts.push(record);
+    if (shouldThrow) {
+      shouldThrow = false;
+      throw new Error("Sink failed.");
+    }
+  });
+
+  // Act and assert
+  sink(debug);
+  assert.throws(() => sink.flush(), {
+    message: "Sink failed.",
+  });
+  sink(info);
+  sink.flush();
+  assert.deepStrictEqual(attempts, [debug, info]);
+});
+
+test("fingersCrossed() - flush() isolates synchronous re-entry", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const reentrantRecord: LogRecord = {
+    ...info,
+    message: ["Re-entered while flushing."],
+  };
+  let reenter = (_record: LogRecord): void => {};
+  const sink = fingersCrossed((record) => {
+    output.push(record);
+    if (record === debug) reenter(reentrantRecord);
+  });
+  reenter = sink;
+
+  // Act
+  sink(debug);
+  sink(info);
+  sink.flush();
+
+  // Assert
+  assert.deepStrictEqual(output, [debug, info]);
+  sink.flush();
+  assert.deepStrictEqual(output, [debug, info, reentrantRecord]);
+});
+
+test("fingersCrossed() - category selector uses the isolation matcher", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByCategory: "descendant",
+    isolateByContext: { keys: ["requestId"] },
+  });
+  const app: LogRecord = {
+    ...debug,
+    category: ["app"],
+    properties: { requestId: "req-1" },
+  };
+  const appModule: LogRecord = {
+    ...info,
+    category: ["app", "module"],
+    properties: { requestId: "req-1" },
+  };
+  const other: LogRecord = {
+    ...debug,
+    category: ["other"],
+    properties: { requestId: "req-1" },
+  };
+
+  // Act
+  sink(app);
+  sink(appModule);
+  sink(other);
+  sink.discard({
+    category: ["app"],
+    context: { requestId: "req-1" },
+  });
+  sink({
+    ...error,
+    category: ["other"],
+    properties: { requestId: "req-1" },
+  });
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    other,
+    {
+      ...error,
+      category: ["other"],
+      properties: { requestId: "req-1" },
+    },
+  ]);
+});
+
+test("fingersCrossed() - methods without a selector control all contexts", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+  const request1: LogRecord = {
+    ...debug,
+    properties: { requestId: "req-1" },
+  };
+  const request2: LogRecord = {
+    ...info,
+    properties: { requestId: "req-2" },
+  };
+
+  // Act
+  sink(request1);
+  sink(request2);
+  sink.flush();
+  sink({ ...error, properties: { requestId: "req-1" } });
+  sink({ ...error, properties: { requestId: "req-2" } });
+  sink.discard();
+  sink(request1);
+  sink(request2);
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    request1,
+    request2,
+    { ...error, properties: { requestId: "req-1" } },
+    { ...error, properties: { requestId: "req-2" } },
+  ]);
+  sink.flush();
+  assert.deepStrictEqual(output.slice(-2), [request1, request2]);
+});
+
+test("fingersCrossed() - context selectors require every isolation key", () => {
+  // Arrange
+  const sink = fingersCrossed(() => {}, {
+    isolateByContext: { keys: ["requestId", "sessionId"] },
+  });
+
+  // Act and assert
+  assert.throws(
+    () => sink.discard({ context: { requestId: "req-1" } }),
+    {
+      name: "TypeError",
+      message: "Missing context selector keys: sessionId.",
+    },
+  );
+});
+
 test("fingersCrossed() - TTL-based buffer cleanup", async () => {
   const buffer: LogRecord[] = [];
   const sink = fingersCrossed(buffer.push.bind(buffer), {

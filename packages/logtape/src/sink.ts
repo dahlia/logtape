@@ -524,10 +524,94 @@ export function fromAsyncSink(asyncSink: AsyncSink): Sink & AsyncDisposable {
 const _asyncSinkError = Symbol.for("logtape.asyncSinkError");
 
 /**
+ * An action returned by {@link FingersCrossedOptions.bufferAction}.
+ *
+ * Both actions end the matching buffer lifecycle.  `"flush"` emits the
+ * buffered records and the action record, while `"discard"` drops them.
+ * @since 2.4.0
+ */
+export type FingersCrossedBufferAction = "flush" | "discard";
+
+/**
+ * Selects buffers controlled by a {@link FingersCrossedSink}.
+ * @since 2.4.0
+ */
+export interface FingersCrossedBufferSelector {
+  /**
+   * Context values to match.  Every key configured by
+   * {@link FingersCrossedOptions.isolateByContext} must be present.
+   * When omitted, buffers from every context are selected.
+   */
+  readonly context?: Readonly<Record<string, unknown>>;
+
+  /**
+   * Category to match.  When category isolation is enabled, its configured
+   * matcher also applies to descendant or ancestor buffers.  When omitted,
+   * buffers from every category are selected.
+   */
+  readonly category?: readonly string[];
+}
+
+/**
+ * A sink returned by {@link fingersCrossed} with manual buffer controls.
+ * @since 2.4.0
+ */
+export interface FingersCrossedSink {
+  /**
+   * Processes a log record.
+   * @param record The log record to process.
+   */
+  (record: LogRecord): void;
+
+  /**
+   * Emits the selected buffered records, then releases their buffered and
+   * triggered state.  With no selector, every buffer is flushed.
+   *
+   * @param selector The buffers to flush.
+   */
+  flush(selector?: FingersCrossedBufferSelector): void;
+
+  /**
+   * Drops the selected buffered records, then releases their buffered and
+   * triggered state.  With no selector, every buffer is discarded.
+   *
+   * @param selector The buffers to discard.
+   */
+  discard(selector?: FingersCrossedBufferSelector): void;
+}
+
+/**
  * Options for the {@link fingersCrossed} function.
  * @since 1.1.0
  */
 export interface FingersCrossedOptions {
+  /**
+   * Chooses a terminal action for a log record and its matching buffer.
+   * Returning `undefined` applies the regular {@link triggerLevel} and
+   * {@link bufferLevel} behavior.
+   *
+   * The callback runs before checking whether the matching buffer has already
+   * been triggered.  This lets a final request or job record release both
+   * buffered and triggered state.
+   *
+   * @example Flush failed requests and discard successful requests
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   isolateByContext: { keys: ["requestId"] },
+   *   bufferAction(record) {
+   *     const status = record.properties.status;
+   *     if (typeof status !== "number") return undefined;
+   *     return status >= 500 ? "flush" : "discard";
+   *   },
+   * });
+   * ```
+   *
+   * @since 2.4.0
+   */
+  readonly bufferAction?: (
+    record: LogRecord,
+  ) => FingersCrossedBufferAction | undefined;
+
   /**
    * Minimum log level that triggers buffer flush.
    * When a log record at or above this level is received, all buffered
@@ -678,11 +762,24 @@ export interface FingersCrossedOptions {
 }
 
 /**
- * Metadata for context-based buffer tracking.
- * Used internally by {@link fingersCrossed} to manage buffer lifecycle with LRU support.
+ * Metadata for isolated buffer tracking.
+ * Used internally by {@link fingersCrossed} to manage buffer lifecycle with
+ * LRU support.
  * @since 1.2.0
  */
-interface BufferMetadata {
+interface BufferIdentity {
+  /**
+   * The category associated with this buffer.
+   */
+  readonly category: readonly string[];
+
+  /**
+   * The serialized context associated with this buffer.
+   */
+  readonly context: string;
+}
+
+interface BufferMetadata extends BufferIdentity {
   /**
    * The actual log records buffer.
    */
@@ -693,6 +790,16 @@ interface BufferMetadata {
    * Used for LRU-based eviction when {@link FingersCrossedOptions.isolateByContext.maxContexts} is set.
    */
   lastAccess: number;
+}
+
+/**
+ * Metadata for a buffer that has already been triggered.
+ */
+interface TriggeredBufferMetadata extends BufferIdentity {
+  /**
+   * The time when this buffer was most recently triggered or accessed.
+   */
+  triggeredAt: number;
 }
 
 /**
@@ -733,23 +840,23 @@ interface BufferMetadata {
 export function fingersCrossed(
   sink: Sink & Disposable & AsyncDisposable,
   options?: FingersCrossedOptions,
-): Sink & Disposable & AsyncDisposable;
+): FingersCrossedSink & Disposable & AsyncDisposable;
 export function fingersCrossed(
   sink: Sink & AsyncDisposable,
   options?: FingersCrossedOptions,
-): Sink & AsyncDisposable & Partial<Disposable>;
+): FingersCrossedSink & AsyncDisposable & Partial<Disposable>;
 export function fingersCrossed(
   sink: Sink & Disposable,
   options?: FingersCrossedOptions,
-): Sink & Disposable;
+): FingersCrossedSink & Disposable;
 export function fingersCrossed(
   sink: Sink,
   options?: FingersCrossedOptions,
-): Sink & Partial<Disposable>;
+): FingersCrossedSink & Partial<Disposable>;
 export function fingersCrossed(
   sink: Sink,
   options: FingersCrossedOptions = {},
-): Sink & Partial<Disposable & AsyncDisposable> {
+): FingersCrossedSink & Partial<Disposable & AsyncDisposable> {
   const triggerLevel = options.triggerLevel ?? "error";
   const bufferLevel = options.bufferLevel;
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
@@ -763,15 +870,15 @@ export function fingersCrossed(
   const hasTtl = bufferTtlMs != null && bufferTtlMs > 0;
   const hasLru = maxContexts != null && maxContexts > 0;
 
-  function wrapSink(
-    wrapped: Sink,
+  function wrapSink<TSink extends Sink>(
+    wrapped: TSink,
     disposeSelf?: () => void,
-  ): Sink & Partial<Disposable & AsyncDisposable> {
+  ): TSink & Partial<Disposable & AsyncDisposable> {
     const disposableSink = sink as
       & Sink
       & Partial<Disposable & AsyncDisposable>;
     const disposableWrapped = wrapped as
-      & Sink
+      & TSink
       & Partial<Disposable & AsyncDisposable>;
     const disposeSink = disposableSink[Symbol.dispose];
     const asyncDisposeSink = disposableSink[Symbol.asyncDispose];
@@ -821,6 +928,19 @@ export function fingersCrossed(
           `triggerLevel (${JSON.stringify(triggerLevel)}).`,
       );
     }
+  }
+
+  function getBufferAction(
+    record: LogRecord,
+  ): FingersCrossedBufferAction | undefined {
+    const action = options.bufferAction?.(record);
+    if (action !== undefined && action !== "flush" && action !== "discard") {
+      throw new TypeError(
+        `Invalid buffer action: ${JSON.stringify(action)}. ` +
+          'Expected "flush", "discard", or undefined.',
+      );
+    }
+    return action;
   }
 
   // Helper functions for category matching
@@ -876,12 +996,10 @@ export function fingersCrossed(
     return JSON.stringify(category);
   }
 
-  function parseCategoryKey(key: string): string[] {
-    return JSON.parse(key);
-  }
-
   // Helper function to extract context values from properties
-  function getContextKey(properties: Record<string, unknown>): string {
+  function getContextKey(
+    properties: Readonly<Record<string, unknown>>,
+  ): string {
     if (!isolateByContext || isolateByContext.keys.length === 0) {
       return "";
     }
@@ -895,43 +1013,26 @@ export function fingersCrossed(
   }
 
   // Helper function to generate buffer key
-  function getBufferKey(
-    category: readonly string[],
-    properties: Record<string, unknown>,
-  ): string {
-    const categoryKey = getCategoryKey(category);
+  function getBufferKey(identity: BufferIdentity): string {
+    const categoryKey = getCategoryKey(identity.category);
     if (!isolateByContext) {
       return categoryKey;
     }
-    const contextKey = getContextKey(properties);
-    return `${categoryKey}:${contextKey}`;
+    return `${categoryKey}:${identity.context}`;
   }
 
-  // Helper function to parse buffer key
-  function parseBufferKey(key: string): {
-    category: string[];
-    context: string;
-  } {
-    if (!isolateByContext) {
-      return { category: parseCategoryKey(key), context: "" };
-    }
-    // Find the separator between category and context
-    // The category part is JSON-encoded, so we need to find where it ends
-    // We look for "]:" which indicates end of category array and start of context
-    const separatorIndex = key.indexOf("]:");
-    if (separatorIndex === -1) {
-      // No context part, entire key is category
-      return { category: parseCategoryKey(key), context: "" };
-    }
-    const categoryPart = key.substring(0, separatorIndex + 1); // Include the ]
-    const contextPart = key.substring(separatorIndex + 2); // Skip ]:
-    return { category: parseCategoryKey(categoryPart), context: contextPart };
+  // Helper function to capture the original buffer identity
+  function getBufferIdentity(record: LogRecord): BufferIdentity {
+    return {
+      category: record.category,
+      context: getContextKey(record.properties),
+    };
   }
 
   // TTL-based cleanup function
   function cleanupExpiredBuffers(
     buffers: Map<string, BufferMetadata>,
-    triggered: Map<string, number>,
+    triggered: Map<string, TriggeredBufferMetadata>,
   ): void {
     if (!hasTtl) return;
 
@@ -957,8 +1058,8 @@ export function fingersCrossed(
 
     // Triggered buffers no longer have buffer metadata, so they must be
     // expired separately to avoid unbounded growth for dynamic contexts.
-    for (const [key, triggeredAt] of triggered) {
-      if (now - triggeredAt > bufferTtlMs!) {
+    for (const [key, metadata] of triggered) {
+      if (now - metadata.triggeredAt > bufferTtlMs!) {
         triggered.delete(key);
       }
     }
@@ -992,7 +1093,45 @@ export function fingersCrossed(
     const buffer: LogRecord[] = [];
     let triggered = false;
 
-    return wrapSink((record: LogRecord) => {
+    const validateGlobalSelector = (
+      selector: FingersCrossedBufferSelector | undefined,
+    ): void => {
+      if (selector?.context != null || selector?.category != null) {
+        throw new TypeError(
+          "A buffer selector cannot be used without buffer isolation.",
+        );
+      }
+    };
+
+    const flush = (
+      selector?: FingersCrossedBufferSelector,
+    ): void => {
+      validateGlobalSelector(selector);
+      const bufferedRecords = buffer.splice(0);
+      triggered = false;
+      for (const bufferedRecord of bufferedRecords) sink(bufferedRecord);
+    };
+
+    const discard = (
+      selector?: FingersCrossedBufferSelector,
+    ): void => {
+      validateGlobalSelector(selector);
+      buffer.length = 0;
+      triggered = false;
+    };
+
+    const fingersCrossedSink = ((record: LogRecord) => {
+      const action = getBufferAction(record);
+      if (action === "flush") {
+        flush();
+        sink(record);
+        return;
+      }
+      if (action === "discard") {
+        discard();
+        return;
+      }
+
       if (triggered) {
         // Already triggered, pass through directly
         sink(record);
@@ -1026,12 +1165,117 @@ export function fingersCrossed(
           buffer.shift();
         }
       }
-    });
+    }) as FingersCrossedSink;
+    fingersCrossedSink.flush = flush;
+    fingersCrossedSink.discard = discard;
+    return wrapSink(fingersCrossedSink);
   } else {
     // Category and/or context-isolated buffers
     const buffers = new Map<string, BufferMetadata>();
-    const triggered = new Map<string, number>();
+    const triggered = new Map<string, TriggeredBufferMetadata>();
     let accessCounter = 0;
+
+    interface BufferSelection {
+      readonly category?: readonly string[];
+      readonly context?: string;
+    }
+
+    const getRecordSelection = (
+      identity: BufferIdentity,
+    ): BufferSelection => {
+      return {
+        category: isolateByCategory ? identity.category : undefined,
+        context: isolateByContext ? identity.context : undefined,
+      };
+    };
+
+    const getManualSelection = (
+      selector: FingersCrossedBufferSelector | undefined,
+    ): BufferSelection => {
+      let context: string | undefined;
+      if (selector?.context != null) {
+        if (!isolateByContext) {
+          throw new TypeError(
+            "A context selector requires isolateByContext.",
+          );
+        }
+        const missingKeys = isolateByContext.keys.filter(
+          (key) => !(key in selector.context!),
+        );
+        if (missingKeys.length > 0) {
+          throw new TypeError(
+            `Missing context selector keys: ${missingKeys.join(", ")}.`,
+          );
+        }
+        context = getContextKey(selector.context);
+      }
+      return { category: selector?.category, context };
+    };
+
+    const matchesSelection = (
+      identity: BufferIdentity,
+      selection: BufferSelection,
+    ): boolean => {
+      if (
+        selection.context != null && selection.context !== identity.context
+      ) {
+        return false;
+      }
+      if (selection.category == null) return true;
+      if (
+        getCategoryKey(selection.category) ===
+          getCategoryKey(identity.category)
+      ) {
+        return true;
+      }
+      if (!isolateByCategory || shouldFlushBuffer == null) return false;
+      try {
+        return shouldFlushBuffer(selection.category, identity.category);
+      } catch {
+        return false;
+      }
+    };
+
+    const takeBufferedRecords = (selection: BufferSelection): {
+      readonly selectedBuffers: readonly {
+        readonly key: string;
+        readonly identity: BufferIdentity;
+      }[];
+      readonly records: readonly LogRecord[];
+    } => {
+      const selectedBuffers: {
+        readonly key: string;
+        readonly identity: BufferIdentity;
+      }[] = [];
+      const records: LogRecord[] = [];
+      for (const [key, metadata] of buffers) {
+        if (!matchesSelection(metadata, selection)) continue;
+        selectedBuffers.push({ key, identity: metadata });
+        records.push(...metadata.buffer);
+        buffers.delete(key);
+      }
+      records.sort((a, b) => a.timestamp - b.timestamp);
+      return { selectedBuffers, records };
+    };
+
+    const releaseTriggeredState = (selection: BufferSelection): void => {
+      for (const [key, metadata] of triggered) {
+        if (matchesSelection(metadata, selection)) triggered.delete(key);
+      }
+    };
+
+    const flushSelection = (selection: BufferSelection): void => {
+      const { records } = takeBufferedRecords(selection);
+      releaseTriggeredState(selection);
+      for (const record of records) sink(record);
+    };
+
+    const discardSelection = (selection: BufferSelection): void => {
+      for (const [key, metadata] of buffers) {
+        if (matchesSelection(metadata, selection)) buffers.delete(key);
+      }
+      releaseTriggeredState(selection);
+    };
 
     // Set up TTL cleanup timer if enabled
     let cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -1041,84 +1285,51 @@ export function fingersCrossed(
       }, cleanupIntervalMs);
     }
 
-    const fingersCrossedSink = (record: LogRecord) => {
-      const bufferKey = getBufferKey(record.category, record.properties);
+    const fingersCrossedSink = ((record: LogRecord) => {
+      const identity = getBufferIdentity(record);
+      const bufferKey = getBufferKey(identity);
+      const selection = getRecordSelection(identity);
+      const action = getBufferAction(record);
+
+      if (action === "flush") {
+        flushSelection(selection);
+        sink(record);
+        return;
+      }
+      if (action === "discard") {
+        discardSelection(selection);
+        return;
+      }
 
       // Check if this buffer is already triggered
-      if (triggered.has(bufferKey)) {
-        triggered.set(bufferKey, Date.now());
+      const triggeredMetadata = triggered.get(bufferKey);
+      if (triggeredMetadata != null) {
+        triggeredMetadata.triggeredAt = Date.now();
         sink(record);
         return;
       }
 
       // Check if this record triggers flush
       if (compareLogLevel(record.level, triggerLevel) >= 0) {
-        // Find all buffers that should be flushed
-        const keysToFlush = new Set<string>();
-
-        for (const [bufferedKey] of buffers) {
-          if (bufferedKey === bufferKey) {
-            keysToFlush.add(bufferedKey);
-          } else {
-            const { category: bufferedCategory, context: bufferedContext } =
-              parseBufferKey(bufferedKey);
-            const { context: triggerContext } = parseBufferKey(bufferKey);
-
-            // Check context match
-            let contextMatches = true;
-            if (isolateByContext) {
-              contextMatches = bufferedContext === triggerContext;
-            }
-
-            // Check category match
-            let categoryMatches = false;
-            if (!isolateByCategory) {
-              // No category isolation, so all categories match if context matches
-              categoryMatches = contextMatches;
-            } else if (shouldFlushBuffer) {
-              try {
-                categoryMatches = shouldFlushBuffer(
-                  record.category,
-                  bufferedCategory,
-                );
-              } catch {
-                // Ignore errors from custom matcher
-              }
-            } else {
-              // Same category only
-              categoryMatches = getCategoryKey(record.category) ===
-                getCategoryKey(bufferedCategory);
-            }
-
-            // Both must match for the buffer to be flushed
-            if (contextMatches && categoryMatches) {
-              keysToFlush.add(bufferedKey);
-            }
-          }
-        }
-
-        // Flush matching buffers
-        const allRecordsToFlush: LogRecord[] = [];
+        const { selectedBuffers, records } = takeBufferedRecords(selection);
         const triggeredAt = Date.now();
-        for (const key of keysToFlush) {
-          const metadata = buffers.get(key);
-          if (metadata) {
-            allRecordsToFlush.push(...metadata.buffer);
-            buffers.delete(key);
-            triggered.set(key, triggeredAt);
-          }
+        for (const { key, identity } of selectedBuffers) {
+          triggered.set(key, {
+            category: identity.category,
+            context: identity.context,
+            triggeredAt,
+          });
         }
-
-        // Sort by timestamp to maintain chronological order
-        allRecordsToFlush.sort((a, b) => a.timestamp - b.timestamp);
 
         // Flush all records
-        for (const bufferedRecord of allRecordsToFlush) {
-          sink(bufferedRecord);
-        }
+        for (const bufferedRecord of records) sink(bufferedRecord);
 
         // Mark trigger buffer as triggered and send trigger record
-        triggered.set(bufferKey, triggeredAt);
+        triggered.set(bufferKey, {
+          category: identity.category,
+          context: identity.context,
+          triggeredAt,
+        });
         sink(record);
       } else if (
         bufferLevel != null &&
@@ -1139,6 +1350,7 @@ export function fingersCrossed(
 
           metadata = {
             buffer: [],
+            ...identity,
             lastAccess: ++accessCounter,
           };
           buffers.set(bufferKey, metadata);
@@ -1154,6 +1366,13 @@ export function fingersCrossed(
           metadata.buffer.shift();
         }
       }
+    }) as FingersCrossedSink;
+
+    fingersCrossedSink.flush = (selector) => {
+      flushSelection(getManualSelection(selector));
+    };
+    fingersCrossedSink.discard = (selector) => {
+      discardSelection(getManualSelection(selector));
     };
 
     return wrapSink(

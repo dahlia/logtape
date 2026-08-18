@@ -594,6 +594,77 @@ await configure({
 With both isolations enabled, buffers are only flushed when both the category
 relationship matches and the context values are the same.
 
+### Record-driven buffer actions
+
+*This API is available since LogTape 2.4.0.*
+
+Use the `~FingersCrossedOptions.bufferAction` callback when a log record marks
+the end of a request, job, or other isolated lifecycle.  Return `"flush"` to
+emit the matching buffered records and the action record, or `"discard"` to
+drop both:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+const sink = fingersCrossed(getConsoleSink(), {
+  isolateByContext: { keys: ["requestId"] },
+  bufferAction(record) {
+    const status = record.properties.status;
+    if (typeof status !== "number") return undefined;
+    return status >= 500 ? "flush" : "discard";
+  },
+});
+~~~~
+
+Returning `undefined` applies the regular `triggerLevel` and `bufferLevel`
+behavior.  The callback runs before LogTape checks whether the matching buffer
+has already been triggered, so a final request record also releases an active
+triggered context.
+
+Both callback actions are terminal.  After flushing or discarding, the same
+isolation key starts a fresh buffer if it appears again.  This differs from a
+`triggerLevel` match, which flushes the buffer and lets subsequent records for
+the triggered isolation pass through directly.
+
+### Manual buffer control
+
+*This API is available since LogTape 2.4.0.*
+
+The sink returned by `fingersCrossed()` implements `FingersCrossedSink`.  Use
+its `~FingersCrossedSink.flush()` and `~FingersCrossedSink.discard()` methods
+when the lifecycle ends outside the logging stream:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+const sink = fingersCrossed(getConsoleSink(), {
+  isolateByContext: { keys: ["requestId"] },
+});
+
+// ---cut-before---
+function finishRequest(requestId: string, succeeded: boolean) {
+  if (succeeded) {
+    // A successful request no longer needs its diagnostic logs.
+    sink.discard({ context: { requestId } });
+  } else {
+    // Emit diagnostic logs when an external failure signal arrives.
+    sink.flush({ context: { requestId } });
+  }
+}
+~~~~
+
+A context-only selector applies to every category for that context.  Every key
+configured in `~FingersCrossedOptions.isolateByContext` must be present in the
+selector.  Adding `category` narrows the operation using the configured
+category isolation matcher.  Omit the selector to flush or discard every
+buffer.
+
+Both methods release buffered and triggered state.  Calling either method for
+an already-triggered isolation resets it, so the next record with the same key
+is buffered again.
+
 ### Buffer management
 
 The fingers crossed sink provides several mechanisms to manage memory usage
