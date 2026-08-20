@@ -1512,6 +1512,54 @@ export function getLogger(category: string | readonly string[] = []): Logger {
 }
 
 /**
+ * Enumerate every logger in the category tree rooted at the given logger,
+ * including the given logger itself, in depth-first pre-order.
+ *
+ * ```typescript
+ * const all = getLoggers();          // the whole tree, from the root down
+ * const mine = getLoggers("my-app"); // "my-app" and its descendants only
+ * ```
+ *
+ * This only reflects loggers that have actually been *materialized* by a
+ * `getLogger()` call somewhere in the running program.  A category that has
+ * been configured via `configure()` but never reached by a `getLogger()`
+ * call (e.g. inside an unexecuted code path) will not appear.
+ *
+ * @param logger The logger (or its category, as a string or array of
+ *               strings) to start from.  Defaults to the root logger.
+ * @returns Every logger in the subtree, starting with the resolved logger
+ *          itself, in depth-first pre-order.
+ * @since 2.4.0
+ */
+export function getLoggers(
+  logger?: Logger | string | readonly string[],
+): readonly Logger[] {
+  const category = logger == null
+    ? []
+    : isCategory(logger)
+    ? logger
+    : logger.category;
+  return collectDescendants(LoggerImpl.getLogger(category));
+}
+
+function isCategory(
+  value: Logger | string | readonly string[],
+): value is string | readonly string[] {
+  return typeof value === "string" || Array.isArray(value);
+}
+
+function collectDescendants(logger: LoggerImpl): readonly LoggerImpl[] {
+  const loggers: LoggerImpl[] = [logger];
+  for (const childRef of Object.values(logger.children)) {
+    const child = childRef instanceof LoggerImpl
+      ? childRef
+      : childRef.deref();
+    if (child != null) loggers.push(...collectDescendants(child));
+  }
+  return loggers;
+}
+
+/**
  * The symbol for the global root logger.
  */
 const globalRootLoggerSymbol = Symbol.for("logtape.rootLogger");

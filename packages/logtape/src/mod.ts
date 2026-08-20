@@ -58,6 +58,7 @@ export {
 } from "./level.ts";
 export {
   getLogger,
+  getLoggers,
   isLazy,
   type Lazy,
   lazy,
