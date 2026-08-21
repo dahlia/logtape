@@ -19,7 +19,7 @@ interface LintOutput {
 
 async function lintWithPlugin(
   sourceCode: string,
-  includeRules: string[],
+  includeRules?: string[],
 ): Promise<Diagnostic[]> {
   if (!isDenoRuntime) return [];
   // @ts-ignore: Deno-only API
@@ -28,12 +28,17 @@ async function lintWithPlugin(
     // Pass the plugin as a file:// URL specifier.  An OS path (e.g. from
     // fileURLToPath) is `D:\...` on Windows, which deno.json's `plugins` array
     // does not accept; a file:// URL resolves correctly on every platform.
-    const pluginUrl = new URL("./plugin.ts", import.meta.url).href;
+    const pluginFile = includeRules?.includes(
+        "logtape/no-dynamic-message",
+      )
+      ? "./strict-plugin.ts"
+      : "./plugin.ts";
+    const pluginUrl = new URL(pluginFile, import.meta.url).href;
     const denoJson = {
       unstable: ["lint"],
       lint: {
         plugins: [pluginUrl],
-        rules: { include: includeRules },
+        rules: includeRules == null ? undefined : { include: includeRules },
       },
     };
     // @ts-ignore: Deno-only API
@@ -111,6 +116,7 @@ async function lintAndFix(
 }
 
 const ALL_RULES = [
+  "logtape/no-dynamic-message",
   "logtape/no-message-interpolation",
   "logtape/prefer-lazy-evaluation",
   "logtape/no-unawaited-log",
@@ -118,6 +124,682 @@ const ALL_RULES = [
 ];
 
 const skipIfNotDeno = !isDenoRuntime;
+
+test(
+  "deno lint: no-dynamic-message is disabled by default",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger("test");
+declare const message: string;
+logger.info(message);
+`,
+    );
+
+    assert.deepStrictEqual(diagnostics, []);
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message flags dynamic expressions",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+logger.info(message);
+logger.warn(getMessage());
+logger.error(error.message);
+logger.debug(prefix + suffix);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 4);
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message recognizes wrapped logger initializers",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger, type Logger } from "@logtape/logtape";
+const asserted = getLogger("test") as Logger;
+const satisfied = getLogger("test") satisfies Logger;
+const nonNull = getLogger("test")!;
+asserted.info(message);
+satisfied.info(message);
+nonNull.info(message);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 3, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message recognizes imports after logger calls",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `const logger = getLogger("test");
+logger.info(message);
+import { getLogger } from "@logtape/logtape";`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message allows locally inferred overloads",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+const message = "A static message.";
+const properties = { userId };
+const callback = () => ["A static message.", { userId }];
+logger.info(message);
+logger.info(properties);
+logger.info(callback);
+logger.error(new Error("Failed."));`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0);
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message flags dynamic array templates",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+logger.info([message]);
+logger.info(new Array(getMessage()));
+logger.info(new Proxy([getMessage()], {}));
+logger.info(["Fixed."]);
+logger.info(["User ", " logged in."], userId);
+const template = ["Fixed."];
+template[0] = getMessage();
+logger.info(template);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 4, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message reserves Error guidance for Error values",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+const error = new Error("Failed.");
+logger.error(error.message);
+logger.error(response.message);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2, JSON.stringify(diagnostics));
+    assert.ok(violations[0].message.includes("Error object directly"));
+    assert.ok(!violations[1].message.includes("Error object directly"));
+  },
+);
+
+test(
+  "deno lint: destructured parameters do not inherit object annotations",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+function emit(
+  { message }: { message: string },
+  properties: Record<string, unknown>,
+) {
+  logger.info(message);
+  logger.info(properties);
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: catch bindings are not assumed to be errors",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+try { risky(); } catch ({ message }) { logger.error(message); }
+try { risky(); } catch (error) { logger.error(error); }`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message inspects referenced type arguments",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+type PayloadError = string;
+declare const value: unknown;
+const namedMessage = value as PayloadError;
+const readonlyMessage = value as Readonly<string>;
+const readonlyProperties = value as Readonly<Record<string, unknown>>;
+logger.error(namedMessage);
+logger.error(readonlyMessage);
+logger.info(readonlyProperties);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2);
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message preserves proven static expressions",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+const annotated: string = "Ready.";
+const fixed = "Ready.";
+logger.info(annotated);
+logger.info("Ready." as string);
+logger.info("Ready." satisfies string);
+logger.info(fixed as string);
+logger.info(fixed satisfies string);
+logger.info(fixed!);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0);
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message flags distinct string literal unions",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+declare const message: "started" | "finished";
+logger.info(message);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1);
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message rejects shadowed built-in names",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+type Error = string;
+type Record<Key, Value> = string;
+type Readonly<Value> = string;
+type Object = string;
+declare const errorMessage: Error;
+declare const recordMessage: Record<string, unknown>;
+declare const readonlyMessage: Readonly<Record<string, unknown>>;
+declare const objectMessage: Object;
+function TypeError(): string { return getMessage(); }
+function generic<Error>(genericMessage: Error) {
+  logger.error(genericMessage);
+}
+logger.error(errorMessage);
+logger.info(recordMessage);
+logger.info(readonlyMessage);
+logger.info(objectMessage);
+logger.error(TypeError());`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 6);
+  },
+);
+
+test(
+  "deno lint: switch declarations shadow built-in types",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+switch (kind) {
+  case "failure":
+    type Error = string;
+    const message: Error = getMessage();
+    logger.error(message);
+    break;
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: case bindings do not shadow the switch discriminant",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger("test");
+switch (logger.info(message)) {
+  case 0:
+    const logger = local;
+    break;
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: import-equals declarations shadow built-in types",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+namespace Texts {
+  export type Error = string;
+  export function TypeError(): string { return getMessage(); }
+}
+import Error = Texts.Error;
+import TypeError = Texts.TypeError;
+declare const message: Error;
+const logger = getLogger(["test"]);
+logger.error(message);
+logger.error(TypeError());`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: import-equals value aliases shadow outer loggers",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger("test");
+namespace Other {
+  export const logger = { info(_message: unknown) {} };
+}
+namespace Scope {
+  import logger = Other.logger;
+  logger.info(message);
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: no-dynamic-message allows Error intersection types",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+declare const error: Error & { code: string };
+logger.error(error);`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0);
+  },
+);
+
+test(
+  "deno lint: class type parameters shadow built-in names",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+logger.info("Café ready.");
+class Declared<
+  Value extends Record<string, unknown>,
+  Error extends string,
+> {
+  method(message: Error) { logger.error(message); }
+}
+const Expression = class<Error extends string> {
+  method(message: Error) { logger.error(message); }
+};`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: anonymous default class type parameters shadow built-ins",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+export default class<Error extends string> {
+  method(message: Error) { logger.error(message); }
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: modified anonymous class type parameters shadow built-ins",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+declare function decorate(options: unknown): ClassDecorator;
+const logger = getLogger(["test"]);
+@decorate({ class: "ignored" })
+export default abstract /* class<Fake> */ class<Error extends string> {
+  method(message: Error) { logger.error(message); }
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: wrapped parameter annotations preserve safe overloads",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+function logProperties(
+  properties: Record<string, unknown> = {},
+) {
+  logger.info(properties);
+}
+class Service {
+  constructor(private error: Error) {
+    logger.error(error);
+  }
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: body vars do not shadow imported getters in defaults",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+function emit(result = getLogger("test").info(message)) {
+  var getLogger = local;
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: forward const messages are classified before callbacks",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+const emitFixed = () => logger.info(fixed);
+const emitAlias = () => logger.info(alias);
+const alias = fixed;
+const fixed = "Fixed.";
+emitFixed();
+emitAlias();`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: wrapped forward aliases are reclassified before callbacks",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger("test");
+const emitAsserted = () => logger.info(asserted);
+const emitSatisfied = () => logger.info(satisfied);
+const emitNonNull = () => logger.info(nonNull);
+const asserted = assertedFixed as string;
+const satisfied = satisfiedFixed satisfies string;
+const nonNull = nonNullFixed!;
+const assertedFixed = "Asserted.";
+const satisfiedFixed = "Satisfied.";
+const nonNullFixed = "Non-null.";
+emitAsserted();
+emitSatisfied();
+emitNonNull();`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 0, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: forward logger bindings are resolved before callbacks",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const emitDirect = () => logger.info(getMessage());
+const emitAlias = () => alias.info(getMessage());
+const alias = logger;
+const logger = getLogger("test");
+emitDirect();
+emitAlias();`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: later declarations shadow outer argument classifications",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+const message = "Fixed.";
+function lexicalBinding() {
+  const callback = () => logger.info(message);
+  let message = getMessage();
+  callback();
+}
+function varBinding() {
+  const callback = () => logger.info(message);
+  if (condition) { var message = getMessage(); }
+  callback();
+}`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 2);
+  },
+);
+
+test(
+  "deno lint: loop-header declarations shadow outer classifications",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+const message = "Fixed.";
+for (
+  let callback = () => logger.info(message), message = getMessage();
+  condition;
+) callback();
+for (
+  const callback = () => logger.info(fixed), fixed = "Loop fixed.";
+  condition;
+) callback();`,
+      ["logtape/no-dynamic-message"],
+    );
+    const violations = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    assert.strictEqual(violations.length, 1, JSON.stringify(diagnostics));
+  },
+);
+
+test(
+  "deno lint: dynamic-message and interpolation rules do not duplicate reports",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const logger = getLogger(["test"]);
+logger.info(\`User \${userId} logged in.\`);`,
+      [
+        "logtape/no-dynamic-message",
+        "logtape/no-message-interpolation",
+      ],
+    );
+    const violations = diagnostics.filter((d) =>
+      d.code === "logtape/no-dynamic-message" ||
+      d.code === "logtape/no-message-interpolation"
+    );
+    assert.strictEqual(violations.length, 1);
+    assert.strictEqual(violations[0].code, "logtape/no-message-interpolation");
+  },
+);
 
 test(
   "deno lint: no-message-interpolation flags template literal",
@@ -1558,6 +2240,43 @@ logger.info(\`v=\${x}\`);`,
         JSON.stringify(diagnostics)
       }`,
     );
+  },
+);
+
+test(
+  "deno lint: var declarations stay inside namespaces and static blocks",
+  { skip: skipIfNotDeno },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      `import { getLogger } from "@logtape/logtape";
+const namespaceLogger = getLogger(["namespace"]);
+namespace N {
+  var namespaceLogger = makeOther();
+  void namespaceLogger;
+}
+namespaceLogger.info(message);
+const staticLogger = getLogger(["static"]);
+class Service {
+  static {
+    var staticLogger = makeOther();
+    void staticLogger;
+  }
+}
+staticLogger.info(\`value=\${value}\`);`,
+      [
+        "logtape/no-dynamic-message",
+        "logtape/no-message-interpolation",
+      ],
+    );
+    const dynamicMessages = diagnostics.filter(
+      (d) => d.code === "logtape/no-dynamic-message",
+    );
+    const interpolations = diagnostics.filter(
+      (d) => d.code === "logtape/no-message-interpolation",
+    );
+    assert.strictEqual(dynamicMessages.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(interpolations.length, 1, JSON.stringify(diagnostics));
   },
 );
 

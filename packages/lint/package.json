@@ -60,6 +60,14 @@
       "import": "./dist/deno/plugin.js",
       "require": "./dist/deno/plugin.cjs"
     },
+    "./deno/strict": {
+      "types": {
+        "import": "./dist/deno/strict-plugin.d.ts",
+        "require": "./dist/deno/strict-plugin.d.cts"
+      },
+      "import": "./dist/deno/strict-plugin.js",
+      "require": "./dist/deno/strict-plugin.cjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -75,6 +83,7 @@
     }
   },
   "devDependencies": {
+    "@typescript-eslint/parser": "catalog:",
     "eslint": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"

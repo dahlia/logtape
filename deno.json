@@ -50,6 +50,7 @@
     "@std/testing": "jsr:@std/testing@^0.222.1",
     "@types/express": "npm:@types/express@^5.0.6",
     "@types/koa": "npm:@types/koa@^2.15.0",
+    "@typescript-eslint/parser": "npm:@typescript-eslint/parser@^8.67.0",
     "consolemock": "npm:consolemock@^1.1.0",
     "elysia": "npm:elysia@^1.4.0",
     "eslint": "npm:eslint@^9.0.0",
@@ -61,6 +62,7 @@
     "hono": "jsr:@hono/hono@^4.0.0",
     "koa": "npm:koa@^2.16.1",
     "tsdown": "npm:tsdown@^0.12.7",
+    "typescript": "npm:typescript@^5.8.3",
     "vitest": "npm:vitest@^4.1.6"
   },
   "unstable": [

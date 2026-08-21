@@ -1,5 +1,13 @@
 import type { Rule } from "eslint";
-import { isLogtapeImportSource } from "./core/ast.ts";
+import {
+  classifyLogArgumentSyntax,
+  classifyTypeAnnotation,
+  isLogtapeImportSource,
+  isMutableArrayLiteral,
+  type LogArgumentClassificationContext,
+  type LogArgumentKind,
+  unwrapTypeAssertion,
+} from "./core/ast.ts";
 
 // deno-lint-ignore no-explicit-any
 type AnyNode = any;
@@ -17,6 +25,8 @@ export function createLogtapeScope(context: Rule.RuleContext): {
   isLogtapeCall(callee: AnyNode, callNode: AnyNode): boolean;
   lazyNames: Set<string>;
   effectiveLazyNames(callNode: AnyNode): Set<string>;
+  classifyLogArgument(argument: AnyNode, callNode: AnyNode): LogArgumentKind;
+  resolvedFirstParameterKind(callNode: AnyNode): LogArgumentKind;
 } {
   const getterNames = new Set<string>();
   // Local names of `lazy` imported from @logtape/logtape.  A lazy() value is
@@ -53,6 +63,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
     depth = 0,
   ): boolean {
     if (depth > 16 || !node) return false;
+    node = unwrapTypeAssertion(node);
 
     // getLogger(...) — direct call to the imported getter.
     if (node.type === "CallExpression" && node.callee?.type === "Identifier") {
@@ -129,22 +140,241 @@ export function createLogtapeScope(context: Rule.RuleContext): {
     return result;
   }
 
-  return {
-    ImportDeclaration(node: AnyNode): void {
-      if (!isLogtapeImportSource(node.source?.value)) return;
-      for (const spec of node.specifiers ?? []) {
-        if (spec.type !== "ImportSpecifier") continue;
-        if (spec.imported?.name === "getLogger") {
-          getterNames.add(spec.local?.name);
-        } else if (spec.imported?.name === "lazy") {
-          lazyNames.add(spec.local?.name);
+  function scopeAt(node: AnyNode): AnyNode {
+    // deno-lint-ignore no-explicit-any
+    return (context as any).sourceCode?.getScope?.(node) ??
+      // deno-lint-ignore no-explicit-any
+      (context as any).getScope?.();
+  }
+
+  function classifyLogArgument(
+    argument: AnyNode,
+    callNode: AnyNode,
+  ): LogArgumentKind {
+    return classifyArgumentInScope(
+      argument,
+      scopeAt(callNode),
+      new Set(),
+      0,
+    );
+  }
+
+  function classifyArgumentInScope(
+    node: AnyNode,
+    scope: AnyNode,
+    seen: Set<AnyNode>,
+    depth: number,
+  ): LogArgumentKind {
+    if (!node || depth > 16) return "unknown";
+    const context = classificationContext(scope);
+    if (
+      node.type === "TSAsExpression" || node.type === "TSTypeAssertion" ||
+      node.type === "TSSatisfiesExpression"
+    ) {
+      const expression = classifyArgumentInScope(
+        node.expression,
+        scope,
+        seen,
+        depth + 1,
+      );
+      return expression !== "unknown"
+        ? expression
+        : classifyTypeAnnotation(node.typeAnnotation, context);
+    }
+    if (node.type === "TSNonNullExpression") {
+      return classifyArgumentInScope(
+        node.expression,
+        scope,
+        seen,
+        depth + 1,
+      );
+    }
+    const direct = classifyLogArgumentSyntax(node, context);
+    if (direct !== "unknown") return direct;
+    if (node.type !== "Identifier") return "unknown";
+
+    const variable = resolveVariable(scope, node.name);
+    if (!variable || seen.has(variable)) return "unknown";
+    seen.add(variable);
+
+    for (const def of variable.defs ?? []) {
+      if (def.type === "FunctionName") return "callback";
+
+      const binding = def.name ?? def.node?.id ?? def.node;
+      const declarationContext = classificationContext(
+        variable.scope ?? scope,
+      );
+      const annotated = classifyTypeAnnotation(
+        binding?.typeAnnotation,
+        declarationContext,
+      );
+      if (def.type === "Variable") {
+        if (def.parent?.kind === "const") {
+          const initialized = isMutableArrayLiteral(def.node?.init)
+            ? "dynamic-message"
+            : classifyArgumentInScope(
+              def.node?.init,
+              variable.scope ?? scope,
+              seen,
+              depth + 1,
+            );
+          if (initialized !== "unknown") return initialized;
         }
+        return annotated;
       }
-    },
+      if (annotated !== "unknown") return annotated;
+    }
+    return "unknown";
+  }
+
+  function classificationContext(
+    scope: AnyNode,
+  ): LogArgumentClassificationContext {
+    return {
+      isBuiltinTypeName: (name: string) =>
+        isUnshadowedBuiltinName(scope, name, "type"),
+      isBuiltinValueName: (name: string) =>
+        isUnshadowedBuiltinName(scope, name, "value"),
+    };
+  }
+
+  function isUnshadowedBuiltinName(
+    scope: AnyNode,
+    name: string,
+    namespace: "type" | "value",
+  ): boolean {
+    const variable = resolveVariable(scope, name);
+    if (!variable || (variable.defs?.length ?? 0) === 0) return true;
+    const namespaceFlag = namespace === "type"
+      ? variable.isTypeVariable
+      : variable.isValueVariable;
+    return typeof namespaceFlag === "boolean" ? !namespaceFlag : false;
+  }
+
+  function resolvedFirstParameterKind(callNode: AnyNode): LogArgumentKind {
+    // Parser services are optional.  ESLint with @typescript-eslint/parser can
+    // supply them, while Oxlint and ordinary ESLint parsing currently cannot.
+    // deno-lint-ignore no-explicit-any
+    const services = (getSourceCode(context) as any)?.parserServices;
+    const program = services?.program;
+    const nodeMap = services?.esTreeNodeToTSNodeMap;
+    if (!program || !nodeMap) return "unknown";
+    try {
+      const tsNode = nodeMap.get(callNode);
+      if (!tsNode) return "unknown";
+      const checker = program.getTypeChecker();
+      const argument = tsNode.arguments?.[0];
+      if (!argument) return "unknown";
+      const argumentType = checker.getTypeAtLocation(argument);
+      const argumentKind = classifyCheckedType(
+        argumentType,
+        checker,
+        new Set(),
+      );
+      if (argumentKind === "unknown") return "unknown";
+      // An exact literal argument is stronger evidence than the widened
+      // string parameter of the overload selected for it.
+      if (argumentKind === "static-message") return argumentKind;
+      const signature = checker.getResolvedSignature(tsNode);
+      const parameter = signature?.getParameters?.()[0];
+      if (!parameter) return "unknown";
+      const type = checker.getTypeOfSymbolAtLocation(parameter, tsNode);
+      const parameterKind = classifyCheckedType(type, checker, new Set());
+      // A union parameter may combine message and non-message overload shapes.
+      // When that makes the signature ambiguous, keep the concrete argument
+      // classification that was already proven above.
+      return parameterKind === "unknown" ? argumentKind : parameterKind;
+    } catch {
+      // Type information is an optional enhancement.  An incomplete parser
+      // service must fall back to the same local inference as other hosts.
+      return "unknown";
+    }
+  }
+
+  function recordLogtapeImport(node: AnyNode): void {
+    if (!isLogtapeImportSource(node.source?.value)) return;
+    for (const spec of node.specifiers ?? []) {
+      if (spec.type !== "ImportSpecifier") continue;
+      if (spec.imported?.name === "getLogger") {
+        getterNames.add(spec.local?.name);
+      } else if (spec.imported?.name === "lazy") {
+        lazyNames.add(spec.local?.name);
+      }
+    }
+  }
+
+  for (const node of getSourceCode(context)?.ast?.body ?? []) {
+    if (node.type === "ImportDeclaration") recordLogtapeImport(node);
+  }
+
+  return {
+    ImportDeclaration: recordLogtapeImport,
     isLogtapeCall,
     lazyNames,
     effectiveLazyNames,
+    classifyLogArgument,
+    resolvedFirstParameterKind,
   };
+}
+
+function classifyCheckedType(
+  type: AnyNode,
+  checker: AnyNode,
+  seen: Set<AnyNode>,
+): LogArgumentKind {
+  if (!type || seen.has(type)) return "unknown";
+  seen.add(type);
+
+  const intrinsicName = type.intrinsicName;
+  if (intrinsicName === "any" || intrinsicName === "unknown") return "unknown";
+  if (type.isStringLiteral?.() === true) return "static-message";
+  if (
+    checker.isTypeAssignableTo?.(type, checker.getStringType?.()) === true
+  ) {
+    return "dynamic-message";
+  }
+  if (checker.isArrayLikeType?.(type) === true) return "dynamic-message";
+  if ((type.getCallSignatures?.().length ?? 0) > 0) return "callback";
+  if (isCheckedErrorType(type, new Set())) return "error";
+
+  if (type.isIntersection?.()) {
+    const kinds = new Set<LogArgumentKind>(
+      (type.types ?? []).map((part: AnyNode) =>
+        classifyCheckedType(part, checker, seen)
+      ),
+    );
+    if (kinds.has("error")) return "error";
+    return kinds.size === 1 ? [...kinds][0]! : "unknown";
+  }
+
+  if (type.isUnion?.()) {
+    const kinds = new Set<LogArgumentKind>(
+      (type.types ?? []).map((part: AnyNode) =>
+        classifyCheckedType(part, checker, seen)
+      ),
+    );
+    return kinds.size === 1 ? [...kinds][0]! : "unknown";
+  }
+
+  if (type.isTypeParameter?.()) {
+    const constraint = type.getConstraint?.();
+    return constraint
+      ? classifyCheckedType(constraint, checker, seen)
+      : "unknown";
+  }
+  if (typeof type.objectFlags === "number") return "properties";
+  if (typeof intrinsicName === "string") return "non-message";
+  return "unknown";
+}
+
+function isCheckedErrorType(type: AnyNode, seen: Set<AnyNode>): boolean {
+  if (!type || seen.has(type)) return false;
+  seen.add(type);
+  const symbol = type.getSymbol?.() ?? type.symbol;
+  if (symbol?.getName?.() === "Error") return true;
+  return (type.getBaseTypes?.() ?? []).some((base: AnyNode) =>
+    isCheckedErrorType(base, seen)
+  );
 }
 
 /**

@@ -10,6 +10,7 @@
  */
 
 export {
+  noDynamicMessage,
   noMessageInterpolation,
   noUnawaitedLog,
   plugin,

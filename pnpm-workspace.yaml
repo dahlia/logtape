@@ -54,6 +54,7 @@ catalog:
   "@types/bun": ^1.2.15
   "@types/express": ^5.0.6
   "@types/koa": ^2.15.0
+  "@typescript-eslint/parser": ^8.67.0
   consolemock: ^1.1.0
   elysia: ^1.4.0
   eslint: ^9.0.0

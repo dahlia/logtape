@@ -24,10 +24,15 @@ Rules
 
 | Rule                       | Default severity | Fix               |
 | -------------------------- | ---------------- | ----------------- |
+| `no-dynamic-message`       | off              | no                |
 | `no-message-interpolation` | error            | no                |
 | `prefer-lazy-evaluation`   | warn             | yes               |
 | `no-unawaited-log`         | error            | yes (conditional) |
 | `require-meta-sink`        | warn             | no                |
+
+For Deno Lint, the default `@logtape/lint/deno` entry point contains the four
+recommended rules.  Use `@logtape/lint/deno/strict` instead when explicitly
+enabling `no-dynamic-message`.
 
 
 Installation

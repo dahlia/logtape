@@ -33,6 +33,47 @@ export const LOG_METHODS: Set<string> = new Set([
 ]);
 
 /**
+ * Log methods whose first argument may be an {@link Error} object.
+ */
+export const ERROR_LOG_METHODS: Set<string> = new Set([
+  "warn",
+  "warning",
+  "error",
+  "fatal",
+]);
+
+/**
+ * A syntactic or locally inferred classification of a log call's first
+ * argument.
+ */
+export type LogArgumentKind =
+  | "static-message"
+  | "interpolated-message"
+  | "dynamic-message"
+  | "properties"
+  | "callback"
+  | "error"
+  | "non-message"
+  | "unknown";
+
+/** Scope-aware checks for references to built-in types and values. */
+export interface LogArgumentClassificationContext {
+  readonly isBuiltinTypeName: (name: string) => boolean;
+  readonly isBuiltinValueName: (name: string) => boolean;
+}
+
+const ERROR_CONSTRUCTORS: Set<string> = new Set([
+  "Error",
+  "AggregateError",
+  "EvalError",
+  "RangeError",
+  "ReferenceError",
+  "SyntaxError",
+  "TypeError",
+  "URIError",
+]);
+
+/**
  * AST node types that introduce their own function scope.
  */
 export const ASYNC_FUNCTION_TYPES: Set<string> = new Set([
@@ -77,6 +118,183 @@ export function unwrapTypeAssertion(node: any): any {
     node = node.expression;
   }
   return node;
+}
+
+/**
+ * Whether an expression is an array literal whose elements may be mutated.
+ */
+export function isMutableArrayLiteral(node: any): boolean {
+  return unwrapTypeAssertion(node)?.type === "ArrayExpression";
+}
+
+/**
+ * Classify a TypeScript type annotation when it unambiguously identifies one
+ * of the supported first-argument overloads.
+ */
+export function classifyTypeAnnotation(
+  node: any,
+  context?: LogArgumentClassificationContext,
+): LogArgumentKind {
+  if (!node) return "unknown";
+  if (node.type === "TSTypeAnnotation") node = node.typeAnnotation;
+
+  switch (node.type) {
+    case "TSStringKeyword":
+      return "dynamic-message";
+    case "TSObjectKeyword":
+    case "TSTypeLiteral":
+    case "TSMappedType":
+      return "properties";
+    case "TSFunctionType":
+      return "callback";
+    case "TSLiteralType":
+      return typeof node.literal?.value === "string"
+        ? "static-message"
+        : "non-message";
+    case "TSParenthesizedType":
+      return classifyTypeAnnotation(node.typeAnnotation, context);
+    case "TSUnionType": {
+      const literalValues = (node.types ?? []).map(stringLiteralTypeValue);
+      if (
+        literalValues.length > 0 &&
+        literalValues.every((value: string | undefined) => value !== undefined)
+      ) {
+        return new Set(literalValues).size === 1
+          ? "static-message"
+          : "dynamic-message";
+      }
+      const kinds = new Set<LogArgumentKind>(
+        (node.types ?? []).map((type: any) =>
+          classifyTypeAnnotation(type, context)
+        ),
+      );
+      return kinds.size === 1 ? [...kinds][0]! : "unknown";
+    }
+    case "TSIntersectionType": {
+      const kinds = new Set<LogArgumentKind>(
+        (node.types ?? []).map((type: any) =>
+          classifyTypeAnnotation(type, context)
+        ),
+      );
+      if (kinds.has("error")) return "error";
+      return kinds.size === 1 ? [...kinds][0]! : "unknown";
+    }
+    case "TSTypeReference": {
+      const name = typeNameText(node.typeName);
+      const isBuiltin = name != null &&
+        context?.isBuiltinTypeName(name) === true;
+      if (isBuiltin && ERROR_CONSTRUCTORS.has(name)) return "error";
+      if (isBuiltin && (name === "Record" || name === "Object")) {
+        return "properties";
+      }
+      if (isBuiltin && name === "Readonly") {
+        const parameters = node.typeArguments?.params ??
+          node.typeParameters?.params ?? [];
+        return parameters.length === 1
+          ? classifyTypeAnnotation(parameters[0], context)
+          : "unknown";
+      }
+      return "unknown";
+    }
+    default:
+      return "unknown";
+  }
+}
+
+function stringLiteralTypeValue(node: any): string | undefined {
+  if (node?.type === "TSParenthesizedType") {
+    return stringLiteralTypeValue(node.typeAnnotation);
+  }
+  return node?.type === "TSLiteralType" &&
+      typeof node.literal?.value === "string"
+    ? node.literal.value
+    : undefined;
+}
+
+function typeNameText(node: any): string | null {
+  if (!node) return null;
+  if (node.type === "Identifier") return node.name ?? null;
+  return null;
+}
+
+/**
+ * Classify an expression whose syntax alone identifies whether it can be a
+ * message or another supported LogTape overload.
+ */
+export function classifyLogArgumentSyntax(
+  node: any,
+  context?: LogArgumentClassificationContext,
+): LogArgumentKind {
+  if (!node) return "unknown";
+
+  if (
+    node.type === "TSAsExpression" || node.type === "TSTypeAssertion" ||
+    node.type === "TSSatisfiesExpression"
+  ) {
+    const expression = classifyLogArgumentSyntax(node.expression, context);
+    if (expression !== "unknown") return expression;
+    const annotated = classifyTypeAnnotation(node.typeAnnotation, context);
+    return annotated;
+  }
+  if (node.type === "TSNonNullExpression") {
+    return classifyLogArgumentSyntax(node.expression, context);
+  }
+
+  switch (node.type) {
+    case "Literal":
+      return typeof node.value === "string" ? "static-message" : "non-message";
+    case "TemplateLiteral":
+      return node.expressions?.length
+        ? "interpolated-message"
+        : "static-message";
+    case "ObjectExpression":
+      return "properties";
+    case "ArrowFunctionExpression":
+    case "FunctionExpression":
+    case "FunctionDeclaration":
+      return "callback";
+    case "ArrayExpression":
+      return (node.elements ?? []).every(isStaticTemplateSegment)
+        ? "static-message"
+        : "dynamic-message";
+    case "ClassExpression":
+      return "non-message";
+    case "NewExpression":
+      return isErrorConstructor(node.callee, context) ? "error" : "unknown";
+    case "CallExpression":
+      return isErrorConstructor(node.callee, context) ? "error" : "unknown";
+    case "UnaryExpression":
+      return node.operator === "typeof" ? "dynamic-message" : "non-message";
+    default:
+      return "unknown";
+  }
+}
+
+function isStaticTemplateSegment(node: any): boolean {
+  node = unwrapTypeAssertion(node);
+  if (node?.type === "Literal") return typeof node.value === "string";
+  return node?.type === "TemplateLiteral" &&
+    (node.expressions?.length ?? 0) === 0;
+}
+
+function isErrorConstructor(
+  node: any,
+  context?: LogArgumentClassificationContext,
+): boolean {
+  return node?.type === "Identifier" && ERROR_CONSTRUCTORS.has(node.name) &&
+    context?.isBuiltinValueName(node.name) === true;
+}
+
+/**
+ * Return the receiver of a direct `.message` access, if present.
+ */
+export function messageAccessReceiver(node: any): any | null {
+  node = unwrapTypeAssertion(node);
+  if (!node || node.type !== "MemberExpression") return null;
+  const isMessage = !node.computed
+    ? node.property?.name === "message"
+    : node.property?.type === "Literal" && node.property.value === "message";
+  return isMessage ? node.object : null;
 }
 
 /**

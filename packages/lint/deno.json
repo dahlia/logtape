@@ -3,12 +3,15 @@
   "version": "2.4.0",
   "license": "MIT",
   "imports": {
-    "eslint": "npm:eslint@^9.0.0"
+    "@typescript-eslint/parser": "npm:@typescript-eslint/parser@^8.67.0",
+    "eslint": "npm:eslint@^9.0.0",
+    "typescript": "npm:typescript@^5.8.3"
   },
   "exports": {
     ".": "./src/mod.ts",
     "./eslint": "./src/eslint/plugin.ts",
-    "./deno": "./src/deno/plugin.ts"
+    "./deno": "./src/deno/plugin.ts",
+    "./deno/strict": "./src/deno/strict-plugin.ts"
   },
   "tasks": {
     "build": "pnpm build",

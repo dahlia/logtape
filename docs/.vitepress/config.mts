@@ -149,6 +149,7 @@ const LINT = {
   text: "Lint rules",
   items: [
     { text: "Overview", link: "/lint/" },
+    { text: "no-dynamic-message", link: "/lint/no-dynamic-message" },
     {
       text: "no-message-interpolation",
       link: "/lint/no-message-interpolation",

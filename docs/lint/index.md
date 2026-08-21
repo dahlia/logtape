@@ -14,11 +14,13 @@ Available rules
 
 | Rule                         | Default severity | Fix               |
 | ---------------------------- | ---------------- | ----------------- |
+| [`no-dynamic-message`]       | off              | no                |
 | [`no-message-interpolation`] | error            | no                |
 | [`prefer-lazy-evaluation`]   | warn             | yes               |
 | [`no-unawaited-log`]         | error            | yes (conditional) |
 | [`require-meta-sink`]        | warn             | no                |
 
+[`no-dynamic-message`]: /lint/no-dynamic-message
 [`no-message-interpolation`]: /lint/no-message-interpolation
 [`prefer-lazy-evaluation`]: /lint/prefer-lazy-evaluation
 [`no-unawaited-log`]: /lint/no-unawaited-log
@@ -69,8 +71,9 @@ export default [
 ];
 ~~~~
 
-The preset activates all four rules with their default severities (see the
-table above).
+The preset activates the four rules with a default severity of `error` or
+`warn` (see the table above).  The `no-dynamic-message` rule remains off unless
+you enable it explicitly.
 
 For manual configuration, import the plugin and wire rules yourself:
 
@@ -81,6 +84,7 @@ export default [
   {
     plugins: { "@logtape": logtape },
     rules: {
+      "@logtape/no-dynamic-message": "warn",
       "@logtape/no-message-interpolation": "error",
       "@logtape/prefer-lazy-evaluation": "warn",
       "@logtape/no-unawaited-log": "error",
@@ -104,6 +108,7 @@ with [Oxlint]'s ESLint-compatible plugin interface.  Add the plugin to your
     { "name": "@logtape", "specifier": "@logtape/lint/eslint" }
   ],
   "rules": {
+    "@logtape/no-dynamic-message": "warn",
     "@logtape/no-message-interpolation": "error",
     "@logtape/prefer-lazy-evaluation": "warn",
     "@logtape/no-unawaited-log": "error",
@@ -126,9 +131,10 @@ Add the plugin to your `deno.json` and list the rules you want to enable:
 {
   "unstable": ["lint"],
   "lint": {
-    "plugins": ["jsr:@logtape/lint/deno"],
+    "plugins": ["jsr:@logtape/lint/deno/strict"],
     "rules": {
       "include": [
+        "logtape/no-dynamic-message",
         "logtape/no-message-interpolation",
         "logtape/prefer-lazy-evaluation",
         "logtape/no-unawaited-log",
@@ -138,5 +144,9 @@ Add the plugin to your `deno.json` and list the rules you want to enable:
   }
 }
 ~~~~
+
+Use the `/deno/strict` entry point only when enabling opt-in rules such as
+`no-dynamic-message`.  The default `/deno` entry point contains the four
+recommended rules and leaves `no-dynamic-message` disabled.
 
 Then run `deno lint` as usual.
