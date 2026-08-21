@@ -25,6 +25,10 @@ import {
 } from "@opentelemetry/sdk-logs";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 import metadata from "../deno.json" with { type: "json" };
+// Cross-runtime inspect: Deno.inspect / util.inspect (handles circular
+// references); falls back to JSON.stringify in browsers. Resolved via the
+// `#util` import map per runtime.
+import { inspect } from "#util";
 
 /**
  * Gets an environment variable value across different JavaScript runtimes.
@@ -606,6 +610,7 @@ function convertValueToAnyValue(
   value: unknown,
   objectRenderer: ObjectRenderer,
   exceptionMode: ExceptionAttributeMode,
+  seenObjects: Set<unknown> = new Set(),
 ): AnyValue | null {
   // Handle null/undefined
   if (value == null) return null;
@@ -617,6 +622,11 @@ function convertValueToAnyValue(
   ) {
     return value;
   }
+
+  if (seenObjects.has(value)) {
+    return null;
+  }
+  seenObjects.add(value);
 
   // Handle arrays - recursively convert elements
   if (Array.isArray(value)) {
@@ -654,6 +664,7 @@ function convertValueToAnyValue(
         item,
         objectRenderer,
         exceptionMode,
+        seenObjects,
       );
       // Skip null items but preserve the structure
       if (convertedItem !== null) {
@@ -677,6 +688,7 @@ function convertValueToAnyValue(
         val,
         objectRenderer,
         exceptionMode,
+        seenObjects,
       );
       if (convertedVal !== null) {
         converted[key] = convertedVal;
@@ -700,6 +712,7 @@ function convertValueToAnyValue(
           val,
           objectRenderer,
           exceptionMode,
+          seenObjects,
         );
         if (convertedVal !== null) {
           converted[key] = convertedVal;
@@ -868,29 +881,6 @@ function convertMessageToCustomBodyFormat(
   );
   return bodyFormatter(body);
 }
-
-/**
- * A platform-specific inspect function.  In Deno, this is {@link Deno.inspect},
- * and in Node.js/Bun it is {@link util.inspect}.  If neither is available, it
- * falls back to {@link JSON.stringify}.
- *
- * @param value The value to inspect.
- * @returns The string representation of the value.
- */
-const inspect: (value: unknown) => string =
-  // @ts-ignore: Deno global
-  "Deno" in globalThis && "inspect" in globalThis.Deno &&
-    // @ts-ignore: Deno global
-    typeof globalThis.Deno.inspect === "function"
-    // @ts-ignore: Deno global
-    ? globalThis.Deno.inspect
-    // @ts-ignore: Node.js global
-    : "util" in globalThis && "inspect" in globalThis.util &&
-        // @ts-ignore: Node.js global
-        globalThis.util.inspect === "function"
-    // @ts-ignore: Node.js global
-    ? globalThis.util.inspect
-    : JSON.stringify;
 
 class DiagLoggerAdaptor implements DiagLogger {
   logger: Logger;

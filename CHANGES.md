@@ -20,6 +20,20 @@ To be released.
 [#205]: https://github.com/dahlia/logtape/issues/205
 
 
+Version 2.3.2
+-------------
+
+Released on August 21, 2026.
+
+### @logtape/opentelemetry
+
+ -  Fixed a `TypeError: Converting circular structure to JSON` raised while
+    rendering interpolated message values (e.g., logging a `Response` or any
+    value containing circular reference).  [[#202] by Sefa Eyeoglu\]
+
+[#202]: https://github.com/dahlia/logtape/issues/202
+
+
 Version 2.3.1
 -------------
 
