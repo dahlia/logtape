@@ -196,6 +196,21 @@ test("LoggerImpl.getSinks()", () => {
     ]);
     fooBarQux.parentSinks = "override";
     assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [sinkD]);
+    fooBarQux.parentSinks = "forward";
+    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [
+      sinkA,
+      sinkB,
+      sinkD,
+    ]);
+    // Ancestors' lowestLevel does not gate forwarded sinks, while it keeps
+    // gating inherited sinks:
+    foo.lowestLevel = "warning";
+    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [
+      sinkA,
+      sinkB,
+      sinkD,
+    ]);
+    assert.deepStrictEqual([...fooBar.getSinks("debug")], [sinkB]);
   } finally {
     root.resetDescendants();
   }
@@ -302,6 +317,255 @@ test("LoggerImpl sink plan cache follows category prefix dispatchers", () => {
     root.resetDescendants();
   }
 });
+
+test('LoggerImpl parentSinks "forward" ignores ancestor lowestLevel', () => {
+  const parent = LoggerImpl.getLogger(["fwd-level"]);
+  const forwardChild = parent.getChild("forward");
+  const inheritChild = parent.getChild("inherit");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    parent.lowestLevel = "warning";
+    parent.sinks.push(sink);
+    forwardChild.parentSinks = "forward";
+
+    assert.deepStrictEqual([...forwardChild.getSinks("debug")], [sink]);
+    assert.deepStrictEqual([...inheritChild.getSinks("debug")], []);
+
+    forwardChild.emit(debug);
+    inheritChild.emit(debug);
+    assert.deepStrictEqual(records, [debug]);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test('LoggerImpl parentSinks "forward" with lowestLevel null ancestor', () => {
+  const parent = LoggerImpl.getLogger(["fwd-null"]);
+  const child = parent.getChild("child");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    parent.lowestLevel = null;
+    parent.sinks.push(sink);
+    child.parentSinks = "forward";
+
+    assert.deepStrictEqual([...child.getSinks("info")], [sink]);
+    parent.emit(info);
+    assert.deepStrictEqual(records, []);
+    child.emit(info);
+    assert.deepStrictEqual(records, [info]);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test('LoggerImpl parentSinks "forward" applies own lowestLevel', () => {
+  const parent = LoggerImpl.getLogger(["fwd-own-level"]);
+  const child = parent.getChild("child");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    parent.sinks.push(sink);
+    child.parentSinks = "forward";
+    child.lowestLevel = "warning";
+
+    assert.deepStrictEqual([...child.getSinks("info")], []);
+    assert.deepStrictEqual([...child.getSinks("warning")], [sink]);
+    child.emit(info);
+    assert.deepStrictEqual(records, []);
+    child.emit(warning);
+    assert.deepStrictEqual(records, [warning]);
+
+    child.lowestLevel = null;
+    assert.deepStrictEqual([...child.getSinks("error")], []);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test('LoggerImpl parentSinks "forward" stops at an "override" ancestor', () => {
+  const grandparent = LoggerImpl.getLogger(["fwd-boundary"]);
+  const parent = grandparent.getChild("parent");
+  const child = parent.getChild("child");
+
+  try {
+    const sinkG: Sink = () => {};
+    grandparent.sinks.push(sinkG);
+    const sinkP: Sink = () => {};
+    parent.parentSinks = "override";
+    parent.sinks.push(sinkP);
+    const sinkC: Sink = () => {};
+    child.parentSinks = "forward";
+    child.sinks.push(sinkC);
+
+    assert.deepStrictEqual([...child.getSinks("debug")], [sinkP, sinkC]);
+  } finally {
+    grandparent.resetDescendants();
+  }
+});
+
+test('LoggerImpl chained parentSinks "forward"', () => {
+  const root = LoggerImpl.getLogger(["fwd-chain"]);
+  const parent = root.getChild("parent");
+  const child = parent.getChild("child");
+  const inheritSibling = parent.getChild("sibling");
+
+  try {
+    const sinkR: Sink = () => {};
+    root.lowestLevel = "error";
+    root.sinks.push(sinkR);
+    const sinkP: Sink = () => {};
+    parent.parentSinks = "forward";
+    parent.lowestLevel = "warning";
+    parent.sinks.push(sinkP);
+    const sinkC: Sink = () => {};
+    child.parentSinks = "forward";
+    child.sinks.push(sinkC);
+
+    // A forward descendant ignores every ancestor threshold:
+    assert.deepStrictEqual([...child.getSinks("debug")], [
+      sinkR,
+      sinkP,
+      sinkC,
+    ]);
+    // The forward parent's own threshold still applies to itself and to its
+    // inherit consumers:
+    assert.deepStrictEqual([...parent.getSinks("debug")], []);
+    assert.deepStrictEqual([...parent.getSinks("warning")], [sinkR, sinkP]);
+    assert.deepStrictEqual([...inheritSibling.getSinks("debug")], []);
+  } finally {
+    root.resetDescendants();
+  }
+});
+
+test('LoggerImpl parentSinks "forward" does not deduplicate sinks', () => {
+  const parent = LoggerImpl.getLogger(["fwd-dup"]);
+  const child = parent.getChild("child");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    parent.sinks.push(sink);
+    child.parentSinks = "forward";
+    child.sinks.push(sink);
+
+    assert.deepStrictEqual([...child.getSinks("info")], [sink, sink]);
+    child.emit(info);
+    assert.deepStrictEqual(records, [info, info]);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("LoggerImpl forward plan cache observes ancestor sink mutations", () => {
+  const parent = LoggerImpl.getLogger(["fwd-cache", "direct"]);
+  const child = parent.getChild("child");
+  const recordsA: LogRecord[] = [];
+  const recordsB: LogRecord[] = [];
+  const sinkA: Sink = (record) => recordsA.push(record);
+  const sinkB: Sink = (record) => recordsB.push(record);
+
+  try {
+    parent.lowestLevel = "error";
+    parent.sinks.push(sinkA);
+    child.parentSinks = "forward";
+    child.emit(info);
+
+    parent.sinks[0] = sinkB;
+    child.emit(info);
+
+    parent.sinks.length = 0;
+    child.emit(info);
+
+    assert.deepStrictEqual(recordsA, [info]);
+    assert.deepStrictEqual(recordsB, [info]);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("LoggerImpl forward plan cache observes ancestor resets", () => {
+  const parent = LoggerImpl.getLogger(["fwd-cache", "reset"]);
+  const child = parent.getChild("child");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    parent.lowestLevel = "error";
+    parent.sinks.push(sink);
+    child.parentSinks = "forward";
+    child.emit(info);
+
+    parent.reset();
+    child.emit(info);
+
+    parent.lowestLevel = "error";
+    parent.sinks.push(sink);
+    child.emit(info);
+
+    assert.deepStrictEqual(records, [info, info]);
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("LoggerImpl forward plan cache observes ancestor parentSinks flips", () => {
+  const grandparent = LoggerImpl.getLogger(["fwd-cache", "flip"]);
+  const parent = grandparent.getChild("parent");
+  const child = parent.getChild("child");
+  const records: LogRecord[] = [];
+  const sink: Sink = (record) => records.push(record);
+
+  try {
+    grandparent.sinks.push(sink);
+    child.parentSinks = "forward";
+    child.emit(info);
+    assert.deepStrictEqual(records, [info]);
+
+    parent.parentSinks = "override";
+    assert.ok(!child.isEnabledFor("info"));
+    child.emit(info);
+    assert.deepStrictEqual(records, [info]);
+
+    parent.parentSinks = "inherit";
+    assert.ok(child.isEnabledFor("info"));
+    child.emit(info);
+    assert.deepStrictEqual(records, [info, info]);
+  } finally {
+    grandparent.resetDescendants();
+  }
+});
+
+test(
+  'LoggerImpl parentSinks "forward" follows category prefix ' +
+    "dispatchers",
+  () => {
+    const root = LoggerImpl.getLogger([]);
+    const tenant = LoggerImpl.getLogger(["tenant2"]);
+    const prefixed = LoggerImpl.getLogger(["tenant2", "fwd-prefix"]);
+    const unprefixed = LoggerImpl.getLogger("fwd-prefix");
+    const records: LogRecord[] = [];
+    const sink: Sink = (record) => records.push(record);
+
+    try {
+      root.contextLocalStorage = new TestContextLocalStorage();
+      tenant.lowestLevel = "warning";
+      tenant.sinks.push(sink);
+      prefixed.parentSinks = "forward";
+      withCategoryPrefix("tenant2", () => unprefixed.info("forwarded prefix"));
+
+      assert.strictEqual(records.length, 1);
+      assert.deepStrictEqual(records[0].category, ["tenant2", "fwd-prefix"]);
+    } finally {
+      root.contextLocalStorage = undefined;
+      root.resetDescendants();
+    }
+  },
+);
 
 test("LoggerImpl.emit()", () => {
   const root = LoggerImpl.getLogger([]);

@@ -80,16 +80,26 @@ export interface LoggerConfig<
   sinks?: TSinkId[];
 
   /**
-   * Whether to inherit the sinks that the parent would use for a record's
-   * level.  If `inherit`, those sinks are used along with the specified sinks.
-   * The parent's `lowestLevel` continues to apply to the inherited sinks.  If
-   * `override`, only the specified sinks are used.
+   * How to combine the logger's sinks with its ancestors' sinks.
+   *
+   * If `inherit`, the sinks that the parent would use for a record's level
+   * are used along with the specified sinks.  The parent's `lowestLevel`
+   * continues to apply to the inherited sinks.
+   *
+   * If `override`, only the specified sinks are used.
+   *
+   * If `forward`, every ancestor's configured sinks are used along with the
+   * specified sinks, ignoring each ancestor's `lowestLevel` (including
+   * `null`); only this logger's own `lowestLevel` applies.  An ancestor
+   * configured with `parentSinks: "override"` forms a boundary: its own
+   * sinks are still inherited, but nothing beyond it.  Repeated references
+   * to the same sink are not deduplicated.  Available since 2.4.0.
    *
    * The default is `inherit`.
    * @default "inherit"
    * @since 0.6.0
    */
-  parentSinks?: "inherit" | "override";
+  parentSinks?: "inherit" | "override" | "forward";
 
   /**
    * The filter identifiers to use.  If no filters are specified, the logger

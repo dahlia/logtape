@@ -25,7 +25,7 @@ export interface ScopedLoggerConfigLike<
 > {
   readonly category: string | readonly string[];
   readonly sinks?: readonly TSinkId[];
-  readonly parentSinks?: "inherit" | "override";
+  readonly parentSinks?: "inherit" | "override" | "forward";
   readonly filters?: readonly TFilterId[];
   readonly lowestLevel?: LogLevel | null;
 }
@@ -48,7 +48,7 @@ export interface CompiledScopedConfig {
 interface CompiledScopedLogger {
   readonly filters: readonly ((record: LogRecord) => boolean)[];
   readonly lowestLevel: LogLevel | null;
-  readonly parentSinks: "inherit" | "override";
+  readonly parentSinks: "inherit" | "override" | "forward";
   readonly sinks: readonly Sink[];
 }
 
@@ -108,10 +108,11 @@ export function compileScopedConfig<
     if (
       loggerConfig.parentSinks !== undefined &&
       loggerConfig.parentSinks !== "inherit" &&
-      loggerConfig.parentSinks !== "override"
+      loggerConfig.parentSinks !== "override" &&
+      loggerConfig.parentSinks !== "forward"
     ) {
       throw createError(
-        'Logger parentSinks must be "inherit" or "override".',
+        'Logger parentSinks must be "inherit", "override", or "forward".',
       );
     }
     if (
@@ -442,14 +443,19 @@ function getScopedSinkDispatchPlanForPrefix(
     return { kind: "none" };
   }
 
-  const parentPlan = length > 0 && logger.parentSinks === "inherit"
-    ? getScopedSinkDispatchPlanForPrefix(
-      scopedConfig,
-      category,
-      length - 1,
-      level,
-    )
-    : { kind: "none" } as const;
+  const parentPlan: ScopedSinkDispatchPlan =
+    length > 0 && logger.parentSinks === "inherit"
+      ? getScopedSinkDispatchPlanForPrefix(
+        scopedConfig,
+        category,
+        length - 1,
+        level,
+      )
+      : length > 0 && logger.parentSinks === "forward"
+      ? wrapScopedSinks(
+        collectScopedForwardSinks(scopedConfig, category, length - 1),
+      )
+      : { kind: "none" };
 
   let firstSink: Sink | undefined;
   let sinks: Sink[] | undefined;
@@ -472,6 +478,31 @@ function getScopedSinkDispatchPlanForPrefix(
   if (sinks != null) return { kind: "many", sinks };
   if (firstSink != null) return { kind: "one", sink: firstSink };
   return { kind: "none" };
+}
+
+// Collects the local sinks of every prefix logger (ancestors first),
+// ignoring each ancestor's lowestLevel entirely.  An ancestor whose
+// parentSinks is "override" contributes its own sinks but stops the walk.
+function collectScopedForwardSinks(
+  scopedConfig: CompiledScopedConfig,
+  category: readonly string[],
+  length: number,
+): readonly Sink[] {
+  const logger = scopedConfig.nodes.get(
+    categoryKey(category.slice(0, length)),
+  ) ?? defaultScopedLogger;
+  const parentSinks = length > 0 && logger.parentSinks !== "override"
+    ? collectScopedForwardSinks(scopedConfig, category, length - 1)
+    : [];
+  if (logger.sinks.length < 1) return parentSinks;
+  if (parentSinks.length < 1) return logger.sinks;
+  return [...parentSinks, ...logger.sinks];
+}
+
+function wrapScopedSinks(sinks: readonly Sink[]): ScopedSinkDispatchPlan {
+  if (sinks.length < 1) return { kind: "none" };
+  if (sinks.length === 1) return { kind: "one", sink: sinks[0] };
+  return { kind: "many", sinks };
 }
 
 function filterScopedRecord(

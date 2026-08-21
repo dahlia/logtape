@@ -279,9 +279,13 @@ only to the file sink, while `"info"` and higher records go to both sinks.
 > the sink itself.  When a child inherits a parent's sinks, the parent's
 > threshold still applies to those sinks.  Lowering the child's threshold does
 > not cause an inherited parent sink to accept records below the parent's
-> `~LoggerConfig.lowestLevel`.
+> `~LoggerConfig.lowestLevel`.  If you want inherited sinks to follow the
+> child's threshold instead, use `parentSinks: "forward"` (available since
+> LogTape 2.4.0).
 >
-> See also [*Sink inheritance and overriding*] for a complete example.
+> See also [*Sink inheritance and overriding*] and
+> [*Forwarding sinks regardless of ancestor levels*][forwarding sinks] for
+> complete examples.
 
 The `~LoggerConfig.lowestLevel` property does not inherit from parent loggers,
 and it is `"trace"` by default for every logger.  To make child loggers inherit
@@ -321,6 +325,7 @@ the parent logger, so it will log all levels from `"info"` up.
 > See also the [*Level filter* section](./filters.md#level-filter).
 
 [*Sink inheritance and overriding*]: ./categories.md#sink-inheritance-and-overriding
+[forwarding sinks]: ./categories.md#forwarding-sinks-regardless-of-ancestor-levels
 
 
 Listing severity levels

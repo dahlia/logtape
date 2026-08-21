@@ -210,11 +210,13 @@ function shouldSnapshotForSink(sink: Sink): boolean {
     true;
 }
 
+type ParentSinksMode = "inherit" | "override" | "forward";
+
 type SinkDispatchPlanState = {
   readonly localSinks: readonly Sink[];
-  readonly parentSinks: "inherit" | "override";
+  readonly parentSinks: ParentSinksMode;
   readonly lowestLevel: LogLevel | null;
-  readonly parentPlan: SinkDispatchPlan | undefined;
+  readonly parentPlan: SinkDispatchPlan | ForwardSinkPlan | undefined;
 };
 
 type SinkDispatchPlan =
@@ -230,6 +232,20 @@ type SinkDispatchPlan =
       readonly sinks: readonly Sink[];
     }
   );
+
+/**
+ * A level-independent snapshot of a logger's local sinks plus every
+ * ancestor's local sinks (ancestors first), ignoring `lowestLevel`
+ * thresholds entirely.  Collection stops after including the local sinks
+ * of an ancestor whose `parentSinks` is `"override"`.
+ */
+type ForwardSinkPlan = {
+  readonly kind: "forward";
+  readonly localSinks: readonly Sink[];
+  readonly parentSinks: ParentSinksMode;
+  readonly parentPlan: ForwardSinkPlan | undefined;
+  readonly sinks: readonly Sink[];
+};
 
 /**
  * A logger interface.  It provides methods to log messages at different
@@ -1586,9 +1602,10 @@ export class LoggerImpl implements Logger {
   readonly sinks: Sink[];
   readonly filters: Filter[];
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
-  #parentSinks: "inherit" | "override" = "inherit";
+  #parentSinks: ParentSinksMode = "inherit";
   #lowestLevel: LogLevel | null = "trace";
   #sinkPlanCache: Partial<Record<LogLevel, SinkDispatchPlan>> = {};
+  #forwardPlanCache: ForwardSinkPlan | undefined = undefined;
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
     let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
@@ -1628,11 +1645,11 @@ export class LoggerImpl implements Logger {
     this.filters = [];
   }
 
-  get parentSinks(): "inherit" | "override" {
+  get parentSinks(): ParentSinksMode {
     return this.#parentSinks;
   }
 
-  set parentSinks(value: "inherit" | "override") {
+  set parentSinks(value: ParentSinksMode) {
     if (this.#parentSinks === value) return;
     this.#parentSinks = value;
   }
@@ -1725,12 +1742,29 @@ export class LoggerImpl implements Logger {
       return cached;
     }
 
-    const parentPlan = this.parent != null && this.parentSinks === "inherit"
-      ? this.parent.getSinkDispatchPlan(level)
-      : undefined;
-    const plan = this.createSinkDispatchPlan(level, parentPlan);
+    const plan = this.createSinkDispatchPlan(
+      level,
+      this.resolveParentPlan(level),
+    );
     this.#sinkPlanCache[level] = plan;
     return plan;
+  }
+
+  // Resolves the parent plan a sink dispatch plan builds on.  Both
+  // getSinkDispatchPlan() and isSinkDispatchPlanFresh() must resolve it
+  // through this single method; if the two diverged, cached plans would
+  // never (or wrongly) validate as fresh.
+  private resolveParentPlan(
+    level: LogLevel,
+  ): SinkDispatchPlan | ForwardSinkPlan | undefined {
+    if (this.parent == null) return undefined;
+    if (this.parentSinks === "inherit") {
+      return this.parent.getSinkDispatchPlan(level);
+    }
+    if (this.parentSinks === "forward") {
+      return this.parent.getForwardSinkPlan();
+    }
+    return undefined;
   }
 
   private isSinkDispatchPlanFresh(
@@ -1748,15 +1782,58 @@ export class LoggerImpl implements Logger {
       if (plan.localSinks[i] !== this.sinks[i]) return false;
     }
 
-    const parentPlan = this.parent != null && this.parentSinks === "inherit"
-      ? this.parent.getSinkDispatchPlan(level)
+    return plan.parentPlan === this.resolveParentPlan(level);
+  }
+
+  private getForwardSinkPlan(): ForwardSinkPlan {
+    const cached = this.#forwardPlanCache;
+    if (cached != null && this.isForwardSinkPlanFresh(cached)) return cached;
+
+    const parentPlan = this.parent != null && this.parentSinks !== "override"
+      ? this.parent.getForwardSinkPlan()
+      : undefined;
+    const plan = this.createForwardSinkPlan(parentPlan);
+    this.#forwardPlanCache = plan;
+    return plan;
+  }
+
+  private isForwardSinkPlanFresh(plan: ForwardSinkPlan): boolean {
+    if (
+      plan.parentSinks !== this.parentSinks ||
+      plan.localSinks.length !== this.sinks.length
+    ) {
+      return false;
+    }
+    for (let i = 0; i < plan.localSinks.length; i++) {
+      if (plan.localSinks[i] !== this.sinks[i]) return false;
+    }
+
+    const parentPlan = this.parent != null && this.parentSinks !== "override"
+      ? this.parent.getForwardSinkPlan()
       : undefined;
     return plan.parentPlan === parentPlan;
   }
 
+  private createForwardSinkPlan(
+    parentPlan: ForwardSinkPlan | undefined,
+  ): ForwardSinkPlan {
+    // Snapshot so direct index/length mutations invalidate the cache.
+    const localSinks = [...this.sinks];
+    const sinks = parentPlan == null || parentPlan.sinks.length < 1
+      ? localSinks
+      : [...parentPlan.sinks, ...localSinks];
+    return {
+      kind: "forward",
+      localSinks,
+      parentSinks: this.parentSinks,
+      parentPlan,
+      sinks,
+    };
+  }
+
   private createSinkDispatchPlan(
     level: LogLevel,
-    parentPlan: SinkDispatchPlan | undefined,
+    parentPlan: SinkDispatchPlan | ForwardSinkPlan | undefined,
   ): SinkDispatchPlan {
     const state: SinkDispatchPlanState = {
       // Keep a plain array for compatibility with cross-runtime assertions, but
@@ -1787,9 +1864,16 @@ export class LoggerImpl implements Logger {
       if (parentPlan.kind === "one") {
         firstSink = parentPlan.sink;
       } else if (parentPlan.kind === "many") {
-        // Multiple-sink plans are snapshots.  Copy the parent snapshot so local
-        // sinks can be appended without mutating the parent's cached plan.
+        // Multiple-sink plans are snapshots.  Copy the parent snapshot so
+        // local sinks can be appended without mutating the parent's cached
+        // plan.
         sinks = [...parentPlan.sinks];
+      } else if (parentPlan.kind === "forward") {
+        if (parentPlan.sinks.length === 1) {
+          firstSink = parentPlan.sinks[0];
+        } else if (parentPlan.sinks.length > 1) {
+          sinks = [...parentPlan.sinks];
+        }
       }
     }
     for (const sink of state.localSinks) appendSink(sink);

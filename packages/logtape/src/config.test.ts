@@ -514,6 +514,109 @@ test("withConfig() preserves scoped lowestLevel null", async () => {
   }
 });
 
+test('withConfig() supports parentSinks "forward"', async () => {
+  const rootLogs: LogRecord[] = [];
+  const midLogs: LogRecord[] = [];
+  const deepLogs: LogRecord[] = [];
+  const isolatedLogs: LogRecord[] = [];
+
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await withConfig({
+      sinks: {
+        root: rootLogs.push.bind(rootLogs),
+        mid: midLogs.push.bind(midLogs),
+        deep: deepLogs.push.bind(deepLogs),
+        isolated: isolatedLogs.push.bind(isolatedLogs),
+      },
+      loggers: [
+        { category: [], sinks: ["root"], lowestLevel: "info" },
+        { category: "app", sinks: ["mid"], lowestLevel: null },
+        {
+          // ["app", "x"] is deliberately unconfigured to cover walking
+          // through an unconfigured intermediate prefix.
+          category: ["app", "x", "deep"],
+          sinks: ["deep"],
+          lowestLevel: "debug",
+          parentSinks: "forward",
+        },
+        {
+          category: "iso",
+          sinks: ["isolated"],
+          parentSinks: "override",
+          lowestLevel: "info",
+        },
+        {
+          category: ["iso", "child"],
+          lowestLevel: "debug",
+          parentSinks: "forward",
+        },
+      ],
+    }, () => {
+      // Ancestors' lowestLevel (including null) does not gate forwarded
+      // sinks:
+      getLogger(["app", "x", "deep"]).debug("forwarded");
+      // An "override" ancestor forms an inheritance boundary:
+      getLogger(["iso", "child"]).debug("bounded");
+      // A lowestLevel null ancestor itself stays disabled:
+      getLogger("app").info("hidden");
+    });
+
+    assert.deepStrictEqual(
+      rootLogs.map((record) => record.rawMessage),
+      ["forwarded"],
+    );
+    assert.deepStrictEqual(
+      midLogs.map((record) => record.rawMessage),
+      ["forwarded"],
+    );
+    assert.deepStrictEqual(
+      deepLogs.map((record) => record.rawMessage),
+      ["forwarded"],
+    );
+    assert.deepStrictEqual(
+      isolatedLogs.map((record) => record.rawMessage),
+      ["bounded"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() rejects an invalid parentSinks value", async () => {
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        withConfig({
+          sinks: {},
+          loggers: [
+            {
+              category: "invalid",
+              // deno-lint-ignore no-explicit-any
+              parentSinks: "bogus" as any,
+            },
+          ],
+        }, () => {}),
+      ConfigError,
+    );
+  } finally {
+    await reset();
+  }
+});
+
 test("withConfig() skips scoped filters when the level is disabled", async () => {
   const logs: LogRecord[] = [];
   const filteredMessages: string[] = [];
@@ -1644,6 +1747,46 @@ test("configure()", async () => {
 
     while (a.length > 0) a.pop();
     while (c.length > 0) c.pop();
+  } finally {
+    await reset();
+    assert.strictEqual(getConfig(), null);
+  }
+
+  try { // parentSinks: "forward"
+    const a: LogRecord[] = [];
+    const b: LogRecord[] = [];
+    await configure({
+      sinks: {
+        a: a.push.bind(a),
+        b: b.push.bind(b),
+      },
+      loggers: [
+        { category: "app", sinks: ["a"], lowestLevel: "info" },
+        {
+          category: ["app", "database"],
+          sinks: ["b"],
+          lowestLevel: "debug",
+          parentSinks: "forward",
+        },
+        { category: ["logtape", "meta"], sinks: [] },
+      ],
+    });
+
+    // The ancestor's lowestLevel does not gate forwarded sinks:
+    getLogger(["app", "database"]).debug("test");
+    assert.strictEqual(a.length, 1);
+    assert.strictEqual(b.length, 1);
+
+    getLogger(["app", "database"]).info("test");
+    assert.strictEqual(a.length, 2);
+    assert.strictEqual(b.length, 2);
+
+    // The ancestor itself is still gated by its own lowestLevel:
+    getLogger("app").debug("test");
+    assert.strictEqual(a.length, 2);
+
+    while (a.length > 0) a.pop();
+    while (b.length > 0) b.pop();
   } finally {
     await reset();
     assert.strictEqual(getConfig(), null);

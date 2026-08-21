@@ -74,6 +74,40 @@ test("configureFromObject() with direct sink value", async () => {
   }
 });
 
+test('configureFromObject() passes through parentSinks "forward"', async () => {
+  await setup();
+  try {
+    await configureFromObject({
+      sinks: {
+        spy: {
+          type: `${fixturesModule}#getSpySink()`,
+        },
+      },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["spy"],
+          lowestLevel: "info",
+        },
+        {
+          category: ["my-app", "db"],
+          lowestLevel: "debug",
+          parentSinks: "forward",
+        },
+      ],
+    });
+
+    // The ancestor's lowestLevel does not gate the forwarded sink:
+    getLogger(["my-app", "db"]).debug("debug message");
+
+    assert.strictEqual(logs.length, 1);
+    assert.deepStrictEqual(logs[0].message, ["debug message"]);
+    assert.deepStrictEqual(logs[0].category, ["my-app", "db"]);
+  } finally {
+    await teardown();
+  }
+});
+
 test("configureFromObject() with shorthand factory", async () => {
   await setup();
   try {

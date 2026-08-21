@@ -87,9 +87,11 @@ export interface LoggerConfig {
   lowestLevel?: LogLevel;
 
   /**
-   * Whether to inherit the parent's sinks.
+   * How to combine the logger's sinks with its ancestors' sinks.  The
+   * `"forward"` mode, available since 2.4.0, inherits ancestors' sinks
+   * without applying their `lowestLevel` thresholds.
    */
-  parentSinks?: "inherit" | "override";
+  parentSinks?: "inherit" | "override" | "forward";
 }
 
 /**

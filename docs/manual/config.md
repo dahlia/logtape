@@ -139,7 +139,9 @@ see [*Configuring severity levels*](./levels.md#configuring-severity-levels).
 > By default, loggers inherit the sinks that their ancestors have enabled for
 > each record's level.  Each ancestor's `lowestLevel` remains in effect.  You
 > can skip those inherited sinks by specifying the
-> `parentSinks: "override"` option.
+> `parentSinks: "override"` option, or inherit ancestors' sinks without their
+> `lowestLevel` thresholds by specifying the `parentSinks: "forward"` option
+> (available since LogTape 2.4.0).
 
 > [!WARNING]
 > Defining loggers with the same category is disallowed.  If there are

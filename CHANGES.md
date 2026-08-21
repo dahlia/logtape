@@ -10,6 +10,12 @@ To be released.
 
 ### @logtape/logtape
 
+ -  Added `"forward"` mode to the `parentSinks` option of `LoggerConfig`.
+    Unlike the default `"inherit"` mode, `"forward"` inherits ancestors'
+    configured sinks without applying each ancestor's `lowestLevel`
+    threshold, so records accepted by the logger's own `lowestLevel` reach
+    the inherited sinks as well.  An ancestor configured with
+    `parentSinks: "override"` still stops the inheritance chain.  [[#198]]
  -  Added `FingersCrossedSink.flush()` and `FingersCrossedSink.discard()`
     methods and the `FingersCrossedOptions.bufferAction` callback for flushing
     or discarding isolated buffers when a request or job completes.  [[#205]]
@@ -21,9 +27,15 @@ To be released.
     without closing caller-owned streams. [[#203]]
 
 [#62]: https://github.com/dahlia/logtape/issues/62
+[#198]: https://github.com/dahlia/logtape/issues/198
 [#203]: https://github.com/dahlia/logtape/issues/203
 [#205]: https://github.com/dahlia/logtape/issues/205
 [#207]: https://github.com/dahlia/logtape/issues/207
+
+### @logtape/config
+
+ -  The `parentSinks` option of logger configurations now accepts
+    `"forward"`, matching *@logtape/logtape* 2.4.0.  [[#198]]
 
 ### @logtape/lint
 

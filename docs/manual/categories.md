@@ -120,6 +120,61 @@ getLogger(["my-app", "my-module"]).info("bar");
 // b = [{ message: "bar", ... }]
 ~~~~
 
+### Forwarding sinks regardless of ancestor levels
+
+*This mode is available since LogTape 2.4.0.*
+
+Sometimes you want to increase the verbosity of one descendant category while
+keeping the same output destinations as its ancestors.  With the default
+`parentSinks: "inherit"` mode, lowering the child's
+`~LoggerConfig.lowestLevel` is not enough: each ancestor's `lowestLevel`
+still gates its own sinks, so records below the ancestor's threshold never
+reach the inherited sinks.
+
+The `parentSinks: "forward"` mode inherits every ancestor's configured sinks
+without applying the ancestors' `lowestLevel` thresholds.  Only the logger's
+own `lowestLevel` decides which records are accepted:
+
+~~~~ typescript twoslash
+import { type LogRecord, configure, getLogger } from "@logtape/logtape";
+
+const records: LogRecord[] = [];
+
+await configure({
+  sinks: {
+    console: records.push.bind(records),
+  },
+  loggers: [
+    { category: ["app"], lowestLevel: "info", sinks: ["console"] },
+    {
+      category: ["app", "database"],
+      lowestLevel: "debug",
+      parentSinks: "forward", // [!code highlight]
+    },
+  ],
+});
+
+getLogger(["app", "database"]).debug("details");
+// records = [{ message: "details", ... }]
+
+getLogger(["app"]).debug("hidden");
+// records = [{ message: "details", ... }]
+~~~~
+
+The `"debug"` record from `["app", "database"]` reaches the `console` sink
+even though the `["app"]` logger only accepts `"info"` and above.  The
+`["app"]` logger itself is still gated by its own `lowestLevel`.
+
+The `"forward"` mode follows these rules:
+
+ -  Every ancestor's configured sinks are collected, ignoring each ancestor's
+    `lowestLevel`—including ancestors configured with `lowestLevel: null`.
+ -  The logger's own `lowestLevel` still applies as usual.
+ -  An ancestor configured with `parentSinks: "override"` forms an inheritance
+    boundary: its own sinks are still collected, but nothing beyond it.
+ -  As with the default mode, repeated references to the same sink are not
+    deduplicated; such a sink receives the record once per reference.
+
 
 Root logger
 -----------
