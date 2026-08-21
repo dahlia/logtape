@@ -6,7 +6,7 @@ LogTape changelog
 Version 2.3.2
 -------------
 
-To be released.
+Released on August 21, 2026.
 
 ### @logtape/opentelemetry
 
