@@ -1551,9 +1551,7 @@ function isCategory(
 function collectDescendants(logger: LoggerImpl): readonly LoggerImpl[] {
   const loggers: LoggerImpl[] = [logger];
   for (const childRef of Object.values(logger.children)) {
-    const child = childRef instanceof LoggerImpl
-      ? childRef
-      : childRef.deref();
+    const child = childRef instanceof LoggerImpl ? childRef : childRef.deref();
     if (child != null) loggers.push(...collectDescendants(child));
   }
   return loggers;
