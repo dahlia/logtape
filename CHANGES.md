@@ -8,6 +8,14 @@ Version 2.3.2
 
 To be released.
 
+### @logtape/opentelemetry
+
+ -  Fixed a `TypeError: Converting circular structure to JSON` raised while
+    rendering interpolated message values (e.g., logging a `Response` or any
+    value containing circular reference).  [[#202] by Sefa Eyeoglu\]
+
+[#202]: https://github.com/dahlia/logtape/issues/202
+
 
 Version 2.3.1
 -------------
