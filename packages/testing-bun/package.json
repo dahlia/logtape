@@ -1,6 +1,6 @@
 {
   "name": "@logtape/testing-bun",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "Bun test runner integration for LogTape failure log reporting",
   "keywords": [
     "logging",

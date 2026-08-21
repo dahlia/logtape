@@ -1,6 +1,6 @@
 {
   "name": "@logtape/testing-vitest",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "Vitest integration for LogTape failure log reporting",
   "keywords": [
     "logging",
