@@ -198,6 +198,45 @@ const childLogger = logger.getChild(["my-module", "foo"]);
 ~~~~
 
 
+Listing loggers
+----------------
+
+*This API is available since LogTape 2.4.0.*
+
+`getLoggers()` returns every logger in the category tree rooted at a given
+logger, including that logger itself, in depth-first order.  Called with no
+arguments, it returns the whole tree from the root down:
+
+~~~~ typescript twoslash
+import { getLogger, getLoggers } from "@logtape/logtape";
+// ---cut-before---
+getLogger(["my-app"]);
+getLogger(["my-app", "my-module"]);
+
+for (const logger of getLoggers()) {
+  console.log(logger.category);
+}
+// [ ]
+// [ "my-app" ]
+// [ "my-app", "my-module" ]
+~~~~
+
+Pass a `Logger`, or a category as a string or array of strings, to scope the
+result to a subtree:
+
+~~~~ typescript twoslash
+import { getLogger, getLoggers } from "@logtape/logtape";
+// ---cut-before---
+getLoggers("my-app"); // ["my-app"] and its descendants only
+~~~~
+
+> [!NOTE]
+> `getLoggers()` only returns loggers that have actually been created by a
+> `getLogger()` call somewhere in your program.  A category that's configured
+> via `configure()` but never reached by `getLogger()`—for example, inside a
+> code path that hasn't run yet—won't appear in the result.
+
+
 Meta logger
 -----------
 
