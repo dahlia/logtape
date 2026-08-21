@@ -13,11 +13,17 @@ To be released.
  -  Added `FingersCrossedSink.flush()` and `FingersCrossedSink.discard()`
     methods and the `FingersCrossedOptions.bufferAction` callback for flushing
     or discarding isolated buffers when a request or job completes.  [[#205]]
+ -  Added `getLoggers()` function to enumerate every logger in the category
+    tree rooted at a given logger (or the root logger by default), including
+    the given logger itself, in depth-first pre-order.
+    [[#62], [#207] by Jepoy\]
  -  Added the `StreamSinkOptions.closeStream` option to dispose stream sinks
     without closing caller-owned streams. [[#203]]
 
+[#62]: https://github.com/dahlia/logtape/issues/62
 [#203]: https://github.com/dahlia/logtape/issues/203
 [#205]: https://github.com/dahlia/logtape/issues/205
+[#207]: https://github.com/dahlia/logtape/issues/207
 
 
 Version 2.3.2

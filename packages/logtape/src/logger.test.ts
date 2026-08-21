@@ -12,6 +12,7 @@ import { debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
 import {
   getLogger,
+  getLoggers,
   isLazy,
   lazy,
   type Logger,
@@ -64,6 +65,51 @@ test("getLogger()", () => {
     getLogger(["foo", "bar"]),
     getLogger().getChild("foo").getChild("bar"),
   );
+});
+
+test("getLoggers() with a never-touched category", () => {
+  const logger = getLogger("gl-fresh");
+  assert.deepStrictEqual(getLoggers("gl-fresh"), [logger]);
+});
+
+test("getLoggers() omits descendants never reached by getLogger()", () => {
+  const parent = getLogger("gl-unmaterialized");
+  // "gl-unmaterialized.child" is deliberately never passed to getLogger(),
+  // so it must not appear in the result.
+  assert.deepStrictEqual(getLoggers("gl-unmaterialized"), [parent]);
+});
+
+test("getLoggers() returns a depth-first pre-order subtree", () => {
+  const root = getLogger("gl-tree");
+  const a = getLogger(["gl-tree", "a"]);
+  const ax = getLogger(["gl-tree", "a", "x"]);
+  const b = getLogger(["gl-tree", "b"]);
+  assert.deepStrictEqual(getLoggers("gl-tree"), [root, a, ax, b]);
+  assert.deepStrictEqual(getLoggers(root), [root, a, ax, b]);
+  assert.deepStrictEqual(getLoggers(["gl-tree"]), [root, a, ax, b]);
+});
+
+test("getLoggers() returns loggers identical to getLogger()", () => {
+  const a = getLogger("gl-identity");
+  const b = getLogger(["gl-identity", "child"]);
+  const [first, second] = getLoggers("gl-identity");
+  assert.strictEqual(first, a);
+  assert.strictEqual(second, b);
+});
+
+test("getLoggers() with no arguments includes the root and materialized loggers", () => {
+  const marker = getLogger("gl-default-marker");
+  const loggers = getLoggers();
+  assert.strictEqual(loggers[0], getLogger());
+  assert.ok(loggers.includes(marker));
+});
+
+test("getLoggers() skips dead WeakRef entries without pruning them", () => {
+  const parent = getLogger("gl-dead-ref") as LoggerImpl;
+  const deadRef = { deref: () => undefined } as WeakRef<LoggerImpl>;
+  parent.children["ghost"] = deadRef;
+  assert.deepStrictEqual(getLoggers("gl-dead-ref"), [parent]);
+  assert.strictEqual(parent.children["ghost"], deadRef);
 });
 
 test("Logger.getChild()", () => {
