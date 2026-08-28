@@ -213,9 +213,9 @@ try { risky(); } catch (error) { logger.error(error); }`,
   }
 });
 
-test("no-dynamic-message: respects narrowed catch value types", () => {
+test("no-dynamic-message: respects narrowed types without an overload", () => {
   const messages = lintTypeScriptWithTypeInformation(
-    `import { getLogger } from "@logtape/logtape";
+    `import { getLogger } from "@logtape/logtape@0.0.0-unresolvable";
 const logger = getLogger(["test"]);
 try { risky(); } catch (error) {
   if (typeof error === "string") logger.error(error);
@@ -224,6 +224,23 @@ try { risky(); } catch (error) {
   );
   assert.strictEqual(messages.length, 1);
   assert.strictEqual(messages[0].line, 4, JSON.stringify(messages[0]));
+});
+
+test("no-dynamic-message: uses argument types without an overload", () => {
+  const messages = lintTypeScriptWithTypeInformation(
+    `import { getLogger } from "@logtape/logtape@0.0.0-unresolvable";
+declare function makeMessage(): string;
+declare function makeProperties(): Record<string, unknown>;
+declare function makeCallback(): () => readonly unknown[];
+declare function makeError(): Error;
+const logger = getLogger(["test"]);
+logger.info(makeMessage());
+logger.info(makeProperties());
+logger.info(makeCallback());
+logger.error(makeError());`,
+  );
+  assert.strictEqual(messages.length, 1);
+  assert.strictEqual(messages[0].line, 7, JSON.stringify(messages[0]));
 });
 
 test("no-dynamic-message: allows Error intersection types", () => {

@@ -259,6 +259,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
     const program = services?.program;
     const nodeMap = services?.esTreeNodeToTSNodeMap;
     if (!program || !nodeMap) return "unknown";
+    let argumentKind: LogArgumentKind = "unknown";
     try {
       const tsNode = nodeMap.get(callNode);
       if (!tsNode) return "unknown";
@@ -266,7 +267,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
       const argument = tsNode.arguments?.[0];
       if (!argument) return "unknown";
       const argumentType = checker.getTypeAtLocation(argument);
-      const argumentKind = classifyCheckedType(
+      argumentKind = classifyCheckedType(
         argumentType,
         checker,
         new Set(),
@@ -277,7 +278,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
       if (argumentKind === "static-message") return argumentKind;
       const signature = checker.getResolvedSignature(tsNode);
       const parameter = signature?.getParameters?.()[0];
-      if (!parameter) return "unknown";
+      if (!parameter) return argumentKind;
       const type = checker.getTypeOfSymbolAtLocation(parameter, tsNode);
       const parameterKind = classifyCheckedType(type, checker, new Set());
       // A union parameter may combine message and non-message overload shapes.
@@ -286,8 +287,8 @@ export function createLogtapeScope(context: Rule.RuleContext): {
       return parameterKind === "unknown" ? argumentKind : parameterKind;
     } catch {
       // Type information is an optional enhancement.  An incomplete parser
-      // service must fall back to the same local inference as other hosts.
-      return "unknown";
+      // service must preserve any argument type already proven by the checker.
+      return argumentKind;
     }
   }
 
