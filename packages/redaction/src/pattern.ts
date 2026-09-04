@@ -176,7 +176,7 @@ function redactCreditCardNumber(match: string): string {
  * @since 0.10.0
  */
 export const CREDIT_CARD_NUMBER_PATTERN: RedactionPattern = {
-  pattern: /\b(?:\d{13,19}|\d{4}(?:(?: +|-)\d{1,6})+)\b/g,
+  pattern: /(?<!\d)(?:\d{13,19}|\d{4}(?:(?: +|-)\d{1,6})+)(?!\d)/g,
   replacement: redactCreditCardNumber,
 };
 

@@ -118,6 +118,10 @@ test("CREDIT_CARD_NUMBER_PATTERN", () => {
     "Order 0001 XXXX-XXXX-XXXX-XXXX",
   );
   assert.strictEqual(
+    redact("card_4111-1111-1111-1111_token"),
+    "card_XXXX-XXXX-XXXX-XXXX_token",
+  );
+  assert.strictEqual(
     redact("Ref 1234 5678 4111 1111 1111 1111"),
     "Ref 1234 5678 XXXX-XXXX-XXXX-XXXX",
   );
