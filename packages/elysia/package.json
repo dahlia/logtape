@@ -1,6 +1,6 @@
 {
   "name": "@logtape/elysia",
-  "version": "2.3.3",
+  "version": "2.3.4",
   "description": "Elysia adapter for LogTape logging library",
   "keywords": [
     "logging",

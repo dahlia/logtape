@@ -1,6 +1,6 @@
 {
   "name": "@logtape/graphql-yoga",
-  "version": "2.3.3",
+  "version": "2.3.4",
   "description": "GraphQL Yoga adapter for LogTape logging library",
   "keywords": [
     "logging",
