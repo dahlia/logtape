@@ -1,6 +1,6 @@
 {
   "name": "@logtape/windows-eventlog",
-  "version": "2.0.19",
+  "version": "2.0.20",
   "exports": "./src/mod.ts",
   "tasks": {
     "build": "pnpm build",
