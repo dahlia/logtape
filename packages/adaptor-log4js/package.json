@@ -1,6 +1,6 @@
 {
   "name": "@logtape/adaptor-log4js",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "description": "log4js adapter for LogTape logging library",
   "keywords": [
     "logging",
