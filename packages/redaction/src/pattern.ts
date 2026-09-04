@@ -61,7 +61,8 @@ function hasCommonCreditCardGrouping(groups: readonly string[]): boolean {
     return groups[0].length === 4 &&
       ((groups[1].length === 6 && groups[2].length >= 4 &&
         groups[2].length <= 5) ||
-        (groups[1].length === 4 && groups[2].length === 6));
+        ((groups[1].length === 4 || groups[1].length === 5) &&
+          groups[2].length === 6));
   }
   if (groups.length === 4) {
     return groups[0].length === 4 && groups[1].length === 4 &&
