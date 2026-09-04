@@ -1,6 +1,6 @@
 {
   "name": "@logtape/koa",
-  "version": "2.1.10",
+  "version": "2.1.11",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "exclude": [
