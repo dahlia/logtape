@@ -8,6 +8,17 @@ Version 2.3.3
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `CREDIT_CARD_NUMBER_PATTERN` to redact Luhn-valid credit card numbers
+    with 13–19 digits, including unseparated numbers and common space- and
+    hyphen-separated formats.  Numbers that fit these formats but fail the
+    Luhn check are no longer redacted.
+    [[#210], [#211]]
+
+[#210]: https://github.com/dahlia/logtape/issues/210
+[#211]: https://github.com/dahlia/logtape/pull/211
+
 
 Version 2.3.2
 -------------
@@ -227,6 +238,19 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.6
+-------------
+
+Released on September 5, 2026.
+
+### @logtape/redaction
+
+ -  Fixed `CREDIT_CARD_NUMBER_PATTERN` to redact Luhn-valid credit card numbers
+    with 13–19 digits, including unseparated numbers and common space- and
+    hyphen-separated formats.  Numbers that fit these formats but fail the
+    Luhn check are no longer redacted.  [[#210], [#211]]
 
 
 Version 2.2.5
@@ -518,6 +542,19 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.10
+--------------
+
+Released on September 5, 2026.
+
+### @logtape/redaction
+
+ -  Fixed `CREDIT_CARD_NUMBER_PATTERN` to redact Luhn-valid credit card numbers
+    with 13–19 digits, including unseparated numbers and common space- and
+    hyphen-separated formats.  Numbers that fit these formats but fail the
+    Luhn check are no longer redacted.  [[#210], [#211]]
+
+
 Version 2.1.9
 -------------
 
@@ -805,6 +842,19 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.19
+--------------
+
+Released on September 5, 2026.
+
+### @logtape/redaction
+
+ -  Fixed `CREDIT_CARD_NUMBER_PATTERN` to redact Luhn-valid credit card numbers
+    with 13–19 digits, including unseparated numbers and common space- and
+    hyphen-separated formats.  Numbers that fit these formats but fail the
+    Luhn check are no longer redacted.  [[#210], [#211]]
 
 
 Version 2.0.18

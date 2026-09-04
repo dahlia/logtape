@@ -49,13 +49,148 @@ export const EMAIL_ADDRESS_PATTERN: RedactionPattern = {
   replacement: "REDACTED@EMAIL.ADDRESS",
 };
 
+function hasValidLuhnChecksum(digits: string): boolean {
+  let checksum = 0;
+  let shouldDouble = false;
+
+  for (let i = digits.length - 1; i >= 0; i--, shouldDouble = !shouldDouble) {
+    let digit = digits.charCodeAt(i) - 48;
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    checksum += digit;
+  }
+
+  return checksum % 10 === 0;
+}
+
+function hasCommonCreditCardGrouping(groups: readonly string[]): boolean {
+  if (groups.length === 1) {
+    return groups[0].length >= 13 && groups[0].length <= 19;
+  }
+  if (groups.length === 3) {
+    return groups[0].length === 4 &&
+      ((groups[1].length === 6 && groups[2].length >= 4 &&
+        groups[2].length <= 5) ||
+        ((groups[1].length === 4 || groups[1].length === 5) &&
+          groups[2].length === 6));
+  }
+  if (groups.length === 4) {
+    return groups[0].length === 4 && groups[1].length === 4 &&
+      groups[2].length === 4 && groups[3].length >= 1 &&
+      groups[3].length <= 4;
+  }
+  if (groups.length === 5) {
+    return groups[0].length === 4 && groups[1].length === 4 &&
+      groups[2].length === 4 && groups[3].length === 4 &&
+      groups[4].length >= 1 && groups[4].length <= 3;
+  }
+  return false;
+}
+
+const creditCardNumberReplacement = "XXXX-XXXX-XXXX-XXXX";
+
+type CreditCardCandidate = {
+  start: number;
+  end: number;
+  endGroup: number;
+};
+
+type CreditCardCover = {
+  readonly candidate: CreditCardCandidate;
+  readonly next: CreditCardCover | null;
+};
+
+function redactCreditCardNumber(match: string): string {
+  const groups = [...match.matchAll(/\d+/g)];
+  const candidates: CreditCardCandidate[] = [];
+  const candidatesByStart: CreditCardCandidate[][] = Array.from(
+    { length: groups.length },
+    () => [],
+  );
+
+  for (let start = 0; start < groups.length; start++) {
+    let digits = "";
+    for (let end = start; end < groups.length; end++) {
+      digits += groups[end][0];
+      if (digits.length > 19) break;
+      if (
+        digits.length >= 13 &&
+        hasCommonCreditCardGrouping(
+          groups.slice(start, end + 1).map((group) => group[0]),
+        ) &&
+        hasValidLuhnChecksum(digits)
+      ) {
+        const candidate = {
+          start: groups[start].index,
+          end: groups[end].index + groups[end][0].length,
+          endGroup: end,
+        };
+        candidates.push(candidate);
+        candidatesByStart[start].push(candidate);
+      }
+    }
+  }
+
+  if (candidates.length === 0) return match;
+
+  // Keep adjacent card numbers as separate redactions when their candidates
+  // cover the complete group sequence without overlapping.
+  const completeCovers: (CreditCardCover | null | undefined)[] = [];
+  completeCovers[groups.length] = null;
+  for (let start = groups.length - 1; start >= 0; start--) {
+    for (const candidate of candidatesByStart[start]) {
+      const tail = completeCovers[candidate.endGroup + 1];
+      if (tail !== undefined) {
+        completeCovers[start] = { candidate, next: tail };
+        break;
+      }
+    }
+  }
+
+  const completeCover = completeCovers[0];
+  const intervals = completeCover === undefined ? candidates : [];
+  for (
+    let cover = completeCover;
+    cover != null;
+    cover = cover.next
+  ) {
+    intervals.push(cover.candidate);
+  }
+  const redacted: string[] = [];
+  let candidate = { ...intervals[0] };
+  let offset = 0;
+  for (let i = 1; i < intervals.length; i++) {
+    const next = intervals[i];
+    // Merge ambiguous overlaps so no portion of a possible PAN remains visible.
+    if (next.start < candidate.end) {
+      candidate.end = Math.max(candidate.end, next.end);
+    } else {
+      redacted.push(
+        match.slice(offset, candidate.start),
+        creditCardNumberReplacement,
+      );
+      offset = candidate.end;
+      candidate = next;
+    }
+  }
+  redacted.push(
+    match.slice(offset, candidate.start),
+    creditCardNumberReplacement,
+    match.slice(candidate.end),
+  );
+  return redacted.join("");
+}
+
 /**
- * A redaction pattern for credit card numbers (including American Express).
+ * A redaction pattern for Luhn-valid credit card numbers with 13–19 digits,
+ * including numbers separated into common groups with spaces or hyphens.
  * @since 0.10.0
  */
 export const CREDIT_CARD_NUMBER_PATTERN: RedactionPattern = {
-  pattern: /(?:\d{4}-){2}(?:\d{4}-\d{4}|\d{6})/g,
-  replacement: "XXXX-XXXX-XXXX-XXXX",
+  pattern: /(?<!\d)(?:\d{13,19}|\d{4}(?:(?: +|-)\d{1,6})+)(?!\d)/g,
+  replacement: redactCreditCardNumber,
 };
 
 /**
