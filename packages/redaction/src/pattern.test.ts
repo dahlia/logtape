@@ -27,6 +27,10 @@ const domainPartArb: fc.Arbitrary<string> = fc.stringMatching(
 const digitArb: fc.Arbitrary<string> = fc.integer({ min: 0, max: 9 }).map(
   String,
 );
+const luhnValidCardDigitsArb: fc.Arbitrary<readonly string[]> = fc.array(
+  digitArb,
+  { minLength: 15, maxLength: 15 },
+).map(appendLuhnCheckDigit);
 
 test("EMAIL_ADDRESS_PATTERN", () => {
   const { pattern, replacement } = EMAIL_ADDRESS_PATTERN;
@@ -101,34 +105,87 @@ test("EMAIL_ADDRESS_PATTERN redacts generated email addresses", () => {
 test("CREDIT_CARD_NUMBER_PATTERN", () => {
   const { pattern, replacement } = CREDIT_CARD_NUMBER_PATTERN;
 
-  // Test valid credit card numbers with dashes
-  assert.match("1234-5678-9012-3456", pattern); // Regular 16-digit card
-  pattern.lastIndex = 0;
-  assert.match("1234-5678-901234", pattern); // American Express format
-  pattern.lastIndex = 0;
+  const redact = (value: string): string =>
+    typeof replacement === "string"
+      ? value.replaceAll(pattern, replacement)
+      : value.replaceAll(pattern, replacement);
 
-  // Test replacements
+  const validNumbers = [
+    "4222222222222",
+    "4222 2222 2222 2",
+    "30569309025904",
+    "3056 9309 025904",
+    "3056-9309-025904",
+    "3056-930902-5904",
+    "1354 12345 678911",
+    "1354-12345-678911",
+    "378282246310005",
+    "3782 822463 10005",
+    "3782-822463-10005",
+    "4111111111111111",
+    "4111 1111 1111 1111",
+    "4111  1111 1111 1111",
+    "4111-1111-1111-1111",
+    "5500005555555559",
+    "4000000000000000006",
+    "4000 0000 0000 0000 006",
+    "4000-0000-0000-0000-006",
+  ];
+
+  for (const number of validNumbers) {
+    assert.strictEqual(
+      redact(`Card: ${number}`),
+      "Card: XXXX-XXXX-XXXX-XXXX",
+    );
+  }
+
   assert.strictEqual(
-    "Card: 1234-5678-9012-3456".replaceAll(pattern, replacement as string),
-    "Card: XXXX-XXXX-XXXX-XXXX",
-  );
-  assert.strictEqual(
-    "AmEx: 1234-5678-901234".replaceAll(pattern, replacement as string),
-    "AmEx: XXXX-XXXX-XXXX-XXXX",
-  );
-  assert.strictEqual(
-    "Cards: 1234-5678-9012-3456 and 1234-5678-901234".replaceAll(
-      pattern,
-      replacement as string,
-    ),
+    redact("Cards: 4111111111111111 and 3782-822463-10005"),
     "Cards: XXXX-XXXX-XXXX-XXXX and XXXX-XXXX-XXXX-XXXX",
   );
+  assert.strictEqual(
+    redact("Payment: 4111-1111-1111-1111-12-28"),
+    "Payment: XXXX-XXXX-XXXX-XXXX-12-28",
+  );
+  assert.strictEqual(
+    redact("Payment: 4111 1111 1111 1111 12/28"),
+    "Payment: XXXX-XXXX-XXXX-XXXX 12/28",
+  );
+  assert.strictEqual(
+    redact("Order 0001 4111-1111-1111-1111"),
+    "Order 0001 XXXX-XXXX-XXXX-XXXX",
+  );
+  assert.strictEqual(
+    redact("card_4111-1111-1111-1111_token"),
+    "card_XXXX-XXXX-XXXX-XXXX_token",
+  );
+  assert.strictEqual(
+    redact("Ref 1234 5678 4111 1111 1111 1111"),
+    "Ref 1234 5678 XXXX-XXXX-XXXX-XXXX",
+  );
+  assert.strictEqual(
+    redact("Cards: 4111 1111 1111 1111 5500 0055 5555 5559"),
+    "Cards: XXXX-XXXX-XXXX-XXXX XXXX-XXXX-XXXX-XXXX",
+  );
+
+  const invalidNumbers = [
+    "123456789012",
+    "12345678901234",
+    "1234-5678-901234",
+    "4111111111111112",
+    "4111 1111 1111 1112",
+    "12345678901234567890",
+  ];
+
+  for (const number of invalidNumbers) {
+    assert.strictEqual(redact(`Number: ${number}`), `Number: ${number}`);
+  }
 });
 
-test("CREDIT_CARD_NUMBER_PATTERN redacts generated dashed card numbers", () => {
+test("CREDIT_CARD_NUMBER_PATTERN redacts generated Luhn-valid cards", () => {
   fc.assert(
     fc.property(
-      fc.array(digitArb, { minLength: 16, maxLength: 16 }),
+      luhnValidCardDigitsArb,
       (digits) => {
         const card = `${digits.slice(0, 4).join("")}-${
           digits.slice(4, 8).join("")
@@ -279,10 +336,10 @@ test("redactByPattern(TextFormatter)", () => {
       level: "info",
       category: ["test"],
       message: [
-        "Sensitive info: email = user@example.com, cc = 1234-5678-9012-3456, ssn = 123-45-6789",
+        "Sensitive info: email = user@example.com, cc = 4111-1111-1111-1111, ssn = 123-45-6789",
       ],
       rawMessage:
-        "Sensitive info: email = user@example.com, cc = 1234-5678-9012-3456, ssn = 123-45-6789",
+        "Sensitive info: email = user@example.com, cc = 4111-1111-1111-1111, ssn = 123-45-6789",
       timestamp: Date.now(),
       properties: {},
     };
@@ -383,7 +440,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
         {
           name: "John Doe",
           email: "john@example.com",
-          creditCard: "1234-5678-9012-3456",
+          creditCard: "4111-1111-1111-1111",
         },
       ],
       rawMessage: "User data: [object Object]",
@@ -431,8 +488,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
         },
         payment: {
           cards: [
-            "1234-5678-9012-3456",
-            "8765-4321-8765-4321",
+            "4111-1111-1111-1111",
+            "5500-0055-5555-5559",
           ],
         },
         documents: {
@@ -735,4 +792,17 @@ function record(): LogRecord {
     timestamp: 0,
     properties: {},
   };
+}
+
+function appendLuhnCheckDigit(digits: readonly string[]): readonly string[] {
+  let checksum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let digit = Number(digits[i]);
+    if (i % 2 === 0) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    checksum += digit;
+  }
+  return [...digits, String((10 - checksum % 10) % 10)];
 }

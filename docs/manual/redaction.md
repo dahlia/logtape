@@ -121,7 +121,9 @@ import {
 ~~~~
 
  -  `EMAIL_ADDRESS_PATTERN`: Redacts email addresses
- -  `CREDIT_CARD_NUMBER_PATTERN`: Redacts credit card numbers
+ -  `CREDIT_CARD_NUMBER_PATTERN`: Redacts Luhn-valid credit card numbers with
+    13–19 digits, including common space- and hyphen-separated formats.  Numbers
+    that fit these formats but fail the Luhn check are left unchanged
  -  `JWT_PATTERN`: Redacts JSON Web Tokens
  -  `US_SSN_PATTERN`: Redacts U.S. Social Security numbers
  -  `KR_RRN_PATTERN`: Redacts South Korean resident registration numbers
