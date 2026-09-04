@@ -84,6 +84,11 @@ type CreditCardCandidate = {
   endGroup: number;
 };
 
+type CreditCardCover = {
+  readonly candidate: CreditCardCandidate;
+  readonly next: CreditCardCover | null;
+};
+
 function redactCreditCardNumber(match: string): string {
   const groups = [...match.matchAll(/\d+/g)];
   const candidates: CreditCardCandidate[] = [];
@@ -119,19 +124,27 @@ function redactCreditCardNumber(match: string): string {
 
   // Keep adjacent card numbers as separate redactions when their candidates
   // cover the complete group sequence without overlapping.
-  const completeCovers: (CreditCardCandidate[] | undefined)[] = [];
-  completeCovers[groups.length] = [];
+  const completeCovers: (CreditCardCover | null | undefined)[] = [];
+  completeCovers[groups.length] = null;
   for (let start = groups.length - 1; start >= 0; start--) {
     for (const candidate of candidatesByStart[start]) {
       const tail = completeCovers[candidate.endGroup + 1];
-      if (tail != null) {
-        completeCovers[start] = [candidate, ...tail];
+      if (tail !== undefined) {
+        completeCovers[start] = { candidate, next: tail };
         break;
       }
     }
   }
 
-  const intervals = completeCovers[0] ?? candidates;
+  const completeCover = completeCovers[0];
+  const intervals = completeCover === undefined ? candidates : [];
+  for (
+    let cover = completeCover;
+    cover != null;
+    cover = cover.next
+  ) {
+    intervals.push(cover.candidate);
+  }
   const redacted: string[] = [];
   let candidate = { ...intervals[0] };
   let offset = 0;
