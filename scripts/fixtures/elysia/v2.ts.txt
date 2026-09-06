@@ -1,0 +1,752 @@
+import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
+import test from "node:test";
+import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
+import { Elysia, status, t } from "elysia";
+import { websocket } from "elysia/websocket";
+import { elysiaLogger } from "@logtape/elysia";
+
+async function capture() {
+  const logs: LogRecord[] = [];
+  await configure({
+    sinks: {
+      test: (record) => {
+        if (record.category[0] !== "logtape") logs.push(record);
+      },
+    },
+    loggers: [{ category: [], sinks: ["test"] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+  });
+  return logs;
+}
+const note = (name: string) => getLogger("application").info(name);
+const request = (path: string, id = "request-id") =>
+  new Request(`http://localhost${path}`, {
+    headers: { "x-request-id": id },
+  });
+
+for (
+  const [name, handler, expected] of [
+    ["default", () => "ok", 200],
+    ["status", () => status(201, "created"), 201],
+    ["response", () => new Response("accepted", { status: 202 }), 202],
+    ["plain body", () => ({ status: 404, response: "body" }), 200],
+  ] as const
+) {
+  test(`v2 logs native ${name} status in format and skip`, async () => {
+    const logs = await capture();
+    try {
+      const statuses: number[] = [];
+      const app = new Elysia().use(elysiaLogger({
+        skip(ctx) {
+          statuses.push(ctx.set.status);
+          return false;
+        },
+        format(ctx) {
+          return { status: ctx.set.status };
+        },
+      })).get("/", handler);
+      assert.equal((await app.handle(request("/"))).status, expected);
+      assert.deepEqual(statuses, [expected]);
+      assert.equal(logs[0].properties.status, expected);
+    } finally {
+      await reset();
+    }
+  });
+}
+
+test("v2 returned native statuses override set, named statuses resolve", async () => {
+  const logs = await capture();
+  try {
+    const app = new Elysia().use(elysiaLogger())
+      .get("/status", ({ set }) => {
+        set.status = 203;
+        return status(201, "ok");
+      })
+      .get("/response", ({ set }) => {
+        set.status = 203;
+        return new Response("ok", { status: 202 });
+      })
+      .get("/named", ({ set }) => {
+        set.status = "Created";
+        return "ok";
+      });
+    for (
+      const [path, expected] of [["/status", 201], ["/response", 202], [
+        "/named",
+        201,
+      ]] as const
+    ) {
+      assert.equal((await app.handle(request(path))).status, expected);
+      assert.equal(logs.at(-1)?.properties.status, expected);
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 errors retain native codes and do not replace responses", async () => {
+  const logs = await capture();
+  try {
+    const app = new Elysia().use(elysiaLogger())
+      .get("/unknown", () => {
+        throw Error("failure");
+      })
+      .get("/code", () => {
+        throw Object.assign(Error("custom"), { code: 42 });
+      })
+      .get("/status", () => {
+        throw status(409, "conflict");
+      })
+      .post(
+        "/body",
+        { body: t.Object({ name: t.String() }) },
+        ({ body }) => body,
+      );
+    for (
+      const [path, expected, code] of [
+        ["/missing", 404, "not-found"],
+        ["/unknown", 500, undefined],
+        ["/code", 500, 42],
+        ["/status", 409, undefined],
+      ] as const
+    ) {
+      const response = await app.handle(request(path));
+      assert.equal(response.status, expected);
+      const log = logs.at(-1)!;
+      assert.equal(log.level, "error");
+      assert.equal(log.properties.status, expected);
+      assert.equal(log.properties.errorCode, code);
+      if (code === undefined) {
+        assert.equal("errorCode" in log.properties, false);
+      }
+      assert.ok(await response.text());
+    }
+    for (const [body, expected] of [["{}", 422], ["{", 400]] as const) {
+      const response = await app.handle(
+        new Request("http://localhost/body", {
+          method: "POST",
+          body,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+      assert.equal(response.status, expected);
+      assert.equal(logs.at(-1)?.properties.status, expected);
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 normalized headers write through and request headers never leak", async () => {
+  const logs = await capture();
+  try {
+    const app = new Elysia().headers({ "x-default": "kept" })
+      .use(elysiaLogger({
+        context: true,
+        skip(ctx) {
+          ctx.set.headers = { ...ctx.set.headers, "x-callback": "yes" };
+          return false;
+        },
+      })).get("/", () => "ok");
+    for (const id of ["first", "second"]) {
+      const response = await app.handle(request("/", id));
+      assert.equal(response.headers.get("x-request-id"), id);
+      assert.equal(response.headers.get("x-default"), "kept");
+      assert.equal(response.headers.get("x-callback"), "yes");
+      assert.equal(logs.at(-1)?.properties.requestId, id);
+    }
+    const unrelated = new Elysia().get("/", () => "ok");
+    assert.equal(
+      (await unrelated.handle(request("/"))).headers.get("x-request-id"),
+      null,
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local child hooks, derives and late errors preserve context and reuse", async () => {
+  const logs = await capture();
+  try {
+    const child = new Elysia({ name: "child" })
+      .beforeHandle("global", () => {
+        note("child-global");
+      })
+      .derive(() => {
+        note("derive");
+        return { value: "derived" };
+      })
+      .mapDerive(({ value }) => ({ value: `${value}!` }))
+      .get("/ok", ({ value }) => value)
+      .get("/error", () => {
+        throw Error("failure");
+      });
+    const plugin = elysiaLogger({ scope: "local", context: true }).use(child);
+    child.error(() => {
+      note("child-error");
+    });
+    const app = new Elysia().use(child).group("/api", (app) => app.use(plugin));
+    assert.equal(
+      await (await app.handle(request("/api/ok"))).text(),
+      "derived!",
+    );
+    logs.length = 0;
+    assert.equal((await app.handle(request("/api/error"))).status, 500);
+    for (const name of ["child-global", "derive", "child-error"]) {
+      const selected = logs.filter((log) => log.message[0] === name);
+      assert.equal(selected.length, 1, name);
+      assert.equal(selected[0].properties.requestId, "request-id", name);
+    }
+    logs.length = 0;
+    await new Elysia().use(child).handle(request("/error"));
+    assert.equal(
+      logs.find((log) => log.message[0] === "child-error")?.properties
+        .requestId,
+      undefined,
+    );
+    logs.length = 0;
+    await plugin.handle(request("/error"));
+    assert.equal(
+      logs.filter((log) => log.message[0] === "child-error").length,
+      1,
+    );
+    assert.equal(
+      logs.find((log) => log.message[0] === "child-error")?.properties
+        .requestId,
+      "request-id",
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local native method, group, guard and deferred plugin composition", async () => {
+  const logs = await capture();
+  try {
+    const plugin = elysiaLogger({ scope: "local", context: true })
+      .derive(() => ({ value: "own" }))
+      .mapDerive(({ value }) => ({ value: `${value}!` }))
+      .guard({
+        beforeHandle() {
+          note("guard");
+        },
+      })
+      .method("GET", "/method", ({ value }) => {
+        note("method");
+        return value;
+      })
+      .group("/group", (app) =>
+        app.get("/route", () => {
+          note("group");
+          return "ok";
+        }))
+      .guard(
+        { query: t.Object({ q: t.String() }) },
+        (app) =>
+          app.get("/guard", ({ query }) => {
+            note("query");
+            return query.q;
+          }),
+      )
+      .use([new Elysia().get("/array", () => {
+        note("array");
+        return "ok";
+      })])
+      .use(Promise.resolve({
+        default: new Elysia().get("/deferred", () => {
+          note("deferred");
+          return "ok";
+        }),
+      }));
+    await plugin.modules;
+    const app = new Elysia().use(plugin).get("/outside", () => {
+      note("outside");
+      return "ok";
+    });
+    await app.modules;
+    for (
+      const [path, body] of [
+        ["/method", "own!"],
+        ["/group/route", "ok"],
+        ["/guard?q=query", "query"],
+        ["/array", "ok"],
+        ["/deferred", "ok"],
+      ]
+    ) {
+      logs.length = 0;
+      const response = await app.handle(request(path));
+      assert.equal(await response.text(), body, path);
+      const application = logs.filter((log) =>
+        log.category[0] === "application"
+      );
+      assert.ok(application.length > 0, path);
+      for (const log of application) {
+        assert.equal(log.properties.requestId, "request-id", path);
+      }
+    }
+    logs.length = 0;
+    await app.handle(request("/outside"));
+    assert.equal(
+      logs.find((log) => log.message[0] === "outside")?.properties.requestId,
+      undefined,
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local typed error handlers keep constructors and native matching", async () => {
+  const logs = await capture();
+  try {
+    class Problem extends Error {}
+    const plugin = elysiaLogger({ scope: "local", context: true })
+      .error("local", Problem, () => {
+        note("typed");
+        return "handled";
+      })
+      .get("/", () => {
+        throw new Problem("failure");
+      });
+    assert.equal(await (await plugin.handle(request("/"))).text(), "handled");
+    assert.equal(logs.filter((log) => log.message[0] === "typed").length, 1);
+    assert.equal(
+      logs.find((log) => log.message[0] === "typed")?.properties.requestId,
+      "request-id",
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local asynchronous requests keep independent implicit context", async () => {
+  const logs = await capture();
+  try {
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered = 0;
+    const app = elysiaLogger({ scope: "local", context: true }).get(
+      "/:id",
+      async ({ params }) => {
+        if (++entered === 2) release();
+        await barrier;
+        note(params.id);
+        return "ok";
+      },
+    );
+    await Promise.all([
+      app.handle(request("/first", "first")),
+      app.handle(request("/second", "second")),
+    ]);
+    for (const id of ["first", "second"]) {
+      assert.equal(
+        logs.find((log) => log.message[0] === id)?.properties.requestId,
+        id,
+      );
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local mount placeholders and websocket registrations remain usable", async () => {
+  await capture();
+  try {
+    const app = elysiaLogger({ scope: "local", context: true })
+      .mount("/mounted", () => new Response("mounted"))
+      .use(websocket())
+      .ws("/ws", { message() {} })
+      .get("/", () => "ok");
+    assert.equal(
+      await (await app.handle(request("/mounted/"))).text(),
+      "mounted",
+    );
+    assert.equal(await (await app.handle(request("/"))).text(), "ok");
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local hooks on static responses receive context", async () => {
+  const logs = await capture();
+  try {
+    const app = elysiaLogger({ scope: "local", context: true })
+      .get("/", {
+        beforeHandle() {
+          note("static-hook");
+        },
+      }, "ok");
+    assert.equal(await (await app.handle(request("/"))).text(), "ok");
+    assert.equal(
+      logs.find((log) => log.message[0] === "static-hook")?.properties
+        .requestId,
+      "request-id",
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local context reaches hooks through nested imported chains", async () => {
+  const logs = await capture();
+  try {
+    const leaf = new Elysia().get("/", () => "ok");
+    const middle = new Elysia().beforeHandle(() => {
+      note("middle");
+    }).use(leaf);
+    const outer = new Elysia().beforeHandle(() => {
+      note("outer");
+    }).use(middle);
+    const app = elysiaLogger({ scope: "local", context: true }).use(outer);
+    assert.equal(await (await app.handle(request("/"))).text(), "ok");
+    for (const name of ["middle", "outer"]) {
+      const selected = logs.filter((log) => log.message[0] === name);
+      assert.equal(selected.length, 1);
+      assert.equal(selected[0].properties.requestId, "request-id", name);
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local hooks beneath propagated nodes receive context", async () => {
+  const logs = await capture();
+  try {
+    const global = new Elysia({ name: "global-hook" })
+      .beforeHandle("global", () => {
+        note("propagated");
+      });
+    const child = new Elysia().beforeHandle(() => {
+      note("child-local");
+    })
+      .use(global).get("/", () => "ok");
+    const app = new Elysia().use(global)
+      .use(elysiaLogger({ scope: "local", context: true }).use(child));
+    assert.equal(await (await app.handle(request("/"))).text(), "ok");
+    assert.equal(
+      logs.filter((log) => log.message[0] === "propagated").length,
+      1,
+    );
+    assert.equal(
+      logs.find((log) => log.message[0] === "child-local")?.properties
+        .requestId,
+      "request-id",
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local context reaches deferred child macro hooks without changing reuse", async () => {
+  const logs = await capture();
+  try {
+    const child = new Elysia().macro({
+      audited: {
+        beforeHandle() {
+          note("macro-hook");
+        },
+        derive() {
+          note("macro-derive");
+          return { value: "derived" };
+        },
+      },
+    }).get("/", { audited: true }, ({ value }) => value);
+    const app = new Elysia().use(
+      elysiaLogger({ scope: "local", context: true }).use(child),
+    );
+    assert.equal(await (await app.handle(request("/"))).text(), "derived");
+    for (const name of ["macro-hook", "macro-derive"]) {
+      assert.equal(
+        logs.find((log) => log.message[0] === name)?.properties.requestId,
+        "request-id",
+        name,
+      );
+    }
+    logs.length = 0;
+    await new Elysia().use(child).handle(request("/"));
+    for (const log of logs) assert.equal(log.properties.requestId, undefined);
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local context reaches grouped and guard macro hooks", async () => {
+  const logs = await capture();
+  try {
+    const app = elysiaLogger({ scope: "local", context: true })
+      .macro({
+        audited: (label: string) => ({
+          beforeHandle() {
+            note(label);
+          },
+        }),
+      })
+      .group(
+        "/group",
+        (app) => app.get("/", { audited: "group-macro" }, () => "ok"),
+      )
+      .guard({ audited: "guard-macro" }).get("/guard", () => "ok");
+    for (
+      const [path, name] of [["/group/", "group-macro"], [
+        "/guard",
+        "guard-macro",
+      ]]
+    ) {
+      assert.equal(await (await app.handle(request(path))).text(), "ok");
+      assert.equal(
+        logs.find((log) => log.message[0] === name)?.properties.requestId,
+        "request-id",
+        name,
+      );
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 macro and explicit hooks retain native callback deduplication", async () => {
+  const logs = await capture();
+  try {
+    const callback = () => {
+      note("shared-hook");
+    };
+    const app = elysiaLogger({ scope: "local", context: true })
+      .macro({ audited: { beforeHandle: callback } })
+      .get("/", { audited: true, beforeHandle: callback }, () => "ok");
+    await app.handle(request("/"));
+    const selected = logs.filter((log) => log.message[0] === "shared-hook");
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].properties.requestId, "request-id");
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local named parsers keep context and leave parent routes unchanged", async () => {
+  const logs = await capture();
+  try {
+    const parser = async ({ request }: { request: Request }) => {
+      note("named-parser");
+      return await request.text();
+    };
+    const plugin = elysiaLogger({ scope: "local", context: true })
+      .parser("audit", parser)
+      .post("/route", { parse: "audit" }, ({ body }) => body)
+      .parse("audit")
+      .post("/plugin", ({ body }) => body);
+    const app = new Elysia().use(plugin)
+      .post("/outside", { parse: "audit" }, ({ body }) => body);
+    for (const path of ["/route", "/plugin", "/outside"]) {
+      logs.length = 0;
+      const response = await app.handle(
+        new Request(`http://localhost${path}`, {
+          method: "POST",
+          body: "parsed",
+          headers: { "x-request-id": "request-id" },
+        }),
+      );
+      assert.equal(await response.text(), "parsed");
+      assert.equal(
+        logs.find((log) => log.message[0] === "named-parser")?.properties
+          .requestId,
+        path === "/outside" ? undefined : "request-id",
+        path,
+      );
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local group hooks include late parent macros", async () => {
+  const logs = await capture();
+  try {
+    const hook = { parentAudit: true, detail: { description: "Parent macro" } };
+    const plugin = elysiaLogger({ scope: "local", context: true })
+      .group(
+        "/group",
+        (app) => app.get("/", hook, () => "ok"),
+      );
+    const app = new Elysia().macro({
+      parentAudit: {
+        beforeHandle() {
+          note("parent-macro");
+        },
+      },
+    })
+      .use(plugin)
+      .get("/outside", { parentAudit: true }, () => "ok");
+    for (const path of ["/group/", "/outside"]) {
+      logs.length = 0;
+      assert.equal(await (await app.handle(request(path))).text(), "ok");
+      const selected = logs.filter((log) => log.message[0] === "parent-macro");
+      assert.equal(selected.length, 1);
+      assert.equal(
+        selected[0].properties.requestId,
+        path === "/outside" ? undefined : "request-id",
+      );
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 local guard error hooks run once in direct and reused loggers", async () => {
+  const logs = await capture();
+  try {
+    const onError = () => {
+      note("guard-error");
+    };
+    const plugin = elysiaLogger({ scope: "local", context: true })
+      .macro({ audited: { error: onError } })
+      .guard({ audited: true, error: onError })
+      .get("/", () => {
+        throw Error("failure");
+      });
+    for (
+      const app of [plugin, new Elysia().use(plugin), new Elysia().use(plugin)]
+    ) {
+      logs.length = 0;
+      assert.equal((await app.handle(request("/"))).status, 500);
+      const selected = logs.filter((log) => log.message[0] === "guard-error");
+      assert.equal(selected.length, 1);
+      assert.equal(selected[0].properties.requestId, "request-id");
+      assert.equal(
+        logs.filter((log) => log.category[0] === "elysia").length,
+        1,
+      );
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 typed void error handlers run once", async () => {
+  const logs = await capture();
+  try {
+    class Problem extends Error {}
+    const plugin = elysiaLogger({ scope: "local", context: true })
+      .error(Problem, () => {
+        note("typed-void");
+      })
+      .error("local", Problem, () => {
+        note("scoped-typed-void");
+      })
+      .get("/", () => {
+        throw new Problem("failure");
+      });
+    for (const app of [plugin, new Elysia().use(plugin)]) {
+      logs.length = 0;
+      await app.handle(request("/"));
+      for (const name of ["typed-void", "scoped-typed-void"]) {
+        const selected = logs.filter((log) => log.message[0] === name);
+        assert.equal(selected.length, 1, name);
+        assert.equal(selected[0].properties.requestId, "request-id");
+      }
+    }
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 direct local logger preserves native guard scope and hook order", async () => {
+  const logs = await capture();
+  try {
+    const app = elysiaLogger({ scope: "local", context: true })
+      .macro({
+        audited: {
+          beforeHandle() {
+            note("macro-order");
+          },
+        },
+      })
+      .get("/public", () => "public")
+      .guard({ audited: true })
+      .get("/private", {
+        beforeHandle() {
+          note("route-order");
+        },
+      }, () => "private");
+    await app.handle(request("/public"));
+    assert.equal(logs.some((log) => log.message[0] === "macro-order"), false);
+    logs.length = 0;
+    await app.handle(request("/private"));
+    assert.deepEqual(
+      logs.filter((log) => log.category[0] === "application").map((log) =>
+        log.message[0]
+      ),
+      ["macro-order", "route-order"],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("v2 explicit repeated callbacks retain their native repetitions", async () => {
+  const logs = await capture();
+  try {
+    const callback = () => {
+      note("repeated");
+    };
+    const app = elysiaLogger({ scope: "local", context: true })
+      .get("/", { beforeHandle: [callback, callback] }, () => "ok");
+    await app.handle(request("/"));
+    assert.equal(logs.filter((log) => log.message[0] === "repeated").length, 2);
+  } finally {
+    await reset();
+  }
+});
+
+for (
+  const mode of ["before await", "returned plugin", "promise plugin"] as const
+) {
+  test(`v2 local context supports async registration: ${mode}`, async () => {
+    const logs = await capture();
+    try {
+      const logger = () =>
+        elysiaLogger({ scope: "local", context: true })
+          .get("/", async () => {
+            await Promise.resolve();
+            note("async-registered");
+            return "ok";
+          });
+      const app = new Elysia();
+      if (mode === "before await") {
+        app.use(async (app) => {
+          app.use(logger());
+          await Promise.resolve();
+          return app;
+        });
+      } else if (mode === "returned plugin") {
+        app.use(async () => {
+          await Promise.resolve();
+          return logger();
+        });
+      } else {
+        app.use(Promise.resolve(logger()));
+      }
+      await app.modules;
+      assert.equal(await (await app.handle(request("/"))).text(), "ok");
+      const selected = logs.filter((log) =>
+        log.message[0] === "async-registered"
+      );
+      assert.equal(selected.length, 1);
+      assert.equal(selected[0].properties.requestId, "request-id");
+    } finally {
+      await reset();
+    }
+  });
+}
+
+test("v2 retains native rejection of post-await parent macro registration", async () => {
+  const app = new Elysia().use(async (app) => {
+    await Promise.resolve();
+    return app.use(elysiaLogger({ scope: "local", context: true }));
+  });
+  await assert.rejects(app.modules, {
+    message:
+      /^Macro @logtape\/elysia\/context\/.+ can only run in sync plugin$/,
+  });
+});

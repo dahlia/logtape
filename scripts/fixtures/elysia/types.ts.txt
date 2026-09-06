@@ -1,0 +1,37 @@
+import { Elysia, t } from "elysia";
+import {
+  type ElysiaContext,
+  elysiaLogger,
+  type ElysiaLogTapeOptions,
+} from "@logtape/elysia";
+
+const options: ElysiaLogTapeOptions = {
+  scope: "scoped",
+  context: true,
+  format(ctx: ElysiaContext) {
+    const status: number = ctx.set.status;
+    return { status };
+  },
+};
+new Elysia().use(elysiaLogger(options)).get("/users/:id", ({ params }) => {
+  const id: string = params.id;
+  // @ts-expect-error Route parameters remain strings.
+  const invalid: number = params.id;
+  return id;
+});
+elysiaLogger({ scope: "local" }).get("/local/:id", ({ params }) => {
+  const id: string = params.id;
+  // @ts-expect-error Plugin chaining preserves parameter inference.
+  const invalid: number = params.id;
+  return id;
+});
+new Elysia().use(elysiaLogger()).post("/body", ({ body }) => {
+  const name: string = body.name;
+  // @ts-expect-error Schema properties are not numbers.
+  const invalid: number = body.name;
+  return name;
+}, { body: t.Object({ name: t.String() }) });
+// @ts-expect-error No new version-dependent scope option is exposed.
+elysiaLogger({ scope: "plugin" });
+// @ts-expect-error Invalid log levels are rejected.
+elysiaLogger({ level: "verbose" });
