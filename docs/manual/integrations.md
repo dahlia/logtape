@@ -337,6 +337,51 @@ bun add @logtape/elysia
 
 :::
 
+Since LogTape 2.4.0, this adapter supports Elysia 1.4 and Elysia 2 starting
+with *2.0.0-beta.12*.  Elysia 2 is still in beta.  The `elysiaLogger()` options
+are the same for both versions; application routes and hooks use the native
+API of the installed Elysia version.
+
+The application and adapter must resolve the same Elysia package copy and
+module format.  Use ESM throughout or CommonJS throughout, including imported
+child plugins.  Local request context relies on Elysia 2's internal hook and
+route representation, which the compatibility tests check against the pinned
+beta version.
+
+When using `scope: "local"` with request context enabled, the adapter registers
+an internal macro in Elysia 2.  Elysia 2 rejects adding macros to the parent app
+from an async plugin function after `await`.  Register the logger before that
+`await`, or return a separate logger plugin for Elysia to merge:
+
+~~~~ typescript
+const app = new Elysia().use(async () => {
+  await initializeDatabase();
+  return elysiaLogger({ scope: "local", context: true })
+    .get("/", () => "Hello");
+});
+~~~~
+
+Do not use `return app.use(elysiaLogger(...))` after `await` inside
+`.use(async (app) => { ... })` with these options.  Returning the separate
+plugin lets Elysia merge it in its ordered async plugin queue.  This restriction
+does not affect `await` inside request handlers.
+
+For Elysia 2 on Deno, add these overrides to your *deno.json* `imports` map,
+alongside the LogTape imports.  The exact npm specifiers also redirect the
+adapter's JSR dependencies, so the application and adapter share Elysia:
+
+~~~~ json
+{
+  "imports": {
+    "elysia": "npm:elysia@2.0.0-beta.12",
+    "npm:elysia@^1.4.0": "npm:elysia@2.0.0-beta.12",
+    "npm:elysia@^1.4.0/utils": "npm:elysia@2.0.0-beta.12/utils"
+  }
+}
+~~~~
+
+Keep all three mappings on the same Elysia version when upgrading.
+
 Here's an example of using LogTape with Elysia:
 
 ~~~~ typescript twoslash
@@ -443,6 +488,7 @@ Elysia supports plugin scoping to control how lifecycle hooks propagate:
 
  -  `"global"`: Hooks apply to all routes in the application (default)
  -  `"scoped"`: Hooks apply to the parent instance where the plugin is used
+    (Elysia 2 calls this scope `"plugin"`)
  -  `"local"`: Hooks only apply within the plugin itself
 
 ~~~~ typescript twoslash
@@ -495,8 +541,10 @@ const plugin = elysiaLogger({
 ### Error logging
 
 The plugin automatically logs errors at the error level using Elysia's
-`onError` hook.  Error logs include the error message and error code
-in addition to standard request properties.
+`onError` hook in Elysia 1 or `error` hook in Elysia 2.  Error logs include
+`errorMessage` in addition to standard request properties.  `errorCode` is
+Elysia 1's context code, or Elysia 2's `error.code` when it is a string or
+number; it is omitted when Elysia 2 supplies no code.
 
 ### Structured logging output
 

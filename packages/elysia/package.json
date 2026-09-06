@@ -54,7 +54,7 @@
   ],
   "peerDependencies": {
     "@logtape/logtape": "workspace:^",
-    "elysia": "catalog:"
+    "elysia": "^1.4.0 || ^2.0.0-beta.12"
   },
   "devDependencies": {
     "@alinea/suite": "catalog:",

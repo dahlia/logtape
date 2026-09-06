@@ -37,6 +37,13 @@ To be released.
  -  The `parentSinks` option of logger configurations now accepts
     `"forward"`, matching *@logtape/logtape* 2.4.0.  [[#198]]
 
+### @logtape/elysia
+
+ -  Added support for Elysia 2 beta while retaining support for Elysia 1.4.
+    [[#212]]
+
+[#212]: https://github.com/dahlia/logtape/pull/212
+
 ### @logtape/lint
 
  -  Added an opt-in `no-dynamic-message` rule to *@logtape/lint* for finding

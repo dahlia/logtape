@@ -109,3 +109,7 @@ depends = ["check"]
 [tasks."hooks:pre-push"]
 description = "Run pre-push checks"
 depends = ["check", "test:deno"]
+
+[tasks."test:elysia-compatibility"]
+description = "Test Elysia 1 and 2 with packed npm artifacts and Deno source"
+run = "deno run --allow-all scripts/check_elysia_compatibility.ts"

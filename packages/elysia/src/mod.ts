@@ -1,6 +1,13 @@
 import { Elysia } from "elysia";
 import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
 
+import {
+  createCompatibility,
+  materializeHeaders,
+  nativeErrorCode,
+  wrapV2LocalContext,
+} from "./compat.ts";
+
 export type { LogLevel } from "@logtape/logtape";
 
 type ElysiaRequestHeaders = Request extends {
@@ -1149,6 +1156,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     set: ElysiaContext["set"],
     requestContext: ElysiaRequestContextState | undefined,
   ): void => {
+    materializeHeaders(set);
     if (requestContext?.responseHeader != null) {
       set.headers[requestContext.responseHeader.name] =
         requestContext.responseHeader.value;
@@ -1171,17 +1179,32 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   };
 
   // deno-lint-ignore no-explicit-any
-  let plugin: Elysia<any, any, any, any, any, any, any> = new Elysia({
+  let plugin: Elysia<any> = new Elysia({
     name: "@logtape/elysia",
     seed: options,
   });
 
+  const compatibility = createCompatibility(plugin);
+  let finishLocalSetup: (() => void) | undefined;
+
   if (shouldWrapContext && scope === "local") {
-    wrapLocalRouteHandlers(
-      plugin as unknown as ElysiaRoutePlugin,
-      buildAndStoreRequestContext,
-      applyRequestContextToSet,
-    );
+    if (compatibility.v2) {
+      const wrappers = createElysiaRequestWrappers(
+        buildAndStoreRequestContext,
+        applyRequestContextToSet,
+      );
+      finishLocalSetup = wrapV2LocalContext(
+        plugin,
+        wrappers.wrapRequestCallback,
+        `@logtape/elysia/context/${generateRequestId()}`,
+      );
+    } else {
+      wrapLocalRouteHandlers(
+        plugin as unknown as ElysiaRoutePlugin,
+        buildAndStoreRequestContext,
+        applyRequestContextToSet,
+      );
+    }
   } else if (shouldWrapContext) {
     // Elysia lifecycle hooks cannot wrap downstream handlers, so use wrap()
     // to keep AsyncLocalStorage active for the whole route execution.
@@ -1196,25 +1219,24 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     });
   }
 
-  plugin = plugin
-    .state("startTime", 0)
-    .onRequest(({ request, set, store }) => {
-      const requestContext = requestContextStates.get(request);
-      if (requestContext == null && shouldWrapAllRoutes) {
-        (store as LoggerStore).startTime = performance.now();
-        return buildAndStoreRequestContext(request).then((resolvedContext) => {
-          applyRequestContextToRequest(
-            store as LoggerStore,
-            set,
-            resolvedContext,
-          );
-        });
-      }
-      applyRequestContextToRequest(store as LoggerStore, set, requestContext);
-    });
+  plugin.state("startTime", 0);
+  compatibility.register("Request", ({ request, set, store }) => {
+    const requestContext = requestContextStates.get(request);
+    if (requestContext == null && shouldWrapAllRoutes) {
+      (store as LoggerStore).startTime = performance.now();
+      return buildAndStoreRequestContext(request).then((resolvedContext) => {
+        applyRequestContextToRequest(
+          store as LoggerStore,
+          set,
+          resolvedContext,
+        );
+      });
+    }
+    applyRequestContextToRequest(store as LoggerStore, set, requestContext);
+  });
 
   if (scope === "local" && (contextOptions != null || logRequest)) {
-    plugin = plugin.onBeforeHandle(async (ctx) => {
+    compatibility.register("BeforeHandle", async (ctx) => {
       (ctx.store as LoggerStore).startTime = performance.now();
       const requestContext = await buildAndStoreRequestContext(ctx.request);
       (ctx.store as LoggerStore).startTime = requestContext?.startTime ??
@@ -1238,7 +1260,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   if (logRequest) {
     // Log immediately when request arrives
     if (scope !== "local") {
-      plugin = plugin.onRequest((ctx) => {
+      compatibility.register("Request", (ctx) => {
         if (!skip(ctx as unknown as ElysiaContext)) {
           const requestContext =
             requestContextStates.get(ctx.request)?.context ??
@@ -1257,7 +1279,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     }
   } else {
     // Log after handler completes
-    plugin = plugin.onAfterHandle((ctx) => {
+    compatibility.register("AfterHandle", (ctx) => {
       if (skip(ctx as unknown as ElysiaContext)) return;
 
       const store = ctx.store as LoggerStore;
@@ -1278,7 +1300,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   }
 
   // Add error logging
-  plugin = plugin.onError((ctx) => {
+  compatibility.register("Error", (ctx) => {
     const store = ctx.store as LoggerStore;
     const responseTime = performance.now() - store.startTime;
     const elysiaCtx = ctx as unknown as ElysiaContext;
@@ -1288,7 +1310,10 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     const props = buildProperties(elysiaCtx, responseTime);
     const requestContext = requestContextStates.get(ctx.request)?.context ?? {};
     // Get the correct HTTP status code from error context
-    const status = getErrorStatus(ctx.code, ctx.error, elysiaCtx.set.status);
+    const status = compatibility.v2
+      ? elysiaCtx.set.status
+      : getErrorStatus(ctx.code ?? "UNKNOWN", ctx.error, elysiaCtx.set.status);
+    const errorCode = compatibility.v2 ? nativeErrorCode(ctx.error) : ctx.code;
     // Extract error message safely
     const error = ctx.error as { message?: string } | undefined;
     const errorMessage = error?.message ?? "Unknown error";
@@ -1299,27 +1324,24 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
         ...requestContext,
         status,
         errorMessage,
-        errorCode: ctx.code,
+        ...(errorCode === undefined ? {} : { errorCode }),
       },
     );
   });
 
   if (shouldWrapContext && scope === "local") {
-    wrapLocalLifecycleHooks(
-      plugin as unknown as ElysiaRoutePlugin,
-      buildAndStoreRequestContext,
-      applyRequestContextToSet,
-    );
+    if (finishLocalSetup != null) finishLocalSetup();
+    else {
+      wrapLocalLifecycleHooks(
+        plugin as unknown as ElysiaRoutePlugin,
+        buildAndStoreRequestContext,
+        applyRequestContextToSet,
+      );
+    }
   }
 
-  // Apply scope
-  if (scope === "global") {
-    // deno-lint-ignore no-explicit-any
-    return plugin.as("global") as unknown as Elysia<any>;
-  } else if (scope === "scoped") {
-    // deno-lint-ignore no-explicit-any
-    return plugin.as("scoped") as unknown as Elysia<any>;
-  }
+  // Apply the native scope while keeping the public v1/v2 API identical.
+  if (scope !== "local") compatibility.as(scope);
 
   // deno-lint-ignore no-explicit-any
   return plugin as unknown as Elysia<any>;

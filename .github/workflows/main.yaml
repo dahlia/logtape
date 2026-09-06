@@ -115,9 +115,19 @@ jobs:
     - run: mise run build
     - run: mise run test:bun
 
+  test-elysia-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@v4
+      with: *mise_options
+    - run: pnpm install --frozen-lockfile
+    - run: mise run test:elysia-compatibility
+
   publish:
     if: github.event_name == 'push'
-    needs: [check, test-deno, test-node, test-bun]
+    needs: [check, test-deno, test-node, test-bun, test-elysia-compatibility]
     permissions:
       contents: read
       id-token: write
