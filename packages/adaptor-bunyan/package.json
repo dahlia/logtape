@@ -1,6 +1,6 @@
 {
   "name": "@logtape/adaptor-bunyan",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "description": "Bunyan adapter for LogTape logging library",
   "keywords": [
     "logging",
