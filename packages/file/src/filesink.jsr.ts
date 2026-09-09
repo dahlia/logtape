@@ -1,21 +1,29 @@
 import type { Sink } from "@logtape/logtape";
-import type {
-  FileSinkOptions,
-  RotatingFileSinkOptions,
+import { join } from "@std/path/join";
+import {
+  type FileSinkOptions,
+  getBaseFileSink,
+  getBaseRotatingFileSink,
+  type RotatingFileSinkOptions,
 } from "./filesink.base.ts";
-import type { TimeRotatingFileSinkOptions } from "./timefilesink.ts";
+import type { FileSinkFunctions } from "./filesink.factory.ts";
+import {
+  getBaseTimeRotatingFileSink,
+  type TimeRotatingFileSinkOptions,
+} from "./timefilesink.ts";
 
-const filesink: Omit<
-  typeof import("./filesink.deno.ts"),
-  | "denoDriver"
-  | "denoAsyncDriver"
-  | "denoTimeDriver"
-  | "denoAsyncTimeDriver"
-> =
-  // dnt-shim-ignore
+// Shared dependencies must be evaluated before awaiting the platform factory.
+// The factory receives them as arguments so its chunk cannot import this one.
+const factory =
   await ("Deno" in globalThis
-    ? import("./filesink.deno.ts")
-    : import("./filesink.node.ts"));
+    ? import("./filesink.factory.deno.ts")
+    : import("./filesink.factory.node.ts"));
+const filesink: FileSinkFunctions = factory.createFileSinks({
+  getBaseFileSink,
+  getBaseRotatingFileSink,
+  getBaseTimeRotatingFileSink,
+  join,
+});
 
 /**
  * Get a file sink.
