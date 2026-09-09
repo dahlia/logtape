@@ -8,6 +8,17 @@ Version 2.3.4
 
 To be released.
 
+### @logtape/file
+
+ -  Fixed an error where importing `@logtape/file` could prevent a bundled
+    server from starting with `Top-level await promise never resolved`.
+    This could occur when Vite or Rollup placed shared dependencies in a chunk
+    waiting for the platform driver to load.  Existing imports and sink APIs
+    continue to work without changes.
+    [[#213]]
+
+[#213]: https://github.com/dahlia/logtape/issues/213
+
 
 Version 2.3.3
 -------------
@@ -244,6 +255,20 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.7
+-------------
+
+Released on September 9, 2026.
+
+### @logtape/file
+
+ -  Fixed an error where importing `@logtape/file` could prevent a bundled
+    server from starting with `Top-level await promise never resolved`.
+    This could occur when Vite or Rollup placed shared dependencies in a chunk
+    waiting for the platform driver to load.  Existing imports and sink APIs
+    continue to work without changes.  [[#213]]
 
 
 Version 2.2.6
@@ -548,6 +573,20 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.11
+--------------
+
+Released on September 9, 2026.
+
+### @logtape/file
+
+ -  Fixed an error where importing `@logtape/file` could prevent a bundled
+    server from starting with `Top-level await promise never resolved`.
+    This could occur when Vite or Rollup placed shared dependencies in a chunk
+    waiting for the platform driver to load.  Existing imports and sink APIs
+    continue to work without changes.  [[#213]]
+
+
 Version 2.1.10
 --------------
 
@@ -848,6 +887,20 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.20
+--------------
+
+Released on September 9, 2026.
+
+### @logtape/file
+
+ -  Fixed an error where importing `@logtape/file` could prevent a bundled
+    server from starting with `Top-level await promise never resolved`.
+    This could occur when Vite or Rollup placed shared dependencies in a chunk
+    waiting for the platform driver to load.  Existing imports and sink APIs
+    continue to work without changes.  [[#213]]
 
 
 Version 2.0.19
