@@ -8,6 +8,14 @@ Version 2.0.21
 
 To be released.
 
+### @logtape/redaction
+
+ -  Fixed `US_SSN_PATTERN` and `KR_RRN_PATTERN` incorrectly redacting parts of
+    longer digit sequences.  Numbers immediately preceded or followed by another
+    digit are now left unchanged.  [[#217]]
+
+[#217]: https://github.com/dahlia/logtape/issues/217
+
 
 Version 2.0.20
 --------------
