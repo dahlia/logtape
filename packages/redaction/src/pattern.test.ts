@@ -279,6 +279,55 @@ test("KR_RRN_PATTERN redacts generated resident registration numbers", () => {
   );
 });
 
+for (
+  const [name, redaction, value, longerValues] of [
+    [
+      "US_SSN_PATTERN",
+      US_SSN_PATTERN,
+      "123-45-6789",
+      ["1234-56-7890", "123-45-67890", "1234-56-78901"],
+    ],
+    [
+      "KR_RRN_PATTERN",
+      KR_RRN_PATTERN,
+      "123456-7890123",
+      ["1234567-8901234", "123456-78901234", "1234567-89012345"],
+    ],
+  ] as const
+) {
+  test(`${name} preserves longer digit runs`, () => {
+    const redact = redactByPattern((record) => record.message.join(""), [
+      redaction,
+    ]);
+    for (const input of longerValues) {
+      assert.strictEqual(
+        input.replaceAll(redaction.pattern, redaction.replacement as string),
+        input,
+      );
+      assert.strictEqual(
+        redact({
+          category: [],
+          level: "info",
+          timestamp: 0,
+          message: [input],
+          rawMessage: input,
+          properties: {},
+        }),
+        input,
+      );
+    }
+  });
+
+  test(`${name} redacts values next to non-digit characters`, () => {
+    for (const input of [value, `(${value})`, `a${value}z`]) {
+      assert.strictEqual(
+        input.replaceAll(redaction.pattern, redaction.replacement as string),
+        input.replace(value, redaction.replacement as string),
+      );
+    }
+  });
+}
+
 test("JWT_PATTERN", () => {
   const { pattern, replacement } = JWT_PATTERN;
 
