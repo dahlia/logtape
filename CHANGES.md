@@ -6,7 +6,7 @@ LogTape changelog
 Version 2.2.8
 -------------
 
-To be released.
+Released on September 15, 2026.
 
 ### @logtape/redaction
 
