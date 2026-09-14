@@ -198,7 +198,7 @@ export const CREDIT_CARD_NUMBER_PATTERN: RedactionPattern = {
  * @since 0.10.0
  */
 export const US_SSN_PATTERN: RedactionPattern = {
-  pattern: /\d{3}-\d{2}-\d{4}/g,
+  pattern: /(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)/g,
   replacement: "XXX-XX-XXXX",
 };
 
@@ -208,7 +208,7 @@ export const US_SSN_PATTERN: RedactionPattern = {
  * @since 0.10.0
  */
 export const KR_RRN_PATTERN: RedactionPattern = {
-  pattern: /\d{6}-\d{7}/g,
+  pattern: /(?<!\d)\d{6}-\d{7}(?!\d)/g,
   replacement: "XXXXXX-XXXXXXX",
 };
 
