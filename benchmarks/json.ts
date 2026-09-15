@@ -1,3 +1,4 @@
+import * as hiveLogger from "@graphql-hive/logger";
 import { getStreamFileSink } from "@logtape/file";
 import * as logtape from "@logtape/logtape";
 // @ts-types="@types/bunyan"
@@ -50,6 +51,17 @@ summary(() => {
       ],
     });
     yield () => logger.info("Test log message: %s", { foo: 1, bar: 2 });
+  });
+
+  bench("Hive Logger", function* () {
+    // noop to avoid console output during the benchmark, making it fair since other loggers write to devNull
+    const consoleLog = console.log;
+    console.log = () => {};
+
+    const logger = new hiveLogger.Logger({ writers: [new hiveLogger.JSONLogWriter()] });
+    yield () => logger.info("Test log message: %o", { foo: 1, bar: 2 });
+
+    console.log = consoleLog;
   });
 });
 
