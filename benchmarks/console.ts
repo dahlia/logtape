@@ -10,45 +10,98 @@ import { pino } from "pino";
 import signale from "signale";
 import winston from "winston";
 
+function mocklog(which: "stdout" | "console.info") {
+  let iterations = 0;
+  let invokations = 0;
+
+  let unmock: () => void;
+  if (which === "stdout") {
+    const origWrite = process.stdout.write.bind(process.stdout);
+    // deno-lint-ignore no-explicit-any
+    process.stdout.write = (chunk: any, cb: any) => {
+      invokations++;
+      return origWrite(chunk, cb);
+    };
+    unmock = () => {
+      process.stdout.write = origWrite;
+    };
+  } else {
+    const origInfo = globalThis.console.info.bind(globalThis.console);
+    // deno-lint-ignore no-explicit-any
+    globalThis.console.info = (...args: any[]) => {
+      invokations++;
+      return origInfo(...args);
+    };
+    unmock = () => {
+      globalThis.console.info = origInfo;
+    };
+  }
+
+  return {
+    count(cb: () => void) {
+      return () => {
+        iterations++;
+        cb();
+      };
+    },
+    check() {
+      if (iterations > invokations) {
+        throw new Error(
+          `${
+            iterations - invokations
+          } invokations missing, out of ${iterations} iterations.`,
+        );
+      }
+    },
+    unmock,
+  };
+}
+
 summary(() => {
   bench("LogTape", async function* () {
+    const { count, unmock, check } = mocklog("console.info");
     await logtape.configure({
-      sinks: {
-        console: logtape.getConsoleSink({ nonBlocking: true }),
-      },
-      loggers: [
-        { category: [], sinks: ["console"] },
-      ],
+      sinks: { console: logtape.getConsoleSink({ nonBlocking: false }) },
+      loggers: [{ category: [], sinks: ["console"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
     await logtape.reset();
   });
 
   bench("winston", function* () {
+    const { count, unmock, check } = mocklog("stdout");
     const logger = winston.createLogger({
-      transports: [
-        new winston.transports.Console(),
-      ],
+      transports: [new winston.transports.Console()],
     });
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
   });
 
   bench("pino", function* () {
+    const { count, unmock, check } = mocklog("stdout");
     const logger = pino();
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
   });
 
   bench("bunyan", function* () {
+    const { count, unmock, check } = mocklog("stdout");
     const logger = bunyan.createLogger({
       name: "benchmarks",
-      stream: process.stdout,
     });
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
   });
 
   bench("log4js", function* () {
+    const { count, unmock, check } = mocklog("stdout");
     log4js.configure({
       appenders: {
         console: { type: "console" },
@@ -58,19 +111,27 @@ summary(() => {
       },
     });
     const logger = log4js.getLogger();
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
   });
 
   bench("Signale", function* () {
+    const { count, unmock, check } = mocklog("stdout");
     const logger = new signale.Signale();
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
   });
 
   bench("Hive Logger", function* () {
+    const { count, unmock, check } = mocklog("console.info");
     const logger = new hiveLogger.Logger({
       writers: [new hiveLogger.ConsoleLogWriter()],
     });
-    yield () => logger.info("Test log message.");
+    yield count(() => logger.info("Test log message."));
+    unmock();
+    check();
   });
 });
 
