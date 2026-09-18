@@ -1,4 +1,5 @@
 import { getLogger, type Logger } from "@logtape/logtape";
+import { stringifyWithoutCycles } from "./circular.ts";
 
 /**
  * Pino log levels as strings.
@@ -184,7 +185,7 @@ function formatMessage(template: string, ...args: unknown[]): string {
       case "%j":
       case "%o":
       case "%O":
-        return JSON.stringify(arg);
+        return stringifyWithoutCycles(arg);
       default:
         return match;
     }

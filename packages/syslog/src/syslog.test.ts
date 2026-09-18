@@ -1714,3 +1714,48 @@ test("getSyslogSink() TLS options ignored for UDP", () => {
   assert.strictEqual(typeof sink, "function");
   assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
+
+test("getSyslogSink() renders circular message values", async () => {
+  let receivedMessage = "";
+
+  const server = createSocket("udp4");
+
+  await new Promise<void>((resolve) => {
+    server.bind(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address() as { port: number };
+
+  server.on("message", (msg) => {
+    receivedMessage = msg.toString();
+  });
+
+  try {
+    const sink = getSyslogSink({
+      hostname: "127.0.0.1",
+      port: address.port,
+      protocol: "udp",
+      facility: "local0",
+      appName: "circular-test",
+      timeout: 1000,
+      includeStructuredData: false,
+    });
+
+    const cyclic: Record<string, unknown> = { name: "session" };
+    cyclic.self = cyclic;
+
+    sink(createMockLogRecord("info", ["state: ", cyclic, ""]));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await sink[Symbol.asyncDispose]();
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const parsed = parseSyslogMessage(receivedMessage);
+    assert.strictEqual(
+      parsed.message,
+      'state: {"name":"session","self":"[Circular]"}',
+    );
+  } finally {
+    server.close();
+  }
+});

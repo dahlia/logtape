@@ -4,6 +4,7 @@ import { Socket } from "node:net";
 import { hostname } from "node:os";
 import process from "node:process";
 import * as tls from "node:tls";
+import { stringifyWithoutCycles } from "./circular.ts";
 
 /**
  * Syslog protocol type.
@@ -309,7 +310,7 @@ function formatSyslogMessage(
     if (i % 2 === 0) {
       message += record.message[i];
     } else {
-      message += JSON.stringify(record.message[i]);
+      message += stringifyWithoutCycles(record.message[i]);
     }
   }
 

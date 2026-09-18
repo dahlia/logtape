@@ -1,4 +1,5 @@
 import type { LogRecord } from "@logtape/logtape";
+import { stringifyWithoutCycles } from "./circular.ts";
 
 /**
  * Formats a log record message into a string suitable for Windows Event Log.
@@ -18,7 +19,7 @@ function formatMessage(record: LogRecord): string {
       if (typeof arg === "string") {
         message += arg;
       } else {
-        message += JSON.stringify(arg);
+        message += stringifyWithoutCycles(arg);
       }
     }
   }
@@ -40,7 +41,9 @@ function formatContext(record: LogRecord): string {
 
   // Add properties if present
   if (record.properties && Object.keys(record.properties).length > 0) {
-    context.push(`Properties: ${JSON.stringify(record.properties)}`);
+    context.push(
+      `Properties: ${stringifyWithoutCycles(record.properties)}`,
+    );
   }
 
   // Add timestamp

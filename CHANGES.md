@@ -23,6 +23,54 @@ To be released.
 [#218]: https://github.com/dahlia/logtape/issues/218
 [#221]: https://github.com/dahlia/logtape/pull/221
 
+### @logtape/cloudwatch-logs
+
+ -  Fixed the default formatter throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value contains a circular reference.  Such a reference is now
+    rendered as the string `"[Circular]"`. [[#218], [#221]]
+
+### @logtape/fastify
+
+ -  Fixed the Pino-compatible logger's `%j`, `%o`, and `%O` conversions
+    throwing `TypeError: Converting circular structure to JSON` when the
+    corresponding argument contains a circular reference.  Such a reference is
+    now rendered as the string `"[Circular]"`.  [[#218], [#221]]
+
+### @logtape/pretty
+
+ -  Fixed the pretty formatter throwing
+    `TypeError: Converting circular structure to JSON` when rendering a value
+    which contains a circular reference on runtimes which provide neither
+    `Deno.inspect()` nor Node.js' `util.inspect()`, such as browsers, React
+    Native, and edge functions. Such a reference is now rendered as the string
+    `"[Circular]"`. [[#218], [#221]]
+
+### @logtape/sentry
+
+ -  Fixed the Sentry sink throwing
+    `TypeError: Converting circular structure to JSON` when rendering an
+    interpolated message value which contains a circular reference on runtimes
+    which provide neither `Deno.inspect()` nor Node.js' `util.inspect()`, such
+    as browsers, React Native, and edge functions.  The 2.2.1 fix for [#180]
+    covered only Deno, Node.js, and Bun. [[#218], [#221]]
+
+[#180]: https://github.com/dahlia/logtape/issues/180
+
+### @logtape/syslog
+
+ -  Fixed message rendering throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value contains a circular reference. Such a reference is now
+    rendered as the string `"[Circular]"`. [[#218], [#221]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed the default formatter throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value or a property contains a circular reference.  Such a
+    reference is now rendered as the string `"[Circular]"`.  [[#218], [#221]]
+
 
 Version 2.2.8
 -------------
@@ -161,7 +209,6 @@ Released on June 24, 2026.
     import map, instead of a fallible `globalThis`-detection fallback that
     silently degraded to `JSON.stringify()` on Node.js.  [[#180]]
 
-[#180]: https://github.com/dahlia/logtape/issues/180
 [#181]: https://github.com/dahlia/logtape/issues/181
 
 
