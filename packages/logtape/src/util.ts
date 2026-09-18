@@ -9,5 +9,5 @@ export interface InspectOptions {
 
 export function inspect(obj: unknown, options?: InspectOptions): string {
   const indent = options?.compact === true ? undefined : 2;
-  return stringifyWithoutCycles(obj, undefined, indent);
+  return stringifyWithoutCycles(obj, undefined, indent) ?? "undefined";
 }

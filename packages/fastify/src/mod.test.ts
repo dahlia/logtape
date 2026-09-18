@@ -787,3 +787,17 @@ test("getLogTapeFastifyLogger(): renders circular values in %j", async () => {
     await cleanup();
   }
 });
+
+test("getLogTapeFastifyLogger(): renders %j arguments JSON cannot represent", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogTapeFastifyLogger();
+
+    logger.info("value: %j", undefined);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "value: undefined");
+  } finally {
+    await cleanup();
+  }
+});

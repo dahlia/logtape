@@ -185,7 +185,7 @@ function formatMessage(template: string, ...args: unknown[]): string {
       case "%j":
       case "%o":
       case "%O":
-        return stringifyWithoutCycles(arg);
+        return stringifyWithoutCycles(arg) ?? "undefined";
       default:
         return match;
     }

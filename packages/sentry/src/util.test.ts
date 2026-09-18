@@ -45,3 +45,8 @@ test("inspect() keeps shared references that are not cycles", () => {
     '{"a":{"id":1},"b":{"id":1}}',
   );
 });
+
+test("inspect() renders values JSON cannot represent", () => {
+  assert.strictEqual(inspect(undefined, { compact: true }), "undefined");
+  assert.strictEqual(inspect(() => 0, { compact: true }), "undefined");
+});

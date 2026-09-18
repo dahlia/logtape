@@ -67,8 +67,9 @@ export function createCircularReplacer(inner?: JsonReplacer): JsonReplacer {
  * therefore keep failing as before.
  *
  * Like {@link JSON.stringify}, this returns `undefined` rather than a string
- * for `undefined`, functions, and symbols, and its return type follows the
- * same convention as the built-in's.
+ * for `undefined`, functions, and symbols.  The return type says so, unlike
+ * the built-in's own declaration, so that every caller has to pick its own
+ * fallback for those values.
  *
  * @param value The value to serialize.
  * @param replacer An optional replacer to apply, as in {@link JSON.stringify}.
@@ -79,7 +80,7 @@ export function stringifyWithoutCycles(
   value: unknown,
   replacer?: JsonReplacer,
   space?: string | number,
-): string {
+): string | undefined {
   try {
     return JSON.stringify(value, replacer, space);
   } catch {
