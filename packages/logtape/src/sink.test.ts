@@ -2512,6 +2512,282 @@ test("fingersCrossed() - context isolation with nested objects", () => {
   assert.deepStrictEqual(buffer[1], triggerUser2);
 });
 
+// A context value which contains a circular reference; each call allocates
+// a separate object, so two contexts built with the same id are equal without
+// being identical.
+function selfReferencing(id: string): Record<string, unknown> {
+  const value: Record<string, unknown> = { id };
+  value.self = value;
+  return value;
+}
+
+test("fingersCrossed() - context isolation with a circular context value", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  const requestId = selfReferencing("req-1");
+  const req1Debug: LogRecord = { ...debug, properties: { requestId } };
+  const req1Info: LogRecord = { ...info, properties: { requestId } };
+
+  sink(req1Debug);
+  sink(req1Info);
+  assert.strictEqual(buffer.length, 0); // Buffered, not thrown away
+
+  const req1Error: LogRecord = { ...error, properties: { requestId } };
+  sink(req1Error);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], req1Debug);
+  assert.deepStrictEqual(buffer[1], req1Info);
+  assert.deepStrictEqual(buffer[2], req1Error);
+});
+
+test("fingersCrossed() - context isolation with equal circular context values", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // Separately allocated but equal, as the acyclic nested object case is
+  const first: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  const second: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+
+  sink(first);
+  sink(second);
+  assert.strictEqual(buffer.length, 0);
+
+  const trigger: LogRecord = {
+    ...error,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  sink(trigger);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], first);
+  assert.deepStrictEqual(buffer[1], second);
+  assert.deepStrictEqual(buffer[2], trigger);
+});
+
+test("fingersCrossed() - context isolation with differing circular context values", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  const req1Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  const req2Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-2") },
+  };
+
+  sink(req1Debug);
+  sink(req2Debug);
+  assert.strictEqual(buffer.length, 0);
+
+  // Triggering one context leaves the other's buffer alone
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  sink(req1Error);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], req1Debug);
+  assert.deepStrictEqual(buffer[1], req1Error);
+
+  // And the other context keeps buffering instead of passing through
+  buffer.length = 0;
+  const req2Info: LogRecord = {
+    ...info,
+    properties: { requestId: selfReferencing("req-2") },
+  };
+  sink(req2Info);
+  assert.strictEqual(buffer.length, 0);
+
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: selfReferencing("req-2") },
+  };
+  sink(req2Error);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], req2Debug);
+  assert.deepStrictEqual(buffer[1], req2Info);
+  assert.deepStrictEqual(buffer[2], req2Error);
+});
+
+test("fingersCrossed() - context isolation by circular reference target", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  // The two differ only in which ancestor the reference points back to: the
+  // whole value in the first case, its `p` property in the second.
+  function pointingAtRoot(): Record<string, unknown> {
+    const value: Record<string, unknown> = { p: {} };
+    (value.p as Record<string, unknown>).q = value;
+    return value;
+  }
+  function pointingAtParent(): Record<string, unknown> {
+    const value: Record<string, unknown> = { p: {} };
+    (value.p as Record<string, unknown>).q = value.p;
+    return value;
+  }
+
+  const rootDebug: LogRecord = {
+    ...debug,
+    properties: { requestId: pointingAtRoot() },
+  };
+  const parentDebug: LogRecord = {
+    ...debug,
+    properties: { requestId: pointingAtParent() },
+  };
+
+  sink(rootDebug);
+  sink(parentDebug);
+  assert.strictEqual(buffer.length, 0);
+
+  const rootError: LogRecord = {
+    ...error,
+    properties: { requestId: pointingAtRoot() },
+  };
+  sink(rootError);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], rootDebug);
+  assert.deepStrictEqual(buffer[1], rootError);
+
+  buffer.length = 0;
+  const parentError: LogRecord = {
+    ...error,
+    properties: { requestId: pointingAtParent() },
+  };
+  sink(parentError);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], parentDebug);
+  assert.deepStrictEqual(buffer[1], parentError);
+});
+
+test("fingersCrossed() - combined isolation with a circular context value", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByCategory: "descendant",
+    isolateByContext: { keys: ["requestId"] },
+  });
+
+  const appReq1: LogRecord = {
+    ...debug,
+    category: ["app"],
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  const appModuleReq1: LogRecord = {
+    ...debug,
+    category: ["app", "module"],
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  const appModuleReq2: LogRecord = {
+    ...debug,
+    category: ["app", "module"],
+    properties: { requestId: selfReferencing("req-2") },
+  };
+
+  sink(appReq1);
+  sink(appModuleReq1);
+  sink(appModuleReq2);
+  assert.strictEqual(buffer.length, 0);
+
+  // The descendant with the same context is flushed; the one with another
+  // context is not
+  const triggerAppReq1: LogRecord = {
+    ...error,
+    category: ["app"],
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  sink(triggerAppReq1);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], appReq1);
+  assert.deepStrictEqual(buffer[1], appModuleReq1);
+  assert.deepStrictEqual(buffer[2], triggerAppReq1);
+
+  buffer.length = 0;
+  const triggerAppReq2: LogRecord = {
+    ...error,
+    category: ["app"],
+    properties: { requestId: selfReferencing("req-2") },
+  };
+  sink(triggerAppReq2);
+  assert.strictEqual(buffer.length, 2);
+  assert.deepStrictEqual(buffer[0], appModuleReq2);
+  assert.deepStrictEqual(buffer[1], triggerAppReq2);
+});
+
+test("fingersCrossed() - LRU eviction with circular context values", () => {
+  const buffer: LogRecord[] = [];
+  const sink = fingersCrossed(buffer.push.bind(buffer), {
+    isolateByContext: { keys: ["requestId"], maxContexts: 2 },
+  });
+
+  const req1First: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  const req2Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-2") },
+  };
+  // An equal but separately allocated context, so it has to land in the buffer
+  // the first record opened rather than a third one
+  const req1Second: LogRecord = {
+    ...info,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  const req3Debug: LogRecord = {
+    ...debug,
+    properties: { requestId: selfReferencing("req-3") },
+  };
+
+  sink(req1First);
+  sink(req2Debug);
+  sink(req1Second);
+  sink(req3Debug);
+  assert.strictEqual(buffer.length, 0);
+
+  // req-1 was the least recently used until its second record refreshed it,
+  // so req-2 is the buffer that made room for req-3
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: selfReferencing("req-1") },
+  };
+  sink(req1Error);
+  assert.strictEqual(buffer.length, 3);
+  assert.deepStrictEqual(buffer[0], req1First);
+  assert.deepStrictEqual(buffer[1], req1Second);
+  assert.deepStrictEqual(buffer[2], req1Error);
+
+  buffer.length = 0;
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: selfReferencing("req-2") },
+  };
+  sink(req2Error);
+  assert.deepStrictEqual(buffer, [req2Error]);
+
+  buffer.length = 0;
+  const req3Error: LogRecord = {
+    ...error,
+    properties: { requestId: selfReferencing("req-3") },
+  };
+  sink(req3Error);
+  assert.deepStrictEqual(buffer, [req3Debug, req3Error]);
+});
+
 test("fingersCrossed() - context isolation after trigger", () => {
   const buffer: LogRecord[] = [];
   const sink = fingersCrossed(buffer.push.bind(buffer), {
