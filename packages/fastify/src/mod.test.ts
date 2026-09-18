@@ -768,3 +768,36 @@ test(
     }
   },
 );
+
+test("getLogTapeFastifyLogger(): renders circular values in %j", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogTapeFastifyLogger();
+
+    const cyclic: Record<string, unknown> = { name: "session" };
+    cyclic.self = cyclic;
+    logger.info("state: %j", cyclic);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(
+      logs[0].rawMessage,
+      'state: {"name":"session","self":"[Circular]"}',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("getLogTapeFastifyLogger(): renders %j arguments JSON cannot represent", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const logger = getLogTapeFastifyLogger();
+
+    logger.info("value: %j", undefined);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].rawMessage, "value: undefined");
+  } finally {
+    await cleanup();
+  }
+});
