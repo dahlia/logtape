@@ -19,7 +19,7 @@ function formatMessage(record: LogRecord): string {
       if (typeof arg === "string") {
         message += arg;
       } else {
-        message += stringifyWithoutCycles(arg);
+        message += stringifyWithoutCycles(arg) ?? "undefined";
       }
     }
   }
@@ -42,7 +42,7 @@ function formatContext(record: LogRecord): string {
   // Add properties if present
   if (record.properties && Object.keys(record.properties).length > 0) {
     context.push(
-      `Properties: ${stringifyWithoutCycles(record.properties)}`,
+      `Properties: ${stringifyWithoutCycles(record.properties) ?? "undefined"}`,
     );
   }
 

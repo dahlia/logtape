@@ -50,7 +50,7 @@ export function getCloudWatchLogsSink(
       if (i % 2 === 0) {
         result += record.message[i];
       } else {
-        result += stringifyWithoutCycles(record.message[i]);
+        result += stringifyWithoutCycles(record.message[i]) ?? "undefined";
       }
     }
     return result;

@@ -310,7 +310,7 @@ function formatSyslogMessage(
     if (i % 2 === 0) {
       message += record.message[i];
     } else {
-      message += stringifyWithoutCycles(record.message[i]);
+      message += stringifyWithoutCycles(record.message[i]) ?? "undefined";
     }
   }
 
