@@ -1154,6 +1154,138 @@ test("getAnsiColorFormatter() with lineEnding option", () => {
   );
 });
 
+function createCyclicRecord(): LogRecord {
+  const cyclic: Record<string, unknown> = { name: "session" };
+  cyclic.self = cyclic;
+  return {
+    level: "info",
+    category: ["my-app"],
+    message: ["state: ", cyclic, ""],
+    rawMessage: "state: {state}",
+    timestamp: 1700000000000,
+    properties: { state: cyclic },
+  };
+}
+
+test("defaultTextFormatter() renders circular values", () => {
+  const formatted = defaultTextFormatter(createCyclicRecord());
+
+  assert.deepStrictEqual(formatted.includes("state: "), true);
+  assert.deepStrictEqual(formatted.includes("session"), true);
+});
+
+test("getJsonLinesFormatter() renders circular values", () => {
+  const record = createCyclicRecord();
+
+  { // default options take the pre-compiled fixed-shape path
+    const result = JSON.parse(getJsonLinesFormatter()(record));
+
+    assert.deepStrictEqual(
+      result.message,
+      'state: {"name":"session","self":"[Circular]"}',
+    );
+    assert.deepStrictEqual(result.properties, {
+      state: { name: "session", self: "[Circular]" },
+    });
+  }
+
+  { // non-default options take the configured path
+    const result = JSON.parse(
+      getJsonLinesFormatter({ properties: "flatten" })(record),
+    );
+
+    assert.deepStrictEqual(
+      result.message,
+      'state: {"name":"session","self":"[Circular]"}',
+    );
+    assert.deepStrictEqual(result.state, {
+      name: "session",
+      self: "[Circular]",
+    });
+  }
+
+  { // template messages skip interpolation entirely
+    const result = JSON.parse(
+      getJsonLinesFormatter({ message: "template" })(record),
+    );
+
+    assert.deepStrictEqual(result.message, "state: {state}");
+  }
+});
+
+test("getJsonLinesFormatter() renders self-referencing errors", () => {
+  const error = new Error("boom") as Error & { cause?: unknown };
+  error.cause = error;
+  const record: LogRecord = {
+    level: "error",
+    category: ["my-app"],
+    message: ["failed: ", error, ""],
+    rawMessage: "failed: {error}",
+    timestamp: 1700000000000,
+    properties: { error },
+  };
+
+  const result = JSON.parse(getJsonLinesFormatter()(record));
+
+  // The error serializer builds a fresh object every time it sees an error, so
+  // this terminates only because the guard also tracks the original values.
+  assert.deepStrictEqual(result.properties.error.name, "Error");
+  assert.deepStrictEqual(result.properties.error.message, "boom");
+  assert.deepStrictEqual(result.properties.error.cause, "[Circular]");
+
+  const flattened = JSON.parse(
+    getJsonLinesFormatter({ properties: "flatten" })(record),
+  );
+
+  assert.deepStrictEqual(flattened.error.name, "Error");
+  assert.deepStrictEqual(flattened.error.cause, "[Circular]");
+});
+
+test("getJsonLinesFormatter() keeps shared values across records", () => {
+  const shared = { id: 1 };
+  const record: LogRecord = {
+    level: "info",
+    category: ["my-app"],
+    message: ["shared"],
+    rawMessage: "shared",
+    timestamp: 1700000000000,
+    properties: { first: shared, second: shared },
+  };
+  const formatter = getJsonLinesFormatter();
+  const expected = { first: { id: 1 }, second: { id: 1 } };
+
+  assert.deepStrictEqual(JSON.parse(formatter(record)).properties, expected);
+  assert.deepStrictEqual(JSON.parse(formatter(record)).properties, expected);
+});
+
+test("getLogfmtFormatter() renders circular values", () => {
+  const parsed = parseLogfmt(getLogfmtFormatter()(createCyclicRecord()));
+
+  assert.deepStrictEqual(parsed.msg.startsWith("state: "), true);
+  assert.deepStrictEqual(parsed.msg.includes("session"), true);
+});
+
+test("getTextFormatter() renders circular values in the browser fallback", async () => {
+  const globals = globalThis as { document?: object };
+  const previousDocument = globals.document;
+  globals.document = {};
+
+  try {
+    const { getTextFormatter: getBrowserTextFormatter } = await import(
+      "./formatter.ts?browser-circular-values"
+    );
+    const formatter = getBrowserTextFormatter({ timestamp: "none" });
+
+    assert.deepStrictEqual(
+      formatter(createCyclicRecord()).trimEnd(),
+      '[INF] my-app: state: {"name":"session","self":"[Circular]"}',
+    );
+  } finally {
+    if (previousDocument == null) delete globals.document;
+    else globals.document = previousDocument;
+  }
+});
+
 function parseLogfmt(line: string): Record<string, string> {
   const result: Record<string, string> = {};
   const source: string = line.trimEnd();

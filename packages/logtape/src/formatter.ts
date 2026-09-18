@@ -1,4 +1,5 @@
 import * as util from "#util";
+import { createCircularReplacer, stringifyWithoutCycles } from "./circular.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 
@@ -26,7 +27,8 @@ const levelAbbreviations: Record<LogLevel, string> = {
 /**
  * A platform-specific inspect function.  In Deno, this is {@link Deno.inspect},
  * and in Node.js/Bun it is `util.inspect()`.  If neither is available, it
- * falls back to {@link JSON.stringify}.
+ * falls back to JSON serialization, which renders circular references as
+ * `"[Circular]"` rather than throwing.
  *
  * @param value The value to inspect.
  * @param options The options for inspecting the value.
@@ -43,7 +45,7 @@ const platformInspect: (
     // @ts-ignore: React Native detection
     // dnt-shim-ignore
     typeof navigator !== "undefined" && navigator.product === "ReactNative"
-    ? (v) => JSON.stringify(v)
+    ? (v) => stringifyWithoutCycles(v)
     // @ts-ignore: Deno global
     // dnt-shim-ignore
     : "Deno" in globalThis && "inspect" in globalThis.Deno &&
@@ -69,7 +71,7 @@ const platformInspect: (
         maxStringLength: Infinity,
         ...opts,
       })
-    : (v) => JSON.stringify(v);
+    : (v) => stringifyWithoutCycles(v);
 
 const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
   value: unknown,
@@ -593,13 +595,13 @@ function renderDefaultJsonLinesMessage(
     return message[0];
   }
   if (messageLength === 3) {
-    return (message[0] as string) + JSON.stringify(message[1]) +
+    return (message[0] as string) + stringifyWithoutCycles(message[1]) +
       (message[2] as string);
   }
 
   let rendered = message[0] as string;
   for (let i = 1; i < messageLength; i++) {
-    rendered += (i & 1) ? JSON.stringify(message[i]) : message[i];
+    rendered += (i & 1) ? stringifyWithoutCycles(message[i]) : message[i];
   }
   return rendered;
 }
@@ -619,7 +621,10 @@ function stringifyJsonLinesField(
       value = toJSON.call(value, key);
     }
   }
-  return JSON.stringify(jsonReplacer(key, value), jsonReplacer);
+  return JSON.stringify(
+    jsonReplacer(key, value),
+    createCircularReplacer(jsonReplacer),
+  );
 }
 
 function formatDefaultJsonLinesRecord(
@@ -1132,7 +1137,7 @@ export function getJsonLinesFormatter(
       for (let i = 0; i < msgLen; i++) {
         msg += (i % 2 < 1)
           ? record.message[i]
-          : JSON.stringify(record.message[i]);
+          : stringifyWithoutCycles(record.message[i]);
       }
       return msg;
     };
@@ -1145,7 +1150,7 @@ export function getJsonLinesFormatter(
       message: getMessage(record),
       logger: joinCategory(record.category),
       ...getProperties(record.properties),
-    }, jsonReplacer) + lineEnding;
+    }, createCircularReplacer(jsonReplacer)) + lineEnding;
   };
 }
 
