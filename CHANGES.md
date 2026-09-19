@@ -6,7 +6,7 @@ LogTape changelog
 Version 2.0.22
 --------------
 
-To be released.
+Released on September 19, 2026.
 
 ### @logtape/hono
 
