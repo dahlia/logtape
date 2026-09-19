@@ -428,6 +428,7 @@ export function honoLogger(
       const reader = body.getReader();
       let reading = false;
       let sourceClosed = false;
+      let pendingError: { value: unknown } | undefined;
       let wrapperFinished = false;
       let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
 
@@ -441,21 +442,27 @@ export function honoLogger(
       };
       // `closed` resolves once the source queue has been drained, so observing
       // it lets an idle consumer that awaits `reader.closed` finish without an
-      // extra `read()` and without dropping any chunk.  Source errors travel
-      // through `read()` instead, which forwards queued chunks before the
-      // rejection; the rejection handler here only marks it as observed.
+      // extra `read()`.  A rejection means the source errored; an in-flight
+      // read is allowed to drain a final chunk first, then the error is
+      // propagated.
       const closeWhenIdle = (): void => {
         if (!sourceClosed || wrapperFinished || reading) return;
         finish(() => controller?.close());
+      };
+      const errorWhenIdle = (error: unknown): void => {
+        if (wrapperFinished) return;
+        if (reading) {
+          pendingError = { value: error };
+          return;
+        }
+        finish(() => controller?.error(error));
       };
       void reader.closed.then(
         () => {
           sourceClosed = true;
           closeWhenIdle();
         },
-        () => {
-          // Propagated through read(); nothing to do here.
-        },
+        (error: unknown) => errorWhenIdle(error),
       );
 
       const wrapped = new ReadableStream<Uint8Array>({
@@ -475,6 +482,13 @@ export function honoLogger(
           }
           reading = false;
           if (wrapperFinished) return;
+          if (pendingError !== undefined) {
+            if (!result.done) ctrl.enqueue(result.value);
+            const error = pendingError.value;
+            pendingError = undefined;
+            finish(() => ctrl.error(error));
+            return;
+          }
           if (result.done) {
             finish(() => ctrl.close());
           } else {
@@ -505,6 +519,7 @@ export function honoLogger(
     let sourceIsByob = false;
     let reading = false;
     let sourceClosed = false;
+    let pendingError: { value: unknown } | undefined;
     let wrapperFinished = false;
     let controller: ReadableByteStreamController | undefined;
 
@@ -521,6 +536,14 @@ export function honoLogger(
         controller?.byobRequest?.respond(0);
       });
     };
+    const errorWhenIdle = (error: unknown): void => {
+      if (wrapperFinished) return;
+      if (reading) {
+        pendingError = { value: error };
+        return;
+      }
+      finish(() => controller?.error(error));
+    };
     const observeReader = (
       reader:
         | ReadableStreamDefaultReader<Uint8Array>
@@ -532,13 +555,15 @@ export function honoLogger(
           sourceClosed = true;
           closeWhenIdle();
         },
-        () => {
-          // Propagated through read(); nothing to do here.
+        (error: unknown) => {
+          if (sourceReader !== reader) return;
+          errorWhenIdle(error);
         },
       );
     };
     const acquireReader = (byob: boolean): void => {
       sourceClosed = false;
+      pendingError = undefined;
       if (byob) {
         try {
           sourceReader = body.getReader({ mode: "byob" });
@@ -590,6 +615,13 @@ export function honoLogger(
         }
         reading = false;
         if (wrapperFinished) return;
+        if (pendingError !== undefined) {
+          if (!result.done) ctrl.enqueue(result.value);
+          const error = pendingError.value;
+          pendingError = undefined;
+          finish(() => ctrl.error(error));
+          return;
+        }
         if (result.done) {
           finish(() => {
             ctrl.close();

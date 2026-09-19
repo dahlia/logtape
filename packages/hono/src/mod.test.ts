@@ -1049,6 +1049,75 @@ test("honoLogger(): resolves byte reader.closed for an empty source", async () =
   }
 });
 
+test("honoLogger(): rejects reader.closed when the source errors", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("idle failure");
+    let source!: ReadableStreamDefaultController<Uint8Array>;
+    const app = new Hono();
+    app.use(honoLogger());
+    app.get("/stream", () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            source = controller;
+          },
+        }),
+      ));
+
+    const res = await app.request("/stream");
+    const reader = res.body!.getReader();
+    source.error(failure);
+    await assert.rejects(
+      Promise.race([
+        reader.closed,
+        delay(500).then(() => {
+          throw new Error("reader.closed did not settle");
+        }),
+      ]),
+      (error) => error === failure,
+    );
+    assert.strictEqual(logs.length, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): rejects byte reader.closed when the source errors", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("idle byte failure");
+    let source!: ReadableByteStreamController;
+    const app = new Hono();
+    app.use(honoLogger());
+    app.get("/bytes", () =>
+      new Response(
+        new ReadableStream({
+          type: "bytes",
+          start(controller: ReadableByteStreamController) {
+            source = controller;
+          },
+        }),
+      ));
+
+    const res = await app.request("/bytes");
+    const reader = res.body!.getReader();
+    source.error(failure);
+    await assert.rejects(
+      Promise.race([
+        reader.closed,
+        delay(500).then(() => {
+          throw new Error("reader.closed did not settle");
+        }),
+      ]),
+      (error) => error === failure,
+    );
+    assert.strictEqual(logs.length, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("honoLogger(): reads a byte stream that closes during a read", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
