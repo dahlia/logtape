@@ -75,6 +75,107 @@ To be released.
 [#214]: https://github.com/dahlia/logtape/pull/214
 
 
+Version 2.3.6
+-------------
+
+Released on September 19, 2026.
+
+### @logtape/logtape
+
+ -  Fixed logging a value which contains a circular reference throwing
+    `TypeError: Converting circular structure to JSON`.  Such a reference is
+    now rendered as the string `"[Circular]"` wherever LogTape falls back to
+    JSON serialization: in `jsonLinesFormatter` on every runtime, and in
+    `defaultTextFormatter`, `ansiColorFormatter`, and `logfmtFormatter` on
+    runtimes which provide neither `Deno.inspect()` nor Node.js'
+    `util.inspect()`, such as browsers, React Native, and edge functions.
+    A value which merely occurs more than once, as opposed to containing
+    itself, is still serialized in full.
+    [[#218], [#221]]
+ -  Fixed `fingersCrossed()` throwing
+    `TypeError: Converting circular structure to JSON` when a context value
+    selected by `isolateByContext.keys` contains a circular reference.  Buffers
+    are still isolated by the context values themselves, so two contexts which
+    differ only in where their circular references point are not merged into
+    one buffer.
+    [[#220], [#222]]
+
+[#218]: https://github.com/dahlia/logtape/issues/218
+[#220]: https://github.com/dahlia/logtape/issues/220
+[#221]: https://github.com/dahlia/logtape/pull/221
+[#222]: https://github.com/dahlia/logtape/pull/222
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed the default formatter throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value contains a circular reference.  Such a reference is now
+    rendered as the string `"[Circular]"`.
+    [[#218], [#221]]
+
+### @logtape/fastify
+
+ -  Fixed the Pino-compatible logger's `%j`, `%o`, and `%O` conversions
+    throwing `TypeError: Converting circular structure to JSON` when the
+    corresponding argument contains a circular reference.  Such a reference is
+    now rendered as the string `"[Circular]"`.
+    [[#218], [#221]]
+
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.
+    [[#219], [#223]]
+
+[#219]: https://github.com/dahlia/logtape/issues/219
+[#223]: https://github.com/dahlia/logtape/pull/223
+
+### @logtape/pretty
+
+ -  Fixed the pretty formatter throwing
+    `TypeError: Converting circular structure to JSON` when rendering a value
+    which contains a circular reference on runtimes which provide neither
+    `Deno.inspect()` nor Node.js' `util.inspect()`, such as browsers, React
+    Native, and edge functions. Such a reference is now rendered as the string
+    `"[Circular]"`.
+    [[#218], [#221]]
+
+### @logtape/sentry
+
+ -  Fixed the Sentry sink throwing
+    `TypeError: Converting circular structure to JSON` when rendering an
+    interpolated message value which contains a circular reference on runtimes
+    which provide neither `Deno.inspect()` nor Node.js' `util.inspect()`, such
+    as browsers, React Native, and edge functions.  The 2.2.1 fix for
+    \[\#180\] covered only Deno, Node.js, and
+    Bun.
+    [[#218], [#221]]
+
+### @logtape/syslog
+
+ -  Fixed message rendering throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value contains a circular reference. Such a reference is now
+    rendered as the string `"[Circular]"`.
+    [[#218], [#221]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed the default formatter throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value or a property contains a circular reference.  Such a
+    reference is now rendered as the string `"[Circular]"`.
+    [[#218], [#221]]
+
+
 Version 2.3.5
 -------------
 
@@ -343,6 +444,92 @@ Released on July 30, 2026.
     Claude Code plugin marketplace.
 
 
+Version 2.2.9
+-------------
+
+Released on September 19, 2026.
+
+### @logtape/logtape
+
+ -  Fixed logging a value which contains a circular reference throwing
+    `TypeError: Converting circular structure to JSON`.  Such a reference is
+    now rendered as the string `"[Circular]"` wherever LogTape falls back to
+    JSON serialization: in `jsonLinesFormatter` on every runtime, and in
+    `defaultTextFormatter`, `ansiColorFormatter`, and `logfmtFormatter` on
+    runtimes which provide neither `Deno.inspect()` nor Node.js'
+    `util.inspect()`, such as browsers, React Native, and edge functions.
+    A value which merely occurs more than once, as opposed to containing
+    itself, is still serialized in full.  [[#218], [#221]]
+
+ -  Fixed `fingersCrossed()` throwing
+    `TypeError: Converting circular structure to JSON` when a context value
+    selected by `isolateByContext.keys` contains a circular reference.  Buffers
+    are still isolated by the context values themselves, so two contexts which
+    differ only in where their circular references point are not merged into
+    one buffer.  [[#220], [#222]]
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed the default formatter throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value contains a circular reference.  Such a reference is now
+    rendered as the string `"[Circular]"`. [[#218], [#221]]
+
+### @logtape/fastify
+
+ -  Fixed the Pino-compatible logger's `%j`, `%o`, and `%O` conversions
+    throwing `TypeError: Converting circular structure to JSON` when the
+    corresponding argument contains a circular reference.  Such a reference is
+    now rendered as the string `"[Circular]"`.  [[#218], [#221]]
+
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.  [[#219], [#223]]
+
+### @logtape/pretty
+
+ -  Fixed the pretty formatter throwing
+    `TypeError: Converting circular structure to JSON` when rendering a value
+    which contains a circular reference on runtimes which provide neither
+    `Deno.inspect()` nor Node.js' `util.inspect()`, such as browsers, React
+    Native, and edge functions. Such a reference is now rendered as the string
+    `"[Circular]"`. [[#218], [#221]]
+
+### @logtape/sentry
+
+ -  Fixed the Sentry sink throwing
+    `TypeError: Converting circular structure to JSON` when rendering an
+    interpolated message value which contains a circular reference on runtimes
+    which provide neither `Deno.inspect()` nor Node.js' `util.inspect()`, such
+    as browsers, React Native, and edge functions.  The 2.2.1 fix for [#180]
+    covered only Deno, Node.js, and Bun. [[#218], [#221]]
+
+[#180]: https://github.com/dahlia/logtape/issues/180
+
+### @logtape/syslog
+
+ -  Fixed message rendering throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value contains a circular reference. Such a reference is now
+    rendered as the string `"[Circular]"`. [[#218], [#221]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed the default formatter throwing
+    `TypeError: Converting circular structure to JSON` when an interpolated
+    message value or a property contains a circular reference.  Such a
+    reference is now rendered as the string `"[Circular]"`.  [[#218], [#221]]
+
+
 Version 2.2.8
 -------------
 
@@ -469,7 +656,6 @@ Released on June 24, 2026.
     import map, instead of a fallible `globalThis`-detection fallback that
     silently degraded to `JSON.stringify()` on Node.js.  [[#180]]
 
-[#180]: https://github.com/dahlia/logtape/issues/180
 [#181]: https://github.com/dahlia/logtape/issues/181
 
 
@@ -669,6 +855,25 @@ Released on June 22, 2026.
     [[#176]]
 
 [#176]: https://github.com/dahlia/logtape/issues/176
+
+
+Version 2.1.13
+--------------
+
+Released on September 19, 2026.
+
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.  [[#219], [#223]]
 
 
 Version 2.1.12
@@ -997,6 +1202,25 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.22
+--------------
+
+Released on September 19, 2026.
+
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.  [[#219], [#223]]
 
 
 Version 2.0.21

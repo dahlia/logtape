@@ -1,3 +1,4 @@
+import { stringifyKeyWithoutCycles } from "./circular.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
 import {
   type ConsoleFormatter,
@@ -1009,7 +1010,11 @@ export function fingersCrossed(
         contextValues[key] = properties[key];
       }
     }
-    return JSON.stringify(contextValues);
+    // A selected value which contains a circular reference has to be encoded
+    // rather than serialized, and one named `toJSON` can make the wrapper
+    // object serialize to undefined; the key was already the text "undefined"
+    // in that case, through the interpolation in getBufferKey().
+    return stringifyKeyWithoutCycles(contextValues) ?? "undefined";
   }
 
   // Helper function to generate buffer key

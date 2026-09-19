@@ -1714,3 +1714,48 @@ test("getSyslogSink() TLS options ignored for UDP", () => {
   assert.strictEqual(typeof sink, "function");
   assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
+
+test("getSyslogSink() renders circular message values", async () => {
+  const server = createSocket("udp4");
+
+  await new Promise<void>((resolve) => {
+    server.bind(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address() as { port: number };
+
+  // Waiting for the message event rather than a fixed delay: disposing the
+  // sink awaits the local send() callback, not this server's delivery.
+  let timer: ReturnType<typeof setTimeout>;
+  const received = new Promise<string>((resolve, reject) => {
+    server.once("message", (msg) => resolve(msg.toString()));
+    timer = setTimeout(() => reject(new Error("no syslog message")), 5000);
+  });
+
+  try {
+    const sink = getSyslogSink({
+      hostname: "127.0.0.1",
+      port: address.port,
+      protocol: "udp",
+      facility: "local0",
+      appName: "circular-test",
+      timeout: 1000,
+      includeStructuredData: false,
+    });
+
+    const cyclic: Record<string, unknown> = { name: "session" };
+    cyclic.self = cyclic;
+
+    sink(createMockLogRecord("info", ["state: ", cyclic, ""]));
+    await sink[Symbol.asyncDispose]();
+
+    const parsed = parseSyslogMessage(await received);
+    assert.strictEqual(
+      parsed.message,
+      'state: {"name":"session","self":"[Circular]"}',
+    );
+  } finally {
+    clearTimeout(timer!);
+    server.close();
+  }
+});

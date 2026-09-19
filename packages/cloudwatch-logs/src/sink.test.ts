@@ -330,3 +330,33 @@ test("getCloudWatchLogsSink() uses default text formatter when no formatter prov
   // Should be plain text, not JSON
   assert.strictEqual(logMessage, 'Hello, "world"!');
 });
+
+test("getCloudWatchLogsSink() renders circular message values", async () => {
+  const cwlMock = mockClient(CloudWatchLogsClient);
+  cwlMock.reset();
+  cwlMock.on(PutLogEventsCommand).resolves({});
+
+  const sink = getCloudWatchLogsSink({
+    logGroupName: "test-group",
+    logStreamName: "test-stream",
+    region: "us-east-1",
+    batchSize: 1,
+  });
+
+  const cyclic: Record<string, unknown> = { name: "session" };
+  cyclic.self = cyclic;
+
+  sink({
+    ...mockLogRecord,
+    message: ["state: ", cyclic, ""],
+    rawMessage: "state: {state}",
+  });
+  await sink[Symbol.asyncDispose]();
+
+  const calls = cwlMock.commandCalls(PutLogEventsCommand);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(
+    calls[0].args[0].input.logEvents?.[0].message,
+    'state: {"name":"session","self":"[Circular]"}',
+  );
+});
