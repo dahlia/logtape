@@ -11,6 +11,23 @@ export type { LogLevel } from "@logtape/logtape";
 const byobBufferSize = 16 * 1024;
 
 /**
+ * Copies the metadata that the `Response` constructor cannot set (`url`,
+ * `type`, and `redirected`) from a response onto its reconstructed wrapper.
+ * Some runtimes make responses non-extensible, so failures are ignored.
+ */
+function copyResponseMetadata(source: Response, target: Response): void {
+  for (const key of ["url", "type", "redirected"] as const) {
+    const value = source[key];
+    if (value === target[key]) continue;
+    try {
+      Object.defineProperty(target, key, { value, configurable: true });
+    } catch {
+      // Leave the default value when the runtime forbids redefinition.
+    }
+  }
+}
+
+/**
  * Minimal Hono Context interface for compatibility across Hono versions.
  * @since 1.3.0
  */
@@ -502,6 +519,7 @@ export function honoLogger(
         },
       }, { highWaterMark: 0 });
       c.res = new Response(wrapped, response);
+      copyResponseMetadata(response, c.res);
       return;
     }
 
@@ -640,5 +658,6 @@ export function honoLogger(
     }, { highWaterMark: 0 });
 
     c.res = new Response(wrapped, response);
+    copyResponseMetadata(response, c.res);
   });
 }

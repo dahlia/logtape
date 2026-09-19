@@ -1526,6 +1526,28 @@ test("honoLogger(): preserves response status, headers, and cookies", async () =
   }
 });
 
+test("honoLogger(): preserves fetched response metadata", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let upstream!: Response;
+    const app = new Hono();
+    app.use(honoLogger());
+    app.get("/proxy", async () => {
+      upstream = await fetch("data:text/plain,hello");
+      return upstream;
+    });
+
+    const res = await app.request("/proxy");
+    assert.strictEqual(res.url, upstream.url);
+    assert.strictEqual(res.type, upstream.type);
+    assert.strictEqual(res.redirected, upstream.redirected);
+    assert.strictEqual(await res.text(), "hello");
+    assert.strictEqual(logs.length, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("honoLogger(): skip does not wrap or lock the response body", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
