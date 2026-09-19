@@ -1,6 +1,6 @@
 {
   "name": "@logtape/testing",
-  "version": "2.2.9",
+  "version": "2.2.10",
   "description": "Testing utilities for collecting and asserting LogTape records",
   "keywords": [
     "logging",
