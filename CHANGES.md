@@ -46,6 +46,22 @@ To be released.
     corresponding argument contains a circular reference.  Such a reference is
     now rendered as the string `"[Circular]"`.  [[#218], [#221]]
 
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.  [[#219], [#223]]
+
+[#219]: https://github.com/dahlia/logtape/issues/219
+[#223]: https://github.com/dahlia/logtape/pull/223
+
 ### @logtape/pretty
 
  -  Fixed the pretty formatter throwing
@@ -419,6 +435,25 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.13
+--------------
+
+Released on September 19, 2026.
+
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.  [[#219], [#223]]
+
+
 Version 2.1.12
 --------------
 
@@ -745,6 +780,25 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.22
+--------------
+
+Released on September 19, 2026.
+
+### @logtape/hono
+
+ -  Fixed `honoLogger()` reporting the response time before the response body
+    stream had completed, which made streamed responses (e.g. from
+    `streamText()`) look much faster than they were.  The middleware now logs
+    when the body stream finishes, errors, or is cancelled, while preserving
+    the implicit context that was active when the request finished.  Because
+    the response body is now wrapped, a streamed response is only logged if
+    the body is consumed (as a real HTTP server does), and responses are sent
+    as streams rather than with runtime-generated `Content-Length` framing.
+    Responses with a null or already-locked body, and `HEAD` responses, are
+    logged immediately as before.  [[#219], [#223]]
 
 
 Version 2.0.21

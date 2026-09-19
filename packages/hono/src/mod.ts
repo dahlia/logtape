@@ -5,6 +5,29 @@ import type { Context, MiddlewareHandler } from "hono";
 export type { LogLevel } from "@logtape/logtape";
 
 /**
+ * Buffer size used when reading a byte-stream response body through the
+ * wrapper while the consumer is not using a BYOB reader.
+ */
+const byobBufferSize = 16 * 1024;
+
+/**
+ * Copies the metadata that the `Response` constructor cannot set (`url`,
+ * `type`, and `redirected`) from a response onto its reconstructed wrapper.
+ * Some runtimes make responses non-extensible, so failures are ignored.
+ */
+function copyResponseMetadata(source: Response, target: Response): void {
+  for (const key of ["url", "type", "redirected"] as const) {
+    const value = source[key];
+    if (value === target[key]) continue;
+    try {
+      Object.defineProperty(target, key, { value, configurable: true });
+    } catch {
+      // Leave the default value when the runtime forbids redefinition.
+    }
+  }
+}
+
+/**
  * Hono context interface exposed to custom formatters and skip callbacks.
  *
  * This matches the actual runtime object passed to the middleware, so custom
@@ -714,6 +737,7 @@ export function honoLogger(
   const skip = options.skip ?? (() => false);
   const logRequest = options.logRequest ?? false;
   const contextOptions = normalizeRequestContextOptions(options.context);
+  const metaLogger = getLogger(["logtape", "meta"]);
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -731,41 +755,317 @@ export function honoLogger(
     ): Promise<void> => {
       const requestContext = requestContextState.context;
       applyResponseHeaders(honoContext, requestContextState);
-      // For immediate logging, log when request arrives
-      if (logRequest) {
-        if (!skip(honoContext)) {
+
+      let finished = false;
+
+      // Logs the request exactly once.  A formatter or logging failure must
+      // never alter the response or crash the application, so it is reported
+      // to the meta logger instead.
+      const logSafely = (responseTime: number, template: string): void => {
+        if (finished) return;
+        finished = true;
+        try {
           const result = withRequestLogContext(
-            formatFn(honoContext, 0),
+            formatFn(honoContext, responseTime),
             requestContext,
           );
           if (typeof result === "string") {
             logMethod(result, requestContext);
           } else {
-            logMethod("{method} {url}", result);
+            logMethod(template, result);
+          }
+        } catch (error) {
+          try {
+            metaLogger.error("Failed to log a Hono request: {error}", {
+              error,
+            });
+          } catch {
+            // Last resort: logging must never affect the response.
           }
         }
+      };
+
+      // For immediate logging, log when request arrives
+      if (logRequest) {
+        if (!skip(honoContext)) logSafely(0, "{method} {url}");
         await next();
         applyResponseHeaders(honoContext, requestContextState);
         return;
       }
 
-      // Log after response is sent
       await next();
       applyResponseHeaders(honoContext, requestContextState);
 
       if (skip(honoContext)) return;
 
-      const responseTime = Date.now() - startTime;
-      const result = withRequestLogContext(
-        formatFn(honoContext, responseTime),
-        requestContext,
-      );
+      const logResponse = (): void => {
+        logSafely(
+          Date.now() - startTime,
+          "{method} {url} {status} - {responseTime} ms",
+        );
+      };
 
-      if (typeof result === "string") {
-        logMethod(result, requestContext);
-      } else {
-        logMethod("{method} {url} {status} - {responseTime} ms", result);
+      // Hono runs the GET handler for a HEAD request but discards its body once
+      // the middleware chain completes, so the body can never be observed.
+      if (honoContext.req.method === "HEAD") {
+        logResponse();
+        return;
       }
+
+      const response = c.res;
+      const body = response.body;
+
+      // A null or already-locked body cannot be wrapped without breaking the
+      // response, so its completion is treated as immediate.
+      if (body == null || body.locked) {
+        logResponse();
+        return;
+      }
+
+      // A streamed body completes after this middleware returns.  Chaining the
+      // log onto a promise resolved on completion keeps it inside the implicit
+      // LogTape context that is active here, even though the continuation runs
+      // later in the server's context.
+      let resolveFinished!: () => void;
+      const completion = new Promise<void>((resolve) => {
+        resolveFinished = resolve;
+      });
+      void completion.then(logResponse);
+      const complete = (): void => {
+        resolveFinished();
+      };
+
+      // A non-byte source keeps default-stream semantics (zero-length chunks
+      // and chunk buffers shared between queued chunks are both valid there),
+      // so it is wrapped with a default controller.
+      let supportsByob = false;
+      try {
+        body.getReader({ mode: "byob" }).releaseLock();
+        supportsByob = true;
+      } catch {
+        // Not a byte stream.
+      }
+
+      if (!supportsByob) {
+        const reader = body.getReader();
+        let reading = false;
+        let sourceClosed = false;
+        let pendingError: { value: unknown } | undefined;
+        let wrapperFinished = false;
+        let controller:
+          | ReadableStreamDefaultController<Uint8Array>
+          | undefined;
+
+        // Finalizes once, before signalling completion so the log record is
+        // written before a consumer observes the stream ending.
+        const finish = (action: () => void): void => {
+          if (wrapperFinished) return;
+          wrapperFinished = true;
+          complete();
+          action();
+        };
+        // `closed` resolves once the source queue has been drained, so
+        // observing it lets an idle consumer that awaits `reader.closed`
+        // finish without an extra `read()`.  A rejection means the source
+        // errored; an in-flight read is allowed to drain a final chunk first,
+        // then the error is propagated.
+        const closeWhenIdle = (): void => {
+          if (!sourceClosed || wrapperFinished || reading) return;
+          finish(() => controller?.close());
+        };
+        const errorWhenIdle = (error: unknown): void => {
+          if (wrapperFinished) return;
+          if (reading) {
+            pendingError = { value: error };
+            return;
+          }
+          finish(() => controller?.error(error));
+        };
+        void reader.closed.then(
+          () => {
+            sourceClosed = true;
+            closeWhenIdle();
+          },
+          (error: unknown) => errorWhenIdle(error),
+        );
+
+        const wrapped = new ReadableStream<Uint8Array>({
+          start(ctrl) {
+            controller = ctrl;
+          },
+          async pull(ctrl) {
+            controller = ctrl;
+            reading = true;
+            let result: ReadableStreamReadResult<Uint8Array>;
+            try {
+              result = await reader.read();
+            } catch (error) {
+              reading = false;
+              finish(() => ctrl.error(error));
+              return;
+            }
+            reading = false;
+            if (wrapperFinished) return;
+            if (pendingError !== undefined) {
+              if (!result.done) ctrl.enqueue(result.value);
+              const error = pendingError.value;
+              pendingError = undefined;
+              finish(() => ctrl.error(error));
+              return;
+            }
+            if (result.done) {
+              finish(() => ctrl.close());
+            } else {
+              ctrl.enqueue(result.value);
+              closeWhenIdle();
+            }
+          },
+          cancel(reason) {
+            finish(() => {});
+            return reader.cancel(reason);
+          },
+        }, { highWaterMark: 0 });
+        c.res = new Response(wrapped, response);
+        copyResponseMetadata(response, c.res);
+        return;
+      }
+
+      // A byte source is wrapped with a byte controller so BYOB consumers keep
+      // working.  The source is read with the same strategy the consumer uses:
+      // a BYOB consumer drives a BYOB source reader (so producers that only
+      // respond to BYOB requests make progress), while a default consumer
+      // drives a default source reader (so producers that close without
+      // responding to a BYOB request keep working).  The source reader is
+      // switched if the consumer changes strategy mid-stream.
+      let sourceReader:
+        | ReadableStreamDefaultReader<Uint8Array>
+        | ReadableStreamBYOBReader
+        | undefined;
+      let sourceIsByob = false;
+      let reading = false;
+      let sourceClosed = false;
+      let pendingError: { value: unknown } | undefined;
+      let wrapperFinished = false;
+      let controller: ReadableByteStreamController | undefined;
+
+      const finish = (action: () => void): void => {
+        if (wrapperFinished) return;
+        wrapperFinished = true;
+        complete();
+        action();
+      };
+      const closeWhenIdle = (): void => {
+        if (!sourceClosed || wrapperFinished || reading) return;
+        finish(() => {
+          controller?.close();
+          controller?.byobRequest?.respond(0);
+        });
+      };
+      const errorWhenIdle = (error: unknown): void => {
+        if (wrapperFinished) return;
+        if (reading) {
+          pendingError = { value: error };
+          return;
+        }
+        finish(() => controller?.error(error));
+      };
+      const observeReader = (
+        reader:
+          | ReadableStreamDefaultReader<Uint8Array>
+          | ReadableStreamBYOBReader,
+      ): void => {
+        void reader.closed.then(
+          () => {
+            if (sourceReader !== reader) return;
+            sourceClosed = true;
+            closeWhenIdle();
+          },
+          (error: unknown) => {
+            if (sourceReader !== reader) return;
+            errorWhenIdle(error);
+          },
+        );
+      };
+      const acquireReader = (byob: boolean): void => {
+        sourceClosed = false;
+        pendingError = undefined;
+        if (byob) {
+          try {
+            sourceReader = body.getReader({ mode: "byob" });
+            sourceIsByob = true;
+            observeReader(sourceReader);
+            return;
+          } catch {
+            // Fall back to a default reader below.
+          }
+        }
+        sourceReader = body.getReader();
+        sourceIsByob = false;
+        observeReader(sourceReader);
+      };
+
+      // Acquire and observe a reader right away so termination before the
+      // first pull is still propagated; the first pull switches the reader
+      // mode if the consumer asks for BYOB.
+      acquireReader(false);
+
+      const wrapped = new ReadableStream({
+        type: "bytes",
+        start(ctrl: ReadableByteStreamController) {
+          controller = ctrl;
+        },
+        async pull(ctrl: ReadableByteStreamController) {
+          controller = ctrl;
+          const request = ctrl.byobRequest;
+          const wantByob = request != null;
+          if (sourceReader == null) {
+            acquireReader(wantByob);
+          } else if (wantByob !== sourceIsByob) {
+            sourceReader.releaseLock();
+            acquireReader(wantByob);
+          }
+          reading = true;
+          let result: ReadableStreamReadResult<Uint8Array>;
+          try {
+            result = sourceIsByob
+              ? await (sourceReader as ReadableStreamBYOBReader).read(
+                new Uint8Array(request?.view?.byteLength ?? byobBufferSize),
+              )
+              : await (sourceReader as ReadableStreamDefaultReader<Uint8Array>)
+                .read();
+          } catch (error) {
+            reading = false;
+            finish(() => ctrl.error(error));
+            return;
+          }
+          reading = false;
+          if (wrapperFinished) return;
+          if (pendingError !== undefined) {
+            if (!result.done) ctrl.enqueue(result.value);
+            const error = pendingError.value;
+            pendingError = undefined;
+            finish(() => ctrl.error(error));
+            return;
+          }
+          if (result.done) {
+            finish(() => {
+              ctrl.close();
+              ctrl.byobRequest?.respond(0);
+            });
+            return;
+          }
+          ctrl.enqueue(result.value);
+          closeWhenIdle();
+        },
+        cancel(reason) {
+          finish(() => {});
+          const reader = sourceReader;
+          return reader == null ? body.cancel(reason) : reader.cancel(reason);
+        },
+      }, { highWaterMark: 0 });
+
+      c.res = new Response(wrapped, response);
+      copyResponseMetadata(response, c.res);
     };
 
     if (contextOptions == null) {
