@@ -469,6 +469,18 @@ const middleware = honoLogger({
 });
 ~~~~
 
+### Streamed responses
+
+With the default `logRequest: false`, the access log is written when the
+response body stream completes, errors, or is cancelled, so `responseTime`
+covers the whole stream.  Register `honoLogger()` before any middleware that
+may replace `c.res` after the chain returns, and make sure the response body
+is consumed as a real HTTP server does; a `Response` whose body is dropped
+without being read or cancelled is never logged.  Responses with a null or
+already-locked body, and `HEAD` responses, are logged immediately.  Because
+the body is wrapped, responses are sent as streams rather than with
+runtime-generated `Content-Length` framing.
+
 ### Predefined formats
 
 The middleware supports Morgan-compatible predefined formats:
