@@ -9,6 +9,7 @@ import {
   type Sink,
   type TextFormatter,
 } from "@logtape/logtape";
+import { stringifyWithoutCycles } from "./circular.ts";
 import type { CloudWatchLogsSinkOptions } from "./types.ts";
 
 // AWS CloudWatch Logs PutLogEvents API limits
@@ -49,7 +50,7 @@ export function getCloudWatchLogsSink(
       if (i % 2 === 0) {
         result += record.message[i];
       } else {
-        result += JSON.stringify(record.message[i]);
+        result += stringifyWithoutCycles(record.message[i]) ?? "undefined";
       }
     }
     return result;
