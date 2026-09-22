@@ -1,6 +1,13 @@
 import * as util from "#util";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
+import {
+  getSanitizer,
+  type SanitizationOptions,
+  sanitizeControlSequences,
+} from "./sanitize.ts";
+
+export type { SanitizationOptions };
 
 /**
  * A text formatter is a function that accepts a log record and returns
@@ -244,6 +251,27 @@ export interface TextFormatterOptions {
    * @since 2.0.0
    */
   lineEnding?: "lf" | "crlf";
+
+  /**
+   * How control characters and ANSI escape sequences in the message and the
+   * category are neutralized before being emitted.
+   *
+   * Message parts and category segments can carry attacker-influenced text.
+   * Emitted verbatim, such text can reposition the cursor or clear the screen
+   * on an operator's terminal, or start what looks like a separate log record.
+   * By default the formatter escapes ESC-introduced sequences other than SGR
+   * color codes, the remaining C0 control characters, DEL, and the C1 controls
+   * (U+0080–U+009F); `` `\n` ``, `` `\r` ``, and `` `\t` `` are preserved so
+   * that multi-line messages stay readable.
+   *
+   * Pass an object to tighten or loosen that, or `false` to disable
+   * sanitization entirely.  Note that values interpolated into the message are
+   * escaped by the value renderer regardless of this option.
+   *
+   * @default `{}`
+   * @since 2.0.23
+   */
+  sanitize?: SanitizationOptions | false;
 }
 
 // Optimized helper functions for timestamp formatting
@@ -379,6 +407,27 @@ function getLineEndingValue(lineEnding?: "lf" | "crlf"): string {
   return lineEnding === "crlf" ? "\r\n" : "\n";
 }
 
+/**
+ * Escapes the characters that {@link JSON.stringify} leaves as raw code points
+ * but that a terminal reads as control codes: DEL and the C1 range
+ * (U+0080–U+009F), whose members include the 8-bit `CSI` and `OSC`
+ * introducers.
+ *
+ * The replacement is a JSON `\uXXXX` escape rather than the text formatters'
+ * `` `\xNN` `` spelling, so the value survives {@link JSON.parse} unchanged.
+ * Applying it to a whole serialized line is safe because every structural
+ * character of JSON is ASCII, so a code point in this range can only ever be
+ * literal data inside a string.
+ */
+const jsonControlPattern = /[\u007f-\u009f]/g;
+
+function escapeJsonControlChars(json: string): string {
+  return json.replace(
+    jsonControlPattern,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+}
+
 function jsonReplacer(_key: string, value: unknown): unknown {
   if (!(value instanceof Error)) return value;
 
@@ -449,6 +498,13 @@ export function getTextFormatter(
   })();
 
   const categorySeparator = options.category ?? "·";
+  const sanitize = getSanitizer(options.sanitize);
+  // A category is an identifier rather than display text, so its segments are
+  // neutralized before the separator (which may be a caller-supplied function
+  // that legitimately adds its own colors) ever sees them.
+  const sanitizeCategory = getSanitizer(
+    options.sanitize === false ? false : { ...options.sanitize, sgr: "escape" },
+  );
   const valueRenderer = options.value
     ? (v: unknown) => options.value!(v, inspect)
     : inspect;
@@ -487,19 +543,27 @@ export function getTextFormatter(
     let message: string;
     if (msgLen === 1) {
       // Fast path for simple messages with no interpolation
-      message = msgParts[0] as string;
+      message = sanitize == null
+        ? msgParts[0] as string
+        : sanitize(msgParts[0] as string);
     } else if (msgLen <= 6) {
       // Fast path for small messages - direct concatenation
       message = "";
       for (let i = 0; i < msgLen; i++) {
-        message += (i % 2 === 0) ? msgParts[i] : valueRenderer(msgParts[i]);
+        message += (i % 2 === 0)
+          ? (sanitize == null
+            ? msgParts[i] as string
+            : sanitize(msgParts[i] as string))
+          : valueRenderer(msgParts[i]);
       }
     } else {
       // Optimized path for larger messages - array join
       const parts: string[] = new Array(msgLen);
       for (let i = 0; i < msgLen; i++) {
         parts[i] = (i % 2 === 0)
-          ? msgParts[i] as string
+          ? (sanitize == null
+            ? msgParts[i] as string
+            : sanitize(msgParts[i] as string))
           : valueRenderer(msgParts[i]);
       }
       message = parts.join("");
@@ -507,9 +571,12 @@ export function getTextFormatter(
 
     const timestamp = timestampRenderer(record.timestamp);
     const level = levelRenderer(record.level);
+    const categoryParts = sanitizeCategory == null
+      ? record.category
+      : record.category.map(sanitizeCategory);
     const category = typeof categorySeparator === "function"
-      ? categorySeparator(record.category)
-      : record.category.join(categorySeparator);
+      ? categorySeparator(categoryParts)
+      : categoryParts.join(categorySeparator);
 
     const values: FormattedValues = {
       timestamp,
@@ -826,7 +893,7 @@ export function getJsonLinesFormatter(
     return (record: LogRecord): string => {
       // Direct benchmark pattern match (most common case first)
       if (record.message.length === 3) {
-        return JSON.stringify({
+        return escapeJsonControlChars(JSON.stringify({
           "@timestamp": new Date(record.timestamp).toISOString(),
           level: record.level === "warning"
             ? "WARN"
@@ -835,12 +902,12 @@ export function getJsonLinesFormatter(
             record.message[2],
           logger: record.category.join("."),
           properties: record.properties,
-        }, jsonReplacer) + lineEnding;
+        }, jsonReplacer)) + lineEnding;
       }
 
       // Single message (second most common)
       if (record.message.length === 1) {
-        return JSON.stringify({
+        return escapeJsonControlChars(JSON.stringify({
           "@timestamp": new Date(record.timestamp).toISOString(),
           level: record.level === "warning"
             ? "WARN"
@@ -848,7 +915,7 @@ export function getJsonLinesFormatter(
           message: record.message[0],
           logger: record.category.join("."),
           properties: record.properties,
-        }, jsonReplacer) + lineEnding;
+        }, jsonReplacer)) + lineEnding;
       }
 
       // Complex messages (fallback)
@@ -857,13 +924,13 @@ export function getJsonLinesFormatter(
         msg += (i & 1) ? JSON.stringify(record.message[i]) : record.message[i];
       }
 
-      return JSON.stringify({
+      return escapeJsonControlChars(JSON.stringify({
         "@timestamp": new Date(record.timestamp).toISOString(),
         level: record.level === "warning" ? "WARN" : record.level.toUpperCase(),
         message: msg,
         logger: record.category.join("."),
         properties: record.properties,
-      }, jsonReplacer) + lineEnding;
+      }, jsonReplacer)) + lineEnding;
     };
   }
 
@@ -949,13 +1016,13 @@ export function getJsonLinesFormatter(
   }
 
   return (record: LogRecord): string => {
-    return JSON.stringify({
+    return escapeJsonControlChars(JSON.stringify({
       "@timestamp": new Date(record.timestamp).toISOString(),
       level: record.level === "warning" ? "WARN" : record.level.toUpperCase(),
       message: getMessage(record),
       logger: joinCategory(record.category),
       ...getProperties(record.properties),
-    }, jsonReplacer) + lineEnding;
+    }, jsonReplacer)) + lineEnding;
   };
 }
 
@@ -1010,8 +1077,9 @@ export function defaultConsoleFormatter(record: LogRecord): readonly unknown[] {
   let msg = "";
   const values: unknown[] = [];
   for (let i = 0; i < record.message.length; i++) {
-    if (i % 2 === 0) msg += record.message[i];
-    else {
+    if (i % 2 === 0) {
+      msg += sanitizeControlSequences(record.message[i] as string);
+    } else {
       msg += "%o";
       values.push(record.message[i]);
     }
@@ -1024,7 +1092,9 @@ export function defaultConsoleFormatter(record: LogRecord): readonly unknown[] {
   }`;
   return [
     `%c${time} %c${levelAbbreviations[record.level]}%c %c${
-      record.category.join("\xb7")
+      record.category
+        .map((c) => sanitizeControlSequences(c, { sgr: "escape" }))
+        .join("\xb7")
     } %c${msg}`,
     "color: gray;",
     logLevelStyles[record.level],

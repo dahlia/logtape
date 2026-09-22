@@ -699,3 +699,204 @@ test("getAnsiColorFormatter() with lineEnding option", () => {
     false,
   );
 });
+
+const injected: LogRecord = {
+  ...info,
+  message: ["\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok"],
+  rawMessage: "\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok",
+};
+
+test("getTextFormatter() sanitizes control sequences in the message", () => {
+  // The cursor and screen controls are escaped; the color the payload left
+  // open is closed so that it cannot style the next record.
+  assert.strictEqual(
+    getTextFormatter()(injected),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "\\x1b[1A\\x1b[2K\x1b[32m[INF] auth: login ok\x1b[0m\n",
+  );
+  // Interpolated message parts are sanitized too, not just part 0.
+  assert.strictEqual(
+    getTextFormatter()({
+      ...info,
+      message: ["a\x1b[2J", 1, "b\x1b[2J"],
+      rawMessage: "a\x1b[2J{n}b\x1b[2J",
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "a\\x1b[2J1b\\x1b[2J\n",
+  );
+  // The slow path taken by messages with more than six parts.
+  assert.strictEqual(
+    getTextFormatter()({
+      ...info,
+      message: ["\x1b[2J", 1, "", 2, "", 3, "\x1b[2J"],
+      rawMessage: "{a}{b}{c}",
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "\\x1b[2J123\\x1b[2J\n",
+  );
+});
+
+test("getTextFormatter() sanitizes control sequences in the category", () => {
+  assert.strictEqual(
+    getTextFormatter()({ ...info, category: ["my-app", "a\x1b[2Jb"] }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·a\\x1b[2Jb: " +
+      "Hello, 123 & 456!\n",
+  );
+  // SGR is always escaped in a category, unlike in a message.
+  assert.strictEqual(
+    getTextFormatter()({ ...info, category: ["my-app", "\x1b[31mred"] }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·\\x1b[31mred: " +
+      "Hello, 123 & 456!\n",
+  );
+  // A category function receives the sanitized segments.
+  assert.strictEqual(
+    getTextFormatter({ category: (c) => c.join("/") })({
+      ...info,
+      category: ["my-app", "a\x1b[2Jb"],
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app/a\\x1b[2Jb: " +
+      "Hello, 123 & 456!\n",
+  );
+});
+
+test("getTextFormatter() preserves SGR sequences in the message", () => {
+  assert.strictEqual(
+    getTextFormatter()({
+      ...info,
+      message: ["\x1b[31mred\x1b[0m"],
+      rawMessage: "\x1b[31mred\x1b[0m",
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "\x1b[31mred\x1b[0m\n",
+  );
+});
+
+test("getTextFormatter() with sanitize option", () => {
+  const newlined: LogRecord = {
+    ...info,
+    message: ["ok\nforged"],
+    rawMessage: "ok\nforged",
+  };
+  // Newlines are preserved by default so that stack traces stay readable.
+  assert.strictEqual(
+    getTextFormatter()(newlined),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: ok\nforged\n",
+  );
+  assert.strictEqual(
+    getTextFormatter({ sanitize: { newlines: "escape" } })(newlined),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: ok\\nforged\n",
+  );
+  assert.strictEqual(
+    getTextFormatter({ sanitize: { sgr: "escape" } })({
+      ...info,
+      message: ["\x1b[31mred\x1b[0m"],
+      rawMessage: "\x1b[31mred\x1b[0m",
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "\\x1b[31mred\\x1b[0m\n",
+  );
+  // `false` restores the pre-2.0.23 behavior, in the category as well as the
+  // message; the category has its own sanitizer, so it needs its own check.
+  assert.strictEqual(
+    getTextFormatter({ sanitize: false })(injected),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok\n",
+  );
+  assert.strictEqual(
+    getTextFormatter({ sanitize: false })({
+      ...info,
+      category: ["my-app", "\x1b[2J"],
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·\x1b[2J: Hello, 123 & 456!\n",
+  );
+});
+
+test("getAnsiColorFormatter() sanitizes control sequences", () => {
+  const formatted = getAnsiColorFormatter()(injected);
+  assert.ok(formatted.includes("\\x1b[1A\\x1b[2K"));
+  assert.ok(!formatted.includes("\x1b[1A"));
+  assert.ok(
+    getAnsiColorFormatter({ sanitize: false })(injected).includes(
+      "\x1b[1A\x1b[2K",
+    ),
+  );
+});
+
+test("defaultConsoleFormatter() sanitizes control sequences", () => {
+  const formatted = defaultConsoleFormatter(injected)[0] as string;
+  assert.ok(formatted.includes("\\x1b[1A\\x1b[2K"));
+  assert.ok(!formatted.includes("\x1b[1A"));
+  const withCategory = defaultConsoleFormatter({
+    ...info,
+    category: ["my-app", "a\x1b[2Jb"],
+  })[0] as string;
+  assert.ok(withCategory.includes("my-app\xb7a\\x1b[2Jb"));
+});
+
+test("getJsonLinesFormatter() escapes DEL and C1 control characters", () => {
+  // `JSON.stringify()` escapes C0 on its own but passes DEL and the C1 range
+  // through as raw code points, and U+009B is an 8-bit CSI.
+  const formatted = getJsonLinesFormatter()({
+    ...info,
+    message: ["\u009b2J\u007f"],
+    rawMessage: "\u009b2J\u007f",
+    category: ["my-app", "\u009d0;pwned"],
+    properties: { "k\u009b": "v\u009b" },
+  });
+
+  assert.ok(!/[\u007f-\u009f]/.test(formatted));
+  assert.ok(formatted.includes("\\u009b2J\\u007f"));
+  assert.ok(formatted.includes("\\u009d0;pwned"));
+
+  // The escape is JSON-native, so the values round-trip unchanged.
+  const parsed = JSON.parse(formatted);
+  assert.strictEqual(parsed.message, "\u009b2J\u007f");
+  assert.strictEqual(parsed.logger, "my-app.\u009d0;pwned");
+  assert.deepStrictEqual(parsed.properties, { "k\u009b": "v\u009b" });
+});
+
+test("getJsonLinesFormatter() escapes on every serialization path", () => {
+  const records: LogRecord[] = [
+    // The three-part fast path.
+    { ...info, message: ["a\u009b", 1, "b\u009b"] },
+    // The single-part fast path.
+    { ...info, message: ["a\u009b"] },
+    // The multi-part fallback.
+    { ...info, message: ["a\u009b", 1, "", 2, "b\u009b"] },
+  ];
+  for (const record of records) {
+    assert.ok(!/[\u007f-\u009f]/.test(getJsonLinesFormatter()(record)));
+    // The configured (non-fast) path.
+    assert.ok(
+      !/[\u007f-\u009f]/.test(
+        getJsonLinesFormatter({ properties: "flatten" })(record),
+      ),
+    );
+  }
+});
+
+test("getTextFormatter() closes SGR left open by a message part", () => {
+  // Conceal with no reset would otherwise hide every record printed after it.
+  assert.strictEqual(
+    getTextFormatter()({
+      ...info,
+      message: ["oops\x1b[8m"],
+      rawMessage: "oops\x1b[8m",
+    }),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: oops\x1b[8m\x1b[0m\n",
+  );
+  // Each literal part is closed on its own, so styling does not span an
+  // interpolated value.  The value renderer's quoting differs by runtime
+  // (`"x"` on Deno, `'x'` on Node.js and Bun), so assert around it.
+  const spanning = getTextFormatter()({
+    ...info,
+    message: ["\x1b[1m", "x", "\x1b[0m"],
+    rawMessage: "\x1b[1m{name}\x1b[0m",
+  });
+  assert.ok(
+    spanning.startsWith(
+      "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: \x1b[1m\x1b[0m",
+    ),
+  );
+  assert.ok(spanning.endsWith("\x1b[0m\n"));
+});

@@ -596,6 +596,110 @@ are not displayed.
 The default is `false`.
 
 
+Control character sanitization
+------------------------------
+
+*This API is available since LogTape 2.0.23.*
+
+A log record's message and category can carry text that came from outside your
+application.  If that text reaches a terminal verbatim, the escape sequences in
+it are interpreted rather than displayed: an attacker who can influence a
+logged string can move the cursor, clear the screen, or overwrite log lines
+that were already printed with forged ones.
+
+The built-in text formatters therefore neutralize such text before emitting it.
+They escape ESC-introduced sequences other than SGR color codes, the remaining
+C0 control characters, DEL, and the C1 controls (U+0080–U+009F), which a
+terminal in UTF-8 mode reads as 8-bit `CSI` and `OSC` introducers:
+
+~~~~ typescript twoslash
+import { getLogger } from "@logtape/logtape";
+const logger = getLogger("my-app");
+// ---cut-before---
+// An attacker-influenced string in the message position:
+logger.info("\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok");
+
+// is rendered with the cursor and screen controls escaped:
+// 2026-09-22 08:00:00.000 +00:00 [INF] my-app: \x1b[1A\x1b[2K[INF] auth: login ok
+~~~~
+
+> [!TIP]
+> Values interpolated into a message are escaped by the value renderer
+> regardless of this behavior, so the documented way of logging untrusted data
+> was never affected:
+>
+> ~~~~ typescript
+> logger.info("Received {input} from the client.", { input: untrusted });
+> ~~~~
+>
+> Prefer that form over `logger.info(untrusted)` whenever you can.
+
+### Adjusting the policy
+
+The `sanitize` option controls what is escaped.  It accepts an object with two
+fields, or `false` to turn sanitization off entirely:
+
+ -  `newlines`: Whether to escape carriage returns and line feeds.  The default
+    is `"preserve"`, which keeps multi-line messages such as stack traces
+    readable.  Set it to `"escape"` when your output is consumed by a tool that
+    splits on newlines, so that an attacker-controlled newline cannot emit what
+    looks like a separate log record.
+
+ -  `sgr`: Whether to escape SGR sequences, the `` `\x1b[…m` `` codes that set
+    colors and text styles.  The default is `"preserve"`, so applications that
+    log pre-colored strings or captured subprocess output keep working.  SGR
+    sequences are always escaped in the category, which is an identifier rather
+    than display text.  A preserved sequence that the text left open is closed
+    with a reset, so an attribute such as `` `\x1b[8m` `` (conceal) styles only
+    its own record and not the ones after it.  Each literal message part is
+    closed on its own, so styling opened before an interpolated value does not
+    extend past it; color the value itself, or the whole string, instead.
+
+~~~~ typescript twoslash
+import { getTextFormatter } from "@logtape/logtape";
+// ---cut-before---
+// Strictest: nothing from the message can affect the terminal or the line
+// structure of the output.
+const strict = getTextFormatter({
+  sanitize: { newlines: "escape", sgr: "escape" },
+});
+
+// Opt out entirely, restoring the behavior of LogTape 2.0.22 and earlier.
+const unsanitized = getTextFormatter({ sanitize: false });
+~~~~
+
+The option is accepted by `getTextFormatter()`, `getAnsiColorFormatter()`, and
+`getPrettyFormatter()`.  `defaultConsoleFormatter()` always applies the default
+policy.
+
+`getJsonLinesFormatter()` does not take the option, because it needs no policy:
+`JSON.stringify()` escapes the C0 control characters on its own, and the
+formatter writes DEL and the C1 controls as JSON `\uXXXX` escapes.  Nothing a
+log record carries can reach a terminal as a control code, and the values still
+round-trip through `JSON.parse()` unchanged.
+
+If you write [your own text formatter](#fully-customized-text-formatter) and it
+renders the message or the category, apply the same neutralization with
+`sanitizeControlSequences()`:
+
+~~~~ typescript twoslash
+import { type LogRecord, sanitizeControlSequences } from "@logtape/logtape";
+// ---cut-before---
+function myFormatter(record: LogRecord): string {
+  const category = record.category
+    .map((segment) => sanitizeControlSequences(segment, { sgr: "escape" }))
+    .join("\u00b7");
+  let message = "";
+  for (let i = 0; i < record.message.length; i++) {
+    message += i % 2 === 0
+      ? sanitizeControlSequences(record.message[i] as string)
+      : JSON.stringify(record.message[i]);
+  }
+  return `[${category}] ${message}\n`;
+}
+~~~~
+
+
 Pattern-based redaction
 -----------------------
 
