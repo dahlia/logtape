@@ -35,9 +35,11 @@ export {
   getTextFormatter,
   jsonLinesFormatter,
   type JsonLinesFormatterOptions,
+  type SanitizationOptions,
   type TextFormatter,
   type TextFormatterOptions,
 } from "./formatter.ts";
+export { sanitizeControlSequences } from "./sanitize.ts";
 export {
   compareLogLevel,
   getLogLevels,

@@ -1135,3 +1135,76 @@ test("getPrettyFormatter() with both getters and showProxy options", () => {
   // Should complete without errors and output should be present
   assert.ok(result.includes("Complex object:"));
 });
+
+test("getPrettyFormatter() sanitizes control sequences in the message", () => {
+  const formatter = getPrettyFormatter({ colors: false });
+  const record = createLogRecord("info", ["app"], [
+    "\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok",
+  ]);
+  const result = formatter(record);
+
+  assert.ok(result.includes("\\x1b[1A\\x1b[2K"));
+  assert.ok(!result.includes("\x1b[1A"));
+  assert.ok(!result.includes("\x1b[2K"));
+});
+
+test("getPrettyFormatter() sanitizes control sequences in the category", () => {
+  const formatter = getPrettyFormatter({ colors: false, categoryWidth: 40 });
+  const record = createLogRecord("info", ["app", "a\x1b[2Jb"], ["hello"]);
+  const result = formatter(record);
+
+  assert.ok(result.includes("a\\x1b[2Jb"));
+  assert.ok(!result.includes("\x1b[2J"));
+});
+
+test("getPrettyFormatter() preserves SGR sequences in the message", () => {
+  const formatter = getPrettyFormatter({ colors: false });
+  const record = createLogRecord("info", ["app"], ["\x1b[31mred\x1b[0m"]);
+  const result = formatter(record);
+
+  assert.ok(result.includes("\x1b[31mred\x1b[0m"));
+});
+
+test("getPrettyFormatter() with sanitize option", () => {
+  const record = createLogRecord("info", ["app"], [
+    "\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok",
+  ]);
+
+  // `false` restores the pre-2.0.23 behavior, in the category as well as the
+  // message; the category has its own sanitizer, so it needs its own check.
+  const unsanitized = getPrettyFormatter({ colors: false, sanitize: false })(
+    record,
+  );
+  assert.ok(unsanitized.includes("\x1b[1A\x1b[2K"));
+  const rawCategory = getPrettyFormatter({
+    colors: false,
+    categoryWidth: 40,
+    sanitize: false,
+  })(createLogRecord("info", ["app", "\x1b[2J"], ["hello"]));
+  assert.ok(rawCategory.includes("\x1b[2J"));
+
+  // `sgr: "escape"` neutralizes color codes in the message too.
+  const strict = getPrettyFormatter({
+    colors: false,
+    sanitize: { sgr: "escape" },
+  })(createLogRecord("info", ["app"], ["\x1b[31mred\x1b[0m"]));
+  assert.ok(strict.includes("\\x1b[31mred\\x1b[0m"));
+  assert.ok(!strict.includes("\x1b[31m"));
+});
+
+test("getPrettyFormatter() does not sanitize interpolated values twice", () => {
+  const formatter = getPrettyFormatter({ colors: false });
+  const record = createLogRecord("info", ["app"], [
+    "value: ",
+    "\x1b[2J",
+    "",
+  ]);
+  const result = formatter(record);
+
+  // `inspect()` already escapes the value, so it must not be double-escaped.
+  // Its exact spelling differs by runtime (`\x1b` on Deno, `\x1B` on Node.js
+  // and Bun), so assert on the property that matters instead.
+  assert.ok(!result.includes("\x1b"));
+  assert.ok(!result.toLowerCase().includes("\\\\x1b"));
+  assert.ok(result.includes("value: "));
+});
