@@ -8,6 +8,21 @@ Version 2.0.23
 
 To be released.
 
+### @logtape/pretty
+
+ -  Fixed `getPrettyFormatter()` not applying the documented defaults for
+    the `inspectOptions` option.  The `compact` option now defaults to `true`
+    and the `depth` option to `Infinity` on every runtime.  Previously the
+    underlying `inspect()` implementation's own defaults leaked through, so
+    Node.js and Bun laid arrays of more than six elements out in columns and
+    rendered anything nested more than two levels deep as `[Object]`, while
+    Deno truncated at four levels.  On browsers, structured values are now
+    rendered on a single line instead of being pretty-printed.
+    [[#224], [#225]]
+
+[#224]: https://github.com/dahlia/logtape/issues/224
+[#225]: https://github.com/dahlia/logtape/pull/225
+
 
 Version 2.0.22
 --------------

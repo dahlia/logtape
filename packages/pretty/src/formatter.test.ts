@@ -873,6 +873,154 @@ ANOTHER_EXTREMELY_LONG_KEY_NAME_FOR_TESTING: ${
   assert.strictEqual(result, expectedOutput);
 });
 
+// Regression test for https://github.com/dahlia/logtape/issues/224
+test("properties keep arrays on one line by default", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    inspectOptions: { colors: false },
+    align: false,
+    wordWrap: false,
+  });
+
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Test message"],
+    new Date("2024-01-15T00:00:00Z").getTime(),
+    { commands: ["one", "two", "three", "four", "five", "six", "seven"] },
+  );
+  const result = formatter(record);
+
+  // Without an explicit `compact: true`, Node.js and Bun lay arrays of more
+  // than six elements out in columns across several lines.
+  const lines = result.split("\n");
+  assert.strictEqual(lines.length, 3);
+  assert.strictEqual(
+    lines[1].trim(),
+    "Deno" in globalThis
+      ? 'commands: [ "one", "two", "three", "four", "five", "six", "seven" ]'
+      : "commands: [ 'one', 'two', 'three', 'four', 'five', 'six', 'seven' ]",
+  );
+});
+
+// Regression test for https://github.com/dahlia/logtape/issues/224
+test("properties are inspected without a depth limit by default", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    inspectOptions: { colors: false },
+    align: false,
+    wordWrap: false,
+  });
+
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Test message"],
+    new Date("2024-01-15T00:00:00Z").getTime(),
+    { deep: { a: { b: { c: { d: { e: 1 } } } } } },
+  );
+  const result = formatter(record);
+
+  assert.ok(!result.includes("[Object]"));
+  assert.ok(result.includes("e: 1"));
+});
+
+// Regression test for https://github.com/dahlia/logtape/issues/224
+test("interpolated values keep arrays on one line by default", () => {
+  const formatter = getPrettyFormatter({
+    colors: false,
+    inspectOptions: { colors: false },
+    align: false,
+    wordWrap: false,
+  });
+
+  const record = createLogRecord("info", ["test"], [
+    "commands: ",
+    ["one", "two", "three", "four", "five", "six", "seven"],
+  ]);
+  const result = formatter(record);
+
+  assert.strictEqual(
+    result,
+    "Deno" in globalThis
+      ? '✨ info test commands: [ "one", "two", "three", "four", "five", "six", "seven" ]\n'
+      : "✨ info test commands: [ 'one', 'two', 'three', 'four', 'five', 'six', 'seven' ]\n",
+  );
+});
+
+// Regression test for https://github.com/dahlia/logtape/issues/224
+test("interpolated values are inspected without a depth limit by default", () => {
+  const formatter = getPrettyFormatter({
+    colors: false,
+    inspectOptions: { colors: false },
+    align: false,
+    wordWrap: false,
+  });
+
+  const record = createLogRecord("info", ["test"], [
+    "deep: ",
+    { a: { b: { c: { d: { e: 1 } } } } },
+  ]);
+  const result = formatter(record);
+
+  assert.ok(!result.includes("[Object]"));
+  assert.ok(result.includes("e: 1"));
+});
+
+// Regression test for https://github.com/dahlia/logtape/issues/224
+test("explicit inspectOptions still override the defaults", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    inspectOptions: { colors: false, depth: 1, compact: false },
+    align: false,
+    wordWrap: false,
+  });
+
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Test message"],
+    new Date("2024-01-15T00:00:00Z").getTime(),
+    { deep: { a: { b: { c: 1 } } } },
+  );
+  const result = formatter(record);
+
+  assert.ok(result.includes("[Object]"));
+  assert.ok(result.split("\n").length > 3);
+});
+
+// Regression test for https://github.com/dahlia/logtape/issues/224
+test("an explicit undefined inspect option falls back to the default", () => {
+  const formatter = getPrettyFormatter({
+    properties: true,
+    colors: false,
+    inspectOptions: { colors: false, depth: undefined, compact: undefined },
+    align: false,
+    wordWrap: false,
+  });
+
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Test message"],
+    new Date("2024-01-15T00:00:00Z").getTime(),
+    { commands: ["one", "two", "three", "four", "five", "six", "seven"] },
+  );
+  const result = formatter(record);
+
+  const lines = result.split("\n");
+  assert.strictEqual(lines.length, 3);
+  assert.strictEqual(
+    lines[1].trim(),
+    "Deno" in globalThis
+      ? 'commands: [ "one", "two", "three", "four", "five", "six", "seven" ]'
+      : "commands: [ 'one', 'two', 'three', 'four', 'five', 'six', 'seven' ]",
+  );
+});
+
 test("getPrettyFormatter() with getters option", () => {
   const formatter = getPrettyFormatter({
     colors: false,
