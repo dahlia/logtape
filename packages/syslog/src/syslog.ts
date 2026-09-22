@@ -229,6 +229,29 @@ function escapeStructuredDataValue(value: string): string {
 }
 
 /**
+ * Escapes C0 control characters in the RFC 5424 `MSG` field.
+ *
+ * TCP transports delimit messages with a newline (RFC 6587 non-transparent
+ * framing), so a control character that survives into `MSG` would let a log
+ * message terminate its own frame and forge additional syslog records.
+ * Control characters are replaced with the same printable `#NNN` sequences
+ * that structured data values use.
+ * @since 2.0.23
+ */
+function escapeMessageText(text: string): string {
+  let result = "";
+  for (const char of text) {
+    const charCode = char.charCodeAt(0);
+    if (charCode <= 31) {
+      result += `#${charCode.toString(10).padStart(3, "0")}`;
+    } else {
+      result += char;
+    }
+  }
+  return result;
+}
+
+/**
  * Validates an RFC 5424 SD-NAME value.
  */
 function isStructuredDataName(name: string): boolean {
@@ -303,7 +326,9 @@ function formatSyslogMessage(
     structuredData = formatStructuredData(record, options.structuredDataId);
   }
 
-  // Format the message text
+  // Format the message text.  Interpolated values are already escaped by
+  // JSON.stringify(), but the raw text portions are not, so the assembled
+  // message is escaped as a whole.
   let message = "";
   for (let i = 0; i < record.message.length; i++) {
     if (i % 2 === 0) {
@@ -312,6 +337,7 @@ function formatSyslogMessage(
       message += JSON.stringify(record.message[i]);
     }
   }
+  message = escapeMessageText(message);
 
   // RFC 5424 format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
   return `<${priority}>1 ${timestamp} ${hostname} ${appName} ${processId} ${msgId} ${structuredData} ${message}`;
@@ -729,7 +755,8 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
  * - **Multiple Protocols**: Supports both UDP (fire-and-forget) and TCP (reliable) delivery
  * - **Structured Data**: Automatically includes log record properties as RFC 5424 structured data
  * - **Facility Support**: All standard syslog facilities (kern, user, mail, daemon, local0-7, etc.)
- * - **Automatic Escaping**: Proper escaping of special characters in structured data values
+ * - **Automatic Escaping**: Proper escaping of control characters in the message
+ *   text, and of special characters in structured data values
  * - **Connection Management**: Automatic connection handling with configurable timeouts
  *
  * ## Protocol Differences

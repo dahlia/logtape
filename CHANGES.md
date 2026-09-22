@@ -8,6 +8,96 @@ Version 2.1.14
 
 To be released.
 
+### @logtape/logtape
+
+ -  Added `sanitize` option to the `TextFormatterOptions` interface.
+    Pass an object to adjust the policy, or `false` to restore the previous
+    behavior.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Added `SanitizationOptions` interface.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Added `sanitizeControlSequences()` function.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Fixed the built-in text formatters emitting control characters and ANSI
+    escape sequences from a log record's message and category verbatim.
+    An attacker who influenced a string logged in the message position
+    (e.g. `logger.info(untrustedString)`) could reposition the cursor or clear
+    the screen on an operator's terminal, or overwrite previously printed log
+    lines with forged entries.  `getTextFormatter()`,
+    `getAnsiColorFormatter()`, and `defaultConsoleFormatter()` now escape
+    ESC-introduced sequences other than SGR color codes, the remaining C0
+    control characters, DEL, and the C1 controls (U+0080–U+009F).  Values
+    interpolated into the message were already escaped by the value renderer
+    and are unaffected.
+    [[GHSA-hp6w-c2ch-g44w]]
+
+     -  Newlines, carriage returns, and tabs are preserved by default so that
+        multi-line messages such as stack traces stay readable.  Pass
+        `sanitize: { newlines: "escape" }` to neutralize them as well, which
+        also prevents an attacker-controlled newline from emitting a line that
+        looks like a genuine log record to tools that split on newlines.
+
+     -  SGR sequences are preserved by default in the message, so applications
+        that log pre-colored strings or captured subprocess output keep
+        working.  They are always escaped in the category, which is an
+        identifier rather than display text.  A preserved sequence that is
+        left open is closed with a reset, so that an attribute such as
+        `` `\x1b[8m` `` (conceal) cannot hide the records that follow.  Each
+        literal message part is closed on its own, so styling opened before an
+        interpolated value no longer extends past it.
+
+ -  Fixed `getJsonLinesFormatter()` emitting DEL and the C1 control characters
+    (U+0080–U+009F) as raw code points.  `JSON.stringify()` escapes the C0
+    controls on its own, so the line structure was never at risk, but U+009B
+    and U+009D are 8-bit `CSI` and `OSC` introducers, which a terminal reading
+    the output directly would interpret.  They are now written as JSON
+    `\uXXXX` escapes, so the values still round-trip through `JSON.parse()`
+    unchanged.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Fixed `getLogfmtFormatter()` emitting DEL and the C1 control characters
+    (U+0080–U+009F) as raw code points.  logfmt escapes the C0 controls on
+    its own, so the line structure was never at risk, but U+009B and U+009D are
+    8-bit `CSI` and `OSC` introducers, which a terminal reading the output
+    directly would interpret.  They are now written as `\uXXXX` escapes in
+    values and percent-encoded in property keys, the same spellings logfmt
+    already uses for the characters it neutralizes.  [[GHSA-hp6w-c2ch-g44w]]
+
+[GHSA-hp6w-c2ch-g44w]: https://github.com/dahlia/logtape/security/advisories/GHSA-hp6w-c2ch-g44w
+
+### @logtape/pretty
+
+ -  Fixed `getPrettyFormatter()` emitting control characters and ANSI escape
+    sequences from a log record's message and category verbatim, with the same
+    consequences and the same defaults as described above for
+    *@logtape/logtape*.  The `sanitize` option is accepted here too.
+    [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Fixed `getPrettyFormatter()` not applying the documented defaults for
+    the `inspectOptions` option.  The `compact` option now defaults to `true`
+    and the `depth` option to `Infinity` on every runtime.  Previously the
+    underlying `inspect()` implementation's own defaults leaked through, so
+    Node.js and Bun laid arrays of more than six elements out in columns and
+    rendered anything nested more than two levels deep as `[Object]`, while
+    Deno truncated at four levels.  On browsers, structured values are now
+    rendered on a single line instead of being pretty-printed.
+    [[#224], [#225]]
+
+[#224]: https://github.com/dahlia/logtape/issues/224
+[#225]: https://github.com/dahlia/logtape/pull/225
+
+### @logtape/syslog
+
+ -  Fixed a security vulnerability where C0 control characters in a log
+    message could inject forged syslog frames.  Since TCP delimits syslog
+    messages with a newline, a message containing a newline terminated its own
+    frame, and the remainder was received as an independent syslog record with
+    an attacker-chosen priority, timestamp, hostname, application name, and
+    process ID.  Message text now replaces C0 control characters with
+    printable `#NNN` sequences, the same way structured data values do.
+    [[GHSA-rjxr-25gw-qw92]]
+
+[GHSA-rjxr-25gw-qw92]: https://github.com/dahlia/logtape/security/advisories/GHSA-rjxr-25gw-qw92
+
 
 Version 2.1.13
 --------------
@@ -372,6 +462,87 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.23
+--------------
+
+Released on September 22, 2026.
+
+### @logtape/logtape
+
+ -  Added `sanitize` option to the `TextFormatterOptions` interface.
+    Pass an object to adjust the policy, or `false` to restore the previous
+    behavior.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Added `SanitizationOptions` interface.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Added `sanitizeControlSequences()` function.  [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Fixed the built-in text formatters emitting control characters and ANSI
+    escape sequences from a log record's message and category verbatim.
+    An attacker who influenced a string logged in the message position
+    (e.g. `logger.info(untrustedString)`) could reposition the cursor or clear
+    the screen on an operator's terminal, or overwrite previously printed log
+    lines with forged entries.  `getTextFormatter()`,
+    `getAnsiColorFormatter()`, and `defaultConsoleFormatter()` now escape
+    ESC-introduced sequences other than SGR color codes, the remaining C0
+    control characters, DEL, and the C1 controls (U+0080–U+009F).  Values
+    interpolated into the message were already escaped by the value renderer
+    and are unaffected.
+    [[GHSA-hp6w-c2ch-g44w]]
+
+     -  Newlines, carriage returns, and tabs are preserved by default so that
+        multi-line messages such as stack traces stay readable.  Pass
+        `sanitize: { newlines: "escape" }` to neutralize them as well, which
+        also prevents an attacker-controlled newline from emitting a line that
+        looks like a genuine log record to tools that split on newlines.
+
+     -  SGR sequences are preserved by default in the message, so applications
+        that log pre-colored strings or captured subprocess output keep
+        working.  They are always escaped in the category, which is an
+        identifier rather than display text.  A preserved sequence that is
+        left open is closed with a reset, so that an attribute such as
+        `` `\x1b[8m` `` (conceal) cannot hide the records that follow.  Each
+        literal message part is closed on its own, so styling opened before an
+        interpolated value no longer extends past it.
+
+ -  Fixed `getJsonLinesFormatter()` emitting DEL and the C1 control characters
+    (U+0080–U+009F) as raw code points.  `JSON.stringify()` escapes the C0
+    controls on its own, so the line structure was never at risk, but U+009B
+    and U+009D are 8-bit `CSI` and `OSC` introducers, which a terminal reading
+    the output directly would interpret.  They are now written as JSON
+    `\uXXXX` escapes, so the values still round-trip through `JSON.parse()`
+    unchanged.  [[GHSA-hp6w-c2ch-g44w]]
+
+### @logtape/pretty
+
+ -  Fixed `getPrettyFormatter()` emitting control characters and ANSI escape
+    sequences from a log record's message and category verbatim, with the same
+    consequences and the same defaults as described above for
+    *@logtape/logtape*.  The `sanitize` option is accepted here too.
+    [[GHSA-hp6w-c2ch-g44w]]
+
+ -  Fixed `getPrettyFormatter()` not applying the documented defaults for
+    the `inspectOptions` option.  The `compact` option now defaults to `true`
+    and the `depth` option to `Infinity` on every runtime.  Previously the
+    underlying `inspect()` implementation's own defaults leaked through, so
+    Node.js and Bun laid arrays of more than six elements out in columns and
+    rendered anything nested more than two levels deep as `[Object]`, while
+    Deno truncated at four levels.  On browsers, structured values are now
+    rendered on a single line instead of being pretty-printed.
+    [[#224], [#225]]
+
+### @logtape/syslog
+
+ -  Fixed a security vulnerability where C0 control characters in a log
+    message could inject forged syslog frames.  Since TCP delimits syslog
+    messages with a newline, a message containing a newline terminated its own
+    frame, and the remainder was received as an independent syslog record with
+    an attacker-chosen priority, timestamp, hostname, application name, and
+    process ID.  Message text now replaces C0 control characters with
+    printable `#NNN` sequences, the same way structured data values do.
+    [[GHSA-rjxr-25gw-qw92]]
 
 
 Version 2.0.22
