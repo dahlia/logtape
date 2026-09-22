@@ -139,6 +139,20 @@ characters in structured data values are replaced with printable `#NNN`
 sequences before the message is sent.
 
 
+Message escaping
+----------------
+
+Control characters in the log message are replaced with printable `#NNN`
+sequences before the message is sent, in the same way as in structured data
+values.  This matters most for TCP, which delimits syslog messages with
+a newline (*non-transparent framing*, as [RFC 6587] calls it): a newline left
+in the message would terminate the frame, and whatever followed it would be
+received as a separate syslog record.  If log messages can contain input from
+outside the application, such a record can be forged at will.
+
+[RFC 6587]: https://tools.ietf.org/html/rfc6587
+
+
 Supported facilities
 --------------------
 
