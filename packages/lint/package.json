@@ -1,6 +1,6 @@
 {
   "name": "@logtape/lint",
-  "version": "2.2.10",
+  "version": "2.2.11",
   "description": "Lint rules for LogTape usage patterns (ESLint, Oxlint, Deno Lint)",
   "keywords": [
     "logging",
