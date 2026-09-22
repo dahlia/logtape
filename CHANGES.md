@@ -3,6 +3,12 @@
 LogTape changelog
 =================
 
+Version 2.1.15
+--------------
+
+To be released.
+
+
 Version 2.1.14
 --------------
 
