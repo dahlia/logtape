@@ -3,6 +3,7 @@ import test from "node:test";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { createSocket } from "node:dgram";
 import { createServer } from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   DenoTcpSyslogConnection,
   DenoUdpSyslogConnection,
@@ -870,6 +871,133 @@ if (typeof Deno !== "undefined") {
     }
   });
 }
+
+// MSG Field Escaping Tests
+const forgedRecord = "<13>1 2030-01-01T00:00:00.000Z gateway sshd 4242 - - " +
+  "Accepted password for root";
+const attackerInput = `alice\r\n${forgedRecord}`;
+const c0Characters = String.fromCharCode(
+  ...Array.from({ length: 32 }, (_, index) => index),
+);
+
+test("getSyslogSink() escapes control characters in the message", async () => {
+  const receivedMessages: string[] = [];
+
+  const server = createSocket("udp4");
+
+  await new Promise<void>((resolve) => {
+    server.bind(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address() as { port: number };
+
+  server.on("message", (msg) => {
+    receivedMessages.push(msg.toString());
+  });
+
+  try {
+    const sink = getSyslogSink({
+      hostname: "127.0.0.1",
+      port: address.port,
+      protocol: "udp",
+      facility: "local0",
+      appName: "msg-escape-test",
+      timeout: 1000,
+    });
+
+    // A raw message part carries the attacker-controlled text verbatim...
+    sink(createMockLogRecord("info", [
+      `login failed for user ${attackerInput}`,
+    ]));
+    // ...while interpolated values pass through JSON.stringify().
+    sink(
+      createMockLogRecord("info", [
+        "login failed for user ",
+        attackerInput,
+        "",
+      ]),
+    );
+    // Every C0 control character is escaped, not just the newlines.
+    sink(createMockLogRecord("info", [`control ${c0Characters}`]));
+
+    await delay(200);
+    await sink[Symbol.asyncDispose]();
+    await delay(100);
+
+    assert.strictEqual(receivedMessages.length, 3);
+
+    const [raw, interpolated, control] = receivedMessages.map(
+      parseSyslogMessage,
+    );
+    assert.strictEqual(
+      raw.message,
+      `login failed for user alice#013#010${forgedRecord}`,
+    );
+    assert.strictEqual(
+      interpolated.message,
+      `login failed for user ${JSON.stringify(attackerInput)}`,
+    );
+    assert.strictEqual(
+      control.message,
+      "control #000#001#002#003#004#005#006#007#008#009#010#011#012#013" +
+        "#014#015#016#017#018#019#020#021#022#023#024#025#026#027#028#029" +
+        "#030#031",
+    );
+
+    for (const received of receivedMessages) {
+      assert.strictEqual(received.includes("\n"), false);
+      assert.strictEqual(received.includes("\r"), false);
+    }
+  } finally {
+    server.close();
+  }
+});
+
+test("getSyslogSink() keeps one TCP frame per log record", async () => {
+  let received = "";
+
+  const server = createServer((socket) => {
+    socket.on("data", (data) => {
+      received += data.toString();
+    });
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address() as { port: number };
+
+  try {
+    const sink = getSyslogSink({
+      hostname: "127.0.0.1",
+      port: address.port,
+      protocol: "tcp",
+      facility: "local0",
+      appName: "msg-escape-test",
+      timeout: 5000,
+    });
+
+    sink(createMockLogRecord("info", [
+      `login failed for user ${attackerInput}`,
+    ]));
+
+    await delay(200);
+    await sink[Symbol.asyncDispose]();
+    await delay(100);
+
+    // TCP uses newline-delimited framing (RFC 6587 non-transparent framing),
+    // so one log record has to arrive as exactly one frame.
+    const frames = received.split("\n").filter((frame) => frame !== "");
+    assert.strictEqual(frames.length, 1);
+    assert.strictEqual(
+      parseSyslogMessage(frames[0]).message,
+      `login failed for user alice#013#010${forgedRecord}`,
+    );
+  } finally {
+    server.close();
+  }
+});
 
 // Template Literal Message Formatting Tests
 if (typeof Deno !== "undefined") {
