@@ -2,6 +2,7 @@ import {
   getLogLevels,
   type LogLevel,
   type LogRecord,
+  sanitizeControlSequences,
   type TextFormatter,
   type TextFormatterOptions,
 } from "@logtape/logtape";
@@ -857,7 +858,37 @@ export function getPrettyFormatter(
     inspectOptions = {},
     properties = false,
     wordWrap = true,
+    sanitize: sanitizeOptions = {},
   } = options;
+
+  // Neutralize control characters and non-SGR escape sequences in the parts
+  // that can carry attacker-influenced text: the message template parts and
+  // the category segments.  Interpolated values go through `inspect()`, which
+  // escapes them already.
+  const sanitize: ((text: string) => string) | null = sanitizeOptions === false
+    ? null
+    : (text: string) => sanitizeControlSequences(text, sanitizeOptions);
+  // A category is an identifier rather than display text, so SGR sequences are
+  // escaped there too; otherwise truncation could split one and leave a
+  // dangling introducer in the output.
+  const sanitizeCategory: ((text: string) => string) | null =
+    sanitizeOptions === false
+      ? null
+      : (text: string) =>
+        sanitizeControlSequences(text, { ...sanitizeOptions, sgr: "escape" });
+
+  // Fill in the documented defaults.  Without these, the runtime's own
+  // `inspect()` defaults leak through: Node.js and Bun use `compact: 3`,
+  // which lays arrays of more than six elements out in columns, and cap
+  // `depth` at 2, while Deno caps it at 4.  The defaults are applied with
+  // `??` rather than a spread so that an explicit `undefined`, which a
+  // caller forwarding an optional setting easily produces, does not
+  // reintroduce them.
+  const resolvedInspectOptions: InspectOptions = {
+    ...inspectOptions,
+    compact: inspectOptions.compact ?? true,
+    depth: inspectOptions.depth ?? Infinity,
+  };
 
   // Resolve icons
   const baseIconMap: Record<LogLevel, string> = icons === false
@@ -985,7 +1016,9 @@ export function getPrettyFormatter(
     const icon = iconMap[record.level] || "";
     const level = formatLevel(record.level);
     const categoryStr = truncateCategory(
-      record.category,
+      sanitizeCategory == null
+        ? record.category
+        : record.category.map(sanitizeCategory),
       categoryWidth,
       categorySeparator,
       categoryTruncate,
@@ -1001,12 +1034,13 @@ export function getPrettyFormatter(
 
     for (let i = 0; i < record.message.length; i++) {
       if (i % 2 === 0) {
-        message += record.message[i];
+        const part = record.message[i] as string;
+        message += sanitize == null ? part : sanitize(part);
       } else {
         const value = record.message[i];
         const inspected = inspect(value, {
           colors: useColors,
-          ...inspectOptions,
+          ...resolvedInspectOptions,
         });
 
         // Handle multiline interpolated values properly
@@ -1127,7 +1161,7 @@ export function getPrettyFormatter(
           indentWidth,
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
-          inspectOptions,
+          resolvedInspectOptions,
         );
       }
 
@@ -1156,7 +1190,7 @@ export function getPrettyFormatter(
           indentWidth,
           wordWrapEnabled ? wordWrapWidth : Infinity,
           useColors,
-          inspectOptions,
+          resolvedInspectOptions,
         );
       }
 
