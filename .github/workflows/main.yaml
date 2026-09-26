@@ -125,9 +125,25 @@ jobs:
     - run: pnpm install --frozen-lockfile
     - run: mise run test:elysia-compatibility
 
+  bench-disabled:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@v4
+      with: *mise_options
+    - run: pnpm install --frozen-lockfile
+    - run: mise run bench:disabled
+
   publish:
     if: github.event_name == 'push'
-    needs: [check, test-deno, test-node, test-bun, test-elysia-compatibility]
+    needs:
+    - check
+    - test-deno
+    - test-node
+    - test-bun
+    - test-elysia-compatibility
+    - bench-disabled
     permissions:
       contents: read
       id-token: write

@@ -62,6 +62,15 @@ depends = ["check", "test:*"]
 description = "Run tests with coverage and generate HTML report"
 run = "deno task coverage"
 
+[tasks."bench:disabled"]
+description = "Check that disabled logging calls stay cheap"
+dir = "benchmarks"
+run = [
+  "pnpm --filter @logtape/logtape build",
+  "node disabled.ts",
+  "deno run --allow-all disabled.ts",
+]
+
 [tasks.build]
 description = "Build all packages for npm publishing"
 run = "deno task build"
