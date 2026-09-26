@@ -1,6 +1,6 @@
 {
   "name": "@logtape/config",
-  "version": "2.2.11",
+  "version": "2.2.12",
   "description": "Configure LogTape from plain objects (JSON, YAML, TOML)",
   "keywords": [
     "logging",
