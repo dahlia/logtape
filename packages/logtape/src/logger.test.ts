@@ -3498,3 +3498,129 @@ test("Logger resolves direct lazy properties before buffered sinks read them", (
     logger.resetDescendants();
   }
 });
+
+test("Logger.isEnabledFor() follows sink inheritance", () => {
+  const parent = LoggerImpl.getLogger(["isEnabledFor-inheritance"]);
+  const child = parent.getChild("child");
+
+  try {
+    parent.sinks.push(() => {});
+    parent.lowestLevel = "warning";
+
+    // The parent's sinks are not reached below the parent's lowestLevel:
+    assert.ok(!child.isEnabledFor("info"));
+    assert.ok(child.isEnabledFor("warning"));
+
+    // The child's own sinks do not depend on the parent's lowestLevel:
+    child.sinks.push(() => {});
+    assert.ok(child.isEnabledFor("info"));
+    child.sinks.pop();
+
+    // "override" cuts off the parent's sinks:
+    child.parentSinks = "override";
+    assert.ok(!child.isEnabledFor("warning"));
+    child.sinks.push(() => {});
+    assert.ok(child.isEnabledFor("warning"));
+
+    child.lowestLevel = null;
+    assert.ok(!child.isEnabledFor("fatal"));
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("Logger skips level-disabled calls without building records", () => {
+  const logger = LoggerImpl.getLogger(["level-disabled-skip-test"]);
+  logger.parentSinks = "override";
+  logger.lowestLevel = "info";
+  logger.sinks.push(() => assert.fail("sink should not be called"));
+  logger.filters.push(() => assert.fail("filter should not be called"));
+
+  try {
+    let evaluated = false;
+    const value = lazy(() => {
+      evaluated = true;
+      return "computed";
+    });
+
+    logger.debug("Disabled {value}", { value });
+    logger.debug({ value });
+    logger.debug`Disabled ${value}`;
+    logger.debug(() => assert.fail("callback should not be called"));
+
+    const ctx = logger.with({ value });
+    ctx.debug("Disabled {value}");
+    ctx.debug`Disabled`;
+    ctx.debug(() => assert.fail("callback should not be called"));
+
+    assert.strictEqual(evaluated, false);
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger skips calls with neither sinks nor filters", () => {
+  const parent = LoggerImpl.getLogger(["no-sinks-skip-test"]);
+  const logger = parent.getChild("child");
+  parent.parentSinks = "override";
+
+  try {
+    let evaluated = false;
+    const ctx = logger.with({
+      value: lazy(() => {
+        evaluated = true;
+        return "computed";
+      }),
+    });
+
+    ctx.info`No destination`;
+    ctx.info(() => assert.fail("callback should not be called"));
+    assert.strictEqual(evaluated, false);
+
+    // A sink added afterwards takes effect immediately:
+    const records: LogRecord[] = [];
+    parent.sinks.push((record) => records.push(record));
+    ctx.info`Has destination`;
+    assert.strictEqual(evaluated, true);
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].properties.value, "computed");
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("Logger still runs filters when there are no sinks", () => {
+  const parent = LoggerImpl.getLogger(["no-sinks-filter-test"]);
+  const logger = parent.getChild("child");
+  parent.parentSinks = "override";
+
+  try {
+    const filtered: LogRecord[] = [];
+    parent.filters.push((record) => {
+      filtered.push(record);
+      return true;
+    });
+    logger.info("Seen by the filter");
+    assert.strictEqual(filtered.length, 1);
+    assert.deepStrictEqual(filtered[0].message, ["Seen by the filter"]);
+
+    // A filter may add the sink that receives the very same record:
+    const records: LogRecord[] = [];
+    parent.filters.push(() => {
+      if (parent.sinks.length < 1) {
+        parent.sinks.push((record) => records.push(record));
+      }
+      return true;
+    });
+    logger.info("Delivered");
+    assert.strictEqual(records.length, 1);
+    assert.deepStrictEqual(records[0].message, ["Delivered"]);
+
+    parent.filters.push(() => {
+      throw new Error("filter error");
+    });
+    assert.throws(() => logger.info("Throws"), { message: "filter error" });
+  } finally {
+    parent.resetDescendants();
+  }
+});

@@ -388,6 +388,43 @@ test("withCategoryPrefix() routes records by the prefixed category", async () =>
   }
 });
 
+test("withCategoryPrefix() enables records the unprefixed logger disables", async () => {
+  const buffer: LogRecord[] = [];
+
+  await configure({
+    sinks: {
+      buffer: buffer.push.bind(buffer),
+    },
+    loggers: [
+      { category: "database", sinks: ["buffer"], lowestLevel: "warning" },
+      { category: "sdk", sinks: ["buffer"], lowestLevel: "debug" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "warning" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    const logger = getLogger("database");
+    logger.debug("hidden");
+    logger.debug`hidden`;
+    assert.deepStrictEqual(buffer.length, 0);
+
+    withCategoryPrefix("sdk", () => {
+      logger.debug("shown");
+      logger.debug`shown`;
+      logger.with({ a: 1 }).debug(() => ["shown"]);
+    });
+    assert.deepStrictEqual(buffer.length, 3);
+    for (const record of buffer) {
+      assert.deepStrictEqual(record.category, ["sdk", "database"]);
+      assert.deepStrictEqual(record.level, "debug");
+    }
+  } finally {
+    await reset();
+  }
+});
+
 test("withCategoryPrefix() uses the deepest configured prefixed logger", async () => {
   const buffer: LogRecord[] = [];
   const filteredCategories: (readonly string[])[] = [];
