@@ -1,6 +1,6 @@
 {
   "name": "@logtape/fastify",
-  "version": "2.3.8",
+  "version": "2.3.9",
   "description": "Fastify adapter for LogTape logging library",
   "keywords": [
     "logging",
