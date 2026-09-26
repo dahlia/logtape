@@ -4,7 +4,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { withCategoryPrefix, withContext } from "./context.ts";
 import type { Filter } from "./filter.ts";
-import { getLogger, LoggerImpl } from "./logger.ts";
+import { getLogger, lazy, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import {
   compileScopedConfig,
@@ -1510,6 +1510,77 @@ test("withConfig() preserves callback and disposal errors", async () => {
     );
   } finally {
     await reset();
+  }
+});
+
+test("withConfigSync() enables records the global configuration disables", () => {
+  const globalRecords: LogRecord[] = [];
+  const scopedRecords: LogRecord[] = [];
+
+  configureSync({
+    sinks: { global: (record) => globalRecords.push(record) },
+    loggers: [
+      { category: "app", sinks: ["global"], lowestLevel: "warning" },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    withConfigSync({
+      sinks: { scoped: (record) => scopedRecords.push(record) },
+      loggers: [{ category: "app", sinks: ["scoped"], lowestLevel: "debug" }],
+    }, () => {
+      const logger = getLogger("app");
+      logger.debug("string");
+      logger.debug`template`;
+      logger.with({ a: 1 }).debug((l) => l`callback`);
+    });
+
+    assert.deepStrictEqual(globalRecords.length, 0);
+    assert.deepStrictEqual(
+      scopedRecords.map((record) => record.message),
+      [["string"], ["template"], ["callback"]],
+    );
+  } finally {
+    resetSync();
+  }
+});
+
+test("withConfigSync() skips records the scoped configuration drops", () => {
+  const globalRecords: LogRecord[] = [];
+
+  configureSync({
+    sinks: { global: (record) => globalRecords.push(record) },
+    loggers: [
+      { category: "app", sinks: ["global"], lowestLevel: "debug" },
+      { category: ["logtape", "meta"], sinks: [] },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    let evaluated = false;
+    withConfigSync({
+      sinks: { scoped: () => assert.fail("sink should not be called") },
+      loggers: [{ category: "other", sinks: ["scoped"] }],
+    }, () => {
+      const logger = getLogger("app").with({
+        value: lazy(() => {
+          evaluated = true;
+          return "computed";
+        }),
+      });
+      logger.debug`template`;
+      logger.debug(() => assert.fail("callback should not be called"));
+    });
+
+    assert.deepStrictEqual(evaluated, false);
+    assert.deepStrictEqual(globalRecords.length, 0);
+  } finally {
+    resetSync();
   }
 });
 

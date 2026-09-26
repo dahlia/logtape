@@ -1887,12 +1887,6 @@ export class LoggerImpl implements Logger {
     const categoryPrefix = isMetaLoggerCategory(this.category)
       ? []
       : getCategoryPrefix();
-    const dispatcher = categoryPrefix.length > 0
-      ? LoggerImpl.getNearestExistingLogger([
-        ...categoryPrefix,
-        ...this.category,
-      ])
-      : this;
     const scopedConfig = getCurrentScopedConfig(
       LoggerImpl.getLogger().contextLocalStorage,
     );
@@ -1905,11 +1899,108 @@ export class LoggerImpl implements Logger {
         level,
       );
     }
-    return dispatcher.isEnabledForResolved(level);
+    return this.getDispatcher(categoryPrefix).isEnabledForResolved(level);
   }
 
+  /**
+   * Checks whether a record of the given level logged through this logger
+   * would certainly be dropped without being seen by any filter or sink.
+   * Logging methods use this to return before building a record.
+   *
+   * This assumes the context-local storage's store does not change between
+   * synchronous reads within a single logging call, which holds for
+   * `AsyncLocalStorage` and for the stores set up by `withContext()`,
+   * `withCategoryPrefix()`, and `withConfig()`.
+   * @param level The log level of the record.
+   * @returns `true` if emitting such a record would have no observable
+   *          effect, `false` otherwise.
+   */
+  isCertainlyDropped(level: LogLevel): boolean {
+    const categoryPrefix = isMetaLoggerCategory(this.category)
+      ? []
+      : getCategoryPrefix();
+    const scopedConfig = getCurrentScopedConfig(
+      LoggerImpl.getLogger().contextLocalStorage,
+    );
+    if (scopedConfig != null) {
+      // A scoped configuration replaces the logger tree entirely, and
+      // emitWithScopedConfig() looks up its sinks before running any of its
+      // filters:
+      return !scopedConfigHasSink(
+        scopedConfig,
+        categoryPrefix.length > 0
+          ? [...categoryPrefix, ...this.category]
+          : this.category,
+        level,
+      );
+    }
+    const dispatcher = this.getDispatcher(categoryPrefix);
+    // emitResolved() checks the dispatcher's own lowestLevel before running
+    // any filter:
+    if (
+      dispatcher.lowestLevel === null ||
+      compareLogLevel(level, dispatcher.lowestLevel) < 0
+    ) {
+      return true;
+    }
+    // Filters run before sinks are looked up, so a record can be skipped
+    // only when there is neither a filter to see it nor a sink to take it:
+    return !dispatcher.isEnabledForResolved(level) &&
+      !dispatcher.hasEffectiveFilters();
+  }
+
+  /**
+   * Resolves the logger that actually dispatches records logged through this
+   * logger under the given category prefix.  It must stay in sync with
+   * the dispatcher resolution in {@link LoggerImpl.emit}.
+   */
+  private getDispatcher(categoryPrefix: readonly string[]): LoggerImpl {
+    return categoryPrefix.length > 0
+      ? LoggerImpl.getNearestExistingLogger([
+        ...categoryPrefix,
+        ...this.category,
+      ])
+      : this;
+  }
+
+  /**
+   * Checks whether {@link LoggerImpl.filter} would run any filter, i.e.,
+   * whether this logger or any of its ancestors has a filter.
+   */
+  private hasEffectiveFilters(): boolean {
+    if (this.filters.length > 0) return true;
+    return this.parent?.hasEffectiveFilters() ?? false;
+  }
+
+  /**
+   * Checks whether {@link LoggerImpl.getSinks} would yield any sink for
+   * the given level, without building or validating sink dispatch plans.
+   * It must stay in sync with {@link LoggerImpl.createSinkDispatchPlan}.
+   */
   private isEnabledForResolved(level: LogLevel): boolean {
-    return this.getSinkDispatchPlan(level).kind !== "none";
+    if (
+      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
+    ) {
+      return false;
+    }
+    if (this.sinks.length > 0) return true;
+    if (this.parent == null) return false;
+    if (this.parentSinks === "inherit") {
+      return this.parent.isEnabledForResolved(level);
+    }
+    if (this.parentSinks === "forward") return this.parent.hasForwardSinks();
+    return false;
+  }
+
+  /**
+   * Checks whether {@link LoggerImpl.getForwardSinkPlan} would collect any
+   * sink, i.e., whether this logger or an ancestor up to and including the
+   * nearest one whose `parentSinks` is `"override"` has local sinks.
+   */
+  private hasForwardSinks(): boolean {
+    if (this.sinks.length > 0) return true;
+    return this.parent != null && this.parentSinks !== "override" &&
+      this.parent.hasForwardSinks();
   }
 
   emit(record: Omit<LogRecord, "category">): void;
@@ -2068,6 +2159,7 @@ export class LoggerImpl implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
+    if (this.isCertainlyDropped(level)) return;
     const implicitContext = getImplicitContextIfAny();
     if (
       typeof properties !== "function" &&
@@ -2142,6 +2234,7 @@ export class LoggerImpl implements Logger {
     callback: LogCallback,
     properties: Record<string, unknown> = {},
   ): void {
+    if (this.isCertainlyDropped(level)) return;
     const implicitContext = getImplicitContextIfAny();
     let rawMessage: TemplateStringsArray | undefined = undefined;
     let msg: unknown[] | undefined = undefined;
@@ -2175,6 +2268,7 @@ export class LoggerImpl implements Logger {
     values: unknown[],
     properties: Record<string, unknown> = {},
   ): void {
+    if (this.isCertainlyDropped(level)) return;
     const implicitContext = getImplicitContextIfAny();
     this.emit({
       category: this.category,
@@ -2523,6 +2617,7 @@ export class LoggerCtx implements Logger {
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
   ): void {
+    if (this.logger.isCertainlyDropped(level)) return;
     const contextProps = this.properties;
     this.logger.log(
       level,
@@ -2539,6 +2634,7 @@ export class LoggerCtx implements Logger {
   }
 
   logLazily(level: LogLevel, callback: LogCallback): void {
+    if (this.logger.isCertainlyDropped(level)) return;
     this.logger.logLazily(level, callback, resolveProperties(this.properties));
   }
 
@@ -2547,6 +2643,7 @@ export class LoggerCtx implements Logger {
     messageTemplate: TemplateStringsArray,
     values: unknown[],
   ): void {
+    if (this.logger.isCertainlyDropped(level)) return;
     this.logger.logTemplate(
       level,
       messageTemplate,
