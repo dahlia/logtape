@@ -8,6 +8,22 @@ Version 2.1.15
 
 To be released.
 
+### @logtape/logtape
+
+ -  Improved the performance of logging calls that are disabled by the
+    logger's `lowestLevel`, or whose category has neither a sink nor a filter
+    to reach.  Such calls now return before building a log record, instead of
+    building and then discarding one.  For example, `logger.debug("...")` on
+    a logger configured with `lowestLevel: "info"` is now over a hundred times
+    faster on Node.js and Deno.  [[#227], [#228]]
+
+    As a result, `lazy()` values given to `Logger.with()` are no longer
+    evaluated for such calls made with a template literal or a callback,
+    matching the behavior of calls made with a message string.
+
+[#227]: https://github.com/dahlia/logtape/issues/227
+[#228]: https://github.com/dahlia/logtape/pull/228
+
 
 Version 2.1.14
 --------------
@@ -468,6 +484,25 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.24
+--------------
+
+Released on September 26, 2026.
+
+### @logtape/logtape
+
+ -  Improved the performance of logging calls that are disabled by the
+    logger's `lowestLevel`, or whose category has neither a sink nor a filter
+    to reach.  Such calls now return before building a log record, instead of
+    building and then discarding one.  For example, `logger.debug("...")` on
+    a logger configured with `lowestLevel: "info"` is now over a hundred times
+    faster on Node.js and Deno.  [[#227], [#228]]
+
+    As a result, `lazy()` values given to `Logger.with()` are no longer
+    evaluated for such calls made with a template literal or a callback,
+    matching the behavior of calls made with a message string.
 
 
 Version 2.0.23
