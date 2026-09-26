@@ -4,6 +4,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { withCategoryPrefix, withContext } from "./context.ts";
 import type { Filter } from "./filter.ts";
+import { countRecordWork } from "./fixtures.ts";
 import { getLogger, lazy, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import {
@@ -1573,8 +1574,12 @@ test("withConfigSync() skips records the scoped configuration drops", () => {
           return "computed";
         }),
       });
-      logger.debug`template`;
-      logger.debug(() => assert.fail("callback should not be called"));
+      const work = countRecordWork(() => {
+        logger.debug("plain");
+        logger.debug`template`;
+        logger.debug(() => assert.fail("callback should not be called"));
+      });
+      assert.deepStrictEqual(work, { timestamps: 0, descriptorCopies: 0 });
     });
 
     assert.deepStrictEqual(evaluated, false);

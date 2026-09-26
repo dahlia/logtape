@@ -8,7 +8,7 @@ import {
   withContext,
 } from "./context.ts";
 import { toFilter } from "./filter.ts";
-import { debug, error, info, warning } from "./fixtures.ts";
+import { countRecordWork, debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
 import {
   getLogger,
@@ -3980,5 +3980,149 @@ test("Logger still runs filters when there are no sinks", () => {
     assert.throws(() => logger.info("Throws"), { message: "filter error" });
   } finally {
     parent.resetDescendants();
+  }
+});
+
+// Logs once in every public logging form below the fatal level, and returns
+// the number of calls made.  Keep this in sync with the Logger interface: a
+// form missing here is a form the record-work tests cannot catch regressing.
+function logInAllForms(logger: Logger): number {
+  const error = new Error("Test error.");
+  logger.trace("Plain message.");
+  logger.debug("Message with {value}.", { value: 1 });
+  logger.debug("Message with lazy {value}.", () => ({ value: 1 }));
+  logger.info({ value: 1 });
+  logger.info`Template with ${1}.`;
+  logger.info((l) => l`Callback with ${1}.`);
+  logger.warn(error);
+  logger.warning("Message with {error}.", error);
+  logger.error(error, { value: 1 });
+  logger.error(error, () => ({ value: 1 }));
+  logger.error("Message with {error}.", error);
+  return 11;
+}
+
+const noRecordWork = { timestamps: 0, descriptorCopies: 0 };
+
+test("Logger builds records for enabled calls in all forms", () => {
+  const logger = LoggerImpl.getLogger(["record-work-enabled-test"]);
+  logger.parentSinks = "override";
+  logger.sinks.push(() => {});
+
+  const root = LoggerImpl.getLogger();
+  const prefixed = LoggerImpl.getLogger([
+    "record-work-enabled-prefix",
+    "record-work-enabled-test",
+  ]);
+  prefixed.parentSinks = "override";
+  prefixed.sinks.push(() => {});
+
+  try {
+    // A positive control: if building a record stopped taking a timestamp,
+    // the record-work tests would pass without proving anything.
+    for (const target of [logger, logger.with({ a: 1 })]) {
+      let calls = 0;
+      const work = countRecordWork(() => {
+        calls = logInAllForms(target);
+      });
+      assert.ok(work.timestamps >= calls, JSON.stringify(work));
+    }
+
+    // The same for descriptor copies, which only a category prefix makes:
+    root.contextLocalStorage = new TestContextLocalStorage();
+    const work = countRecordWork(() => {
+      withCategoryPrefix("record-work-enabled-prefix", () => {
+        logger.info("Prefixed message.");
+      });
+    });
+    assert.ok(work.descriptorCopies > 0, JSON.stringify(work));
+  } finally {
+    root.contextLocalStorage = undefined;
+    logger.resetDescendants();
+    LoggerImpl.getLogger(["record-work-enabled-prefix"]).resetDescendants();
+  }
+});
+
+test("Logger does not build records for level-disabled calls", () => {
+  const logger = LoggerImpl.getLogger(["record-work-level-test"]);
+  logger.parentSinks = "override";
+  logger.lowestLevel = "fatal";
+  logger.sinks.push(() => assert.fail("sink should not be called"));
+  logger.filters.push(() => assert.fail("filter should not be called"));
+
+  try {
+    for (const target of [logger, logger.with({ a: 1 })]) {
+      assert.deepStrictEqual(
+        countRecordWork(() => logInAllForms(target)),
+        noRecordWork,
+      );
+    }
+  } finally {
+    logger.resetDescendants();
+  }
+});
+
+test("Logger does not build records for categories without sinks", () => {
+  const parent = LoggerImpl.getLogger(["record-work-no-sinks-test"]);
+  const logger = parent.getChild(["library", "module"]);
+  parent.parentSinks = "override";
+
+  try {
+    for (const target of [logger, logger.with({ a: 1 })]) {
+      assert.deepStrictEqual(
+        countRecordWork(() => {
+          logInAllForms(target);
+          // Without sinks, fatal() calls are dropped as well:
+          target.fatal("Plain message.");
+          target.fatal({ value: 1 });
+          target.fatal`Template with ${1}.`;
+          target.fatal((l) => l`Callback with ${1}.`);
+          target.fatal(new Error("Test error."));
+        }),
+        noRecordWork,
+      );
+    }
+  } finally {
+    parent.resetDescendants();
+  }
+});
+
+test("Logger does not build records for disabled calls under a context", () => {
+  const root = LoggerImpl.getLogger();
+  const logger = LoggerImpl.getLogger(["record-work-context-test"]);
+  const prefixed = LoggerImpl.getLogger([
+    "record-work-prefix",
+    "record-work-context-test",
+  ]);
+  logger.parentSinks = "override";
+  logger.sinks.push(() => {});
+  prefixed.parentSinks = "override";
+  prefixed.lowestLevel = "fatal";
+  prefixed.sinks.push(() => assert.fail("sink should not be called"));
+
+  try {
+    root.contextLocalStorage = new TestContextLocalStorage();
+    logger.lowestLevel = "fatal";
+    // An implicit context is active, so the record would carry it:
+    withContext({ requestId: "req-1" }, () => {
+      assert.deepStrictEqual(
+        countRecordWork(() => logInAllForms(logger)),
+        noRecordWork,
+      );
+    });
+
+    // The logger itself is enabled, but a category prefix routes its records
+    // to a disabled one:
+    logger.lowestLevel = "trace";
+    withCategoryPrefix("record-work-prefix", () => {
+      assert.deepStrictEqual(
+        countRecordWork(() => logInAllForms(logger)),
+        noRecordWork,
+      );
+    });
+  } finally {
+    root.contextLocalStorage = undefined;
+    logger.resetDescendants();
+    LoggerImpl.getLogger(["record-work-prefix"]).resetDescendants();
   }
 });
