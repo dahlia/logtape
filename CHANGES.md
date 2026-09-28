@@ -8,6 +8,13 @@ Version 2.2.12
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed orphaned JSDoc comments in the npm package's generated TypeScript
+    declarations.  [[#229]]
+
+[#229]: https://github.com/dahlia/logtape/issues/229
+
 
 Version 2.2.11
 --------------
@@ -559,6 +566,17 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.16
+--------------
+
+Released on September 28, 2026.
+
+### @logtape/logtape
+
+ -  Fixed orphaned JSDoc comments in the npm package's generated TypeScript
+    declarations.  [[#229]]
+
+
 Version 2.1.15
 --------------
 
@@ -1012,6 +1030,17 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.25
+--------------
+
+Released on September 28, 2026.
+
+### @logtape/logtape
+
+ -  Fixed orphaned JSDoc comments in the npm package's generated TypeScript
+    declarations.  [[#229]]
 
 
 Version 2.0.24
