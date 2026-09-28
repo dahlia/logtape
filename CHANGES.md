@@ -8,6 +8,13 @@ Version 2.0.25
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed orphaned JSDoc comments in the npm package's generated TypeScript
+    declarations.  [[#229]]
+
+[#229]: https://github.com/dahlia/logtape/issues/229
+
 
 Version 2.0.24
 --------------
