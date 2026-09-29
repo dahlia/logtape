@@ -1,6 +1,6 @@
 {
   "name": "@logtape/koa",
-  "version": "2.2.13",
+  "version": "2.2.14",
   "description": "Koa adapter for LogTape logging library",
   "keywords": [
     "logging",

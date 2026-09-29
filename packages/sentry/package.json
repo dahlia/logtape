@@ -1,6 +1,6 @@
 {
   "name": "@logtape/sentry",
-  "version": "2.2.13",
+  "version": "2.2.14",
   "description": "LogTape Sentry sink",
   "keywords": [
     "LogTape",
