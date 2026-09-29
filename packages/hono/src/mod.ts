@@ -435,8 +435,16 @@ export function honoLogger(
     // is wrapped with a default controller.
     let supportsByob = false;
     try {
-      body.getReader({ mode: "byob" }).releaseLock();
-      supportsByob = true;
+      const reader = body.getReader({ mode: "byob" });
+      try {
+        // Some stream ponyfills ignore the mode and return a default reader.
+        // The native method checks the reader's brand, including across realms,
+        // before releasing the probe's lock.
+        ReadableStreamBYOBReader.prototype.releaseLock.call(reader);
+        supportsByob = true;
+      } catch {
+        reader.releaseLock();
+      }
     } catch {
       // Not a byte stream.
     }
@@ -455,7 +463,11 @@ export function honoLogger(
         if (wrapperFinished) return;
         wrapperFinished = true;
         complete();
-        action();
+        try {
+          action();
+        } catch (error) {
+          controller?.error(error);
+        }
       };
       // `closed` resolves once the source queue has been drained, so observing
       // it lets an idle consumer that awaits `reader.closed` finish without an
@@ -489,28 +501,26 @@ export function honoLogger(
         async pull(ctrl) {
           controller = ctrl;
           reading = true;
-          let result: ReadableStreamReadResult<Uint8Array>;
           try {
-            result = await reader.read();
+            const result = await reader.read();
+            reading = false;
+            if (wrapperFinished) return;
+            if (pendingError !== undefined) {
+              if (!result.done) ctrl.enqueue(result.value);
+              const error = pendingError.value;
+              pendingError = undefined;
+              finish(() => ctrl.error(error));
+              return;
+            }
+            if (result.done) {
+              finish(() => ctrl.close());
+            } else {
+              ctrl.enqueue(result.value);
+              closeWhenIdle();
+            }
           } catch (error) {
             reading = false;
             finish(() => ctrl.error(error));
-            return;
-          }
-          reading = false;
-          if (wrapperFinished) return;
-          if (pendingError !== undefined) {
-            if (!result.done) ctrl.enqueue(result.value);
-            const error = pendingError.value;
-            pendingError = undefined;
-            finish(() => ctrl.error(error));
-            return;
-          }
-          if (result.done) {
-            finish(() => ctrl.close());
-          } else {
-            ctrl.enqueue(result.value);
-            closeWhenIdle();
           }
         },
         cancel(reason) {
@@ -545,7 +555,11 @@ export function honoLogger(
       if (wrapperFinished) return;
       wrapperFinished = true;
       complete();
-      action();
+      try {
+        action();
+      } catch (error) {
+        controller?.error(error);
+      }
     };
     const closeWhenIdle = (): void => {
       if (!sourceClosed || wrapperFinished || reading) return;
@@ -609,46 +623,44 @@ export function honoLogger(
       },
       async pull(ctrl: ReadableByteStreamController) {
         controller = ctrl;
-        const request = ctrl.byobRequest;
-        const wantByob = request != null;
-        if (sourceReader == null) {
-          acquireReader(wantByob);
-        } else if (wantByob !== sourceIsByob) {
-          sourceReader.releaseLock();
-          acquireReader(wantByob);
-        }
-        reading = true;
-        let result: ReadableStreamReadResult<Uint8Array>;
         try {
-          result = sourceIsByob
+          const request = ctrl.byobRequest;
+          const wantByob = request != null;
+          if (sourceReader == null) {
+            acquireReader(wantByob);
+          } else if (wantByob !== sourceIsByob) {
+            sourceReader.releaseLock();
+            acquireReader(wantByob);
+          }
+          reading = true;
+          const result = sourceIsByob
             ? await (sourceReader as ReadableStreamBYOBReader).read(
               new Uint8Array(request?.view?.byteLength ?? byobBufferSize),
             )
             : await (sourceReader as ReadableStreamDefaultReader<Uint8Array>)
               .read();
+          reading = false;
+          if (wrapperFinished) return;
+          if (pendingError !== undefined) {
+            if (!result.done) ctrl.enqueue(result.value);
+            const error = pendingError.value;
+            pendingError = undefined;
+            finish(() => ctrl.error(error));
+            return;
+          }
+          if (result.done) {
+            finish(() => {
+              ctrl.close();
+              ctrl.byobRequest?.respond(0);
+            });
+            return;
+          }
+          ctrl.enqueue(result.value);
+          closeWhenIdle();
         } catch (error) {
           reading = false;
           finish(() => ctrl.error(error));
-          return;
         }
-        reading = false;
-        if (wrapperFinished) return;
-        if (pendingError !== undefined) {
-          if (!result.done) ctrl.enqueue(result.value);
-          const error = pendingError.value;
-          pendingError = undefined;
-          finish(() => ctrl.error(error));
-          return;
-        }
-        if (result.done) {
-          finish(() => {
-            ctrl.close();
-            ctrl.byobRequest?.respond(0);
-          });
-          return;
-        }
-        ctrl.enqueue(result.value);
-        closeWhenIdle();
       },
       cancel(reason) {
         finish(() => {});
