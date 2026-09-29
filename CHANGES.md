@@ -8,6 +8,16 @@ Version 2.1.17
 
 To be released.
 
+### @logtape/hono
+
+ -  Fixed response body failures and process crashes when `honoLogger()` was
+    used with GraphQL Yoga responses.  Stream forwarding failures now cancel
+    the source and finalize request logging without causing unhandled
+    rejections.  [[#230], [#231]]
+
+[#230]: https://github.com/dahlia/logtape/issues/230
+[#231]: https://github.com/dahlia/logtape/pull/231
+
 
 Version 2.1.16
 --------------
@@ -503,6 +513,19 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.26
+--------------
+
+Released on September 29, 2026.
+
+### @logtape/hono
+
+ -  Fixed response body failures and process crashes when `honoLogger()` was
+    used with GraphQL Yoga responses.  Stream forwarding failures now cancel
+    the source and finalize request logging without causing unhandled
+    rejections.  [[#230], [#231]]
 
 
 Version 2.0.25
