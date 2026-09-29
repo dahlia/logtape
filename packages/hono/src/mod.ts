@@ -449,6 +449,34 @@ export function honoLogger(
       // Not a byte stream.
     }
 
+    // A forwarding failure makes the wrapper unusable.  Cancel the producer
+    // and release its lock even if cleanup rejects, preserving the original
+    // response error and keeping cleanup failures out of unhandled rejections.
+    const cancelReader = async (
+      reader:
+        | ReadableStreamDefaultReader<Uint8Array>
+        | ReadableStreamBYOBReader,
+      reason: unknown,
+    ): Promise<void> => {
+      try {
+        try {
+          await reader.cancel(reason);
+        } finally {
+          reader.releaseLock();
+        }
+      } catch (error) {
+        // Cancelling an already-errored source rejects with its original error.
+        if (error === reason) return;
+        try {
+          metaLogger.error("Failed to cancel a Hono response body: {error}", {
+            error,
+          });
+        } catch {
+          // Last resort: logging must never affect the response.
+        }
+      }
+    };
+
     if (!supportsByob) {
       const reader = body.getReader();
       let reading = false;
@@ -521,6 +549,7 @@ export function honoLogger(
           } catch (error) {
             reading = false;
             finish(() => ctrl.error(error));
+            await cancelReader(reader, error);
           }
         },
         cancel(reason) {
@@ -660,6 +689,7 @@ export function honoLogger(
         } catch (error) {
           reading = false;
           finish(() => ctrl.error(error));
+          if (sourceReader != null) await cancelReader(sourceReader, error);
         }
       },
       cancel(reason) {
