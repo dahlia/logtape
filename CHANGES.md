@@ -75,6 +75,23 @@ To be released.
 [#214]: https://github.com/dahlia/logtape/pull/214
 
 
+Version 2.3.10
+--------------
+
+Released on September 29, 2026.
+
+### @logtape/hono
+
+ -  Fixed response body failures and process crashes when `honoLogger()` was
+    used with GraphQL Yoga responses.  Stream forwarding failures now cancel
+    the source and finalize request logging without causing unhandled
+    rejections.
+    [[#230], [#231]]
+
+[#230]: https://github.com/dahlia/logtape/issues/230
+[#231]: https://github.com/dahlia/logtape/pull/231
+
+
 Version 2.3.9
 -------------
 
@@ -572,6 +589,19 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.13
+--------------
+
+Released on September 29, 2026.
+
+### @logtape/hono
+
+ -  Fixed response body failures and process crashes when `honoLogger()` was
+    used with GraphQL Yoga responses.  Stream forwarding failures now cancel
+    the source and finalize request logging without causing unhandled
+    rejections.  [[#230], [#231]]
 
 
 Version 2.2.12
@@ -1106,6 +1136,19 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.17
+--------------
+
+Released on September 29, 2026.
+
+### @logtape/hono
+
+ -  Fixed response body failures and process crashes when `honoLogger()` was
+    used with GraphQL Yoga responses.  Stream forwarding failures now cancel
+    the source and finalize request logging without causing unhandled
+    rejections.  [[#230], [#231]]
+
+
 Version 2.1.16
 --------------
 
@@ -1570,6 +1613,19 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.26
+--------------
+
+Released on September 29, 2026.
+
+### @logtape/hono
+
+ -  Fixed response body failures and process crashes when `honoLogger()` was
+    used with GraphQL Yoga responses.  Stream forwarding failures now cancel
+    the source and finalize request logging without causing unhandled
+    rejections.  [[#230], [#231]]
 
 
 Version 2.0.25
