@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { Buffer } from "node:buffer";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -1188,6 +1189,150 @@ test("honoLogger(): preserves default-stream chunk semantics", async () => {
     await cleanup();
   }
 });
+
+test("honoLogger(): accepts streams that ignore the BYOB reader mode", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    // Yoga's stream ponyfill accepts the BYOB option but returns a default
+    // reader and pooled Buffers.  Their storage must never be transferred.
+    const shared = Buffer.from("hello");
+    const chunks = [
+      new Uint8Array(0),
+      shared.subarray(0, 2),
+      shared.subarray(2),
+    ];
+    const bufferSize = shared.buffer.byteLength;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+    const getReader = source.getReader.bind(source);
+    Object.defineProperty(source, "getReader", {
+      value: () => getReader(),
+    });
+    const app = new Hono();
+    app.use(honoLogger());
+    app.get("/ponyfill", () => new Response(source));
+
+    const res = await app.request("/ponyfill");
+    assert.strictEqual(logs.length, 0);
+    assert.throws(() => res.body!.getReader({ mode: "byob" }), TypeError);
+    const reader = res.body!.getReader();
+    for (const chunk of chunks) {
+      const result = await reader.read();
+      assert.strictEqual(result.done, false);
+      assert.strictEqual(result.value, chunk);
+    }
+    assert.strictEqual((await reader.read()).done, true);
+    assert.strictEqual(shared.buffer.byteLength, bufferSize);
+    assert.strictEqual(shared.toString(), "hello");
+    assert.strictEqual(logs.length, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+for (const byteStream of [false, true]) {
+  for (const cancellationFails of [false, true]) {
+    test(
+      `honoLogger(): finalizes a ${
+        byteStream ? "byte" : "default"
+      } stream when forwarding fails${
+        cancellationFails ? " and cancellation rejects" : ""
+      }`,
+      async () => {
+        const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+        try {
+          const failure = new Error("cannot forward chunk");
+          const cancellationFailure = new Error("cannot cancel source");
+          const cancellationReasons: unknown[] = [];
+          const cancel = (reason: unknown): void => {
+            cancellationReasons.push(reason);
+            if (cancellationFails) throw cancellationFailure;
+          };
+          let resolveSourceClosed!: () => void;
+          const sourceClosed = new Promise<void>((resolve) => {
+            resolveSourceClosed = resolve;
+          });
+          const bytes = new TextEncoder().encode("only");
+          const source = byteStream
+            ? new ReadableStream({
+              type: "bytes",
+              start(controller: ReadableByteStreamController) {
+                controller.enqueue(bytes);
+              },
+              cancel,
+            })
+            : new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(bytes);
+              },
+              cancel,
+            });
+          const getReader = source.getReader.bind(source);
+          Object.defineProperty(source, "getReader", {
+            value: (options?: ReadableStreamGetReaderOptions) => {
+              if (options?.mode === "byob") return getReader({ mode: "byob" });
+              const reader = getReader();
+              // Yoga signals closure after forwarding has failed, rather than
+              // before the read settles as a native stream commonly does.
+              Object.defineProperty(reader, "closed", { value: sourceClosed });
+              const read = reader.read.bind(reader);
+              reader.read = async () => {
+                const result = await read();
+                if (result.done) return result;
+                if (byteStream) {
+                  // Exercise a byte-controller enqueue failure while the
+                  // source is still open, independently of BYOB detection.
+                  return { done: false, value: new Uint8Array(0) };
+                }
+                return {
+                  done: false,
+                  get value(): Uint8Array {
+                    throw failure;
+                  },
+                };
+              };
+              return reader;
+            },
+          });
+          const app = new Hono();
+          app.use(honoLogger());
+          app.get("/failure", () => new Response(source));
+
+          const res = await app.request("/failure");
+          const reader = res.body!.getReader();
+          const matchesFailure = (error: unknown): boolean =>
+            byteStream ? error instanceof TypeError : error === failure;
+          await assert.rejects(reader.read(), matchesFailure);
+          await assert.rejects(reader.closed, matchesFailure);
+          // Late source closure must not try to close the errored wrapper.
+          // The test runner detects an unhandled rejection from that callback.
+          resolveSourceClosed();
+          await delay(0);
+          assert.strictEqual(cancellationReasons.length, 1);
+          assert.ok(matchesFailure(cancellationReasons[0]));
+          assert.strictEqual(source.locked, false);
+          assert.strictEqual(
+            logs.filter((log) => log.category[0] === "hono").length,
+            1,
+          );
+          const cancellationLogs = logs.filter((log) =>
+            log.properties.error === cancellationFailure
+          );
+          assert.strictEqual(
+            cancellationLogs.length,
+            cancellationFails ? 1 : 0,
+          );
+        } finally {
+          await cleanup();
+        }
+      },
+    );
+  }
+}
 
 test("honoLogger(): logs null-body responses immediately", async () => {
   const { logs, cleanup } = await setupLogtape();
