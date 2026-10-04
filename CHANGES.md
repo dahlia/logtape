@@ -6,7 +6,7 @@ LogTape changelog
 Version 2.3.11
 --------------
 
-To be released.
+Released on October 4, 2026.
 
 ### @logtape/sentry
 
