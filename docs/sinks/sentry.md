@@ -134,7 +134,9 @@ import { getSentrySink } from "@logtape/sentry";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
-  enableLogs: true,  // Only for Sentry SDK 9.x and 10.x
+  // Sentry SDK 9.41.0 through 10.x only; remove this line on SDK 11+,
+  // which no longer has this option:
+  enableLogs: true,
 });
 
 await configure({
@@ -152,9 +154,9 @@ and uses it for structured logging. When unavailable, logs are sent as events
 and breadcrumbs only.
 
 Whether the Logs API actually captures logs is up to the Sentry SDK.  Sentry
-SDK 9.x and 10.x capture them only when `enableLogs: true` is passed to
-`Sentry.init()`.  Sentry SDK 11.0.0 removed the `enableLogs` option and always
-captures them.
+SDK 9.41.0 through 10.x capture them only when `enableLogs: true` is passed to
+`Sentry.init()`.  Sentry SDK 11.0.0 captures them without it, and since it
+removed the `enableLogs` option, passing it there fails type checking.
 
 
 Filtering and transformation
