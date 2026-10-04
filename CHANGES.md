@@ -3,10 +3,20 @@
 LogTape changelog
 =================
 
-Versiom 2.0.27
+Version 2.0.27
 --------------
 
 To be released.
+
+### @logtape/sentry
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 11.0.0 or later, which removed the `enableLogs` option.
+    The sink no longer checks the `enableLogs` option itself, and leaves it to
+    the Sentry SDK to decide whether to capture logs.  [[#232], [#233]]
+
+[#232]: https://github.com/dahlia/logtape/issues/232
+[#233]: https://github.com/dahlia/logtape/pull/233
 
 
 Version 2.0.26

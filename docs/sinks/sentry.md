@@ -132,7 +132,10 @@ import * as Sentry from "@sentry/node";
 import { configure } from "@logtape/logtape";
 import { getSentrySink } from "@logtape/sentry";
 
-Sentry.init({ dsn: process.env.SENTRY_DSN, enableLogs: true });
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  enableLogs: true,  // Only for Sentry SDK 9.x and 10.x
+});
 
 await configure({
   sinks: {
@@ -144,9 +147,14 @@ await configure({
 });
 ~~~~
 
-The sink automatically detects when the Logs API is available (SDK 9.41.0+ with
-`enableLogs: true`) and uses it for structured logging. When unavailable, logs
-are sent as events and breadcrumbs only.
+The sink automatically detects when the Logs API is available (SDK 9.41.0+)
+and uses it for structured logging. When unavailable, logs are sent as events
+and breadcrumbs only.
+
+Whether the Logs API actually captures logs is up to the Sentry SDK.  Sentry
+SDK 9.x and 10.x capture them only when `enableLogs: true` is passed to
+`Sentry.init()`.  Sentry SDK 11.0.0 removed the `enableLogs` option and always
+captures them.
 
 
 Filtering and transformation
@@ -220,9 +228,9 @@ logger.error("User not found: {userId}", { userId: 123 });
 logger.info("Request received", { path: "/api/users" });
 ~~~~
 
-All logs are sent to Sentry's structured logging (when `enableLogs: true`) and
-can become breadcrumbs (when `enableBreadcrumbs: true`), providing full context
-when errors occur.
+All logs are sent to Sentry's structured logging (when the Logs API is
+enabled) and can become breadcrumbs (when `enableBreadcrumbs: true`), providing
+full context when errors occur.
 
 For more details, see the `getSentrySink()` function and `SentrySinkOptions`
 interface in the API reference.

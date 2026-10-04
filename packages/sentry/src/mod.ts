@@ -317,25 +317,26 @@ export function getSentrySink(
         }
       }
 
-      // Send structured log if Sentry logging is enabled (v9.41.0+)
-      // Uses public logger API when available (SDK 9.41.0+)
-      const client = globalGetClient();
-      if (client) {
-        const { enableLogs, _experiments } = client.getOptions();
-        const loggingEnabled = enableLogs ?? _experiments?.enableLogs;
-
-        if (loggingEnabled && "logger" in SentryCore) {
-          const logLevel = mapLevelForLogs(transformed.level);
-          const sentryLogger = SentryCore.logger as unknown as
-            | Record<
-              string,
-              ((msg: ParameterizedString, attrs: unknown) => void)
-            >
-            | undefined;
-          const logFn = sentryLogger?.[logLevel];
-          if (typeof logFn === "function") {
-            logFn(paramMessage, attributes);
-          }
+      // Send structured log through Sentry's Logs API (v9.41.0+).  Whether
+      // logs are captured is left to the SDK: SDK 9.x and 10.x check their
+      // enableLogs option themselves, and SDK 11+ removed the option and
+      // always captures logs.
+      //
+      // SDK 9.x exports its internal debug logger as `logger` instead, which
+      // would print records to the console when the SDK's debug option is
+      // on, so only the structured logger (which has `fmt`) is used.
+      const sentryLogger = (SentryCore as Record<string, unknown>).logger as
+        | Record<string, unknown>
+        | undefined;
+      if (
+        globalGetClient() != null && typeof sentryLogger?.fmt === "function"
+      ) {
+        const logFn = sentryLogger[mapLevelForLogs(transformed.level)];
+        if (typeof logFn === "function") {
+          (logFn as (msg: ParameterizedString, attrs: unknown) => void)(
+            paramMessage,
+            attributes,
+          );
         }
       }
 
