@@ -30,8 +30,8 @@
     "npm:@opentelemetry/resources@^2.2.0": "2.2.0_@opentelemetry+api@1.9.0",
     "npm:@opentelemetry/sdk-logs@0.208": "0.208.0_@opentelemetry+api@1.9.0",
     "npm:@opentelemetry/semantic-conventions@^1.38.0": "1.38.0",
-    "npm:@sentry/core@^9.41.0": "9.47.1",
-    "npm:@sentry/core@^9.46.0": "9.47.1",
+    "npm:@sentry/core@^11.4.0": "11.4.0",
+    "npm:@sentry/core@^9.46.0": "9.47.2",
     "npm:@types/bun@^1.2.15": "1.2.16",
     "npm:@types/bun@^1.2.16": "1.2.16",
     "npm:@types/bunyan@^1.8.11": "1.8.11",
@@ -43,7 +43,7 @@
     "npm:aws-sdk-client-mock@4": "4.1.0",
     "npm:bunyan@^1.8.15": "1.8.15",
     "npm:consolemock@^1.1.0": "1.1.0",
-    "npm:elysia@^1.4.0": "1.4.19_@sinclair+typebox@0.34.41_@types+bun@1.2.16_exact-mirror@0.2.5__@sinclair+typebox@0.34.41_file-type@21.1.1_openapi-types@12.1.3",
+    "npm:elysia@^1.4.0": "1.4.19_@sinclair+typebox@0.34.41_@types+bun@1.2.16_exact-mirror@0.2.5_file-type@21.1.1_openapi-types@12.1.3",
     "npm:eslint@9": "9.39.4",
     "npm:express@^5.2.1": "5.2.1",
     "npm:fast-check@^4.7.0": "4.7.0",
@@ -67,7 +67,7 @@
     "npm:signale@^1.4.0": "1.4.0",
     "npm:tsdown@0.12.7": "0.12.7_rolldown@1.0.0-beta.11-commit.f051675",
     "npm:tsdown@~0.12.7": "0.12.7_rolldown@1.0.0-beta.11-commit.f051675",
-    "npm:vitest@^4.1.6": "4.1.9_@opentelemetry+api@1.9.0_@types+node@24.0.7_vite@8.1.2__@types+node@24.0.7",
+    "npm:vitest@^4.1.6": "4.1.9_@opentelemetry+api@1.9.0_@types+node@24.0.7_vite@8.1.2",
     "npm:winston-transport@^4.9.0": "4.9.0",
     "npm:winston@^3.17.0": "3.19.0",
     "npm:winston@^3.19.0": "3.19.0"
@@ -1328,8 +1328,17 @@
     "@rolldown/pluginutils@1.0.1": {
       "integrity": "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="
     },
-    "@sentry/core@9.47.1": {
-      "integrity": "sha512-KX62+qIt4xgy8eHKHiikfhz2p5fOciXd0Cl+dNzhgPFq8klq4MGMNaf148GB3M/vBqP4nw/eFvRMAayFCgdRQw=="
+    "@sentry/conventions@0.25.0": {
+      "integrity": "sha512-7SouCAX3qx+AzLsxb6gbl3dKVWNhp2wFjdYQ/T90sGwqPPQUoZVA9YwsWwvx07hqcCiSqFW9mUAzyUftASnuhQ=="
+    },
+    "@sentry/core@11.4.0": {
+      "integrity": "sha512-kAhK8XVJuzu1IKx9uSu04OISxTU9BcIyDVOWbY/ATUCYr5Z6L7GRBtOGOlYCbxEuPtdZCw5TrbphnBsyO9fuTA==",
+      "dependencies": [
+        "@sentry/conventions"
+      ]
+    },
+    "@sentry/core@9.47.2": {
+      "integrity": "sha512-WYEP2ZHkTQMP7Gg5frzrQy1475TnK5Qv8wgvHiTlNerYaEBCNpAeWjUltTgfCQ8Hbv1iq4inca7Kqmmyv9gLnQ=="
     },
     "@sinclair/typebox@0.34.41": {
       "integrity": "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="
@@ -1963,7 +1972,7 @@
         "tinyrainbow"
       ]
     },
-    "@vitest/mocker@4.1.9_vite@8.1.2__@types+node@24.0.7_@types+node@24.0.7": {
+    "@vitest/mocker@4.1.9_vite@8.1.2_@types+node@24.0.7": {
       "integrity": "sha512-EVkXzBjrPGM+cK8/ANWgBrkUCfJfb38/EfTSO8h7pWvKkyPkpWxvR7BkD2MyItMF62C97zAEoqdpUixwR/e+Rw==",
       "dependencies": [
         "@vitest/spy",
@@ -2475,7 +2484,7 @@
     "ee-first@1.1.1": {
       "integrity": "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="
     },
-    "elysia@1.4.19_@sinclair+typebox@0.34.41_@types+bun@1.2.16_exact-mirror@0.2.5__@sinclair+typebox@0.34.41_file-type@21.1.1_openapi-types@12.1.3": {
+    "elysia@1.4.19_@sinclair+typebox@0.34.41_@types+bun@1.2.16_exact-mirror@0.2.5_file-type@21.1.1_openapi-types@12.1.3": {
       "integrity": "sha512-DZb9y8FnWyX5IuqY44SvqAV0DjJ15NeCWHrLdgXrKgTPDPsl3VNwWHqrEr9bmnOCpg1vh6QUvAX/tcxNj88jLA==",
       "dependencies": [
         "@sinclair/typebox",
@@ -4612,7 +4621,7 @@
       ],
       "bin": true
     },
-    "vitest@4.1.9_@opentelemetry+api@1.9.0_@types+node@24.0.7_vite@8.1.2__@types+node@24.0.7": {
+    "vitest@4.1.9_@opentelemetry+api@1.9.0_@types+node@24.0.7_vite@8.1.2": {
       "integrity": "sha512-nE3/LEyc0z87uHYLZebqCUOaJr2hdtuPp7BQ4BosVFnfltxgAvMG08NyrSGlPpOUWvR27c5flSmYFTNr78L9GQ==",
       "dependencies": [
         "@opentelemetry/api",
@@ -4864,7 +4873,7 @@
         ],
         "packageJson": {
           "dependencies": [
-            "npm:@sentry/core@^9.41.0"
+            "npm:@sentry/core@^11.4.0"
           ]
         }
       },
