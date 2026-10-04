@@ -10,7 +10,8 @@ import type {
   ParameterizedString,
   SeverityLevel,
 } from "@sentry/core";
-// Import namespace to safely check for public logger API (added in v9.41.0)
+// Import namespace to safely look up the Logs API entry points, which differ
+// between SDK versions (see captureLog())
 import * as SentryCore from "@sentry/core";
 import {
   captureException as globalCaptureException,
@@ -99,6 +100,40 @@ function mapLevelForLogs(level: LogLevel): LogSeverityLevel {
       return "info"; // fallback
   }
 }
+
+type CaptureLog = (
+  level: LogSeverityLevel,
+  message: ParameterizedString,
+  attributes: Record<string, unknown>,
+) => void;
+
+/**
+ * Sends a log through Sentry's Logs API, using whichever entry point the
+ * installed `@sentry/core` provides.
+ *
+ * SDK 10.13.0+ exports the structured logger as `logger`.  SDK 9.x exports its
+ * internal debug logger under that name instead, which would print records to
+ * the console when the SDK's debug option is on, and SDK 10.0.0 through
+ * 10.12.x export no `logger` at all.  On those versions, the internal capture
+ * function that the framework SDKs' own `logger` wraps is used.  SDK 8.x has
+ * neither, so logs are not sent there.
+ */
+const captureLog: CaptureLog = (() => {
+  const core = SentryCore as Record<string, unknown>;
+  const logger = core.logger as Record<string, unknown> | undefined;
+  if (typeof logger?.fmt === "function") {
+    return (level, message, attributes) => {
+      const logFn = logger[level];
+      if (typeof logFn === "function") logFn(message, attributes);
+    };
+  }
+  const internalCaptureLog = core._INTERNAL_captureLog;
+  if (typeof internalCaptureLog === "function") {
+    return (level, message, attributes) =>
+      internalCaptureLog({ level, message, attributes });
+  }
+  return () => {};
+})();
 
 function getErrorProperty(
   properties: Readonly<Record<string, unknown>>,
@@ -321,23 +356,12 @@ export function getSentrySink(
       // logs are captured is left to the SDK: SDK 9.x and 10.x check their
       // enableLogs option themselves, and SDK 11+ removed the option and
       // always captures logs.
-      //
-      // SDK 9.x exports its internal debug logger as `logger` instead, which
-      // would print records to the console when the SDK's debug option is
-      // on, so only the structured logger (which has `fmt`) is used.
-      const sentryLogger = (SentryCore as Record<string, unknown>).logger as
-        | Record<string, unknown>
-        | undefined;
-      if (
-        globalGetClient() != null && typeof sentryLogger?.fmt === "function"
-      ) {
-        const logFn = sentryLogger[mapLevelForLogs(transformed.level)];
-        if (typeof logFn === "function") {
-          (logFn as (msg: ParameterizedString, attrs: unknown) => void)(
-            paramMessage,
-            attributes,
-          );
-        }
+      if (globalGetClient() != null) {
+        captureLog(
+          mapLevelForLogs(transformed.level),
+          paramMessage,
+          attributes,
+        );
       }
 
       // Capture as Sentry event (Issue) based on level and error presence

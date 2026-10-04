@@ -331,6 +331,12 @@ const hasStructuredLogger = typeof (
   SentryCore as { logger?: { fmt?: unknown } }
 ).logger?.fmt === "function";
 
+// SDK 9.x and 10.x provide the Logs API through _INTERNAL_captureLog() even
+// without the structured logger; SDK 8.x has no Logs API.
+const hasLogsApi = hasStructuredLogger ||
+  typeof (SentryCore as Record<string, unknown>)._INTERNAL_captureLog ===
+    "function";
+
 interface EnvelopeItem {
   readonly type: string;
   readonly payload: unknown;
@@ -417,24 +423,26 @@ function installSentryTestClient(
   };
 }
 
-function getLogBodies(items: readonly EnvelopeItem[]): string[] {
+interface SerializedLog {
+  readonly body: string;
+  readonly level: string;
+  readonly attributes: Record<string, { readonly value: unknown }>;
+}
+
+function getLogs(items: readonly EnvelopeItem[]): SerializedLog[] {
   return items
     .filter((item) => item.type === "log")
-    .flatMap((item) =>
-      (item.payload as { items: { body: string }[] }).items.map((log) =>
-        log.body
-      )
-    );
+    .flatMap((item) => (item.payload as { items: SerializedLog[] }).items);
 }
 
 test(
   "sink sends records to Sentry's Logs API with the log settings each SDK " +
     "version requires",
-  { skip: !hasStructuredLogger },
+  { skip: !hasLogsApi },
   async () => {
     // Workaround for Bun not supporting skip option yet:
     // https://github.com/oven-sh/bun/issues/19412
-    if (!hasStructuredLogger) return;
+    if (!hasLogsApi) return;
 
     // SDK 11+ removed the enableLogs option and always captures logs.
     const client = installSentryTestClient(
@@ -442,16 +450,34 @@ test(
     );
     try {
       const sink = getSentrySink();
-      sink(createMockLogRecord({ message: ["Hello, world!"] }));
+      sink(createMockLogRecord({
+        level: "warning",
+        message: ["Hello, world!"],
+        properties: { foo: "bar" },
+      }));
       await client.flush();
-      assert.deepStrictEqual(getLogBodies(client.items), ["Hello, world!"]);
+      const logs = getLogs(client.items);
+      assert.deepStrictEqual(
+        logs.map((log) => ({
+          body: log.body,
+          level: log.level,
+          foo: log.attributes.foo?.value,
+          category: log.attributes.category?.value,
+        })),
+        [{
+          body: "Hello, world!",
+          level: "warn",
+          foo: "bar",
+          category: "test.category",
+        }],
+      );
     } finally {
       client.close();
     }
   },
 );
 
-const skipDisabledLogs = !hasStructuredLogger || sdkMajorVersion >= 11;
+const skipDisabledLogs = !hasLogsApi || sdkMajorVersion >= 11;
 
 test(
   "sink leaves dropping logs to SDKs that have enableLogs: false",
@@ -466,7 +492,7 @@ test(
       const sink = getSentrySink();
       sink(createMockLogRecord());
       await client.flush();
-      assert.deepStrictEqual(getLogBodies(client.items), []);
+      assert.deepStrictEqual(getLogs(client.items), []);
     } finally {
       client.close();
     }
