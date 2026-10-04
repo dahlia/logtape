@@ -1,6 +1,6 @@
 {
   "name": "@logtape/otel",
-  "version": "2.2.14",
+  "version": "2.2.15",
   "license": "MIT",
   "exports": {
     ".": "./src/mod.ts"
