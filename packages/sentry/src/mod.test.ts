@@ -477,6 +477,15 @@ test(
   },
 );
 
+test("@sentry/core provides a Logs API on SDK 9.41.0 or later", () => {
+  // Guards the feature-detected tests above: if a future SDK drops both
+  // entry points, they would be skipped instead of failing.
+  const [major, minor] = SentryCore.SDK_VERSION.split(".").map(Number);
+  if (major > 9 || major === 9 && minor >= 41) {
+    assert.ok(hasLogsApi, `No Logs API found in SDK ${SentryCore.SDK_VERSION}`);
+  }
+});
+
 const skipDisabledLogs = !hasLogsApi || sdkMajorVersion >= 11;
 
 test(
