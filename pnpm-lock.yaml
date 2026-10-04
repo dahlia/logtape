@@ -777,8 +777,8 @@ importers:
         version: link:../logtape
     devDependencies:
       '@sentry/core':
-        specifier: ^9.41.0
-        version: 9.47.1
+        specifier: ^11.4.0
+        version: 11.4.0
       '@std/dotenv':
         specifier: 'catalog:'
         version: '@jsr/std__dotenv@0.225.5'
@@ -1995,6 +1995,14 @@ packages:
     resolution: {integrity: sha512-BfzEnDJOt9T8M989/lA37EcJgat01wLRnoi5dQf3QzOH7jzpqTAzdDbVfRljVr5r+jzKqpbHeyOfAaXxAd0PAA==}
     cpu: [x64]
     os: [win32]
+
+  '@sentry/conventions@0.25.0':
+    resolution: {integrity: sha512-7SouCAX3qx+AzLsxb6gbl3dKVWNhp2wFjdYQ/T90sGwqPPQUoZVA9YwsWwvx07hqcCiSqFW9mUAzyUftASnuhQ==}
+    engines: {node: '>=14'}
+
+  '@sentry/core@11.4.0':
+    resolution: {integrity: sha512-kAhK8XVJuzu1IKx9uSu04OISxTU9BcIyDVOWbY/ATUCYr5Z6L7GRBtOGOlYCbxEuPtdZCw5TrbphnBsyO9fuTA==}
+    engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
 
   '@sentry/core@9.47.1':
     resolution: {integrity: sha512-KX62+qIt4xgy8eHKHiikfhz2p5fOciXd0Cl+dNzhgPFq8klq4MGMNaf148GB3M/vBqP4nw/eFvRMAayFCgdRQw==}
@@ -6238,6 +6246,12 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
+
+  '@sentry/conventions@0.25.0': {}
+
+  '@sentry/core@11.4.0':
+    dependencies:
+      '@sentry/conventions': 0.25.0
 
   '@sentry/core@9.47.1': {}
 

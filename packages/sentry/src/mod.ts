@@ -10,7 +10,7 @@ import type {
   ParameterizedString,
   SeverityLevel,
 } from "@sentry/core";
-// Import namespace to safely check for public logger API (added in v9.41.0)
+// Import namespace to use as the default Sentry SDK namespace
 import * as SentryCore from "@sentry/core";
 // Cross-runtime inspect: Deno.inspect / util.inspect (handles circular
 // references); falls back to JSON.stringify in browsers. Resolved via the
@@ -72,6 +72,42 @@ function mapLevelForLogs(level: LogLevel): LogSeverityLevel {
     default:
       return "info"; // fallback
   }
+}
+
+type CaptureLog = (
+  level: LogSeverityLevel,
+  message: ParameterizedString,
+  attributes: Record<string, unknown>,
+) => void;
+
+/**
+ * Picks the function that sends a log through Sentry's Logs API from the given
+ * Sentry SDK namespace.
+ *
+ * The framework SDKs and *@sentry/core* 10.13.0+ export the structured logger
+ * as `logger`.  *@sentry/core* 9.x exports its internal debug logger under
+ * that name instead, which would print records to the console when the SDK's
+ * debug option is on, and *@sentry/core* 10.0.0 through 10.12.x export no
+ * `logger` at all.  On those versions, the internal capture function that the
+ * framework SDKs' own `logger` wraps is used.  SDK 8.x has neither, so logs
+ * are not sent there.
+ */
+function getCaptureLog(sentry: SentryNamespace): CaptureLog {
+  const namespace = sentry as unknown as Record<string, unknown>;
+  const logger = namespace.logger as Record<string, unknown> | undefined;
+  // The debug logger is the only one with enable()/disable()/isEnabled().
+  if (logger != null && typeof logger.isEnabled !== "function") {
+    return (level, message, attributes) => {
+      const logFn = logger[level];
+      if (typeof logFn === "function") logFn(message, attributes);
+    };
+  }
+  const internalCaptureLog = namespace._INTERNAL_captureLog;
+  if (typeof internalCaptureLog === "function") {
+    return (level, message, attributes) =>
+      internalCaptureLog({ level, message, attributes });
+  }
+  return () => {};
 }
 
 function getErrorProperty(
@@ -357,6 +393,7 @@ export function getSentrySink(
   }
 
   const sentry = options.sentry ?? SentryCore;
+  const captureLog = getCaptureLog(sentry);
 
   // Choose which Sentry functions to use:
   // - For capture functions: use client if provided (v1.1.x compat),
@@ -415,21 +452,16 @@ export function getSentrySink(
         }
       }
 
-      // Send structured log if Sentry logging is enabled (v9.41.0+)
-      // Uses public logger API when available (SDK 9.41.0+)
-      const client = sentry.getClient();
-      if (client) {
-        const { enableLogs, _experiments } = client.getOptions();
-        const loggingEnabled = enableLogs ?? _experiments?.enableLogs;
-
-        const sentryLogger = sentry.logger as SentryNamespace["logger"];
-        if (loggingEnabled && sentryLogger != null) {
-          const logLevel = mapLevelForLogs(transformed.level);
-          const logFn = sentryLogger[logLevel];
-          if (typeof logFn === "function") {
-            logFn(paramMessage, attributes);
-          }
-        }
+      // Send structured log through Sentry's Logs API (v9.41.0+).  Whether
+      // logs are captured is left to the SDK: SDK 9.x and 10.x check their
+      // enableLogs option themselves, and SDK 11+ removed the option and
+      // always captures logs.
+      if (sentry.getClient() != null) {
+        captureLog(
+          mapLevelForLogs(transformed.level),
+          paramMessage,
+          attributes,
+        );
       }
 
       // Capture as Sentry event (Issue) based on level and error presence

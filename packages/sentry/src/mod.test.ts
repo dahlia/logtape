@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
+import * as SentryCore from "@sentry/core";
 import { getSentrySink, type SentryNamespace } from "./mod.ts";
 
 // Resolved per runtime so expectations match the sink's own formatting
@@ -373,6 +374,29 @@ test("sink uses configured Sentry namespace for spans and structured logs", () =
   assert.strictEqual(logs[0].parent_span_id, "parent-span-id");
 });
 
+test("sink does not use the debug logger of a configured Sentry namespace", () => {
+  // @sentry/core 9.x exports its internal debug logger as `logger`; the sink
+  // must use _INTERNAL_captureLog() instead.
+  const printed: unknown[] = [];
+  const captured: Record<string, unknown>[] = [];
+  const sentry = {
+    ...createMockSentryNamespace({
+      getClient: () => ({ getOptions: () => ({}) }),
+      logger: { info: (message: unknown) => printed.push(message) },
+    }),
+    _INTERNAL_captureLog: (log: Record<string, unknown>) => captured.push(log),
+  };
+  (sentry.logger as Record<string, unknown>).isEnabled = () => true;
+  const sink = getSentrySink({ sentry });
+
+  sink(createMockLogRecord({ level: "warning", message: ["Hello, world!"] }));
+
+  assert.deepStrictEqual(printed, []);
+  assert.strictEqual(captured.length, 1);
+  assert.strictEqual(captured[0].level, "warn");
+  assert.strictEqual(String(captured[0].message), "Hello, world!");
+});
+
 test("sink uses configured Sentry namespace for breadcrumbs", () => {
   const breadcrumbs: unknown[] = [];
   const sentry = createMockSentryNamespace({
@@ -459,3 +483,224 @@ test("sink ignores logtape.meta.sentry with child categories", () => {
 
   assert.strictEqual(processedCount, 0);
 });
+
+// =============================================================================
+// Sentry SDK integration tests
+// =============================================================================
+
+const sdkMajorVersion = Number.parseInt(SentryCore.SDK_VERSION, 10);
+
+// SDK 10.13.0+ exports the structured logger as `logger` from `@sentry/core`;
+// SDK 9.x exports its internal debug logger under the same name instead, and
+// SDK 10.0.0 through 10.12.x export neither.
+const hasStructuredLogger = typeof (
+  SentryCore as { logger?: { fmt?: unknown } }
+).logger?.fmt === "function";
+
+// SDK 9.x and 10.x provide the Logs API through _INTERNAL_captureLog() even
+// without the structured logger; SDK 8.x has no Logs API.
+const hasLogsApi = hasStructuredLogger ||
+  typeof (SentryCore as Record<string, unknown>)._INTERNAL_captureLog ===
+    "function";
+
+interface EnvelopeItem {
+  readonly type: string;
+  readonly payload: unknown;
+}
+
+interface SentryTestClient {
+  readonly items: EnvelopeItem[];
+  flush(): Promise<void>;
+  close(): void;
+}
+
+type ClientConstructor = new (options: Record<string, unknown>) => object;
+
+/**
+ * Installs a real Sentry client from `@sentry/core` as the current client.
+ * Its transport records envelope items instead of sending them anywhere.
+ */
+function installSentryTestClient(
+  options: Record<string, unknown> = {},
+): SentryTestClient {
+  const core = SentryCore as unknown as Record<string, unknown>;
+  // SDK 8.x exports the base client as `BaseClient`, and SDK 11+ as `Client`.
+  const BaseClient = (core.Client ?? core.BaseClient) as ClientConstructor;
+  class TestClient extends BaseClient {
+    eventFromException(exception: unknown): PromiseLike<unknown> {
+      return Promise.resolve({
+        exception: { values: [{ type: "Error", value: String(exception) }] },
+      });
+    }
+
+    eventFromMessage(message: unknown, level?: string): PromiseLike<unknown> {
+      return Promise.resolve({ message: String(message), level });
+    }
+  }
+
+  const items: EnvelopeItem[] = [];
+  const createTransport = core.createTransport as (
+    options: unknown,
+    makeRequest: (
+      request: { body: string | Uint8Array },
+    ) => PromiseLike<{ statusCode: number }>,
+  ) => unknown;
+  // initAndBind() is what Sentry.init() uses; unlike setCurrentClient(), it
+  // also turns on the SDK's debug logger when the debug option is set.
+  const initAndBind = core.initAndBind as (
+    clientClass: ClientConstructor,
+    options: Record<string, unknown>,
+  ) => unknown;
+  const client = initAndBind(TestClient, {
+    dsn: "https://public@o0.ingest.sentry.io/0",
+    integrations: [],
+    stackParser: () => [],
+    transport: (transportOptions: unknown) =>
+      createTransport(transportOptions, (request) => {
+        const body = typeof request.body === "string"
+          ? request.body
+          : new TextDecoder().decode(request.body);
+        // An envelope is a header line followed by item header/payload pairs.
+        const lines = body.split("\n").filter((line) => line !== "");
+        for (let i = 1; i + 1 < lines.length; i += 2) {
+          const header = JSON.parse(lines[i]) as { type: string };
+          items.push({ type: header.type, payload: JSON.parse(lines[i + 1]) });
+        }
+        return Promise.resolve({ statusCode: 200 });
+      }),
+    ...options,
+  });
+
+  return {
+    items,
+    async flush() {
+      // Logs are buffered separately from events.
+      const flushLogs = core._INTERNAL_flushLogsBuffer as
+        | ((client: unknown) => void)
+        | undefined;
+      flushLogs?.(client);
+      await SentryCore.flush(2000);
+    },
+    close() {
+      SentryCore.getCurrentScope().setClient(undefined);
+      const debugLogger = core.debug as { disable?: () => void } | undefined;
+      debugLogger?.disable?.();
+    },
+  };
+}
+
+interface SerializedLog {
+  readonly body: string;
+  readonly level: string;
+  readonly attributes: Record<string, { readonly value: unknown }>;
+}
+
+function getLogs(items: readonly EnvelopeItem[]): SerializedLog[] {
+  return items
+    .filter((item) => item.type === "log")
+    .flatMap((item) => (item.payload as { items: SerializedLog[] }).items);
+}
+
+test(
+  "sink sends records to Sentry's Logs API with the log settings each SDK " +
+    "version requires",
+  { skip: !hasLogsApi },
+  async () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (!hasLogsApi) return;
+
+    // SDK 11+ removed the enableLogs option and always captures logs.
+    const client = installSentryTestClient(
+      sdkMajorVersion < 11 ? { enableLogs: true } : {},
+    );
+    try {
+      const sink = getSentrySink();
+      sink(createMockLogRecord({
+        level: "warning",
+        message: ["Hello, world!"],
+        properties: { foo: "bar" },
+      }));
+      await client.flush();
+      const logs = getLogs(client.items);
+      assert.deepStrictEqual(
+        logs.map((log) => ({
+          body: log.body,
+          level: log.level,
+          foo: log.attributes.foo?.value,
+          category: log.attributes.category?.value,
+        })),
+        [{
+          body: "Hello, world!",
+          level: "warn",
+          foo: "bar",
+          category: "test.category",
+        }],
+      );
+    } finally {
+      client.close();
+    }
+  },
+);
+
+test("@sentry/core provides a Logs API on SDK 9.41.0 or later", () => {
+  // Guards the feature-detected tests above: if a future SDK drops both
+  // entry points, they would be skipped instead of failing.
+  const [major, minor] = SentryCore.SDK_VERSION.split(".").map(Number);
+  if (major > 9 || major === 9 && minor >= 41) {
+    assert.ok(hasLogsApi, `No Logs API found in SDK ${SentryCore.SDK_VERSION}`);
+  }
+});
+
+const skipDisabledLogs = !hasLogsApi || sdkMajorVersion >= 11;
+
+test(
+  "sink leaves dropping logs to SDKs that have enableLogs: false",
+  { skip: skipDisabledLogs },
+  async () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (skipDisabledLogs) return;
+
+    const client = installSentryTestClient({ enableLogs: false });
+    try {
+      const sink = getSentrySink();
+      sink(createMockLogRecord());
+      await client.flush();
+      assert.deepStrictEqual(getLogs(client.items), []);
+    } finally {
+      client.close();
+    }
+  },
+);
+
+test(
+  "sink does not print records through the debug logger of SDK 9.x",
+  { skip: hasStructuredLogger },
+  () => {
+    // Workaround for Bun not supporting skip option yet:
+    // https://github.com/oven-sh/bun/issues/19412
+    if (hasStructuredLogger) return;
+
+    const client = installSentryTestClient({ debug: true });
+    const methods = ["debug", "info", "warn", "error", "log"] as const;
+    const originals = methods.map((method) => console[method]);
+    const printed: unknown[][] = [];
+    for (const method of methods) {
+      console[method] = (...args: unknown[]) => printed.push(args);
+    }
+    try {
+      const sink = getSentrySink();
+      sink(createMockLogRecord({ message: ["Hello, world!"] }));
+    } finally {
+      methods.forEach((method, i) => console[method] = originals[i]);
+      client.close();
+    }
+    assert.deepStrictEqual(
+      printed.filter((args) =>
+        args.some((arg) => `${arg}` === "Hello, world!")
+      ),
+      [],
+    );
+  },
+);

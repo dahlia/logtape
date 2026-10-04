@@ -72,7 +72,7 @@
     "@sentry/core": ">=8.0.0"
   },
   "devDependencies": {
-    "@sentry/core": "^9.41.0",
+    "@sentry/core": "^11.4.0",
     "@std/dotenv": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
@@ -83,7 +83,7 @@
     "prepublish": "tsdown",
     "test": "tsdown && node --experimental-transform-types --test",
     "test:bun": "tsdown && bun test",
-    "test:deno": "deno test",
-    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+    "test:deno": "deno test --allow-env --allow-sys --allow-net",
+    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test --allow-env --allow-sys --allow-net"
   }
 }
