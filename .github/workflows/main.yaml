@@ -3,6 +3,11 @@ name: main
 on:
   workflow_dispatch:
   pull_request:
+  # Weekly run of the Sentry SDK compatibility tests, since a new Sentry SDK
+  # release can break @logtape/sentry without any change on our side.
+  # GitHub runs scheduled workflows on the default branch only.
+  schedule:
+  - cron: "0 0 * * 1"
   push:
     tags:
     - "*.*.*"
@@ -10,7 +15,9 @@ on:
     - "*"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Scheduled runs get their own group so that they never cancel a push run
+  # on the default branch, which may be publishing.
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -18,6 +25,7 @@ env:
 
 jobs:
   check:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,6 +37,7 @@ jobs:
     - run: mise run check
 
   test-deno:
+    if: github.event_name != 'schedule'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -82,6 +91,7 @@ jobs:
         file: .cov.lcov
 
   test-node:
+    if: github.event_name != 'schedule'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -99,6 +109,7 @@ jobs:
     - run: mise run test:node
 
   test-bun:
+    if: github.event_name != 'schedule'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -116,6 +127,7 @@ jobs:
     - run: mise run test:bun
 
   test-elysia-compatibility:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -126,6 +138,7 @@ jobs:
     - run: mise run test:elysia-compatibility
 
   bench-disabled:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -134,6 +147,31 @@ jobs:
       with: *mise_options
     - run: pnpm install --frozen-lockfile
     - run: mise run bench:disabled
+
+  test-sentry:
+    strategy:
+      matrix:
+        # Every major in the peerDependencies range (>=8.0.0), 9.41.0 for the
+        # oldest release the documentation says supports the Logs API, 10.12
+        # for the 10.x releases whose @sentry/core has no structured logger
+        # export, and latest so that a new major is tested as soon as it is out.
+        sentry: ["8", "9.41.0", "9", "10.12", "10", "11", "latest"]
+      fail-fast: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@v4
+      with: *mise_options
+    # Unlike pnpm add, pnpm update resolves the newest release in the range
+    # instead of reusing a version the lockfile already has.
+    - run: pnpm --filter @logtape/sentry update "@sentry/core@$SENTRY_VERSION"
+      env:
+        SENTRY_VERSION: ${{ matrix.sentry }}
+    - run: node --print 'require("@sentry/core/package.json").version'
+      working-directory: ${{ github.workspace }}/packages/sentry/
+    - run: pnpm --filter @logtape/logtape build
+    - run: pnpm --filter @logtape/sentry test
 
   publish:
     if: github.event_name == 'push'
@@ -144,6 +182,7 @@ jobs:
     - test-bun
     - test-elysia-compatibility
     - bench-disabled
+    - test-sentry
     permissions:
       contents: read
       id-token: write

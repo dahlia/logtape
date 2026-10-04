@@ -75,6 +75,28 @@ To be released.
 [#214]: https://github.com/dahlia/logtape/pull/214
 
 
+Version 2.3.11
+--------------
+
+Released on October 4, 2026.
+
+### @logtape/sentry
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 11.0.0 or later, which removed the `enableLogs` option.
+    The sink no longer checks the `enableLogs` option itself, and leaves it to
+    the Sentry SDK to decide whether to capture logs.
+    [[#232], [#233]]
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 9.x and 10.0.0 through 10.12.x, where *@sentry/core* does not
+    export the structured `logger`.  On those versions, the sink now sends
+    logs through the SDK's internal log capture function instead.
+    [[#233]]
+
+[#232]: https://github.com/dahlia/logtape/issues/232
+[#233]: https://github.com/dahlia/logtape/pull/233
+
+
 Version 2.3.10
 --------------
 
@@ -589,6 +611,24 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.14
+--------------
+
+Released on October 4, 2026.
+
+### @logtape/sentry
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 11.0.0 or later, which removed the `enableLogs` option.
+    The sink no longer checks the `enableLogs` option itself, and leaves it to
+    the Sentry SDK to decide whether to capture logs.  [[#232], [#233]]
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 9.x and 10.0.0 through 10.12.x, where *@sentry/core* does not
+    export the structured `logger`.  On those versions, the sink now sends
+    logs through the SDK's internal log capture function instead.  [[#233]]
 
 
 Version 2.2.13
@@ -1136,6 +1176,24 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.18
+--------------
+
+Released on October 4, 2026.
+
+### @logtape/sentry
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 11.0.0 or later, which removed the `enableLogs` option.
+    The sink no longer checks the `enableLogs` option itself, and leaves it to
+    the Sentry SDK to decide whether to capture logs.  [[#232], [#233]]
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 9.x and 10.0.0 through 10.12.x, where *@sentry/core* does not
+    export the structured `logger`.  On those versions, the sink now sends
+    logs through the SDK's internal log capture function instead.  [[#233]]
+
+
 Version 2.1.17
 --------------
 
@@ -1613,6 +1671,24 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.27
+--------------
+
+Released on October 4, 2026.
+
+### @logtape/sentry
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 11.0.0 or later, which removed the `enableLogs` option.
+    The sink no longer checks the `enableLogs` option itself, and leaves it to
+    the Sentry SDK to decide whether to capture logs.  [[#232], [#233]]
+
+ -  Fixed `getSentrySink()` not sending records to Sentry's Logs API with
+    Sentry SDK 9.x and 10.0.0 through 10.12.x, where *@sentry/core* does not
+    export the structured `logger`.  On those versions, the sink now sends
+    logs through the SDK's internal log capture function instead.  [[#233]]
 
 
 Version 2.0.26
