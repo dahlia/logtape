@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { LogRecord } from "@logtape/logtape";
+import type { LogRecord, TextFormatterOptions } from "@logtape/logtape";
 import {
   type CategoryColorMap,
   getPrettyFormatter,
   prettyFormatter,
+  type PrettyFormatterOptions,
 } from "./formatter.ts";
 
 function pad2(value: number): string {
@@ -1283,4 +1284,146 @@ test("getPrettyFormatter() does not sanitize interpolated values twice", () => {
   assert.ok(!result.includes("\x1b"));
   assert.ok(!result.toLowerCase().includes("\\\\x1b"));
   assert.ok(result.includes("value: "));
+});
+
+test('getPrettyFormatter() with value: "bare"', () => {
+  const options = { colors: false, wordWrap: false } as const;
+  const formatter = getPrettyFormatter({ ...options, value: "bare" });
+  const defaultFormatter = getPrettyFormatter(options);
+  const record = createLogRecord("info", ["app"], [
+    "Resume it with: ",
+    "swamp workflow resume wf",
+    "",
+  ]);
+  assert.ok(
+    formatter(record).endsWith(" Resume it with: swamp workflow resume wf\n"),
+  );
+
+  // Values other than strings, including strings nested in objects and
+  // arrays, are rendered as they are by default.
+  const others = createLogRecord("info", ["app"], [
+    "",
+    123,
+    " ",
+    { name: "a b" },
+    " ",
+    ["c d"],
+    "",
+  ]);
+  assert.strictEqual(formatter(others), defaultFormatter(others));
+
+  // Strings in the properties section keep their quotes.
+  const withProperties = createLogRecord(
+    "info",
+    ["app"],
+    ["", "a b", ""],
+    Date.now(),
+    { command: "a b" },
+  );
+  const result = getPrettyFormatter({
+    ...options,
+    value: "bare",
+    properties: true,
+  })(withProperties);
+  const [first, ...rest] = result.split("\n");
+  assert.ok(first.endsWith(" a b"));
+  assert.ok(
+    rest.join("\n").includes('"a b"') || rest.join("\n").includes("'a b'"),
+  );
+});
+
+test('getPrettyFormatter() with value: "bare" sanitizes strings', () => {
+  const render = (
+    value: string,
+    sanitize?: PrettyFormatterOptions["sanitize"],
+  ): string => {
+    const result = getPrettyFormatter({
+      colors: false,
+      wordWrap: false,
+      value: "bare",
+      sanitize,
+    })(createLogRecord("info", ["app"], ["[", value, "]"]));
+    return result.slice(result.indexOf("[") + 1, result.lastIndexOf("]"));
+  };
+
+  assert.strictEqual(
+    render("a\x1b[2Jb\x1b]52;c;eA==\x07\x00\x08\x7f\x9b\tc"),
+    "a\\x1b[2Jb\\x1b]52;c;eA==\\x07\\x00\\x08\\x7f\\x9b\tc",
+  );
+  // SGR is escaped even when the caller asks to preserve it.
+  assert.strictEqual(render("\x1b[8mhidden"), "\\x1b[8mhidden");
+  assert.strictEqual(
+    render("\x1b[31mred", { sgr: "preserve" }),
+    "\\x1b[31mred",
+  );
+  // Newlines are escaped unless explicitly preserved.
+  assert.strictEqual(render("a\rb\nc"), "a\\rb\\nc");
+  assert.strictEqual(render("a\rb\nc", {}), "a\\rb\\nc");
+  assert.strictEqual(render("a\rb\nc", { newlines: undefined }), "a\\rb\\nc");
+  assert.ok(render("a\nb", { newlines: "preserve" }).startsWith("a\n"));
+  // `false` turns sanitization off for bare strings as well.
+  assert.strictEqual(render("\x1b[2J\x1b[31m", false), "\x1b[2J\x1b[31m");
+});
+
+test('getPrettyFormatter() with value: "bare" and colors', () => {
+  const result = getPrettyFormatter({
+    messageColor: null,
+    messageStyle: "dim",
+    wordWrap: false,
+    value: "bare",
+    sanitize: { newlines: "preserve" },
+  })(createLogRecord("info", ["app"], ["x ", "first\nsecond", " y"]));
+
+  // The value is rendered without the message styling on every line, and
+  // the styling is restored once after it.
+  const start = result.indexOf("x \x1b[0mfirst\n");
+  assert.ok(start >= 0);
+  const continuation = result.slice(start + "x \x1b[0mfirst\n".length);
+  assert.strictEqual(continuation.trimStart(), "second\x1b[2m y\x1b[0m\n");
+  assert.ok(continuation.startsWith(" "));
+});
+
+test("getPrettyFormatter() with a value callback", () => {
+  const options = {
+    colors: true,
+    wordWrap: false,
+    inspectOptions: { depth: 0 },
+  } as const;
+  const record = createLogRecord("info", ["app"], [
+    "",
+    { a: { b: 1 } },
+    " ",
+    1.5,
+    " ",
+    "s",
+    "",
+  ]);
+  // Falling back to the given inspect() renders values as by default, with
+  // inspectOptions and colors applied.
+  assert.strictEqual(
+    getPrettyFormatter({ ...options, value: (v, inspect) => inspect(v) })(
+      record,
+    ),
+    getPrettyFormatter(options)(record),
+  );
+  const custom = getPrettyFormatter({
+    colors: false,
+    wordWrap: false,
+    value: (v, inspect) => typeof v === "number" ? v.toFixed(2) : inspect(v),
+  })(record);
+  assert.ok(custom.includes(" 1.50 "));
+});
+
+test("getPrettyFormatter() with an invalid value option", () => {
+  assert.throws(
+    () =>
+      getPrettyFormatter({
+        value: "raw" as unknown as TextFormatterOptions["value"],
+      }),
+    TypeError,
+  );
+  // The core and pretty formatters accept the same option values.
+  const value: TextFormatterOptions["value"] = "bare";
+  const options: PrettyFormatterOptions = { value };
+  assert.strictEqual(options.value, "bare");
 });

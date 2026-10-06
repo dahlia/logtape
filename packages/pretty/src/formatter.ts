@@ -749,6 +749,41 @@ export interface PrettyFormatterOptions
   };
 
   /**
+   * How values interpolated into the message are rendered.
+   *
+   * By default, every value is rendered by `inspect()` with
+   * {@link PrettyFormatterOptions.inspectOptions}, so strings are quoted and
+   * escaped.
+   *
+   * - `"bare"`: A value that is a string is rendered as is, without quotes or
+   *   escapes, and any other value is rendered by `inspect()` as by default.
+   *   Strings nested inside objects or arrays keep their quotes, and so do
+   *   the strings in the {@link PrettyFormatterOptions.properties} section.
+   *   Since the string is no longer escaped by `inspect()`, it is sanitized
+   *   instead: SGR sequences and the other control characters are always
+   *   escaped, and carriage returns and line feeds are escaped unless
+   *   {@link PrettyFormatterOptions.sanitize} explicitly sets `newlines` to
+   *   `"preserve"`.  Setting `sanitize` to `false` turns this off as well.
+   * - A function: Called with each value and an `inspect()` function that
+   *   applies `inspectOptions` and `colors`, so falling back to it renders
+   *   the value as by default.  Its output is not sanitized.
+   *
+   * @example
+   * ```typescript
+   * // Print strings without quotes
+   * value: "bare"
+   *
+   * // Custom formatting for numbers
+   * value: (value, inspect) =>
+   *   typeof value === "number" ? value.toFixed(2) : inspect(value)
+   * ```
+   *
+   * @default `undefined` (render every value with `inspect()`)
+   * @since 2.4.0
+   */
+  readonly value?: TextFormatterOptions["value"];
+
+  /**
    * Configuration to always render structured data.
    *
    * If set to `true`, any structured data that is logged will
@@ -856,6 +891,7 @@ export function getPrettyFormatter(
     colors: useColors = true,
     align = true,
     inspectOptions = {},
+    value: valueOption,
     properties = false,
     wordWrap = true,
     sanitize: sanitizeOptions = {},
@@ -864,7 +900,8 @@ export function getPrettyFormatter(
   // Neutralize control characters and non-SGR escape sequences in the parts
   // that can carry attacker-influenced text: the message template parts and
   // the category segments.  Interpolated values go through `inspect()`, which
-  // escapes them already.
+  // escapes them already, except for strings under `value: "bare"`, which are
+  // neutralized by `sanitizeBare` below.
   const sanitize: ((text: string) => string) | null = sanitizeOptions === false
     ? null
     : (text: string) => sanitizeControlSequences(text, sanitizeOptions);
@@ -889,6 +926,45 @@ export function getPrettyFormatter(
     compact: inspectOptions.compact ?? true,
     depth: inspectOptions.depth ?? Infinity,
   };
+
+  // Resolve the value renderer.  A bare string loses the escaping that
+  // `inspect()` would have applied, and interpolated values are usually
+  // external input, so SGR sequences are escaped as in categories, and
+  // newlines are escaped unless the caller explicitly asks to preserve them:
+  // a carriage return could overwrite the line on a terminal, and a line feed
+  // could make the rest of the value look like a separate record.
+  const inspectValue = (
+    value: unknown,
+    options?: { colors?: boolean },
+  ): string =>
+    inspect(value, {
+      colors: useColors,
+      ...resolvedInspectOptions,
+      ...options,
+    });
+  if (
+    valueOption != null && valueOption !== "bare" &&
+    typeof valueOption !== "function"
+  ) {
+    throw new TypeError(
+      `Invalid value option: ${
+        JSON.stringify(valueOption)
+      }. It must be "bare" or a function.`,
+    );
+  }
+  const bare = valueOption === "bare";
+  const sanitizeBare: ((text: string) => string) | null =
+    !bare || sanitizeOptions === false
+      ? null
+      : (text: string) =>
+        sanitizeControlSequences(text, {
+          sgr: "escape",
+          newlines: sanitizeOptions.newlines ?? "escape",
+        });
+  const renderValue: (value: unknown) => string =
+    typeof valueOption === "function"
+      ? (value) => valueOption(value, inspectValue)
+      : (value) => inspectValue(value);
 
   // Resolve icons
   const baseIconMap: Record<LogLevel, string> = icons === false
@@ -1038,10 +1114,18 @@ export function getPrettyFormatter(
         message += sanitize == null ? part : sanitize(part);
       } else {
         const value = record.message[i];
-        const inspected = inspect(value, {
-          colors: useColors,
-          ...resolvedInspectOptions,
-        });
+        if (bare && typeof value === "string") {
+          const text = sanitizeBare == null ? value : sanitizeBare(value);
+          if (useColors && (messageColorCode || messageStyleCode)) {
+            // Restore the message styling only after the whole value, so that
+            // every line of a multi-line string is rendered alike.
+            message += `${RESET}${text}${messagePrefix}`;
+          } else {
+            message += text;
+          }
+          continue;
+        }
+        const inspected = renderValue(value);
 
         // Handle multiline interpolated values properly
         if (inspected.includes("\n")) {

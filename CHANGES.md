@@ -23,6 +23,19 @@ To be released.
     tree rooted at a given logger (or the root logger by default), including
     the given logger itself, in depth-first pre-order.
     [[#62], [#207] by Jepoy\]
+ -  Added the `"bare"` preset to the `TextFormatterOptions.value` option, so
+    that `getTextFormatter()` and `getAnsiColorFormatter()` can render
+    interpolated string values without the quotes and escapes that
+    `inspect()` adds.  Other values, including strings nested in objects and
+    arrays, are rendered as before.  Bare strings are sanitized instead: SGR
+    sequences are always escaped, and newlines are escaped unless
+    `TextFormatterOptions.sanitize` explicitly preserves them.  [[#236], [#237]]
+ -  Changed the type of the `TextFormatterOptions.value` option to
+    `"bare" | ((value: unknown, inspect: (value: unknown, options?: { colors?: boolean }) => string) => string)`
+    (was
+    `(value: unknown, inspect: (value: unknown, options?: { colors?: boolean }) => string) => string`).
+    Code that calls the option directly now has to check that it is a function
+    first.  [[#236], [#237]]
  -  Added the `FingersCrossedOptions.afterTrigger` option and the
     `FingersCrossedAfterTrigger` type.  Setting it to `"buffer"` makes
     `fingersCrossed()` go back to buffering after each trigger instead of
@@ -39,6 +52,8 @@ To be released.
 [#207]: https://github.com/dahlia/logtape/issues/207
 [#234]: https://github.com/dahlia/logtape/issues/234
 [#235]: https://github.com/dahlia/logtape/pull/235
+[#236]: https://github.com/dahlia/logtape/issues/236
+[#237]: https://github.com/dahlia/logtape/pull/237
 
 ### @logtape/config
 
@@ -81,6 +96,15 @@ To be released.
 
 [#199]: https://github.com/dahlia/logtape/issues/199
 [#214]: https://github.com/dahlia/logtape/pull/214
+
+### @logtape/pretty
+
+ -  Added the `PrettyFormatterOptions.value` option, which takes the same
+    values as `TextFormatterOptions.value`.  Setting it to `"bare"` renders
+    interpolated string values without the quotes and escapes that
+    `inspect()` adds, sanitizing them instead; a function customizes how
+    values are rendered, and receives an `inspect()` function that applies
+    the `inspectOptions` and `colors` options.  [[#236], [#237]]
 
 
 Version 2.3.11

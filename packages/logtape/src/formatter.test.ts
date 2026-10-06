@@ -12,6 +12,7 @@ import {
   getLogfmtFormatter,
   getTextFormatter,
   logfmtFormatter,
+  type TextFormatterOptions,
 } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -1592,4 +1593,212 @@ test("getTextFormatter() closes SGR left open by a message part", () => {
     ),
   );
   assert.ok(spanning.endsWith("\x1b[0m\n"));
+});
+
+function valueRecord(...values: unknown[]): LogRecord {
+  const message: unknown[] = [""];
+  for (const value of values) message.push(value, "|");
+  return {
+    ...info,
+    message,
+    rawMessage: values.map((_, i) => `{v${i}}|`).join(""),
+  };
+}
+
+const onlyMessage = ({ message }: FormattedValues): string => message;
+
+function renderMessage(
+  formatter: (record: LogRecord) => string,
+  record: LogRecord,
+): string {
+  return formatter(record).slice(0, -1);
+}
+
+test('getTextFormatter() with value: "bare"', () => {
+  const formatter = getTextFormatter({ format: onlyMessage, value: "bare" });
+  const defaultFormatter = getTextFormatter({ format: onlyMessage });
+  assert.strictEqual(
+    renderMessage(formatter, valueRecord("swamp workflow resume wf", "")),
+    "swamp workflow resume wf||",
+  );
+  // Values other than strings, including strings nested in objects and
+  // arrays and boxed strings, are rendered as they are by default.
+  const others = valueRecord(
+    123,
+    null,
+    undefined,
+    { name: "a b" },
+    ["c d"],
+    new String("boxed"),
+  );
+  assert.strictEqual(
+    renderMessage(formatter, others),
+    renderMessage(defaultFormatter, others),
+  );
+  // Literal message parts are untouched.
+  assert.strictEqual(
+    formatter({
+      ...info,
+      message: ['Run "', "cmd", '"'],
+      rawMessage: 'Run "{cmd}"',
+    }),
+    'Run "cmd"\n',
+  );
+});
+
+test('getTextFormatter() with value: "bare" sanitizes strings', () => {
+  const render = (
+    value: unknown,
+    options: Parameters<typeof getTextFormatter>[0] = {},
+  ) =>
+    renderMessage(
+      getTextFormatter({ format: onlyMessage, value: "bare", ...options }),
+      valueRecord(value),
+    );
+  // Cursor and screen controls, OSC, NUL, BS, DEL, and C1 are escaped; tabs
+  // are harmless and kept.
+  assert.strictEqual(
+    render("a\x1b[2Jb\x1b]52;c;eA==\x07\x00\x08\x7f\x9b\tc"),
+    "a\\x1b[2Jb\\x1b]52;c;eA==\\x07\\x00\\x08\\x7f\\x9b\tc|",
+  );
+  // SGR is escaped even though it is preserved in literal parts by default,
+  // and even when the caller asks to preserve it.
+  assert.strictEqual(render("\x1b[8mhidden"), "\\x1b[8mhidden|");
+  assert.strictEqual(
+    render("\x1b[31mred", { sanitize: { sgr: "preserve" } }),
+    "\\x1b[31mred|",
+  );
+  // Newlines are escaped unless explicitly preserved.
+  for (
+    const sanitize of [undefined, {}, { newlines: undefined }, {
+      sgr: "escape" as const,
+    }]
+  ) {
+    assert.strictEqual(render("a\rb\nc", { sanitize }), "a\\rb\\nc|");
+  }
+  assert.strictEqual(
+    render("a\rb\nc", { sanitize: { newlines: "preserve" } }),
+    "a\rb\nc|",
+  );
+  assert.strictEqual(
+    render("a\nb", { sanitize: { newlines: "escape" } }),
+    "a\\nb|",
+  );
+  // `false` turns sanitization off for bare strings as well.
+  assert.strictEqual(
+    render("\x1b[2J\x1b[31m\n", { sanitize: false }),
+    "\x1b[2J\x1b[31m\n|",
+  );
+});
+
+test("getTextFormatter() with an invalid value option", () => {
+  assert.throws(
+    () =>
+      getTextFormatter({
+        value: "raw" as unknown as TextFormatterOptions["value"],
+      }),
+    TypeError,
+  );
+  // An explicit `undefined` means the default.
+  assert.strictEqual(
+    getTextFormatter({ value: undefined })(info),
+    defaultTextFormatter(info),
+  );
+  // The option type accepts both forms.
+  const values: TextFormatterOptions["value"][] = [
+    "bare",
+    (value, inspect) => typeof value === "number" ? `${value}` : inspect(value),
+  ];
+  assert.strictEqual(values.length, 2);
+});
+
+test('getAnsiColorFormatter() with value: "bare"', () => {
+  const colored = getTextFormatter({
+    format: onlyMessage,
+    value: (value, inspect) => inspect(value, { colors: true }),
+  });
+  const plain = getTextFormatter({ format: onlyMessage });
+  const record = valueRecord("a b", 123, { k: "v" });
+  const message = renderMessage(
+    getAnsiColorFormatter({ format: onlyMessage, value: "bare" }),
+    record,
+  );
+  // The string is bare, while the other values stay colored.
+  const coloredNumber = renderMessage(colored, valueRecord(123));
+  const coloredObject = renderMessage(colored, valueRecord({ k: "v" }));
+  assert.notStrictEqual(coloredNumber, renderMessage(plain, valueRecord(123)));
+  assert.strictEqual(message, `a b|${coloredNumber}${coloredObject}`);
+  // Bare strings are sanitized once, with SGR escaped, without touching the
+  // colors the formatter adds.
+  assert.strictEqual(
+    renderMessage(
+      getAnsiColorFormatter({ format: onlyMessage, value: "bare" }),
+      valueRecord("\x1b[31mred", 1),
+    ),
+    `\\x1b[31mred|${renderMessage(colored, valueRecord(1))}`,
+  );
+  // The sanitize option governs bare strings here as well.
+  assert.strictEqual(
+    renderMessage(
+      getAnsiColorFormatter({
+        format: onlyMessage,
+        value: "bare",
+        sanitize: false,
+      }),
+      valueRecord("\x1b[2J\n"),
+    ),
+    "\x1b[2J\n|",
+  );
+  assert.strictEqual(
+    renderMessage(
+      getAnsiColorFormatter({
+        format: onlyMessage,
+        value: "bare",
+        sanitize: { newlines: "preserve" },
+      }),
+      valueRecord("a\nb"),
+    ),
+    "a\nb|",
+  );
+  // A callback still receives the uncolored inspect() function.
+  assert.strictEqual(
+    renderMessage(
+      getAnsiColorFormatter({
+        format: onlyMessage,
+        value: (value, inspect) => inspect(value),
+      }),
+      valueRecord(123),
+    ),
+    renderMessage(plain, valueRecord(123)),
+  );
+  assert.throws(
+    () =>
+      getAnsiColorFormatter({
+        value: "raw" as unknown as TextFormatterOptions["value"],
+      }),
+    TypeError,
+  );
+});
+
+test('getTextFormatter() with value: "bare" in the browser fallback', async () => {
+  const globals = globalThis as { document?: object };
+  const previousDocument = globals.document;
+  globals.document = {};
+
+  try {
+    const { getTextFormatter: getBrowserTextFormatter } = await import(
+      "./formatter.ts?browser-bare-values"
+    );
+    const formatter = getBrowserTextFormatter({
+      format: onlyMessage,
+      value: "bare",
+    });
+    assert.strictEqual(
+      formatter(valueRecord("a b", { k: "v" }, undefined)),
+      'a b|{"k":"v"}|undefined|\n',
+    );
+  } finally {
+    if (previousDocument == null) delete globals.document;
+    else globals.document = previousDocument;
+  }
 });
