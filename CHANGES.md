@@ -21,6 +21,10 @@ To be released.
     methods and the `FingersCrossedOptions.bufferAction` callback for flushing
     or discarding isolated buffers when a request or job completes.  [[#205]]
 
+ -  Added an optional synchronous `snapshot(record)` callback to
+    `FingersCrossedOptions` to copy records when `fingersCrossed()` buffers
+    them.  [[#242], [#250]]
+
  -  Added `getLoggers()` function to enumerate every logger in the category
     tree rooted at a given logger (or the root logger by default), including
     the given logger itself, in depth-first pre-order.
@@ -96,9 +100,11 @@ To be released.
 [#236]: https://github.com/dahlia/logtape/issues/236
 [#237]: https://github.com/dahlia/logtape/pull/237
 [#238]: https://github.com/dahlia/logtape/issues/238
+[#242]: https://github.com/dahlia/logtape/issues/242
 [#245]: https://github.com/dahlia/logtape/issues/245
 [#246]: https://github.com/dahlia/logtape/pull/246
 [#249]: https://github.com/dahlia/logtape/pull/249
+[#250]: https://github.com/dahlia/logtape/pull/250
 
 ### @logtape/config
 

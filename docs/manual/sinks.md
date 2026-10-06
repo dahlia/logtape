@@ -525,6 +525,72 @@ This is useful when you want to:
  -  Only see detailed `trace`/`debug` logs when something goes wrong
  -  Reduce log noise while preserving debugging context
 
+### Snapshotting buffered values
+
+*This API is available since LogTape 2.4.0.*
+
+Nested objects and arrays can change while a record waits in the buffer.
+LogTape resolves top-level lazy properties and copies the outer properties
+object, but nested values remain shared.  Use the optional
+`~FingersCrossedOptions.snapshot` callback to copy them synchronously when a
+record is about to be buffered:
+
+~~~~ typescript twoslash
+import { fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+const sink = fingersCrossed(getConsoleSink(), {
+  snapshot({ message, properties, ...rest }) {
+    return { ...rest, ...structuredClone({ message, properties }) };
+  },
+});
+~~~~
+
+Copy both `~LogRecord.message` and `~LogRecord.properties`.  Copying only
+properties leaves mutable interpolated message values shared with the caller.
+Cloning them together also keeps references shared between those fields in
+the copy.  Preserve the other fields, including `~LogRecord.timestamp`, which
+controls TTL expiry and the order of records flushed from isolated buffers.
+
+This example uses `structuredClone()`, which can throw for values such as
+functions and can change class instances.  JSON serialization and
+domain-specific copies make different choices for errors, unsupported values,
+and shared references.  Choose a policy that fits your values; LogTape does
+not provide a default deep copy.  Spreading the remaining fields preserves
+record metadata and record-level enumerable symbol properties, which a
+whole-record JSON or structured clone can lose.
+
+Reading `message` or `rawMessage` evaluates a lazy message callback at intake.
+The example captures the resulting message as a value.  A hook that retains
+the original message getter can still defer evaluation until the wrapped sink
+reads it.  Without the option, message evaluation remains lazy.
+
+The hook runs once for each record entering the buffering path, including
+records later dropped by size limits, TTL, LRU eviction, or discard.  It does
+not run for trigger records, records passing through above `bufferLevel` or
+after a trigger, records handled by `bufferAction`, or records with a zero
+buffer capacity.  Manual or triggered flushes deliver the retained snapshots
+without calling the hook again.  With `afterTrigger: "buffer"`, each new
+buffering cycle snapshots its incoming buffered records.
+
+The original record determines levels, category/context isolation, and
+`bufferAction`; the returned record is retained for later delivery.  Buffered
+records reach the wrapped sink as snapshots, while immediately delivered
+records retain their original values.  A JSON copy, for example, may turn a
+`Date` into a string in buffered records while trigger records still contain
+the original `Date`.
+
+The callback must return a record synchronously.  Throws and invalid
+non-object or Promise/thenable results fail intake before buffer state changes,
+and the original record is never buffered as a fallback.  Direct sink calls
+throw; logger calls report the failure to the `["logtape", "meta"]` logger
+while bypassing this sink.  Configure a separate healthy meta sink to receive
+that diagnostic.
+
+Do not mutate the input, which can be shared with other sinks, or log to the
+same sink from the hook.  Records logged from a hook are processed first, and
+the record being snapshotted may then remain buffered even if a nested record
+triggered a flush.
+
 ### Buffering again after a trigger
 
 *This API is available since LogTape 2.4.0.*
