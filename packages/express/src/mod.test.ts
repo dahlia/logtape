@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { EventEmitter } from "node:events";
+import { EventEmitter, once } from "node:events";
+import type { AddressInfo } from "node:net";
+import process from "node:process";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import vm from "node:vm";
 import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
+import express from "express";
 import {
+  type CompletionLevelFunction,
   expressLogger,
   type ExpressNextFunction,
   type ExpressRequest,
@@ -1293,6 +1298,482 @@ test("expressLogger(): handles missing referrer", async () => {
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(logs[0].properties.referrer, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Completion Level Tests
+// ============================================
+
+test("expressLogger(): completionLevel chooses the level from the status", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = expressLogger({
+      completionLevel: (_req, _res, { status }) =>
+        status >= 500 ? "error" : "info",
+    });
+    for (const statusCode of [200, 500]) {
+      const res = createMockResponse({ statusCode });
+      middleware(createMockRequest(), res, () => {});
+      finishResponse(res);
+    }
+
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
+      200,
+      500,
+    ]);
+    assert.strictEqual(
+      logs[1].rawMessage,
+      "{method} {url} {status} - {responseTime} ms",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel receives the request outcome", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const calls: Parameters<CompletionLevelFunction>[] = [];
+    const middleware = expressLogger({
+      completionLevel: (...args) => {
+        calls.push(args);
+        return args[2].responseTime > 1000 ? "warning" : "info";
+      },
+    });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    let restoreDateNow = useFixedDateNow(10_000);
+    try {
+      middleware(req, res, () => {});
+    } finally {
+      restoreDateNow();
+    }
+    restoreDateNow = useFixedDateNow(11_500);
+    try {
+      finishResponse(res);
+    } finally {
+      restoreDateNow();
+    }
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][0], req);
+    assert.strictEqual(calls[0][1], res);
+    assert.deepStrictEqual(calls[0][2], { status: 200, responseTime: 1500 });
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
+    assert.strictEqual(logs[0].properties.responseTime, 1500);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel applies to text formats", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let completion: unknown;
+    const middleware = expressLogger({
+      format: "dev",
+      completionLevel: (_req, _res, outcome) => {
+        completion = outcome;
+        return "error";
+      },
+    });
+    const res = createMockResponse({ statusCode: 503 });
+    middleware(createMockRequest(), res, () => {});
+    finishResponse(res);
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
+    assert.ok((logs[0].rawMessage as string).startsWith("GET /test 503 "));
+    assert.strictEqual((completion as { status: number }).status, 503);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel is not used for immediate logs", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let called = false;
+    const middleware = expressLogger({
+      immediate: true,
+      level: "debug",
+      completionLevel: () => {
+        called = true;
+        return "error";
+      },
+    });
+    const res = createMockResponse();
+    middleware(createMockRequest(), res, () => {});
+    finishResponse(res);
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel is not called for skipped requests", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let called = false;
+    const middleware = expressLogger({
+      skip: () => true,
+      completionLevel: () => {
+        called = true;
+        return "error";
+      },
+    });
+    const res = createMockResponse();
+    middleware(createMockRequest(), res, () => {});
+    finishResponse(res);
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel is not called for closed connections", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let called = false;
+    const middleware = expressLogger({
+      completionLevel: () => {
+        called = true;
+        return "error";
+      },
+    });
+    const res = createMockResponse();
+    middleware(createMockRequest(), res, () => {});
+    (res as { _emitter?: EventEmitter })._emitter?.emit("close");
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Serves an Express application on an ephemeral port while running `fn`.
+async function withExpressServer(
+  app: ReturnType<typeof express>,
+  fn: (url: string) => Promise<void>,
+): Promise<void> {
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  try {
+    await fn(`http://127.0.0.1:${port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error == null ? resolve() : reject(error));
+      server.closeAllConnections();
+    });
+  }
+}
+
+// Waits for the response's finish event to be logged.
+async function waitForLogs(logs: LogRecord[], count: number): Promise<void> {
+  for (let i = 0; i < 100 && logs.length < count; i++) await delay(10);
+}
+
+test("expressLogger(): completionLevel sees Express error responses", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const completions: unknown[] = [];
+    const app = express();
+    app.set("env", "test");
+    app.use(expressLogger({
+      completionLevel: (_req, _res, completion) => {
+        completions.push(completion);
+        return completion.status >= 500 ? "error" : "info";
+      },
+    }));
+    app.get("/ok", (_req, res) => {
+      res.send("ok");
+    });
+    app.get("/fail", () => {
+      throw new Error("handler failure");
+    });
+
+    await withExpressServer(app, async (url) => {
+      const ok = await fetch(`${url}/ok`);
+      assert.strictEqual(await ok.text(), "ok");
+      await waitForLogs(logs, 1);
+      const failed = await fetch(`${url}/fail`);
+      assert.strictEqual(failed.status, 500);
+      await failed.text();
+      await waitForLogs(logs, 2);
+    });
+
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
+      200,
+      500,
+    ]);
+    assert.deepStrictEqual(
+      completions.map((completion) =>
+        (completion as { status: number }).status
+      ),
+      [200, 500],
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel failures keep Express responses", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const app = express();
+    app.set("env", "test");
+    app.use(expressLogger({
+      level: "debug",
+      completionLevel: () => {
+        throw new Error("level failure");
+      },
+    }));
+    app.get("/ok", (_req, res) => {
+      res.send("ok");
+    });
+
+    await withExpressServer(app, async (url) => {
+      const res = await fetch(`${url}/ok`);
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(await res.text(), "ok");
+      for (let i = 0; i < 100 && findRequestLogs(logs).length < 1; i++) {
+        await delay(10);
+      }
+    });
+
+    assertFallback(
+      logs,
+      (error) => error instanceof Error && error.message === "level failure",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+// Runs a completed request with the given completion level callback and the
+// fallback level "debug".
+function runCompletionLevel(completionLevel: () => unknown): Promise<void> {
+  const middleware = expressLogger({
+    level: "debug",
+    completionLevel: completionLevel as CompletionLevelFunction,
+  });
+  const res = createMockResponse();
+  middleware(createMockRequest(), res, () => {});
+  finishResponse(res);
+  return Promise.resolve();
+}
+
+// ============================================
+// Completion Level Callback Failure Tests
+// ============================================
+
+function findMetaErrors(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) =>
+    record.category.length === 2 &&
+    record.category[0] === "logtape" &&
+    record.category[1] === "meta" &&
+    record.level === "error"
+  );
+}
+
+function findRequestLogs(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) => record.category[0] !== "logtape");
+}
+
+// Runs a function and returns the unhandled rejections reported while it
+// runs, waiting long enough for every runtime to report them.
+async function collectUnhandledRejections(
+  fn: () => Promise<void>,
+): Promise<unknown[]> {
+  const reasons: unknown[] = [];
+  const listener = (reason: unknown): void => {
+    reasons.push(reason);
+  };
+  process.on("unhandledRejection", listener);
+  try {
+    await fn();
+    await delay(20);
+    await delay(20);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+  return reasons;
+}
+
+// Asserts that a request was logged once at the fallback level ("debug") and
+// that the given errors were reported to the meta logger.
+function assertFallback(
+  logs: LogRecord[],
+  matchesMetaError: (error: unknown) => boolean,
+): void {
+  const requestLogs = findRequestLogs(logs);
+  assert.strictEqual(requestLogs.length, 1);
+  assert.strictEqual(requestLogs[0].level, "debug");
+  assert.ok(
+    findMetaErrors(logs).some((record) =>
+      matchesMetaError(record.properties.error)
+    ),
+    "expected the failure to be reported to the meta logger",
+  );
+}
+
+test("expressLogger(): completionLevel falls back when the callback throws", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("level failure");
+    await runCompletionLevel(() => {
+      throw failure;
+    });
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel falls back on an invalid level", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    await runCompletionLevel(() => "warn");
+    assertFallback(
+      logs,
+      (error) => error instanceof TypeError && error.message.includes('"warn"'),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel reports rejected promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("async level failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => Promise.reject(failure))
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel bypasses overridden promise then", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let overriddenThenCalled = false;
+    class OverridingPromise<T> extends Promise<T> {
+      override then<R1 = T, R2 = never>(
+        onFulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+        onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+      ): Promise<R1 | R2> {
+        overriddenThenCalled = true;
+        return super.then(onFulfilled, onRejected);
+      }
+    }
+    const failure = new Error("subclass failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        new OverridingPromise((_, reject) => reject(failure))
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(overriddenThenCalled, false);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel does not adopt promise results", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const value = {};
+    const promise = Promise.resolve(value);
+    Object.defineProperty(value, "then", {
+      get() {
+        throw new Error("late then getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel falls back on unobservable promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const promise = Promise.reject(new Error("handled elsewhere"));
+    promise.catch(() => {});
+    Object.defineProperty(promise, "constructor", {
+      get() {
+        throw new Error("constructor getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel never invokes custom thenables", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let thenCalled = false;
+    const thenable = {
+      then(resolve: (value: string) => void): void {
+        thenCalled = true;
+        setTimeout(() => resolve("info"), 0);
+      },
+    };
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => thenable)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(thenCalled, false);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expressLogger(): completionLevel reports cross-realm rejections", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(
+      logs,
+      (error) =>
+        error != null && typeof error === "object" &&
+        "message" in error && error.message === "foreign failure",
+    );
   } finally {
     await cleanup();
   }

@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
+import process from "node:process";
 import _test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import vm from "node:vm";
 import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
-import { Elysia } from "elysia";
-import { elysiaLogger } from "./mod.ts";
+import { Elysia, status } from "elysia";
+import {
+  type CompletionLevelFunction,
+  type ElysiaContext,
+  elysiaLogger,
+  type RequestCompletion,
+} from "./mod.ts";
 
 // Elysia creates internal timers that cause leak detection failures in Deno.
 // node:test doesn't support sanitizeOps/sanitizeResources options, so we just
@@ -1751,6 +1758,573 @@ test("elysiaLogger(): logs correct 404 status code for NOT_FOUND errors", async 
     const errorLogs = logs.filter((log) => log.level === "error");
     assert.strictEqual(errorLogs.length, 1);
     assert.strictEqual(errorLogs[0].properties.status, 404);
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Completion Level Tests
+// ============================================
+
+// Creates a completion level callback that records its arguments.
+function recordCompletions(
+  choose: (completion: RequestCompletion) => ReturnType<
+    CompletionLevelFunction
+  > = () => "info",
+): {
+  completionLevel: CompletionLevelFunction;
+  calls: [ElysiaContext, RequestCompletion][];
+} {
+  const calls: [ElysiaContext, RequestCompletion][] = [];
+  return {
+    completionLevel: (ctx, completion) => {
+      calls.push([ctx, completion]);
+      return choose(completion);
+    },
+    calls,
+  };
+}
+
+test("elysiaLogger(): completionLevel chooses the level from the status", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        completionLevel: (_ctx, { status }) => status >= 500 ? "error" : "info",
+      }))
+      .get("/ok", () => "ok")
+      .get("/unavailable", ({ set }) => {
+        set.status = 503;
+        return "unavailable";
+      });
+
+    await app.handle(new Request("http://localhost/ok"));
+    await app.handle(new Request("http://localhost/unavailable"));
+
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
+      200,
+      503,
+    ]);
+    assert.strictEqual(
+      logs[1].rawMessage,
+      "{method} {url} {status} - {responseTime} ms",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel receives the request outcome", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions(() => "warning");
+    const app = new Elysia()
+      .use(elysiaLogger({ completionLevel }))
+      .get("/test", () => "ok");
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][0].path, "/test");
+    assert.deepStrictEqual(calls[0][1], {
+      status: 200,
+      responseTime: logs[0].properties.responseTime,
+    });
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel resolves returned response statuses", async () => {
+  const { cleanup } = await setupLogtape();
+  try {
+    for (const aot of [true, false]) {
+      const { completionLevel, calls } = recordCompletions();
+      // Elysia 2 has no AOT option, so avoid a fresh object literal, whose
+      // excess property check would reject it there.
+      const config = { name: `completion-status-${aot}`, aot };
+      const app = new Elysia(config)
+        .use(elysiaLogger({ completionLevel }))
+        .get("/response", () => new Response("bad", { status: 503 }))
+        .get("/status", () => status(502, "bad"))
+        .get("/override", ({ set }) => {
+          set.status = 504;
+          return new Response("bad");
+        });
+
+      const response = await app.handle(
+        new Request("http://localhost/response"),
+      );
+      const statusResponse = await app.handle(
+        new Request("http://localhost/status"),
+      );
+      const overridden = await app.handle(
+        new Request("http://localhost/override"),
+      );
+
+      assert.strictEqual(response.status, 503);
+      assert.strictEqual(statusResponse.status, 502);
+      assert.strictEqual(overridden.status, 504);
+      assert.deepStrictEqual(
+        calls.map(([, completion]) => completion.status),
+        [503, 502, 504],
+        `aot: ${aot}`,
+      );
+    }
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel resolves status names", async () => {
+  const { cleanup } = await setupLogtape();
+  try {
+    for (const aot of [true, false]) {
+      const { completionLevel, calls } = recordCompletions();
+      const config = { name: `completion-status-name-${aot}`, aot };
+      const app = new Elysia(config)
+        .use(elysiaLogger({ completionLevel }))
+        .get("/unavailable", ({ set }) => {
+          set.status = "Service Unavailable";
+          return "unavailable";
+        });
+
+      const res = await app.handle(
+        new Request("http://localhost/unavailable"),
+      );
+
+      assert.strictEqual(res.status, 503);
+      assert.deepStrictEqual(
+        calls.map(([, completion]) => completion.status),
+        [503],
+        `aot: ${aot}`,
+      );
+    }
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel applies to text formats", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({ format: "dev", completionLevel: () => "error" }))
+      .get("/test", () => "ok");
+
+    await app.handle(new Request("http://localhost/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
+    assert.ok((logs[0].rawMessage as string).startsWith("GET /test 200 "));
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel is not called for skipped requests", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Elysia()
+      .use(elysiaLogger({ skip: () => true, completionLevel }))
+      .get("/test", () => "ok")
+      .get("/fail", () => {
+        throw new Error("handler failure");
+      });
+
+    await app.handle(new Request("http://localhost/test"));
+    await app.handle(new Request("http://localhost/fail"));
+
+    assert.strictEqual(calls.length, 0);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel chooses the error record level", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("handler failure");
+    const { completionLevel, calls } = recordCompletions((completion) =>
+      completion.status === 404 ? "info" : "fatal"
+    );
+    const app = new Elysia()
+      .use(elysiaLogger({ completionLevel }))
+      .get("/fail", () => {
+        throw failure;
+      });
+
+    await app.handle(new Request("http://localhost/fail"));
+    await app.handle(new Request("http://localhost/missing"));
+
+    assert.strictEqual(calls.length, 2);
+    assert.strictEqual(calls[0][1].status, 500);
+    assert.strictEqual(calls[0][1].error, failure);
+    assert.strictEqual(calls[1][1].status, 404);
+    assert.ok(calls[1][1].error != null);
+    assert.deepStrictEqual(logs.map((log) => log.level), ["fatal", "info"]);
+    assert.strictEqual(logs[0].properties.errorMessage, "handler failure");
+    assert.strictEqual(logs[1].properties.status, 404);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel keeps responses when it fails", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({
+        level: "debug",
+        completionLevel: () => {
+          throw new Error("level failure");
+        },
+      }))
+      .get("/test", () => "ok")
+      .get("/fail", () => {
+        throw new Error("handler failure");
+      });
+
+    const res = await app.handle(new Request("http://localhost/test"));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(await res.text(), "ok");
+    assertFallback(
+      logs,
+      (error) => error instanceof Error && error.message === "level failure",
+    );
+
+    const failed = await app.handle(new Request("http://localhost/fail"));
+    assert.strictEqual(failed.status, 500);
+    const requestLogs = findRequestLogs(logs);
+    assert.strictEqual(requestLogs.length, 2);
+    assert.strictEqual(requestLogs[1].level, "error");
+    assert.strictEqual(
+      requestLogs[1].properties.errorMessage,
+      "handler failure",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel does not change later failures", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("late failure");
+    const { completionLevel, calls } = recordCompletions((completion) =>
+      completion.error == null ? "info" : "error"
+    );
+    const app = new Elysia()
+      .use(elysiaLogger({ completionLevel }))
+      .get("/late", () => "ok", {
+        afterHandle() {
+          throw failure;
+        },
+      });
+
+    const res = await app.handle(new Request("http://localhost/late"));
+
+    assert.strictEqual(res.status, 500);
+    assert.deepStrictEqual(
+      calls.map(([, completion]) => [completion.status, completion.error]),
+      [[200, undefined], [500, failure]],
+    );
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel is not used for logRequest logs", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("handler failure");
+    const { completionLevel, calls } = recordCompletions(() => "warning");
+    const app = new Elysia()
+      .use(elysiaLogger({ logRequest: true, level: "debug", completionLevel }))
+      .get("/test", () => "ok")
+      .get("/fail", () => {
+        throw failure;
+      });
+
+    await app.handle(new Request("http://localhost/test"));
+    await app.handle(new Request("http://localhost/fail"));
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][1].error, failure);
+    assert.deepStrictEqual(logs.map((log) => log.level), [
+      "debug",
+      "debug",
+      "warning",
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel respects skip in local logRequest mode", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions(() => "warning");
+    let errorChecks = 0;
+    const plugin = elysiaLogger({
+      scope: "local",
+      logRequest: true,
+      level: "debug",
+      completionLevel,
+      // The error hook calls skip after the request-start hook does.
+      skip: (ctx) =>
+        ctx.path === "/skip-start"
+          ? errorChecks++ === 0
+          : ctx.path === "/skip-error" && errorChecks++ > 0,
+    })
+      .get("/skip-start", () => {
+        throw new Error("start skipped");
+      })
+      .get("/skip-error", () => {
+        throw new Error("error skipped");
+      });
+    const app = new Elysia().use(plugin).get("/parent", () => {
+      throw new Error("parent failure");
+    });
+
+    await app.handle(new Request("http://localhost/skip-start"));
+    errorChecks = 0;
+    await app.handle(new Request("http://localhost/skip-error"));
+    await app.handle(new Request("http://localhost/parent"));
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(
+      (calls[0][1].error as Error).message,
+      "start skipped",
+    );
+    assert.deepStrictEqual(
+      logs.map((log) => [log.properties.path, log.level]),
+      [["/skip-start", "warning"], ["/skip-error", "debug"]],
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+// Runs a completed request with the given completion level callback and the
+// fallback level "debug".
+async function runCompletionLevel(
+  completionLevel: () => unknown,
+): Promise<void> {
+  const app = new Elysia()
+    .use(elysiaLogger({
+      level: "debug",
+      completionLevel: completionLevel as CompletionLevelFunction,
+    }))
+    .get("/test", () => "ok");
+  await app.handle(new Request("http://localhost/test"));
+}
+
+// ============================================
+// Completion Level Callback Failure Tests
+// ============================================
+
+function findMetaErrors(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) =>
+    record.category.length === 2 &&
+    record.category[0] === "logtape" &&
+    record.category[1] === "meta" &&
+    record.level === "error"
+  );
+}
+
+function findRequestLogs(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) => record.category[0] !== "logtape");
+}
+
+// Runs a function and returns the unhandled rejections reported while it
+// runs, waiting long enough for every runtime to report them.
+async function collectUnhandledRejections(
+  fn: () => Promise<void>,
+): Promise<unknown[]> {
+  const reasons: unknown[] = [];
+  const listener = (reason: unknown): void => {
+    reasons.push(reason);
+  };
+  process.on("unhandledRejection", listener);
+  try {
+    await fn();
+    await delay(20);
+    await delay(20);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+  return reasons;
+}
+
+// Asserts that a request was logged once at the fallback level ("debug") and
+// that the given errors were reported to the meta logger.
+function assertFallback(
+  logs: LogRecord[],
+  matchesMetaError: (error: unknown) => boolean,
+): void {
+  const requestLogs = findRequestLogs(logs);
+  assert.strictEqual(requestLogs.length, 1);
+  assert.strictEqual(requestLogs[0].level, "debug");
+  assert.ok(
+    findMetaErrors(logs).some((record) =>
+      matchesMetaError(record.properties.error)
+    ),
+    "expected the failure to be reported to the meta logger",
+  );
+}
+
+test("elysiaLogger(): completionLevel falls back when the callback throws", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("level failure");
+    await runCompletionLevel(() => {
+      throw failure;
+    });
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel falls back on an invalid level", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    await runCompletionLevel(() => "warn");
+    assertFallback(
+      logs,
+      (error) => error instanceof TypeError && error.message.includes('"warn"'),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel reports rejected promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("async level failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => Promise.reject(failure))
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel bypasses overridden promise then", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let overriddenThenCalled = false;
+    class OverridingPromise<T> extends Promise<T> {
+      override then<R1 = T, R2 = never>(
+        onFulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+        onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+      ): Promise<R1 | R2> {
+        overriddenThenCalled = true;
+        return super.then(onFulfilled, onRejected);
+      }
+    }
+    const failure = new Error("subclass failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        new OverridingPromise((_, reject) => reject(failure))
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(overriddenThenCalled, false);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel does not adopt promise results", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const value = {};
+    const promise = Promise.resolve(value);
+    Object.defineProperty(value, "then", {
+      get() {
+        throw new Error("late then getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel falls back on unobservable promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const promise = Promise.reject(new Error("handled elsewhere"));
+    promise.catch(() => {});
+    Object.defineProperty(promise, "constructor", {
+      get() {
+        throw new Error("constructor getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel never invokes custom thenables", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let thenCalled = false;
+    const thenable = {
+      then(resolve: (value: string) => void): void {
+        thenCalled = true;
+        setTimeout(() => resolve("info"), 0);
+      },
+    };
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => thenable)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(thenCalled, false);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("elysiaLogger(): completionLevel reports cross-realm rejections", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(
+      logs,
+      (error) =>
+        error != null && typeof error === "object" &&
+        "message" in error && error.message === "foreign failure",
+    );
   } finally {
     await cleanup();
   }

@@ -97,8 +97,35 @@ To be released.
 
  -  Added support for Elysia 2 beta while retaining support for Elysia 1.4.
     [[#212]]
+ -  Added the `completionLevel` option to `ElysiaLogTapeOptions`, which
+    chooses the log level of a completed request's log record from the
+    response outcome, for example `"error"` for server errors and
+    `"warning"` for slow responses.  Added the `CompletionLevelFunction`
+    type, `(ctx, completion) => LogLevel`, and the `RequestCompletion`
+    interface, which has the `status`, `responseTime`, and, for the record
+    written by the plugin's error hook, the `error`.  The callback also
+    chooses that error record's level, which otherwise stays `"error"`,
+    without adding another record.  The `level` option still applies to
+    `logRequest` logs.  When the callback throws or returns an invalid level,
+    the record uses `level`, or `"error"` for the error record; such failures
+    are reported to the meta logger and never change the response.
+    [[#240], [#248]]
 
 [#212]: https://github.com/dahlia/logtape/pull/212
+[#240]: https://github.com/dahlia/logtape/issues/240
+[#248]: https://github.com/dahlia/logtape/pull/248
+
+### @logtape/express
+
+ -  Added the `completionLevel` option to `ExpressLogTapeOptions`, which
+    chooses the log level of a completed request's log record from the
+    response outcome, for example `"error"` for server errors and
+    `"warning"` for slow responses.  Added the `CompletionLevelFunction`
+    type, `(req, res, completion) => LogLevel`, and the `RequestCompletion`
+    interface, which has the final `status` and `responseTime`.  The `level`
+    option still applies to `immediate` logs, and is used when the callback
+    throws or returns an invalid level; such failures are reported to
+    the meta logger and never change the response.  [[#240], [#248]]
 
 ### @logtape/file
 
@@ -112,6 +139,32 @@ To be released.
 
 [#215]: https://github.com/dahlia/logtape/issues/215
 [#216]: https://github.com/dahlia/logtape/pull/216
+
+### @logtape/hono
+
+ -  Added the `completionLevel` option to `HonoLogTapeOptions`, which
+    chooses the log level of a completed request's log record from the
+    response outcome, for example `"error"` for server errors and
+    `"warning"` for slow responses.  Added the `CompletionLevelFunction`
+    type, `(c, completion) => LogLevel`, and the `RequestCompletion`
+    interface, which has the `status`, `responseTime`, the `error` from
+    Hono's error handler or a failed response body stream, and whether
+    the response body was `aborted`.  The `level` option still applies to
+    `logRequest` logs, and is used when the callback throws or returns
+    an invalid level; such failures are reported to the meta logger and never
+    change the response.  [[#240], [#248]]
+
+### @logtape/koa
+
+ -  Added the `completionLevel` option to `KoaLogTapeOptions`, which chooses
+    the log level of a completed request's log record from the response
+    outcome, for example `"error"` for server errors and `"warning"` for slow
+    responses.  Added the `CompletionLevelFunction` type,
+    `(ctx, completion) => LogLevel`, and the `RequestCompletion` interface,
+    which has the `status` and `responseTime`.  The `level` option still
+    applies to `logRequest` logs, and is used when the callback throws or
+    returns an invalid level; such failures are reported to the meta logger
+    and never change the response.  [[#240], [#248]]
 
 ### @logtape/lint
 

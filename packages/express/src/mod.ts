@@ -1,4 +1,9 @@
-import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
+import {
+  getLogger,
+  isLogLevel,
+  type LogLevel,
+  withContext,
+} from "@logtape/logtape";
 
 export type { LogLevel } from "@logtape/logtape";
 
@@ -82,6 +87,43 @@ export type FormatFunction = (
   res: ExpressResponse,
   responseTime: number,
 ) => string | Record<string, unknown>;
+
+/**
+ * The outcome of a completed request, passed to
+ * {@link ExpressLogTapeOptions.completionLevel}.
+ *
+ * The values are computed independently of the configured `format`, so they
+ * are the same for structured, text, and custom formats.
+ * @since 2.4.0
+ */
+export interface RequestCompletion {
+  /** The final HTTP response status code. */
+  readonly status: number;
+
+  /**
+   * The response time in milliseconds, the same value passed to the format
+   * function.
+   */
+  readonly responseTime: number;
+}
+
+/**
+ * A function that chooses the log level of a completed request's log record.
+ *
+ * The function must return a valid {@link LogLevel} synchronously.  Returning
+ * a promise is not supported.
+ *
+ * @param req The Express request object.
+ * @param res The Express response object.
+ * @param completion The outcome of the request.
+ * @returns The log level for the request's log record.
+ * @since 2.4.0
+ */
+export type CompletionLevelFunction = (
+  req: ExpressRequest,
+  res: ExpressResponse,
+  completion: RequestCompletion,
+) => LogLevel;
 
 /**
  * Structured log properties for HTTP requests.
@@ -198,9 +240,40 @@ export interface ExpressLogTapeOptions {
 
   /**
    * The log level to use for request logging.
+   *
+   * When {@link ExpressLogTapeOptions.completionLevel} is set, this level is
+   * still used for `immediate` logs and as the fallback when the callback
+   * fails.
    * @default "info"
    */
   readonly level?: LogLevel;
+
+  /**
+   * Chooses the log level of each completed request's log record from the
+   * response outcome, instead of always using
+   * {@link ExpressLogTapeOptions.level}.
+   *
+   * The callback is called when the response finishes, after `skip`, and
+   * receives the final status code and response time.  It is not called for
+   * `immediate` logs, which are written before the outcome is known, nor for
+   * connections closed before the response finishes, which are not logged.
+   *
+   * If the callback throws or returns anything other than a valid log level,
+   * the failure is reported to the `["logtape", "meta"]` logger and the
+   * record is written at {@link ExpressLogTapeOptions.level}.  The response
+   * is never changed.
+   *
+   * @example Log server errors at `"error"` and slow responses at `"warning"`
+   * ```typescript
+   * app.use(expressLogger({
+   *   completionLevel: (req, res, { status, responseTime }) =>
+   *     status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+   * }));
+   * ```
+   *
+   * @since 2.4.0
+   */
+  readonly completionLevel?: CompletionLevelFunction;
 
   /**
    * The format for log output.
@@ -665,6 +738,65 @@ const predefinedFormats: Record<PredefinedFormat, FormatFunction> = {
   tiny: formatTiny,
 };
 
+const metaLogger = getLogger(["logtape", "meta"]);
+
+/**
+ * Report a completion level callback failure without affecting the response.
+ */
+function reportCompletionLevelFailure(error: unknown): void {
+  try {
+    metaLogger.error(
+      "Failed to choose the log level for an Express request: {error}",
+      { error },
+    );
+  } catch {
+    // Last resort: logging must never affect the response.
+  }
+}
+
+/**
+ * Resolve a completion log level, falling back when the callback fails.
+ */
+function resolveCompletionLevel(
+  choose: () => unknown,
+  fallback: LogLevel,
+): LogLevel {
+  try {
+    const level = choose();
+    if (typeof level === "string" && isLogLevel(level)) return level;
+    if (
+      (typeof level === "object" && level !== null) ||
+      typeof level === "function"
+    ) {
+      // Observe a returned native promise so its rejection is reported rather
+      // than left unhandled.  The intrinsic `then` bypasses user-defined `then`
+      // methods, and both reactions return nothing so the discarded derived
+      // promise cannot reject.  Attaching throws for non-promises, and also for
+      // a promise with a throwing `constructor` or species getter, whose
+      // rejection then cannot be observed here.
+      try {
+        Promise.prototype.then.call(
+          level,
+          () => {},
+          (error: unknown) => {
+            reportCompletionLevelFailure(error);
+          },
+        );
+      } catch {
+        // Not an observable native promise.
+      }
+    }
+    throw new TypeError(
+      `Expected a log level from completionLevel, but got ${
+        level === null ? "null" : typeof level
+      }${typeof level === "string" ? ` ${JSON.stringify(level)}` : ""}.`,
+    );
+  } catch (error) {
+    reportCompletionLevelFailure(error);
+    return fallback;
+  }
+}
+
 /**
  * Normalize category to array format.
  */
@@ -735,6 +867,7 @@ export function expressLogger(
   const category = normalizeCategory(options.category ?? ["express"]);
   const logger = getLogger(category);
   const level = options.level ?? "info";
+  const completionLevel = options.completionLevel;
   const formatOption = options.format ?? "structured-combined";
   const skip = options.skip ?? (() => false);
   const immediate = options.immediate ?? false;
@@ -777,15 +910,25 @@ export function expressLogger(
         if (skip(req, res)) return;
 
         const responseTime = Date.now() - startTime;
+        const log = completionLevel == null ? logMethod : logger[
+          resolveCompletionLevel(
+            () =>
+              completionLevel(req, res, {
+                status: res.statusCode,
+                responseTime,
+              }),
+            level,
+          )
+        ].bind(logger);
         const result = withRequestLogContext(
           formatFn(req, res, responseTime),
           requestContext,
         );
 
         if (typeof result === "string") {
-          logMethod(result, requestContext);
+          log(result, requestContext);
         } else {
-          logMethod("{method} {url} {status} - {responseTime} ms", result);
+          log("{method} {url} {status} - {responseTime} ms", result);
         }
       };
 

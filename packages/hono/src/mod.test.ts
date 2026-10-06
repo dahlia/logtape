@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Buffer } from "node:buffer";
+import process from "node:process";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import vm from "node:vm";
 import {
   configure,
   getLogger,
@@ -12,7 +14,12 @@ import {
 } from "@logtape/logtape";
 import { Hono } from "hono";
 import { streamText } from "hono/streaming";
-import { honoLogger } from "./mod.ts";
+import {
+  type CompletionLevelFunction,
+  type HonoContext,
+  honoLogger,
+  type RequestCompletion,
+} from "./mod.ts";
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
 function createTestSink(options: { includeMeta?: boolean } = {}): {
@@ -2199,6 +2206,731 @@ test("honoLogger(): reports formatter errors in logRequest mode", async () => {
     assert.strictEqual(res.status, 200);
 
     assert.ok(findMetaError(logs));
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Completion Level Tests
+// ============================================
+
+// Creates a completion level callback that records its arguments.
+function recordCompletions(
+  choose: (completion: RequestCompletion) => ReturnType<
+    CompletionLevelFunction
+  > = () => "info",
+): {
+  completionLevel: CompletionLevelFunction;
+  calls: [HonoContext, RequestCompletion][];
+} {
+  const calls: [HonoContext, RequestCompletion][] = [];
+  return {
+    completionLevel: (c, completion) => {
+      calls.push([c, completion]);
+      return choose(completion);
+    },
+    calls,
+  };
+}
+
+test("honoLogger(): completionLevel chooses the level from the status", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Hono();
+    app.use(honoLogger({
+      completionLevel: (_c, { status }) => status >= 500 ? "error" : "info",
+    }));
+    app.get("/ok", (c) => c.text("ok"));
+    app.get("/fail", (c) => c.text("fail", 503));
+
+    await drain(app.request("/ok"));
+    await drain(app.request("/fail"));
+
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
+      200,
+      503,
+    ]);
+    assert.strictEqual(
+      logs[1].rawMessage,
+      "{method} {url} {status} - {responseTime} ms",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel receives the request outcome", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  let restoreDateNow = useFixedDateNow(10_000);
+  try {
+    const { completionLevel, calls } = recordCompletions((completion) =>
+      completion.responseTime > 1000 ? "warning" : "info"
+    );
+    let handlerContext: unknown;
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/slow", (c) => {
+      handlerContext = c;
+      restoreDateNow();
+      restoreDateNow = useFixedDateNow(11_500);
+      return c.text("slow", 201);
+    });
+
+    await drain(app.request("/slow"));
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][0], handlerContext);
+    assert.deepStrictEqual(calls[0][1], {
+      status: 201,
+      responseTime: 1500,
+      error: undefined,
+      aborted: false,
+    });
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
+    assert.strictEqual(logs[0].properties.responseTime, 1500);
+  } finally {
+    restoreDateNow();
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel receives errors from Hono's error handler", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("handler failure");
+    const { completionLevel, calls } = recordCompletions((completion) =>
+      completion.error == null ? "info" : "error"
+    );
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/fail", () => {
+      throw failure;
+    });
+
+    const res = await drain(app.request("/fail"));
+
+    assert.strictEqual(res.status, 500);
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][1].error, failure);
+    assert.strictEqual(calls[0][1].status, 500);
+    assert.strictEqual(calls[0][1].aborted, false);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel applies to text formats", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Hono();
+    app.use(honoLogger({ format: "dev", completionLevel: () => "error" }));
+    app.get("/test", (c) => c.text("fail", 503));
+
+    await drain(app.request("/test"));
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
+    assert.ok((logs[0].rawMessage as string).startsWith("GET /test 503 "));
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel is not used for logRequest logs", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Hono();
+    app.use(honoLogger({ logRequest: true, level: "debug", completionLevel }));
+    app.get("/test", (c) => c.text("ok"));
+
+    await drain(app.request("/test"));
+
+    assert.strictEqual(calls.length, 0);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel is not called for skipped requests", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Hono();
+    app.use(honoLogger({ skip: () => true, completionLevel }));
+    app.get("/test", (c) => c.text("ok"));
+
+    await drain(app.request("/test"));
+
+    assert.strictEqual(calls.length, 0);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel covers immediately logged responses", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions(() => "warning");
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/empty", (c) => c.body(null, 204));
+    app.get("/head", (c) => c.text("ok"));
+
+    await app.request("/empty");
+    await app.request("/head", { method: "HEAD" });
+
+    assert.deepStrictEqual(
+      calls.map(([, completion]) => completion),
+      [
+        {
+          status: 204,
+          responseTime: calls[0][1].responseTime,
+          error: undefined,
+          aborted: false,
+        },
+        {
+          status: 200,
+          responseTime: calls[1][1].responseTime,
+          error: undefined,
+          aborted: false,
+        },
+      ],
+    );
+    assert.deepStrictEqual(logs.map((log) => log.level), [
+      "warning",
+      "warning",
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel receives source stream errors", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("source failure");
+    const { completionLevel, calls } = recordCompletions(() => "error");
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/default", () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(failure);
+          },
+        }),
+      ));
+    app.get("/bytes", () =>
+      new Response(
+        new ReadableStream({
+          type: "bytes",
+          async start(controller: ReadableByteStreamController) {
+            await delay(10);
+            controller.error(failure);
+          },
+        }),
+      ));
+
+    for (const path of ["/default", "/bytes"]) {
+      const res = await app.request(path);
+      await assert.rejects(res.arrayBuffer(), (error) => error === failure);
+    }
+
+    assert.strictEqual(calls.length, 2);
+    for (const [, completion] of calls) {
+      assert.strictEqual(completion.error, failure);
+      assert.strictEqual(completion.aborted, false);
+    }
+    assert.deepStrictEqual(logs.map((log) => log.level), ["error", "error"]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel receives idle and pending stream errors", async () => {
+  const { cleanup } = await setupLogtape();
+  try {
+    const idleFailure = new Error("idle failure");
+    const pendingFailure = new Error("pending failure");
+    let idleSource!: ReadableStreamDefaultController<Uint8Array>;
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/idle", () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            idleSource = controller;
+          },
+        }),
+      ));
+    app.get("/pending", () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("chunk"));
+            controller.error(pendingFailure);
+          },
+        }),
+      ));
+
+    const idle = await app.request("/idle");
+    const idleReader = idle.body!.getReader();
+    idleSource.error(idleFailure);
+    await assert.rejects(idleReader.closed, (error) => error === idleFailure);
+
+    const pending = await app.request("/pending");
+    await assert.rejects(
+      pending.arrayBuffer(),
+      (error) => error === pendingFailure,
+    );
+
+    assert.deepStrictEqual(
+      calls.map(([, completion]) => [completion.error, completion.aborted]),
+      [[idleFailure, false], [pendingFailure, false]],
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel prefers stream errors over c.error", async () => {
+  const { cleanup } = await setupLogtape();
+  try {
+    const sentinel = new Error("context error");
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/stream", (c) => {
+      c.error = sentinel;
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(undefined);
+          },
+        }),
+      );
+    });
+
+    const res = await app.request("/stream");
+    await assert.rejects(res.arrayBuffer(), (error) => error === undefined);
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][1].error, undefined);
+    assert.strictEqual(calls[0][1].aborted, false);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel reports cancelled streams as aborted", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions((completion) =>
+      completion.aborted ? "warning" : "info"
+    );
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/default", () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          pull() {
+            return new Promise<void>(() => {});
+          },
+        }),
+      ));
+    app.get("/bytes", () =>
+      new Response(
+        new ReadableStream({
+          type: "bytes",
+          pull() {
+            return new Promise<void>(() => {});
+          },
+        }),
+      ));
+
+    await (await app.request("/default")).body!.cancel("gone");
+    const reading = (await app.request("/default")).body!.getReader();
+    const pending = reading.read();
+    await delay(10);
+    await reading.cancel("gone");
+    await pending;
+    await (await app.request("/bytes")).body!.cancel("gone");
+    const byob = (await app.request("/bytes")).body!.getReader({
+      mode: "byob",
+    });
+    const pendingByob = byob.read(new Uint8Array(16));
+    await delay(10);
+    await byob.cancel("gone");
+    await pendingByob;
+
+    assert.strictEqual(calls.length, 4);
+    for (const [, completion] of calls) {
+      assert.strictEqual(completion.aborted, true);
+      assert.strictEqual(completion.error, undefined);
+    }
+    assert.deepStrictEqual(logs.map((log) => log.level), [
+      "warning",
+      "warning",
+      "warning",
+      "warning",
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel keeps the first stream outcome", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const failure = new Error("late failure");
+    let source!: ReadableStreamDefaultController<Uint8Array>;
+    let signalPull!: () => void;
+    const pullStarted = new Promise<void>((resolve) => {
+      signalPull = resolve;
+    });
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/stream", () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            source = controller;
+          },
+          pull() {
+            signalPull();
+            return new Promise<void>(() => {});
+          },
+        }),
+      ));
+
+    const res = await app.request("/stream");
+    const reader = res.body!.getReader();
+    const pending = reader.read();
+    await pullStarted;
+    source.error(failure);
+    const cancelled = reader.cancel("gone").catch(() => {});
+    await pending.catch(() => {});
+    await cancelled;
+    await delay(10);
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][1].aborted, true);
+    assert.strictEqual(calls[0][1].error, undefined);
+    assert.strictEqual(logs.length, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel receives errors from closing the body", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions((completion) =>
+      completion.error == null ? "info" : "error"
+    );
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/bytes", () =>
+      new Response(
+        new ReadableStream({
+          type: "bytes",
+          start(controller: ReadableByteStreamController) {
+            controller.enqueue(new Uint8Array([1]));
+            controller.close();
+          },
+        }),
+      ));
+
+    const res = await app.request("/bytes");
+    const reader = res.body!.getReader({ mode: "byob" });
+    // A single byte cannot fill a two-byte element, so closing fails.
+    await assert.rejects(
+      reader.read(new Uint16Array(1)),
+      (error) => error instanceof TypeError,
+    );
+    await delay(10);
+
+    assert.strictEqual(calls.length, 1);
+    assert.ok(calls[0][1].error instanceof TypeError);
+    assert.strictEqual(calls[0][1].aborted, false);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel does not see streamText callback errors", async () => {
+  const { cleanup } = await setupLogtape();
+  try {
+    const { completionLevel, calls } = recordCompletions();
+    const app = new Hono();
+    app.use(honoLogger({ completionLevel }));
+    app.get("/stream", (c) =>
+      streamText(c, async (stream) => {
+        await stream.write("partial");
+        throw new Error("producer failure");
+      }, async () => {}));
+
+    const res = await app.request("/stream");
+    assert.strictEqual(await res.text(), "partial");
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][1].error, undefined);
+    assert.strictEqual(calls[0][1].aborted, false);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel failures keep Hono responses", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const app = new Hono();
+    app.use(honoLogger({
+      level: "debug",
+      completionLevel: () => {
+        throw new Error("level failure");
+      },
+    }));
+    app.get("/test", (c) => c.text("created", 201));
+
+    const res = await app.request("/test");
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(await res.text(), "created");
+
+    assertFallback(
+      logs,
+      (error) => error instanceof Error && error.message === "level failure",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+// Runs a completed request with the given completion level callback and the
+// fallback level "debug".
+async function runCompletionLevel(
+  completionLevel: () => unknown,
+): Promise<void> {
+  const app = new Hono();
+  app.use(honoLogger({
+    level: "debug",
+    completionLevel: completionLevel as CompletionLevelFunction,
+  }));
+  app.get("/test", (c) => c.text("ok"));
+  await drain(app.request("/test"));
+}
+
+// ============================================
+// Completion Level Callback Failure Tests
+// ============================================
+
+function findMetaErrors(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) =>
+    record.category.length === 2 &&
+    record.category[0] === "logtape" &&
+    record.category[1] === "meta" &&
+    record.level === "error"
+  );
+}
+
+function findRequestLogs(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) => record.category[0] !== "logtape");
+}
+
+// Runs a function and returns the unhandled rejections reported while it
+// runs, waiting long enough for every runtime to report them.
+async function collectUnhandledRejections(
+  fn: () => Promise<void>,
+): Promise<unknown[]> {
+  const reasons: unknown[] = [];
+  const listener = (reason: unknown): void => {
+    reasons.push(reason);
+  };
+  process.on("unhandledRejection", listener);
+  try {
+    await fn();
+    await delay(20);
+    await delay(20);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+  return reasons;
+}
+
+// Asserts that a request was logged once at the fallback level ("debug") and
+// that the given errors were reported to the meta logger.
+function assertFallback(
+  logs: LogRecord[],
+  matchesMetaError: (error: unknown) => boolean,
+): void {
+  const requestLogs = findRequestLogs(logs);
+  assert.strictEqual(requestLogs.length, 1);
+  assert.strictEqual(requestLogs[0].level, "debug");
+  assert.ok(
+    findMetaErrors(logs).some((record) =>
+      matchesMetaError(record.properties.error)
+    ),
+    "expected the failure to be reported to the meta logger",
+  );
+}
+
+test("honoLogger(): completionLevel falls back when the callback throws", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("level failure");
+    await runCompletionLevel(() => {
+      throw failure;
+    });
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel falls back on an invalid level", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    await runCompletionLevel(() => "warn");
+    assertFallback(
+      logs,
+      (error) => error instanceof TypeError && error.message.includes('"warn"'),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel reports rejected promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("async level failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => Promise.reject(failure))
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel bypasses overridden promise then", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let overriddenThenCalled = false;
+    class OverridingPromise<T> extends Promise<T> {
+      override then<R1 = T, R2 = never>(
+        onFulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+        onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+      ): Promise<R1 | R2> {
+        overriddenThenCalled = true;
+        return super.then(onFulfilled, onRejected);
+      }
+    }
+    const failure = new Error("subclass failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        new OverridingPromise((_, reject) => reject(failure))
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(overriddenThenCalled, false);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel does not adopt promise results", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const value = {};
+    const promise = Promise.resolve(value);
+    Object.defineProperty(value, "then", {
+      get() {
+        throw new Error("late then getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel falls back on unobservable promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const promise = Promise.reject(new Error("handled elsewhere"));
+    promise.catch(() => {});
+    Object.defineProperty(promise, "constructor", {
+      get() {
+        throw new Error("constructor getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel never invokes custom thenables", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let thenCalled = false;
+    const thenable = {
+      then(resolve: (value: string) => void): void {
+        thenCalled = true;
+        setTimeout(() => resolve("info"), 0);
+      },
+    };
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => thenable)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(thenCalled, false);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("honoLogger(): completionLevel reports cross-realm rejections", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(
+      logs,
+      (error) =>
+        error != null && typeof error === "object" &&
+        "message" in error && error.message === "foreign failure",
+    );
   } finally {
     await cleanup();
   }

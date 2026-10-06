@@ -1,8 +1,10 @@
 import { Elysia, t } from "elysia";
 import {
+  type CompletionLevelFunction,
   type ElysiaContext,
   elysiaLogger,
   type ElysiaLogTapeOptions,
+  type RequestCompletion,
 } from "@logtape/elysia";
 
 const options: ElysiaLogTapeOptions = {
@@ -35,3 +37,20 @@ new Elysia().use(elysiaLogger()).post("/body", ({ body }) => {
 elysiaLogger({ scope: "plugin" });
 // @ts-expect-error Invalid log levels are rejected.
 elysiaLogger({ level: "verbose" });
+const completionLevel: CompletionLevelFunction = (
+  ctx: ElysiaContext,
+  completion: RequestCompletion,
+) => {
+  const status: number = completion.status;
+  const responseTime: number = completion.responseTime;
+  const error: unknown = completion.error;
+  return ctx.path === "/health" || error == null && status < 500 &&
+      responseTime < 1000
+    ? "info"
+    : "error";
+};
+new Elysia().use(elysiaLogger({ completionLevel }));
+// @ts-expect-error Completion levels must be valid log levels.
+elysiaLogger({ completionLevel: () => "verbose" });
+// @ts-expect-error Completion levels must be returned synchronously.
+elysiaLogger({ completionLevel: async () => "info" });

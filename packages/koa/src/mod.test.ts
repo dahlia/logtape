@@ -1,8 +1,20 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { once } from "node:events";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import process from "node:process";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import vm from "node:vm";
 import { configure, getLogger, type LogRecord, reset } from "@logtape/logtape";
-import { type KoaContext, koaLogger, type KoaMiddleware } from "./mod.ts";
+import Koa from "koa";
+import {
+  type CompletionLevelFunction,
+  type KoaContext,
+  koaLogger,
+  type KoaMiddleware,
+} from "./mod.ts";
 
 // Test fixture: Collect log records, filtering out internal LogTape meta logs
 function createTestSink(options: { includeMeta?: boolean } = {}): {
@@ -1041,6 +1053,466 @@ test("koaLogger(): handles query parameters in url", async () => {
     assert.strictEqual(logs[0].properties.path, "/search");
     assert.ok((logs[0].properties.url as string).includes("q=test"));
     assert.ok((logs[0].properties.url as string).includes("limit=10"));
+  } finally {
+    await cleanup();
+  }
+});
+
+// ============================================
+// Completion Level Tests
+// ============================================
+
+test("koaLogger(): completionLevel chooses the level from the status", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = koaLogger({
+      completionLevel: (_ctx, { status }) => status >= 500 ? "error" : "info",
+    });
+    for (const status of [200, 500]) {
+      await runMiddleware(middleware, createMockContext({ status }));
+    }
+
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
+      200,
+      500,
+    ]);
+    assert.strictEqual(
+      logs[1].rawMessage,
+      "{method} {url} {status} - {responseTime} ms",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel receives the request outcome", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const calls: Parameters<CompletionLevelFunction>[] = [];
+    const middleware = koaLogger({
+      completionLevel: (...args) => {
+        calls.push(args);
+        return args[1].responseTime > 1000 ? "warning" : "info";
+      },
+    });
+    const ctx = createMockContext();
+    let restoreDateNow = useFixedDateNow(10_000);
+    try {
+      await runMiddleware(middleware, ctx, () => {
+        restoreDateNow();
+        restoreDateNow = useFixedDateNow(11_500);
+        ctx.status = 201;
+        return Promise.resolve();
+      });
+    } finally {
+      restoreDateNow();
+    }
+
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0][0], ctx);
+    assert.deepStrictEqual(calls[0][1], { status: 201, responseTime: 1500 });
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "warning");
+    assert.strictEqual(logs[0].properties.responseTime, 1500);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel applies to text formats", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = koaLogger({
+      format: "dev",
+      completionLevel: () => "error",
+    });
+    await runMiddleware(middleware, createMockContext({ status: 503 }));
+
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "error");
+    assert.ok((logs[0].rawMessage as string).startsWith("GET /test 503 "));
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel is not used for logRequest logs", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let called = false;
+    const middleware = koaLogger({
+      logRequest: true,
+      level: "debug",
+      completionLevel: () => {
+        called = true;
+        return "error";
+      },
+    });
+    await runMiddleware(middleware, createMockContext());
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(logs.length, 1);
+    assert.strictEqual(logs[0].level, "debug");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel is not called for skipped requests", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let called = false;
+    const middleware = koaLogger({
+      skip: () => true,
+      completionLevel: () => {
+        called = true;
+        return "error";
+      },
+    });
+    await runMiddleware(middleware, createMockContext());
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Serves a Koa application on an ephemeral port while running `fn`.
+async function withKoaServer(
+  app: Koa,
+  fn: (url: string) => Promise<void>,
+): Promise<void> {
+  const server = createServer(app.callback());
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  try {
+    await fn(`http://127.0.0.1:${port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error == null ? resolve() : reject(error));
+      server.closeAllConnections();
+    });
+  }
+}
+
+test("koaLogger(): completionLevel sees statuses set by error handlers", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const completions: unknown[] = [];
+    const app = new Koa();
+    app.silent = true;
+    app.use(koaLogger({
+      completionLevel: (_ctx, completion) => {
+        completions.push(completion);
+        return completion.status >= 500 ? "error" : "info";
+      },
+    }));
+    app.use(async (ctx, next) => {
+      try {
+        await next();
+      } catch {
+        ctx.status = 500;
+        ctx.body = "handled";
+      }
+    });
+    app.use((ctx) => {
+      if (ctx.path === "/fail") throw new Error("handler failure");
+      ctx.body = "ok";
+    });
+
+    await withKoaServer(app, async (url) => {
+      const ok = await fetch(`${url}/ok`);
+      assert.strictEqual(await ok.text(), "ok");
+      const failed = await fetch(`${url}/fail`);
+      assert.strictEqual(failed.status, 500);
+      assert.strictEqual(await failed.text(), "handled");
+    });
+
+    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(
+      completions.map((completion) =>
+        (completion as { status: number }).status
+      ),
+      [200, 500],
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel is not called for thrown errors", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    let called = false;
+    const app = new Koa();
+    app.silent = true;
+    app.use(koaLogger({
+      completionLevel: () => {
+        called = true;
+        return "error";
+      },
+    }));
+    app.use(() => {
+      throw new Error("handler failure");
+    });
+
+    await withKoaServer(app, async (url) => {
+      const res = await fetch(`${url}/fail`);
+      assert.strictEqual(res.status, 500);
+      await res.text();
+    });
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(logs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel failures keep Koa responses", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const app = new Koa();
+    app.silent = true;
+    app.use(koaLogger({
+      level: "debug",
+      completionLevel: () => {
+        throw new Error("level failure");
+      },
+    }));
+    app.use((ctx) => {
+      ctx.status = 201;
+      ctx.body = "created";
+    });
+
+    await withKoaServer(app, async (url) => {
+      const res = await fetch(`${url}/`);
+      assert.strictEqual(res.status, 201);
+      assert.strictEqual(await res.text(), "created");
+    });
+
+    assertFallback(
+      logs,
+      (error) => error instanceof Error && error.message === "level failure",
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+// Runs a completed request with the given completion level callback and the
+// fallback level "debug".
+async function runCompletionLevel(
+  completionLevel: () => unknown,
+): Promise<void> {
+  const middleware = koaLogger({
+    level: "debug",
+    completionLevel: completionLevel as CompletionLevelFunction,
+  });
+  await runMiddleware(middleware, createMockContext());
+}
+
+// ============================================
+// Completion Level Callback Failure Tests
+// ============================================
+
+function findMetaErrors(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) =>
+    record.category.length === 2 &&
+    record.category[0] === "logtape" &&
+    record.category[1] === "meta" &&
+    record.level === "error"
+  );
+}
+
+function findRequestLogs(logs: LogRecord[]): LogRecord[] {
+  return logs.filter((record) => record.category[0] !== "logtape");
+}
+
+// Runs a function and returns the unhandled rejections reported while it
+// runs, waiting long enough for every runtime to report them.
+async function collectUnhandledRejections(
+  fn: () => Promise<void>,
+): Promise<unknown[]> {
+  const reasons: unknown[] = [];
+  const listener = (reason: unknown): void => {
+    reasons.push(reason);
+  };
+  process.on("unhandledRejection", listener);
+  try {
+    await fn();
+    await delay(20);
+    await delay(20);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+  return reasons;
+}
+
+// Asserts that a request was logged once at the fallback level ("debug") and
+// that the given errors were reported to the meta logger.
+function assertFallback(
+  logs: LogRecord[],
+  matchesMetaError: (error: unknown) => boolean,
+): void {
+  const requestLogs = findRequestLogs(logs);
+  assert.strictEqual(requestLogs.length, 1);
+  assert.strictEqual(requestLogs[0].level, "debug");
+  assert.ok(
+    findMetaErrors(logs).some((record) =>
+      matchesMetaError(record.properties.error)
+    ),
+    "expected the failure to be reported to the meta logger",
+  );
+}
+
+test("koaLogger(): completionLevel falls back when the callback throws", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("level failure");
+    await runCompletionLevel(() => {
+      throw failure;
+    });
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel falls back on an invalid level", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    await runCompletionLevel(() => "warn");
+    assertFallback(
+      logs,
+      (error) => error instanceof TypeError && error.message.includes('"warn"'),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel reports rejected promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const failure = new Error("async level failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => Promise.reject(failure))
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel bypasses overridden promise then", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let overriddenThenCalled = false;
+    class OverridingPromise<T> extends Promise<T> {
+      override then<R1 = T, R2 = never>(
+        onFulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+        onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+      ): Promise<R1 | R2> {
+        overriddenThenCalled = true;
+        return super.then(onFulfilled, onRejected);
+      }
+    }
+    const failure = new Error("subclass failure");
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        new OverridingPromise((_, reject) => reject(failure))
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(overriddenThenCalled, false);
+    assertFallback(logs, (error) => error === failure);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel does not adopt promise results", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const value = {};
+    const promise = Promise.resolve(value);
+    Object.defineProperty(value, "then", {
+      get() {
+        throw new Error("late then getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel falls back on unobservable promises", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const promise = Promise.reject(new Error("handled elsewhere"));
+    promise.catch(() => {});
+    Object.defineProperty(promise, "constructor", {
+      get() {
+        throw new Error("constructor getter");
+      },
+    });
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => promise)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel never invokes custom thenables", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    let thenCalled = false;
+    const thenable = {
+      then(resolve: (value: string) => void): void {
+        thenCalled = true;
+        setTimeout(() => resolve("info"), 0);
+      },
+    };
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() => thenable)
+    );
+    assert.deepStrictEqual(reasons, []);
+    assert.strictEqual(thenCalled, false);
+    assertFallback(logs, (error) => error instanceof TypeError);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("koaLogger(): completionLevel reports cross-realm rejections", async () => {
+  const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+  try {
+    const reasons = await collectUnhandledRejections(() =>
+      runCompletionLevel(() =>
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
+      )
+    );
+    assert.deepStrictEqual(reasons, []);
+    assertFallback(
+      logs,
+      (error) =>
+        error != null && typeof error === "object" &&
+        "message" in error && error.message === "foreign failure",
+    );
   } finally {
     await cleanup();
   }

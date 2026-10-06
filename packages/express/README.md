@@ -113,6 +113,28 @@ app.use(expressLogger({
 ~~~~
 
 
+Completion log levels
+---------------------
+
+Pass `completionLevel` to choose the level of each completed request's log
+record from the response outcome instead of always using `level`:
+
+~~~~ typescript
+app.use(expressLogger({
+  completionLevel: (req, res, { status, responseTime }) =>
+    status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+}));
+~~~~
+
+The callback receives the request, the response, and the final `status` and
+`responseTime` when the response finishes.  It is not used for
+`immediate: true` logs, which are written before the outcome is known.
+
+If the callback throws or does not return a valid log level, the failure is
+reported to the meta logger and the record is written at `level`.  The response
+is never affected.
+
+
 Predefined formats
 ------------------
 

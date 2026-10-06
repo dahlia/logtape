@@ -1,4 +1,9 @@
-import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
+import {
+  getLogger,
+  isLogLevel,
+  type LogLevel,
+  withContext,
+} from "@logtape/logtape";
 import { createMiddleware } from "hono/factory";
 import type { Context, MiddlewareHandler } from "hono";
 
@@ -71,6 +76,60 @@ export type FormatFunction = (
   c: HonoContext,
   responseTime: number,
 ) => string | Record<string, unknown>;
+
+/**
+ * The outcome of a completed request, passed to
+ * {@link HonoLogTapeOptions.completionLevel}.
+ *
+ * The values are computed independently of the configured `format`, so they
+ * are the same for structured, text, and custom formats.
+ * @since 2.4.0
+ */
+export interface RequestCompletion {
+  /** The HTTP response status code. */
+  readonly status: number;
+
+  /**
+   * The response time in milliseconds, the same value passed to the format
+   * function.  For a streamed body, it covers the whole stream.
+   */
+  readonly responseTime: number;
+
+  /**
+   * The error that terminated the response body stream, or otherwise the
+   * error that Hono's error handler turned into the response (`c.error`).
+   * `undefined` when neither was observed.
+   *
+   * A stream error is observed only when reading the body fails.  Hono's
+   * `stream()` and `streamText()` helpers catch errors thrown by their
+   * callbacks and close the stream normally, so those errors are not
+   * reported here.
+   */
+  readonly error?: unknown;
+
+  /**
+   * Whether the response body stream was cancelled by its consumer before it
+   * completed, for example because the client disconnected.  Whether a
+   * disconnect cancels the body depends on the runtime and server adapter.
+   */
+  readonly aborted: boolean;
+}
+
+/**
+ * A function that chooses the log level of a completed request's log record.
+ *
+ * The function must return a valid {@link LogLevel} synchronously.  Returning
+ * a promise is not supported.
+ *
+ * @param c The Hono context object.
+ * @param completion The outcome of the request.
+ * @returns The log level for the request's log record.
+ * @since 2.4.0
+ */
+export type CompletionLevelFunction = (
+  c: HonoContext,
+  completion: RequestCompletion,
+) => LogLevel;
 
 /**
  * Structured log properties for HTTP requests.
@@ -183,9 +242,46 @@ export interface HonoLogTapeOptions {
 
   /**
    * The log level to use for request logging.
+   *
+   * When {@link HonoLogTapeOptions.completionLevel} is set, this level is
+   * still used for `logRequest` logs and as the fallback when the callback
+   * fails.
    * @default "info"
    */
   readonly level?: LogLevel;
+
+  /**
+   * Chooses the log level of each completed request's log record from the
+   * response outcome, instead of always using
+   * {@link HonoLogTapeOptions.level}.
+   *
+   * The callback is called when the request log record is written, after
+   * `skip`: when the response body stream completes, errors, or is
+   * cancelled, or right after the middleware chain for responses that are
+   * logged immediately.  It receives the response status, response time,
+   * error, and whether the body was aborted.  It is not called for
+   * `logRequest` logs, which are written before the outcome is known.
+   *
+   * If the callback throws or returns anything other than a valid log level,
+   * the failure is reported to the `["logtape", "meta"]` logger and the
+   * record is written at {@link HonoLogTapeOptions.level}.  The response is
+   * never changed.
+   *
+   * @example Log failures at `"error"` and slow responses at `"warning"`
+   * ```typescript
+   * app.use(honoLogger({
+   *   completionLevel: (c, { status, responseTime, error, aborted }) =>
+   *     status >= 500 || error != null
+   *       ? "error"
+   *       : aborted || responseTime > 1000
+   *       ? "warning"
+   *       : "info",
+   * }));
+   * ```
+   *
+   * @since 2.4.0
+   */
+  readonly completionLevel?: CompletionLevelFunction;
 
   /**
    * The format for log output.
@@ -250,6 +346,17 @@ export interface HonoLogTapeOptions {
 }
 
 const defaultRequestIdHeader = "x-request-id";
+
+/**
+ * How the response body ended, as observed by the body wrapper.
+ */
+type BodyOutcome =
+  | { readonly kind: "closed" }
+  | { readonly kind: "errored"; readonly error: unknown }
+  | { readonly kind: "cancelled" };
+
+const closedBodyOutcome: BodyOutcome = { kind: "closed" };
+const cancelledBodyOutcome: BodyOutcome = { kind: "cancelled" };
 
 interface ResolvedRequestId {
   readonly property: string;
@@ -665,6 +772,65 @@ const predefinedFormats: Record<PredefinedFormat, FormatFunction> = {
   tiny: formatTiny,
 };
 
+const metaLogger = getLogger(["logtape", "meta"]);
+
+/**
+ * Report a completion level callback failure without affecting the response.
+ */
+function reportCompletionLevelFailure(error: unknown): void {
+  try {
+    metaLogger.error(
+      "Failed to choose the log level for a Hono request: {error}",
+      { error },
+    );
+  } catch {
+    // Last resort: logging must never affect the response.
+  }
+}
+
+/**
+ * Resolve a completion log level, falling back when the callback fails.
+ */
+function resolveCompletionLevel(
+  choose: () => unknown,
+  fallback: LogLevel,
+): LogLevel {
+  try {
+    const level = choose();
+    if (typeof level === "string" && isLogLevel(level)) return level;
+    if (
+      (typeof level === "object" && level !== null) ||
+      typeof level === "function"
+    ) {
+      // Observe a returned native promise so its rejection is reported rather
+      // than left unhandled.  The intrinsic `then` bypasses user-defined `then`
+      // methods, and both reactions return nothing so the discarded derived
+      // promise cannot reject.  Attaching throws for non-promises, and also for
+      // a promise with a throwing `constructor` or species getter, whose
+      // rejection then cannot be observed here.
+      try {
+        Promise.prototype.then.call(
+          level,
+          () => {},
+          (error: unknown) => {
+            reportCompletionLevelFailure(error);
+          },
+        );
+      } catch {
+        // Not an observable native promise.
+      }
+    }
+    throw new TypeError(
+      `Expected a log level from completionLevel, but got ${
+        level === null ? "null" : typeof level
+      }${typeof level === "string" ? ` ${JSON.stringify(level)}` : ""}.`,
+    );
+  } catch (error) {
+    reportCompletionLevelFailure(error);
+    return fallback;
+  }
+}
+
 /**
  * Normalize category to array format.
  */
@@ -733,11 +899,11 @@ export function honoLogger(
   const category = normalizeCategory(options.category ?? ["hono"]);
   const logger = getLogger(category);
   const level = options.level ?? "info";
+  const completionLevel = options.completionLevel;
   const formatOption = options.format ?? "structured-combined";
   const skip = options.skip ?? (() => false);
   const logRequest = options.logRequest ?? false;
   const contextOptions = normalizeRequestContextOptions(options.context);
-  const metaLogger = getLogger(["logtape", "meta"]);
 
   // Resolve format function
   const formatFn: FormatFunction = typeof formatOption === "string"
@@ -761,18 +927,38 @@ export function honoLogger(
       // Logs the request exactly once.  A formatter or logging failure must
       // never alter the response or crash the application, so it is reported
       // to the meta logger instead.
-      const logSafely = (responseTime: number, template: string): void => {
+      const logSafely = (
+        responseTime: number,
+        template: string,
+        outcome?: BodyOutcome,
+      ): void => {
         if (finished) return;
         finished = true;
         try {
+          const log = outcome == null || completionLevel == null
+            ? logMethod
+            : logger[
+              resolveCompletionLevel(
+                () =>
+                  completionLevel(honoContext, {
+                    status: honoContext.res.status,
+                    responseTime,
+                    error: outcome.kind === "errored"
+                      ? outcome.error
+                      : honoContext.error,
+                    aborted: outcome.kind === "cancelled",
+                  }),
+                level,
+              )
+            ].bind(logger);
           const result = withRequestLogContext(
             formatFn(honoContext, responseTime),
             requestContext,
           );
           if (typeof result === "string") {
-            logMethod(result, requestContext);
+            log(result, requestContext);
           } else {
-            logMethod(template, result);
+            log(template, result);
           }
         } catch (error) {
           try {
@@ -798,17 +984,18 @@ export function honoLogger(
 
       if (skip(honoContext)) return;
 
-      const logResponse = (): void => {
+      const logResponse = (outcome: BodyOutcome): void => {
         logSafely(
           Date.now() - startTime,
           "{method} {url} {status} - {responseTime} ms",
+          outcome,
         );
       };
 
       // Hono runs the GET handler for a HEAD request but discards its body once
       // the middleware chain completes, so the body can never be observed.
       if (honoContext.req.method === "HEAD") {
-        logResponse();
+        logResponse(closedBodyOutcome);
         return;
       }
 
@@ -818,7 +1005,7 @@ export function honoLogger(
       // A null or already-locked body cannot be wrapped without breaking the
       // response, so its completion is treated as immediate.
       if (body == null || body.locked) {
-        logResponse();
+        logResponse(closedBodyOutcome);
         return;
       }
 
@@ -826,13 +1013,16 @@ export function honoLogger(
       // log onto a promise resolved on completion keeps it inside the implicit
       // LogTape context that is active here, even though the continuation runs
       // later in the server's context.
-      let resolveFinished!: () => void;
-      const completion = new Promise<void>((resolve) => {
+      // The outcome is read when the log record is written, so a terminal
+      // action that throws right after completion is signalled is still
+      // reported as an error.
+      let resolveFinished!: (outcome: () => BodyOutcome) => void;
+      const completion = new Promise<() => BodyOutcome>((resolve) => {
         resolveFinished = resolve;
       });
-      void completion.then(logResponse);
-      const complete = (): void => {
-        resolveFinished();
+      void completion.then((outcome) => logResponse(outcome()));
+      const complete = (outcome: () => BodyOutcome): void => {
+        resolveFinished(outcome);
       };
 
       // A non-byte source keeps default-stream semantics (zero-length chunks and
@@ -891,14 +1081,17 @@ export function honoLogger(
         let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
 
         // Finalizes once, before signalling completion so the log record is
-        // written before a consumer observes the stream ending.
-        const finish = (action: () => void): void => {
+        // written before a consumer observes the stream ending.  The first
+        // terminal outcome wins; a later error or cancellation is ignored.
+        const finish = (action: () => void, outcome: BodyOutcome): void => {
           if (wrapperFinished) return;
           wrapperFinished = true;
-          complete();
+          let finalOutcome = outcome;
+          complete(() => finalOutcome);
           try {
             action();
           } catch (error) {
+            finalOutcome = { kind: "errored", error };
             controller?.error(error);
           }
         };
@@ -909,7 +1102,7 @@ export function honoLogger(
         // propagated.
         const closeWhenIdle = (): void => {
           if (!sourceClosed || wrapperFinished || reading) return;
-          finish(() => controller?.close());
+          finish(() => controller?.close(), closedBodyOutcome);
         };
         const errorWhenIdle = (error: unknown): void => {
           if (wrapperFinished) return;
@@ -917,7 +1110,7 @@ export function honoLogger(
             pendingError = { value: error };
             return;
           }
-          finish(() => controller?.error(error));
+          finish(() => controller?.error(error), { kind: "errored", error });
         };
         void reader.closed.then(
           () => {
@@ -942,23 +1135,23 @@ export function honoLogger(
                 if (!result.done) ctrl.enqueue(result.value);
                 const error = pendingError.value;
                 pendingError = undefined;
-                finish(() => ctrl.error(error));
+                finish(() => ctrl.error(error), { kind: "errored", error });
                 return;
               }
               if (result.done) {
-                finish(() => ctrl.close());
+                finish(() => ctrl.close(), closedBodyOutcome);
               } else {
                 ctrl.enqueue(result.value);
                 closeWhenIdle();
               }
             } catch (error) {
               reading = false;
-              finish(() => ctrl.error(error));
+              finish(() => ctrl.error(error), { kind: "errored", error });
               await cancelReader(reader, error);
             }
           },
           cancel(reason) {
-            finish(() => {});
+            finish(() => {}, cancelledBodyOutcome);
             return reader.cancel(reason);
           },
         }, { highWaterMark: 0 });
@@ -985,13 +1178,15 @@ export function honoLogger(
       let wrapperFinished = false;
       let controller: ReadableByteStreamController | undefined;
 
-      const finish = (action: () => void): void => {
+      const finish = (action: () => void, outcome: BodyOutcome): void => {
         if (wrapperFinished) return;
         wrapperFinished = true;
-        complete();
+        let finalOutcome = outcome;
+        complete(() => finalOutcome);
         try {
           action();
         } catch (error) {
+          finalOutcome = { kind: "errored", error };
           controller?.error(error);
         }
       };
@@ -1000,7 +1195,7 @@ export function honoLogger(
         finish(() => {
           controller?.close();
           controller?.byobRequest?.respond(0);
-        });
+        }, closedBodyOutcome);
       };
       const errorWhenIdle = (error: unknown): void => {
         if (wrapperFinished) return;
@@ -1008,7 +1203,7 @@ export function honoLogger(
           pendingError = { value: error };
           return;
         }
-        finish(() => controller?.error(error));
+        finish(() => controller?.error(error), { kind: "errored", error });
       };
       const observeReader = (
         reader:
@@ -1079,26 +1274,26 @@ export function honoLogger(
               if (!result.done) ctrl.enqueue(result.value);
               const error = pendingError.value;
               pendingError = undefined;
-              finish(() => ctrl.error(error));
+              finish(() => ctrl.error(error), { kind: "errored", error });
               return;
             }
             if (result.done) {
               finish(() => {
                 ctrl.close();
                 ctrl.byobRequest?.respond(0);
-              });
+              }, closedBodyOutcome);
               return;
             }
             ctrl.enqueue(result.value);
             closeWhenIdle();
           } catch (error) {
             reading = false;
-            finish(() => ctrl.error(error));
+            finish(() => ctrl.error(error), { kind: "errored", error });
             if (sourceReader != null) await cancelReader(sourceReader, error);
           }
         },
         cancel(reason) {
-          finish(() => {});
+          finish(() => {}, cancelledBodyOutcome);
           const reader = sourceReader;
           return reader == null ? body.cancel(reason) : reader.cancel(reason);
         },
