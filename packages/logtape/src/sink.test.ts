@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import makeConsoleMock from "consolemock";
@@ -10,11 +11,14 @@ import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import {
   type AsyncSink,
+  type AsyncSinkOptions,
+  type AsyncSinkOverflowPolicy,
   fingersCrossed,
   fromAsyncSink,
   getConsoleSink,
   getStreamSink,
   type Sink,
+  type SinkDropEvent,
   withFilter,
 } from "./sink.ts";
 
@@ -1243,6 +1247,709 @@ test("fromAsyncSink() - meta-child records are not suppressed by marker", async 
     metaLogger.sinks.pop();
     metaLogger.lowestLevel = originalLowestLevel;
   }
+});
+
+interface GatedCall {
+  readonly record: LogRecord;
+  readonly resolve: () => void;
+  readonly reject: (reason: unknown) => void;
+}
+
+function createGatedAsyncSink(): {
+  readonly asyncSink: AsyncSink;
+  readonly calls: GatedCall[];
+} {
+  const calls: GatedCall[] = [];
+  const asyncSink: AsyncSink = (record) =>
+    new Promise<void>((resolve, reject) => {
+      calls.push({ record, resolve, reject });
+    });
+  return { asyncSink, calls };
+}
+
+function makeRecord(index: number): LogRecord {
+  return { ...info, properties: { index } };
+}
+
+function indexOf(record: LogRecord): unknown {
+  return record.properties.index;
+}
+
+async function withMetaSink<T>(
+  metaSink: Sink,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+  metaLogger.sinks.push(metaSink);
+  try {
+    return await callback();
+  } finally {
+    metaLogger.sinks.splice(metaLogger.sinks.indexOf(metaSink), 1);
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+}
+
+function trackSettled(promise: Promise<void>): { settled: boolean } {
+  const state = { settled: false };
+  promise.then(() => {
+    state.settled = true;
+  });
+  return state;
+}
+
+test("fromAsyncSink() - does not call the async sink inside the logging call", async () => {
+  let called = false;
+  const asyncSink = ((_record: LogRecord) => {
+    called = true;
+    return Promise.resolve();
+  }) as AsyncSink;
+  const sink = fromAsyncSink(asyncSink, { maxQueueSize: 1 });
+  sink(info);
+  assert.strictEqual(called, false);
+  await sink[Symbol.asyncDispose]();
+  assert.strictEqual(called, true);
+});
+
+test("fromAsyncSink() - reports non-Promise throws, including falsy values", async () => {
+  const metaBuffer: LogRecord[] = [];
+  await withMetaSink(metaBuffer.push.bind(metaBuffer), async () => {
+    const thrown: unknown[] = [new Error("direct"), undefined, null];
+    const delivered: unknown[] = [];
+    const asyncSink = ((record: LogRecord) => {
+      const index = indexOf(record) as number;
+      if (index < thrown.length) throw thrown[index];
+      delivered.push(index);
+      return Promise.resolve();
+    }) as AsyncSink;
+    const sink = fromAsyncSink(asyncSink);
+    for (let i = 0; i < 4; i++) sink(makeRecord(i));
+    await sink[Symbol.asyncDispose]();
+    assert.deepStrictEqual(delivered, [3]);
+    assert.deepStrictEqual(
+      metaBuffer.map((r) => r.properties.error),
+      thrown,
+    );
+  });
+});
+
+test("fromAsyncSink() - rejects invalid options", () => {
+  const asyncSink: AsyncSink = () => Promise.resolve();
+  for (const maxQueueSize of [0, -1, 1.5, NaN, -Infinity]) {
+    assert.throws(() => fromAsyncSink(asyncSink, { maxQueueSize }), RangeError);
+  }
+  assert.throws(
+    () =>
+      fromAsyncSink(asyncSink, {
+        overflow: "drop-random" as AsyncSinkOverflowPolicy,
+      }),
+    TypeError,
+  );
+  fromAsyncSink(asyncSink, { maxQueueSize: Infinity });
+  fromAsyncSink(asyncSink, { maxQueueSize: 1, overflow: "drop-newest" });
+});
+
+test("fromAsyncSink() - drop-oldest keeps the record being processed", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  const drops: SinkDropEvent[] = [];
+  const sink = fromAsyncSink(asyncSink, {
+    maxQueueSize: 2,
+    onDrop: (event) => drops.push(event),
+  });
+  for (let i = 0; i < 3; i++) sink(makeRecord(i));
+  assert.deepStrictEqual(drops, []);
+  await delay(0);
+  assert.strictEqual(calls.length, 1); // record 0 is being processed
+
+  sink(makeRecord(3)); // the queue (1, 2) is full: record 1 is dropped
+  // onDrop is called synchronously, without the dropped record:
+  assert.deepStrictEqual(drops, [{ count: 1, reason: "overflow" }]);
+  sink(makeRecord(4)); // record 2 is dropped
+  assert.strictEqual(drops.length, 2);
+
+  for (let i = 0; i < 3; i++) {
+    calls[i].resolve();
+    await delay(0);
+  }
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 3, 4]);
+});
+
+test("fromAsyncSink() - drop-newest rejects the incoming record", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  const drops: SinkDropEvent[] = [];
+  const registered: Promise<void>[] = [];
+  const sink = fromAsyncSink(asyncSink, {
+    maxQueueSize: 1,
+    overflow: "drop-newest",
+    onDrop: (event) => drops.push(event),
+    waitUntil: (promise) => registered.push(promise),
+  });
+  sink(makeRecord(0));
+  sink(makeRecord(1));
+  assert.strictEqual(registered.length, 2);
+  sink(makeRecord(2)); // rejected
+  sink(makeRecord(3)); // rejected
+  assert.strictEqual(registered.length, 2);
+  assert.deepStrictEqual(drops, [
+    { count: 1, reason: "overflow" },
+    { count: 1, reason: "overflow" },
+  ]);
+  await delay(0);
+  calls[0].resolve();
+  await delay(0);
+  calls[1].resolve();
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 1]);
+});
+
+test("fromAsyncSink() - sustained eviction behind a stalled record", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  let dropped = 0;
+  const sink = fromAsyncSink(asyncSink, {
+    maxQueueSize: 2,
+    onDrop: ({ count }) => {
+      dropped += count;
+    },
+  });
+  for (let i = 0; i < 1000; i++) sink(makeRecord(i));
+  await delay(0);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(dropped, 997);
+  for (let i = 0; i < 3; i++) {
+    calls[i].resolve();
+    await delay(0);
+  }
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 998, 999]);
+});
+
+const gc: (() => void) | undefined = (globalThis as { gc?: () => void }).gc ??
+  ((globalThis as { Bun?: { gc(force: boolean): void } }).Bun == null
+    ? undefined
+    : () =>
+      (globalThis as { Bun?: { gc(force: boolean): void } }).Bun!.gc(
+        true,
+      ));
+
+test(
+  "fromAsyncSink() - drop-oldest releases dropped records",
+  { skip: typeof gc !== "function" },
+  async () => {
+    // Needs --expose-gc (Node.js) or --v8-flags=--expose-gc (Deno).
+    if (typeof gc !== "function") return;
+    const { asyncSink, calls } = createGatedAsyncSink();
+    const sink = fromAsyncSink(asyncSink, { maxQueueSize: 1 });
+    sink(makeRecord(0));
+    let dropped: LogRecord | undefined = makeRecord(1);
+    const ref = new WeakRef(dropped);
+    sink(dropped);
+    dropped = undefined;
+    sink(makeRecord(2)); // drops record 1 while record 0 is still pending
+    await delay(0);
+    gc();
+    await delay(0);
+    gc();
+    assert.strictEqual(ref.deref(), undefined);
+    calls[0].resolve();
+    await delay(0);
+    calls[1].resolve();
+    await sink[Symbol.asyncDispose]();
+  },
+);
+
+test("fromAsyncSink() - waitUntil receives a prefix promise synchronously", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  const registered: Promise<void>[] = [];
+  const sink = fromAsyncSink(asyncSink, {
+    waitUntil: (promise) => registered.push(promise),
+  });
+  sink(makeRecord(0));
+  assert.strictEqual(registered.length, 1);
+  sink(makeRecord(1));
+  sink(makeRecord(2));
+  assert.strictEqual(registered.length, 3);
+  assert.strictEqual(new Set(registered).size, 3);
+  const states = registered.map(trackSettled);
+
+  await delay(0);
+  calls[0].resolve();
+  await delay(0);
+  assert.deepStrictEqual(states.map((s) => s.settled), [true, false, false]);
+  calls[1].resolve();
+  await delay(0);
+  // Record 1's promise does not wait for record 2, which is still pending:
+  assert.deepStrictEqual(states.map((s) => s.settled), [true, true, false]);
+  calls[2].resolve();
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(states.map((s) => s.settled), [true, true, true]);
+});
+
+test("fromAsyncSink() - waitUntil promises of dropped records", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  const registered: Promise<void>[] = [];
+  const sink = fromAsyncSink(asyncSink, {
+    maxQueueSize: 1,
+    waitUntil: (promise) => registered.push(promise),
+  });
+  sink(makeRecord(0)); // being processed
+  sink(makeRecord(1)); // dropped by record 2
+  sink(makeRecord(2)); // dropped by record 3
+  sink(makeRecord(3));
+  const states = registered.map(trackSettled);
+  await delay(0);
+  assert.deepStrictEqual(states.map((s) => s.settled), [
+    false,
+    false,
+    false,
+    false,
+  ]);
+  calls[0].resolve();
+  await delay(0);
+  // The dropped records' promises settle once record 0 has finished, while
+  // record 3 is still being processed:
+  assert.strictEqual(calls.length, 2);
+  assert.deepStrictEqual(states.map((s) => s.settled), [
+    true,
+    true,
+    true,
+    false,
+  ]);
+  calls[1].resolve();
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 3]);
+  assert.ok(states.every((s) => s.settled));
+});
+
+test("fromAsyncSink() - waitUntil promise fulfills after a failure is reported", async () => {
+  const metaBuffer: LogRecord[] = [];
+  await withMetaSink(metaBuffer.push.bind(metaBuffer), async () => {
+    const registered: Promise<void>[] = [];
+    const asyncSink: AsyncSink = async () => {
+      await Promise.resolve();
+      throw new Error("Async sink error");
+    };
+    const sink = fromAsyncSink(asyncSink, {
+      waitUntil: (promise) => registered.push(promise),
+    });
+    sink(error);
+    await registered[0]; // must not reject
+    assert.strictEqual(metaBuffer.length, 1);
+    assert.strictEqual(
+      (metaBuffer[0].properties.error as Error).message,
+      "Async sink error",
+    );
+    await sink[Symbol.asyncDispose]();
+  });
+});
+
+test("fromAsyncSink() - runs each record in its own async context", async () => {
+  const storage = new AsyncLocalStorage<string>();
+  for (const options of [{}, { maxQueueSize: 1 }] as AsyncSinkOptions[]) {
+    const seenBySink: [unknown, string | undefined][] = [];
+    const seenByWaitUntil: [string | undefined, Promise<void>][] = [];
+    const seenByMeta: [unknown, string | undefined][] = [];
+    const metaSink: Sink = (record) => {
+      const failed = record.properties.record as LogRecord;
+      seenByMeta.push([indexOf(failed), storage.getStore()]);
+    };
+    await withMetaSink(metaSink, async () => {
+      const { asyncSink, calls } = createGatedAsyncSink();
+      const sink = fromAsyncSink(
+        (record) => {
+          seenBySink.push([indexOf(record), storage.getStore()]);
+          return asyncSink(record);
+        },
+        {
+          ...options,
+          waitUntil: (promise) =>
+            seenByWaitUntil.push([storage.getStore(), promise]),
+        },
+      );
+      storage.run("request-a", () => sink(makeRecord(0)));
+      storage.run("request-b", () => sink(makeRecord(1)));
+      await delay(0);
+      calls[0].reject(new Error("failed"));
+      await delay(0);
+      calls[1].resolve();
+      await sink[Symbol.asyncDispose]();
+    });
+    assert.deepStrictEqual(seenBySink, [[0, "request-a"], [1, "request-b"]]);
+    assert.deepStrictEqual(
+      seenByWaitUntil.map(([store]) => store),
+      ["request-a", "request-b"],
+    );
+    assert.deepStrictEqual(seenByMeta, [[0, "request-a"]]);
+  }
+});
+
+test("fromAsyncSink() - callback errors do not escape the logging call", async () => {
+  const metaBuffer: LogRecord[] = [];
+  await withMetaSink(metaBuffer.push.bind(metaBuffer), async () => {
+    const delivered: unknown[] = [];
+    const sink = fromAsyncSink(
+      (record) => {
+        delivered.push(indexOf(record));
+        return Promise.resolve();
+      },
+      {
+        maxQueueSize: 1,
+        onDrop: () => {
+          throw new Error("onDrop failed");
+        },
+        waitUntil: () => {
+          throw new Error("waitUntil failed");
+        },
+      },
+    );
+    sink(makeRecord(0));
+    sink(makeRecord(1));
+    sink(makeRecord(2)); // drops record 1
+    await sink[Symbol.asyncDispose]();
+    assert.deepStrictEqual(delivered, [0, 2]);
+    assert.deepStrictEqual(
+      metaBuffer.map((r) => [r.properties.callback, `${r.properties.error}`]),
+      [
+        ["waitUntil", "Error: waitUntil failed"],
+        ["waitUntil", "Error: waitUntil failed"],
+        ["onDrop", "Error: onDrop failed"],
+        ["waitUntil", "Error: waitUntil failed"],
+      ],
+    );
+    assert.deepStrictEqual(metaBuffer[0].category, ["logtape", "meta"]);
+    assert.strictEqual(metaBuffer[0].level, "error");
+  });
+});
+
+test("fromAsyncSink() - failing waitUntil routed back to the sink does not recurse", async () => {
+  const delivered: LogRecord[] = [];
+  let calls = 0;
+  const rawSink = fromAsyncSink(
+    (record) => {
+      delivered.push(record);
+      return Promise.resolve();
+    },
+    {
+      maxQueueSize: 1,
+      overflow: "drop-newest",
+      waitUntil: () => {
+        calls++;
+        throw new Error("No request context");
+      },
+    },
+  );
+  // withFilter() wraps the sink, so the meta logger's bypass set does not
+  // stop the report from reaching the adapter again:
+  const wrappedSink = withFilter(rawSink, "info");
+  await withMetaSink(wrappedSink, async () => {
+    wrappedSink(info);
+    // info is accepted, its waitUntil fails, the report is accepted too and
+    // its waitUntil fails without being reported again:
+    assert.strictEqual(calls, 2);
+    wrappedSink(warning); // the queue is full: rejected without waitUntil
+    assert.strictEqual(calls, 2);
+    await rawSink[Symbol.asyncDispose]();
+  });
+  assert.strictEqual(delivered.length, 2);
+  assert.strictEqual(delivered[0], info);
+  assert.deepStrictEqual(delivered[1].category, ["logtape", "meta"]);
+  assert.strictEqual(delivered[1].properties.callback, "waitUntil");
+});
+
+test("fromAsyncSink() - rejections of async callbacks are reported", async () => {
+  const metaBuffer: LogRecord[] = [];
+  await withMetaSink(metaBuffer.push.bind(metaBuffer), async () => {
+    const sink = fromAsyncSink(() => Promise.resolve(), {
+      maxQueueSize: 1,
+      onDrop: async () => {
+        await Promise.resolve();
+        throw new Error("onDrop rejected");
+      },
+      waitUntil: async () => {
+        await Promise.resolve();
+        throw new Error("waitUntil rejected");
+      },
+    });
+    sink(makeRecord(0));
+    sink(makeRecord(1));
+    sink(makeRecord(2)); // drops record 1
+    await sink[Symbol.asyncDispose]();
+    await delay(0);
+    assert.deepStrictEqual(
+      metaBuffer.map((r) => [r.properties.callback, `${r.properties.error}`])
+        .sort(),
+      [
+        ["onDrop", "Error: onDrop rejected"],
+        ["waitUntil", "Error: waitUntil rejected"],
+        ["waitUntil", "Error: waitUntil rejected"],
+        ["waitUntil", "Error: waitUntil rejected"],
+      ],
+    );
+  });
+});
+
+test("fromAsyncSink() - callback results that cannot be inspected are contained", async () => {
+  const metaBuffer: LogRecord[] = [];
+  await withMetaSink(metaBuffer.push.bind(metaBuffer), async () => {
+    const registered: Promise<void>[] = [];
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    const sink = fromAsyncSink(() => Promise.resolve(), {
+      maxQueueSize: 1,
+      onDrop: () => proxy as unknown as void,
+      waitUntil: (promise) => {
+        registered.push(promise);
+        return {
+          get then(): never {
+            throw new Error("then getter failed");
+          },
+        } as unknown as void;
+      },
+    });
+    sink(makeRecord(0));
+    sink(makeRecord(1));
+    sink(makeRecord(2)); // drops record 1; onDrop returns a revoked proxy
+    // The logging calls did not throw, and record 2 was still registered:
+    assert.strictEqual(registered.length, 3);
+    await sink[Symbol.asyncDispose]();
+    assert.deepStrictEqual(
+      metaBuffer.map((r) => r.properties.callback),
+      ["waitUntil", "waitUntil", "onDrop", "waitUntil"],
+    );
+  });
+});
+
+test("fromAsyncSink() - rejecting waitUntil routed back to the sink does not loop", async () => {
+  const delivered: LogRecord[] = [];
+  let calls = 0;
+  const rawSink = fromAsyncSink(
+    (record) => {
+      delivered.push(record);
+      return Promise.resolve();
+    },
+    {
+      waitUntil: async () => {
+        calls++;
+        await Promise.resolve();
+        throw new Error("No request context");
+      },
+    },
+  );
+  const wrappedSink = withFilter(rawSink, "info");
+  await withMetaSink(wrappedSink, async () => {
+    wrappedSink(info);
+    for (let i = 0; i < 5; i++) {
+      await rawSink[Symbol.asyncDispose]();
+      await delay(0);
+    }
+  });
+  // info's rejection is reported once; the report's own rejection is not:
+  assert.strictEqual(calls, 2);
+  assert.strictEqual(delivered.length, 2);
+  assert.strictEqual(delivered[0], info);
+  assert.strictEqual(delivered[1].properties.callback, "waitUntil");
+});
+
+test("fromAsyncSink() - drops caused inside onDrop are carried over", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  const drops: SinkDropEvent[] = [];
+  let logInsideOnDrop = true;
+  const sink: Sink & AsyncDisposable = fromAsyncSink(asyncSink, {
+    maxQueueSize: 1,
+    overflow: "drop-newest",
+    onDrop: (event) => {
+      drops.push(event);
+      // Logging through the same sink while it is full drops again:
+      if (logInsideOnDrop) sink(warning);
+    },
+  });
+  sink(makeRecord(0));
+  sink(makeRecord(1));
+  sink(makeRecord(2)); // dropped; the warning logged in onDrop is dropped too
+  assert.deepStrictEqual(drops, [{ count: 1, reason: "overflow" }]);
+  sink(makeRecord(3)); // dropped; reported together with the carried drop
+  // (its own onDrop call logs another warning, which is carried again)
+  assert.deepStrictEqual(drops.slice(1), [{ count: 2, reason: "overflow" }]);
+
+  logInsideOnDrop = false;
+  sink(makeRecord(4)); // dropped; reported with the drop carried above
+  assert.deepStrictEqual(drops.slice(2), [{ count: 2, reason: "overflow" }]);
+
+  logInsideOnDrop = true;
+  sink(makeRecord(5)); // carries one drop again
+  assert.strictEqual(drops.length, 4);
+  logInsideOnDrop = false;
+  await delay(0);
+  calls[0].resolve();
+  await delay(0);
+  calls[1].resolve();
+  // The carried drop is reported once on disposal:
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(drops.slice(4), [{ count: 1, reason: "overflow" }]);
+  await sink[Symbol.asyncDispose]();
+  assert.strictEqual(drops.length, 5);
+});
+
+test("fromAsyncSink() - disposal reports carried drops at most once per call", async () => {
+  const drops: SinkDropEvent[] = [];
+  let logInsideOnDrop = true;
+  const sink: Sink & AsyncDisposable = fromAsyncSink(() => delay(1), {
+    maxQueueSize: 1,
+    overflow: "drop-newest",
+    onDrop: (event) => {
+      drops.push(event);
+      // Logs more than the queue can take, causing further drops:
+      if (logInsideOnDrop) { for (let i = 0; i < 3; i++) sink(warning); }
+    },
+  });
+  sink(makeRecord(0));
+  sink(makeRecord(1));
+  sink(makeRecord(2)); // dropped; 3 more drops carried
+  assert.deepStrictEqual(drops, [{ count: 1, reason: "overflow" }]);
+  // The first disposal reports the 3 carried drops once; the warnings that
+  // notification logs are partly dropped again, and those are left for later:
+  await sink[Symbol.asyncDispose]();
+  assert.strictEqual(drops.length, 2);
+  assert.deepStrictEqual(drops[1], { count: 3, reason: "overflow" });
+  logInsideOnDrop = false;
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(drops.slice(2), [{ count: 1, reason: "overflow" }]);
+  await sink[Symbol.asyncDispose]();
+  assert.strictEqual(drops.length, 3);
+});
+
+test("fromAsyncSink() - onDrop may drop the record that caused it", async () => {
+  const { asyncSink, calls } = createGatedAsyncSink();
+  const registered: Promise<void>[] = [];
+  let reentered = false;
+  const sink: Sink & AsyncDisposable = fromAsyncSink(asyncSink, {
+    maxQueueSize: 1,
+    onDrop: () => {
+      if (reentered) return;
+      reentered = true;
+      sink(warning); // drops the record whose acceptance called onDrop
+    },
+    waitUntil: (promise) => registered.push(promise),
+  });
+  sink(makeRecord(0));
+  sink(makeRecord(1));
+  sink(makeRecord(2)); // drops 1; onDrop logs warning, which drops 2
+  // Record 2 is still registered (after warning, as onDrop ran first):
+  assert.strictEqual(registered.length, 4);
+  const states = registered.map(trackSettled);
+  await delay(0);
+  calls[0].resolve();
+  await delay(0);
+  // Records 1 and 2 were dropped; their promises settle with record 0,
+  // while the warning is still being processed:
+  assert.deepStrictEqual(states.map((s) => s.settled), [
+    true,
+    true,
+    false,
+    true,
+  ]);
+  calls[1].resolve();
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(calls.map((c) => c.record), [makeRecord(0), warning]);
+});
+
+test("fromAsyncSink() - failure reports can refill an empty queue", async () => {
+  const delivered: LogRecord[] = [];
+  const rawSink = fromAsyncSink(
+    async (record) => {
+      await Promise.resolve();
+      delivered.push(record);
+      if (record === error) throw new Error("Async sink error");
+    },
+    { maxQueueSize: 1 },
+  );
+  const wrappedSink = withFilter(rawSink, "info");
+  await withMetaSink(wrappedSink, async () => {
+    wrappedSink(error);
+    // The failure report re-enters the adapter right after the failed
+    // record has left the queue:
+    await rawSink[Symbol.asyncDispose]();
+    assert.strictEqual(delivered.length, 2);
+    assert.deepStrictEqual(delivered[1].category, ["logtape", "meta"]);
+    wrappedSink(info);
+    wrappedSink(warning);
+    await rawSink[Symbol.asyncDispose]();
+    assert.deepStrictEqual(delivered.slice(2), [info, warning]);
+  });
+});
+
+test("fromAsyncSink() - a throwing meta sink does not break the chain", async () => {
+  const registered: Promise<void>[] = [];
+  const delivered: unknown[] = [];
+  await withMetaSink(() => {
+    throw new Error("Meta sink failed");
+  }, async () => {
+    const sink = fromAsyncSink(
+      async (record) => {
+        await Promise.resolve();
+        if (indexOf(record) === 0) throw new Error("Async sink error");
+        delivered.push(indexOf(record));
+      },
+      { waitUntil: (promise) => registered.push(promise) },
+    );
+    sink(makeRecord(0));
+    sink(makeRecord(1));
+    await registered[0];
+    await registered[1];
+    await sink[Symbol.asyncDispose]();
+  });
+  assert.deepStrictEqual(delivered, [1]);
+});
+
+test("fromAsyncSink() - a failing record that cannot be inspected does not break the chain", async () => {
+  const delivered: unknown[] = [];
+  const registered: Promise<void>[] = [];
+  const { proxy, revoke } = Proxy.revocable({ ...makeRecord(0) }, {});
+  const sink = fromAsyncSink(
+    async (record) => {
+      await Promise.resolve();
+      if (record === proxy) {
+        revoke();
+        throw new Error("Async sink error");
+      }
+      delivered.push(indexOf(record));
+    },
+    { waitUntil: (promise) => registered.push(promise) },
+  );
+  sink(proxy);
+  sink(makeRecord(1));
+  await registered[0]; // must not reject
+  await registered[1];
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(delivered, [1]);
+});
+
+test("fromAsyncSink() - disposal waits for records logged while it resumes", async () => {
+  const delivered: unknown[] = [];
+  const registered: Promise<void>[] = [];
+  const sink = fromAsyncSink(async (record) => {
+    await Promise.resolve();
+    delivered.push(indexOf(record));
+  }, { waitUntil: (promise) => registered.push(promise) });
+  sink(makeRecord(0));
+  // This reaction is registered before the disposer awaits the same promise,
+  // so it logs right after the chain settles and before the disposer resumes:
+  registered[0].then(() => sink(makeRecord(1)));
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(delivered, [0, 1]);
+});
+
+test("fromAsyncSink() - concurrent and idle disposal", async () => {
+  const sink = fromAsyncSink(() => delay(5), { maxQueueSize: 1 });
+  await sink[Symbol.asyncDispose](); // idle
+  sink(makeRecord(0));
+  sink(makeRecord(1));
+  sink(makeRecord(2));
+  await Promise.all([
+    sink[Symbol.asyncDispose](),
+    sink[Symbol.asyncDispose](),
+  ]);
 });
 
 test("fingersCrossed() forwards Symbol.dispose", () => {

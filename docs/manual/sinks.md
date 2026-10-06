@@ -1030,11 +1030,19 @@ const sink = fromAsyncSink(webhookSink);
 The `fromAsyncSink()` function:
 
 1.  *Chains async operations*: Each log call is chained to the previous one
-    using Promise chaining, ensuring logs are processed in order.
+    using Promise chaining, ensuring logs are processed in order, one at
+    a time.  Each record is processed in the async context of the logging
+    call that produced it.
 2.  *Handles errors gracefully*: If an async operation fails, the error is
     caught to prevent breaking the chain for subsequent logs.
 3.  [*Implements `AsyncDisposable`*](#disposable-sink): The returned sink can be
     properly disposed, waiting for all pending operations to complete.
+
+By default, the number of records waiting for the async sink is unbounded.
+The second parameter of `fromAsyncSink()` takes options to
+[limit the queue](#bounding-pending-records) and to
+[keep serverless requests alive](#keeping-serverless-requests-alive) until
+their records have been sent.
 
 ### Example: Database logging
 
@@ -1087,6 +1095,129 @@ await configure({
   ],
 });
 ~~~~
+
+### Bounding pending records
+
+*This API is available since LogTape 2.4.0.*
+
+If records arrive faster than the async sink can process them, they pile up
+in memory.  The `~AsyncSinkOptions.maxQueueSize` option limits how many
+records may wait for the async sink.  The record currently being processed
+does not count toward the limit, and it is never dropped or canceled.
+
+When a record arrives while the queue is full, the
+`~AsyncSinkOptions.overflow` option decides what happens:
+
+`"drop-oldest"` (default)
+:   Drops the record that has been waiting the longest, and accepts the new
+    one.
+
+`"drop-newest"`
+:   Drops the new record, and leaves the queue as it is.
+
+Since a sink cannot make a logging call wait, a full queue never blocks the
+application; it drops records instead.  The `~AsyncSinkOptions.onDrop`
+callback is called synchronously whenever that happens.  It receives
+a `SinkDropEvent` with the number of dropped records and the reason, but not
+the records themselves, so you can count them, for example, in a metric:
+
+~~~~ typescript twoslash
+import { type AsyncSink, fromAsyncSink } from "@logtape/logtape";
+const webhookSink: AsyncSink = async () => {};
+/**
+ * A hypothetical counter of dropped log records.
+ */
+const droppedLogs = { add(_count: number, _attributes: object): void {} };
+// ---cut-before---
+const sink = fromAsyncSink(webhookSink, {
+  maxQueueSize: 1000,
+  overflow: "drop-oldest",
+  onDrop: ({ count, reason }) => droppedLogs.add(count, { reason }),
+});
+~~~~
+
+Records are still processed one at a time and in order; dropped records are
+simply skipped.
+
+> [!NOTE]
+> The `~AsyncSinkOptions.maxQueueSize` option limits how many records the
+> sink keeps queued, not its total memory use.  With `"drop-oldest"`,
+> the sink lets go of a dropped record right away, but the promise
+> bookkeeping for it, including any async context (such as request context)
+> the runtime captured for it, remains until the record being processed at
+> that time settles.  If your async sink can hang, give it a timeout.  If
+> that bookkeeping must stay bounded as well, use `"drop-newest"`, which
+> leaves nothing behind for rejected records.
+
+If the `~AsyncSinkOptions.onDrop` callback logs through a logger that sends
+records back to the same sink, the drops that this causes are not reported
+from inside the callback.  They are added to the next drop notification, or
+reported when the sink is disposed.  Errors thrown by the callback, and
+rejections of a promise it returns, are reported to the
+[meta logger](./debug.md) and never reach the logging call.
+
+### Keeping serverless requests alive
+
+*This API is available since LogTape 2.4.0.*
+
+Serverless platforms may suspend or end a function as soon as it returns
+a response, before the async sink has sent its records.  Many platforms let
+you extend the lifetime of the current request by passing a promise to
+a `waitUntil()` function.
+
+The `~AsyncSinkOptions.waitUntil` option takes such a function.  The sink
+calls it synchronously inside each logging call that accepts a record, with
+a promise that settles once that record and every record accepted before it
+have been processed or dropped.  Because the call happens inside the logging
+call, a `waitUntil()` function that looks up the current request attaches the
+promise to the request that logged the record.  The sink itself does not keep
+any request context around.
+
+For example, on Vercel, you can pass the `waitUntil()` function from
+the *@vercel/functions* package:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { type AsyncSink, fromAsyncSink } from "@logtape/logtape";
+const webhookSink: AsyncSink = async () => {};
+// ---cut-before---
+import { waitUntil } from "@vercel/functions";
+
+const sink = fromAsyncSink(webhookSink, { waitUntil });
+~~~~
+
+On Cloudflare Workers, you can pass the `waitUntil()` function from
+`cloudflare:workers`:
+
+~~~~ typescript twoslash
+// @noErrors: 2307
+import { type AsyncSink, fromAsyncSink } from "@logtape/logtape";
+const webhookSink: AsyncSink = async () => {};
+// ---cut-before---
+import { waitUntil } from "cloudflare:workers";
+
+const sink = fromAsyncSink(webhookSink, { waitUntil });
+~~~~
+
+On platforms that expose `waitUntil()` only on a per-request object, pass
+a function that finds that object for the current request, for example
+through `AsyncLocalStorage`.
+
+A few things to keep in mind:
+
+ -  The promise never rejects.  If the async sink fails, the error is
+    reported to the [meta logger](./debug.md) before the promise settles.
+ -  It does not wait for records logged after the one it was created for,
+    so a request is not kept alive by records that other requests log later.
+    It does wait for records that were logged earlier, by any request,
+    because records are sent one at a time.
+ -  Passing a promise to `waitUntil()` only asks the platform for more time.
+    The platform's own limits on how long a request can run after its
+    response still apply.
+ -  Errors thrown by the callback, and rejections of a promise it returns,
+    are reported to the meta logger and never reach the logging call.
+    The callback must not log through the same sink, since that would call
+    it again recursively.
 
 ### Important considerations
 
