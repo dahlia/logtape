@@ -1089,6 +1089,39 @@ export interface FingersCrossedSink {
  */
 export interface FingersCrossedOptions {
   /**
+   * Copies a record synchronously before it is buffered.  The returned record
+   * is retained and later delivered to the wrapped sink.  Without this option,
+   * the original record is retained without copying nested values.
+   *
+   * The original record determines category/context isolation, log levels,
+   * and {@link bufferAction}.  Trigger records, immediate pass-through records,
+   * action records, and records with a zero {@link maxBufferSize} are not
+   * snapshotted.  Flushing retained records does not call this hook again.
+   *
+   * Copy both {@link LogRecord.message} and {@link LogRecord.properties} to
+   * capture mutable interpolated values.  Reading a lazy message or its
+   * {@link LogRecord.rawMessage} evaluates it at intake.  Preserve the record's
+   * metadata, including its timestamp, which controls TTL and flush ordering.
+   * Do not mutate the input or log to the same sink from this hook.
+   *
+   * Errors propagate from direct sink calls before buffer state changes.
+   * Logger calls report them through the `["logtape", "meta"]` logger,
+   * bypassing this sink.  Invalid non-object or thenable results throw a
+   * {@link TypeError}.  The original record is never retained as a fallback.
+   *
+   * @example Copy jointly to preserve shared message/property references
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   snapshot({ message, properties, ...rest }) {
+   *     return { ...rest, ...structuredClone({ message, properties }) };
+   *   },
+   * });
+   * ```
+   * @since 2.4.0
+   */
+  readonly snapshot?: (record: LogRecord) => LogRecord;
+
+  /**
    * Chooses a terminal action for a log record and its matching buffer.
    * Returning `undefined` applies the regular {@link triggerLevel} and
    * {@link bufferLevel} behavior.
@@ -1473,6 +1506,20 @@ export function fingersCrossed(
   }
   const keepTriggered = afterTrigger === "passthrough";
 
+  function snapshotRecord(record: LogRecord): LogRecord {
+    if (maxBufferSize === 0 || options.snapshot == null) return record;
+    const snapshot = options.snapshot(record);
+    if (snapshot == null || typeof snapshot !== "object") {
+      throw new TypeError("snapshot must return a log record object.");
+    }
+    if ("then" in snapshot && typeof snapshot.then === "function") {
+      // Consume a rejected async result, but never retain it as a record.
+      Promise.resolve(snapshot).catch(() => {});
+      throw new TypeError("snapshot must return a log record synchronously.");
+    }
+    return snapshot;
+  }
+
   function getBufferAction(
     record: LogRecord,
   ): FingersCrossedBufferAction | undefined {
@@ -1712,7 +1759,7 @@ export function fingersCrossed(
         sink(record);
       } else {
         // Buffer the record
-        buffer.push(record);
+        buffer.push(snapshotRecord(record));
 
         // Enforce max buffer size
         while (buffer.length > maxBufferSize) {
@@ -1897,6 +1944,7 @@ export function fingersCrossed(
         sink(record);
       } else {
         // Buffer the record
+        const snapshot = snapshotRecord(record);
         let metadata = buffers.get(bufferKey);
         if (!metadata) {
           // Apply LRU eviction if adding new buffer would exceed capacity
@@ -1917,7 +1965,7 @@ export function fingersCrossed(
           metadata.lastAccess = ++accessCounter;
         }
 
-        metadata.buffer.push(record);
+        metadata.buffer.push(snapshot);
 
         // Enforce max buffer size per buffer
         while (metadata.buffer.length > maxBufferSize) {

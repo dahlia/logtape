@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
+import process from "node:process";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import makeConsoleMock from "consolemock";
@@ -7,13 +8,14 @@ import fc from "fast-check";
 import { debug, error, fatal, info, trace, warning } from "./fixtures.ts";
 import { defaultTextFormatter } from "./formatter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
-import { LoggerImpl } from "./logger.ts";
+import { lazy, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 import {
   type AsyncSink,
   type AsyncSinkOptions,
   type AsyncSinkOverflowPolicy,
   fingersCrossed,
+  type FingersCrossedOptions,
   fromAsyncSink,
   getConsoleSink,
   getStreamSink,
@@ -2050,6 +2052,420 @@ test("fingersCrossed() composes TTL and async sink disposal", async () => {
     globalThis.setInterval = originalSetInterval;
     globalThis.clearInterval = originalClearInterval;
     if (!cleanupTimerCleared) originalClearInterval(cleanupTimer);
+  }
+});
+
+const snapshotModes: readonly {
+  readonly name: string;
+  readonly options: FingersCrossedOptions;
+}[] = [
+  { name: "global", options: {} },
+  { name: "category", options: { isolateByCategory: "descendant" } },
+  { name: "context", options: { isolateByContext: { keys: ["requestId"] } } },
+  {
+    name: "combined",
+    options: {
+      isolateByCategory: "descendant",
+      isolateByContext: { keys: ["requestId"] },
+    },
+  },
+];
+
+for (const { name, options } of snapshotModes) {
+  test(`fingersCrossed() snapshots nested message/properties (${name})`, () => {
+    const output: LogRecord[] = [];
+    const payload = { names: ["before"], nested: { count: 1 } };
+    const record: LogRecord = {
+      ...debug,
+      message: ["Payload: ", payload, ""],
+      properties: { requestId: "one", payload },
+    };
+    const sink = fingersCrossed(output.push.bind(output), {
+      ...options,
+      snapshot({ message, properties, ...rest }) {
+        return { ...rest, ...structuredClone({ message, properties }) };
+      },
+    });
+
+    sink(record);
+    payload.names.push("after");
+    payload.nested.count = 2;
+    sink({ ...error, properties: { requestId: "one" } });
+
+    assert.strictEqual(output.length, 2);
+    assert.deepStrictEqual(output[0].properties.payload, {
+      names: ["before"],
+      nested: { count: 1 },
+    });
+    assert.strictEqual(output[0].message[1], output[0].properties.payload);
+    assert.notStrictEqual(output[0].properties.payload, payload);
+    assert.strictEqual(output[0].rawMessage, record.rawMessage);
+    assert.strictEqual(output[0].timestamp, record.timestamp);
+  });
+}
+
+for (const { name, options } of [snapshotModes[0], snapshotModes[3]]) {
+  test(`fingersCrossed() snapshots only buffered intake (${name})`, () => {
+    const output: LogRecord[] = [];
+    const snapshotted: LogRecord[] = [];
+    const sink = fingersCrossed(output.push.bind(output), {
+      ...options,
+      bufferLevel: "debug",
+      triggerLevel: "warning",
+      bufferAction(record) {
+        const action = record.properties.action;
+        return action === "flush" || action === "discard" ? action : undefined;
+      },
+      snapshot(record) {
+        snapshotted.push(record);
+        return {
+          ...record,
+          properties: { ...record.properties, copied: true },
+        };
+      },
+    });
+    const discardRecord = { ...debug, properties: { action: "discard" } };
+    const flushRecord = { ...debug, properties: { action: "flush" } };
+
+    sink(debug);
+    sink(info);
+    sink(warning);
+    sink(trace);
+    sink(discardRecord);
+    sink(debug);
+    sink(flushRecord);
+    sink(debug);
+    sink.flush();
+
+    assert.deepStrictEqual(snapshotted, [debug, debug, debug]);
+    assert.strictEqual(output.length, 7);
+    assert.strictEqual(output[0], info);
+    assert.strictEqual(output[2], warning);
+    assert.strictEqual(output[3], trace);
+    assert.strictEqual(output[5], flushRecord);
+    for (const index of [1, 4, 6]) {
+      assert.strictEqual(output[index].properties.copied, true);
+      assert.notStrictEqual(output[index], debug);
+    }
+  });
+
+  test(`fingersCrossed() snapshots each rebuffered cycle (${name})`, () => {
+    const output: LogRecord[] = [];
+    let copies = 0;
+    const sink = fingersCrossed(output.push.bind(output), {
+      ...options,
+      afterTrigger: "buffer",
+      maxBufferSize: 1,
+      snapshot(record) {
+        copies++;
+        return { ...record };
+      },
+    });
+
+    sink(trace);
+    sink(debug);
+    sink(error);
+    sink(info);
+    sink(fatal);
+
+    assert.strictEqual(copies, 3);
+    assert.deepStrictEqual(output, [debug, error, info, fatal]);
+    assert.notStrictEqual(output[0], debug);
+    assert.strictEqual(output[1], error);
+    assert.notStrictEqual(output[2], info);
+    assert.strictEqual(output[3], fatal);
+  });
+
+  test(`fingersCrossed() snapshot failure preserves buffers (${name})`, () => {
+    const output: LogRecord[] = [];
+    const failure = new Error("Cannot copy this value");
+    const sink = fingersCrossed(output.push.bind(output), {
+      ...options,
+      snapshot(record) {
+        if (record === info) throw failure;
+        return record;
+      },
+    });
+
+    sink(debug);
+    assert.throws(() => sink(info), (caught) => caught === failure);
+    assert.strictEqual(output.length, 0);
+    sink(error);
+
+    assert.deepStrictEqual(output, [debug, error]);
+  });
+
+  const invalidSnapshots: readonly unknown[] = [
+    undefined,
+    null,
+    42,
+    Promise.resolve(debug),
+    {
+      then(resolve: (record: LogRecord) => void) {
+        resolve(debug);
+      },
+    },
+  ];
+  for (const [index, invalid] of invalidSnapshots.entries()) {
+    test(`fingersCrossed() rejects invalid snapshot ${index} (${name})`, () => {
+      const output: LogRecord[] = [];
+      const sink = fingersCrossed(output.push.bind(output), {
+        ...options,
+        snapshot(record) {
+          return record === info ? invalid as LogRecord : record;
+        },
+      });
+
+      sink(debug);
+      assert.throws(() => sink(info), TypeError);
+      sink(error);
+
+      assert.deepStrictEqual(output, [debug, error]);
+    });
+  }
+}
+
+test("fingersCrossed() snapshots real logger lazy values at intake", () => {
+  const output: LogRecord[] = [];
+  let messageCalls = 0;
+  let propertyCalls = 0;
+  const payload = { names: ["before"] };
+  const sink = fingersCrossed(output.push.bind(output), {
+    snapshot({ message, properties, ...rest }) {
+      return { ...rest, ...structuredClone({ message, properties }) };
+    },
+  });
+  const logger = LoggerImpl.getLogger(["snapshot", "lazy"]);
+  const lowestLevel = logger.lowestLevel;
+  logger.lowestLevel = "debug";
+  logger.sinks.push(sink);
+  try {
+    logger.logLazily("debug", (render) => {
+      messageCalls++;
+      return render`Payload: ${payload}`;
+    }, {
+      payload: lazy(() => {
+        propertyCalls++;
+        return payload;
+      }),
+    });
+    assert.strictEqual(messageCalls, 1);
+    assert.strictEqual(propertyCalls, 1);
+    payload.names.push("after");
+    sink(error);
+
+    assert.deepStrictEqual(output[0].message[1], { names: ["before"] });
+    assert.strictEqual(output[0].message[1], output[0].properties.payload);
+    assert.ok(
+      Array.isArray((output[0].rawMessage as TemplateStringsArray).raw),
+    );
+    assert.strictEqual(messageCalls, 1);
+  } finally {
+    logger.sinks.pop();
+    logger.lowestLevel = lowestLevel;
+  }
+});
+
+test("fingersCrossed() keeps default record identity and lazy messages", () => {
+  let messageCalls = 0;
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed((record) => {
+    record.message;
+    output.push(record);
+  });
+  const logger = LoggerImpl.getLogger(["snapshot", "default"]);
+  const lowestLevel = logger.lowestLevel;
+  logger.lowestLevel = "debug";
+  logger.sinks.push(sink);
+  try {
+    logger.logLazily("debug", (render) => {
+      messageCalls++;
+      return render`Lazy message`;
+    });
+    assert.strictEqual(messageCalls, 0);
+    sink(error);
+    assert.strictEqual(messageCalls, 1);
+
+    sink.discard();
+    sink(debug);
+    sink.flush();
+    assert.strictEqual(output[2], debug);
+  } finally {
+    logger.sinks.pop();
+    logger.lowestLevel = lowestLevel;
+  }
+});
+
+test("fingersCrossed() routes original context and bufferAction values", () => {
+  class RequestKey {
+    constructor(readonly value: string) {}
+    toJSON(): string {
+      return this.value;
+    }
+  }
+  class Result {}
+  const requestId = new RequestKey("one");
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByCategory: "descendant",
+    isolateByContext: { keys: ["requestId"] },
+    bufferAction(record) {
+      return record.properties.result instanceof Result ? "flush" : undefined;
+    },
+    snapshot({ message, properties, ...rest }) {
+      return { ...rest, ...structuredClone({ message, properties }) };
+    },
+  });
+  const record = { ...debug, properties: { requestId } };
+
+  sink(record);
+  sink.flush({ context: { requestId: new RequestKey("one") } });
+  assert.strictEqual(output.length, 1);
+  assert.ok(!(output[0].properties.requestId instanceof RequestKey));
+  sink(record);
+  const actionRecord = {
+    ...debug,
+    properties: { requestId, result: new Result() },
+  };
+  sink(actionRecord);
+  assert.strictEqual(output.length, 3);
+  assert.strictEqual(output[2], actionRecord);
+});
+
+test("fingersCrossed() snapshot failure does not evict another context", () => {
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"], maxContexts: 1 },
+    snapshot(record) {
+      if (record.properties.requestId === "two") throw new Error("Copy failed");
+      return record;
+    },
+  });
+  const first = { ...debug, properties: { requestId: "one" } };
+  sink(first);
+  assert.throws(() => sink({ ...debug, properties: { requestId: "two" } }));
+  const trigger = { ...error, properties: { requestId: "one" } };
+  sink(trigger);
+  assert.deepStrictEqual(output, [first, trigger]);
+});
+
+test("fingersCrossed() zero global capacity skips snapshots", () => {
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    maxBufferSize: -1,
+    snapshot() {
+      assert.fail("Zero-capacity records must not be snapshotted");
+    },
+  });
+  sink(debug);
+  sink.flush();
+  assert.deepStrictEqual(output, []);
+  sink(error);
+  sink(info);
+  assert.deepStrictEqual(output, [error, info]);
+});
+
+test("fingersCrossed() zero capacity skips snapshots and keeps propagation", () => {
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByCategory: "descendant",
+    maxBufferSize: 0,
+    snapshot() {
+      assert.fail("Zero-capacity records must not be snapshotted");
+    },
+  });
+  const child = { ...debug, category: ["app", "db"] };
+  const trigger = { ...error, category: ["app"] };
+  sink(child);
+  sink(trigger);
+  sink(child);
+  sink({ ...debug, category: ["other"] });
+  assert.deepStrictEqual(output, [trigger, child]);
+});
+
+test("fingersCrossed() nested snapshot intake does not lose outer records", () => {
+  const output: LogRecord[] = [];
+  const first = { ...debug, properties: { requestId: "one" } };
+  const outer = { ...info, properties: { requestId: "one" } };
+  const inner = { ...trace, properties: { requestId: "two" } };
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"], maxContexts: 1 },
+    snapshot(record) {
+      if (record === outer) sink(inner);
+      return record;
+    },
+  });
+  sink(first);
+  sink(outer);
+  sink.flush();
+  assert.deepStrictEqual(output, [outer]);
+});
+
+test("fingersCrossed() consumes rejected async snapshot results", async () => {
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown): void => {
+    rejections.push(reason);
+  };
+  process.on("unhandledRejection", onRejection);
+  try {
+    const output: LogRecord[] = [];
+    const sink = fingersCrossed(output.push.bind(output), {
+      snapshot: () =>
+        Promise.reject(new Error("Async copy failed")) as unknown as LogRecord,
+    });
+    assert.throws(() => sink(debug), TypeError);
+    await delay(0);
+    sink(error);
+    assert.deepStrictEqual(output, [error]);
+    assert.deepStrictEqual(rejections, []);
+  } finally {
+    process.off("unhandledRejection", onRejection);
+  }
+});
+
+test("fingersCrossed() snapshot errors use logger diagnostics and bypass", () => {
+  const output: LogRecord[] = [];
+  const diagnostics: LogRecord[] = [];
+  const failure = new Error("Snapshot failed");
+  let attempts = 0;
+  const sink = fingersCrossed(
+    () => assert.fail("Failed snapshots must not emit"),
+    {
+      snapshot() {
+        attempts++;
+        throw failure;
+      },
+    },
+  );
+  const logger = LoggerImpl.getLogger(["snapshot", "failure"]);
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const lowestLevel = logger.lowestLevel;
+  const metaLowestLevel = metaLogger.lowestLevel;
+  const metaSinkCount = metaLogger.sinks.length;
+  logger.lowestLevel = "debug";
+  metaLogger.lowestLevel = "fatal";
+  logger.sinks.push(sink, output.push.bind(output));
+  metaLogger.sinks.push(sink, diagnostics.push.bind(diagnostics));
+  try {
+    assert.doesNotThrow(() => logger.log("debug", "Value", {}));
+    assert.strictEqual(attempts, 1);
+    assert.strictEqual(output.length, 1);
+    assert.strictEqual(diagnostics.length, 1);
+    assert.strictEqual(diagnostics[0].level, "fatal");
+    assert.strictEqual(diagnostics[0].properties.error, failure);
+    assert.strictEqual(diagnostics[0].properties.sink, sink);
+    sink.flush();
+
+    metaLogger.sinks.pop();
+    assert.doesNotThrow(() => logger.log("debug", "Value", {}));
+    assert.strictEqual(attempts, 2);
+    sink.flush();
+  } finally {
+    metaLogger.sinks.length = metaSinkCount;
+    logger.sinks.pop();
+    logger.sinks.pop();
+    logger.lowestLevel = lowestLevel;
+    metaLogger.lowestLevel = metaLowestLevel;
   }
 });
 
