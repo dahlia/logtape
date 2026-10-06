@@ -1,3 +1,7 @@
+---
+links:
+  '#198': https://github.com/dahlia/logtape/issues/198
+---
  -  Added `"forward"` mode to the `parentSinks` option of `LoggerConfig`.
     Unlike the default `"inherit"` mode, `"forward"` inherits ancestors'
     configured sinks without applying each ancestor's `lowestLevel`

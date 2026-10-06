@@ -49,7 +49,7 @@ To be released.
 [#198]: https://github.com/dahlia/logtape/issues/198
 [#203]: https://github.com/dahlia/logtape/issues/203
 [#205]: https://github.com/dahlia/logtape/issues/205
-[#207]: https://github.com/dahlia/logtape/issues/207
+[#207]: https://github.com/dahlia/logtape/pull/207
 [#234]: https://github.com/dahlia/logtape/issues/234
 [#235]: https://github.com/dahlia/logtape/pull/235
 [#236]: https://github.com/dahlia/logtape/issues/236
