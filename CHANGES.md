@@ -23,6 +23,12 @@ To be released.
     tree rooted at a given logger (or the root logger by default), including
     the given logger itself, in depth-first pre-order.
     [[#62], [#207] by Jepoy\]
+ -  Added the `FingersCrossedOptions.afterTrigger` option and the
+    `FingersCrossedAfterTrigger` type.  Setting it to `"buffer"` makes
+    `fingersCrossed()` go back to buffering after each trigger instead of
+    passing every subsequent record through, so long-running processes can
+    output each error together with the records that led up to it.
+    [[#234], [#235]]
  -  Added the `StreamSinkOptions.closeStream` option to dispose stream sinks
     without closing caller-owned streams. [[#203]]
 
@@ -31,6 +37,8 @@ To be released.
 [#203]: https://github.com/dahlia/logtape/issues/203
 [#205]: https://github.com/dahlia/logtape/issues/205
 [#207]: https://github.com/dahlia/logtape/issues/207
+[#234]: https://github.com/dahlia/logtape/issues/234
+[#235]: https://github.com/dahlia/logtape/pull/235
 
 ### @logtape/config
 

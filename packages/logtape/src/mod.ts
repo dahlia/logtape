@@ -72,6 +72,7 @@ export {
   type AsyncSink,
   type ConsoleSinkOptions,
   fingersCrossed,
+  type FingersCrossedAfterTrigger,
   type FingersCrossedBufferAction,
   type FingersCrossedBufferSelector,
   type FingersCrossedOptions,

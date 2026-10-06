@@ -534,6 +534,17 @@ const _asyncSinkError = Symbol.for("logtape.asyncSinkError");
 export type FingersCrossedBufferAction = "flush" | "discard";
 
 /**
+ * What {@link fingersCrossed} does after a {@link
+ * FingersCrossedOptions.triggerLevel} match flushes buffered records.
+ *
+ * `"passthrough"` lets subsequent records for the triggered buffers pass
+ * through directly, while `"buffer"` returns the flushed buffers to
+ * buffering until the next trigger.
+ * @since 2.4.0
+ */
+export type FingersCrossedAfterTrigger = "passthrough" | "buffer";
+
+/**
  * Selects buffers controlled by a {@link FingersCrossedSink}.
  * @since 2.4.0
  */
@@ -620,6 +631,35 @@ export interface FingersCrossedOptions {
    * @default `"error"`
    */
   readonly triggerLevel?: LogLevel;
+
+  /**
+   * What happens after a record at or above {@link triggerLevel} flushes
+   * the buffered records.
+   *
+   * - `"passthrough"`: Subsequent records for the triggered buffers pass
+   *   through directly until {@link FingersCrossedSink.flush},
+   *   {@link FingersCrossedSink.discard}, {@link bufferAction}, or TTL cleanup
+   *   releases them.
+   * - `"buffer"`: The flushed buffers return to the regular
+   *   {@link bufferLevel} and {@link triggerLevel} processing, so each
+   *   trigger emits the records retained in the selected buffers since they
+   *   were last flushed, followed by the trigger record.
+   *
+   * This option does not affect actions returned by {@link bufferAction}.
+   *
+   * @example Keep the context of every error in a long-running process
+   * ```typescript
+   * fingersCrossed(sink, {
+   *   triggerLevel: "warning",
+   *   maxBufferSize: 100,
+   *   afterTrigger: "buffer",
+   * });
+   * ```
+   *
+   * @default `"passthrough"`
+   * @since 2.4.0
+   */
+  readonly afterTrigger?: FingersCrossedAfterTrigger;
 
   /**
    * Maximum log level that will be buffered.
@@ -859,6 +899,9 @@ export function fingersCrossed(
   options: FingersCrossedOptions = {},
 ): FingersCrossedSink & Partial<Disposable & AsyncDisposable> {
   const triggerLevel = options.triggerLevel ?? "error";
+  const afterTrigger = options.afterTrigger === undefined
+    ? "passthrough"
+    : options.afterTrigger;
   const bufferLevel = options.bufferLevel;
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
   const isolateByCategory = options.isolateByCategory;
@@ -930,6 +973,14 @@ export function fingersCrossed(
       );
     }
   }
+
+  if (afterTrigger !== "passthrough" && afterTrigger !== "buffer") {
+    throw new TypeError(
+      `Invalid afterTrigger: ${JSON.stringify(afterTrigger)}. ` +
+        'Expected "passthrough", "buffer", or undefined.',
+    );
+  }
+  const keepTriggered = afterTrigger === "passthrough";
 
   function getBufferAction(
     record: LogRecord,
@@ -1145,13 +1196,20 @@ export function fingersCrossed(
 
       // Check if this record triggers flush
       if (compareLogLevel(record.level, triggerLevel) >= 0) {
-        triggered = true;
+        if (keepTriggered) {
+          triggered = true;
 
-        // Flush buffer
-        for (const bufferedRecord of buffer) {
-          sink(bufferedRecord);
+          // Flush buffer
+          for (const bufferedRecord of buffer) {
+            sink(bufferedRecord);
+          }
+          buffer.length = 0;
+        } else {
+          // Detach the buffered records first so that records logged by the
+          // wrapped sink while flushing belong to the next buffer cycle
+          const bufferedRecords = buffer.splice(0);
+          for (const bufferedRecord of bufferedRecords) sink(bufferedRecord);
         }
-        buffer.length = 0;
 
         // Send trigger record
         sink(record);
@@ -1318,23 +1376,27 @@ export function fingersCrossed(
       if (compareLogLevel(record.level, triggerLevel) >= 0) {
         const { selectedBuffers, records } = takeBufferedRecords(selection);
         const triggeredAt = Date.now();
-        for (const { key, identity } of selectedBuffers) {
-          triggered.set(key, {
-            category: identity.category,
-            context: identity.context,
-            triggeredAt,
-          });
+        if (keepTriggered) {
+          for (const { key, identity } of selectedBuffers) {
+            triggered.set(key, {
+              category: identity.category,
+              context: identity.context,
+              triggeredAt,
+            });
+          }
         }
 
         // Flush all records
         for (const bufferedRecord of records) sink(bufferedRecord);
 
         // Mark trigger buffer as triggered and send trigger record
-        triggered.set(bufferKey, {
-          category: identity.category,
-          context: identity.context,
-          triggeredAt,
-        });
+        if (keepTriggered) {
+          triggered.set(bufferKey, {
+            category: identity.category,
+            context: identity.context,
+            triggeredAt,
+          });
+        }
         sink(record);
       } else if (
         bufferLevel != null &&
