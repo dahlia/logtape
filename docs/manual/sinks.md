@@ -101,6 +101,12 @@ await configure({
 > of the returned array to style the log messages in the browser console and
 > Deno.
 
+To show where each logging call was made in the console during development,
+use the console formatter that `getConsoleFormatter()` returns with its
+`~ConsoleFormatterOptions.sourceLocation` option (available since LogTape
+2.4.0); see [*Showing where log records come
+from*](./debug.md#showing-where-log-records-come-from).
+
 See also `getConsoleSink()` function and `ConsoleSinkOptions` interface
 in the API reference for more details.
 

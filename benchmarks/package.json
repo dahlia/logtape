@@ -26,6 +26,8 @@
     "file": "node --experimental-transform-types --expose-gc file.ts",
     "file:bun": "bun --expose-gc file.ts",
     "json": "node --experimental-transform-types --expose-gc json.ts",
-    "json:bun": "bun --expose-gc json.ts"
+    "json:bun": "bun --expose-gc json.ts",
+    "source-location": "node --experimental-transform-types source-location.ts",
+    "source-location:bun": "bun source-location.ts"
   }
 }

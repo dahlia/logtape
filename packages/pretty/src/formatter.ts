@@ -408,8 +408,11 @@ function normalizeIconSpacing(
  *
  * @since 1.0.0
  */
-export interface PrettyFormatterOptions
-  extends Omit<TextFormatterOptions, "category" | "value" | "format"> {
+export interface PrettyFormatterOptions extends
+  Omit<
+    TextFormatterOptions,
+    "category" | "value" | "format" | "sourceLocation"
+  > {
   /**
    * Color for timestamp display when timestamps are enabled.
    *

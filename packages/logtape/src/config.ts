@@ -116,6 +116,25 @@ export interface LoggerConfig<
    * @since 0.8.0
    */
   lowestLevel?: LogLevel | null;
+
+  /**
+   * Whether to capture where in the source code each logging method of this
+   * logger and its descendants is called, and put it in the
+   * `LogRecord.sourceLocation` field of the log records.  Formatters
+   * show it only if asked to, e.g., with the
+   * `TextFormatterOptions.sourceLocation` option.
+   *
+   * Capturing builds a stack trace for every logging call that is not
+   * filtered out by its level, so this is meant for development rather than
+   * production.  The location comes from the runtime's stack trace and is
+   * absent if it cannot be determined.
+   *
+   * If omitted, the setting is inherited from the parent category.  The meta
+   * logger never captures source locations.
+   * @default `false` for the root logger
+   * @since 2.4.0
+   */
+  captureSourceLocation?: boolean;
 }
 
 /**
@@ -198,6 +217,23 @@ const asyncFilterDisposables: Set<AsyncDisposable> = new Set();
 const asyncSinkDisposables: Set<AsyncDisposable> = new Set();
 
 let unregisterDisposeHook: (() => void) | undefined;
+
+/**
+ * Gets the root logger to toggle source location capture on.  The root logger
+ * is shared through the global object, so it can be made by an older copy of
+ * LogTape loaded by another package, which lacks these methods.  Its loggers
+ * never capture source locations, so the calls are just skipped then.
+ */
+function getSourceLocationRoot(): Partial<
+  Pick<
+    LoggerImpl,
+    | "setGlobalSourceLocationCapture"
+    | "retainScopedSourceLocationCapture"
+    | "releaseScopedSourceLocationCapture"
+  >
+> {
+  return LoggerImpl.getLogger();
+}
 
 /**
  * Check if a config is for the meta logger.
@@ -424,6 +460,10 @@ export async function withConfig<
   let callbackFailed = false;
   activeScopedConfigCount++;
   activeScopedConfigs.add(scopedConfig);
+  const capturesSourceLocation = scopedConfig.capturesSourceLocation;
+  if (capturesSourceLocation) {
+    getSourceLocationRoot().retainScopedSourceLocationCapture?.();
+  }
   try {
     result = await runWithScopedConfig(
       contextLocalStorage,
@@ -448,6 +488,9 @@ export async function withConfig<
   } finally {
     activeScopedConfigs.delete(scopedConfig);
     activeScopedConfigCount--;
+    if (capturesSourceLocation) {
+      getSourceLocationRoot().releaseScopedSourceLocationCapture?.();
+    }
   }
 
   if (callbackFailed) throw callbackError;
@@ -487,6 +530,10 @@ export function withConfigSync<
   let callbackFailed = false;
   activeScopedConfigCount++;
   activeScopedConfigs.add(scopedConfig);
+  const capturesSourceLocation = scopedConfig.capturesSourceLocation;
+  if (capturesSourceLocation) {
+    getSourceLocationRoot().retainScopedSourceLocationCapture?.();
+  }
   try {
     result = runWithScopedConfig(contextLocalStorage, scopedConfig, callback);
     if (isThenable(result)) {
@@ -512,6 +559,9 @@ export function withConfigSync<
   } finally {
     activeScopedConfigs.delete(scopedConfig);
     activeScopedConfigCount--;
+    if (capturesSourceLocation) {
+      getSourceLocationRoot().releaseScopedSourceLocationCapture?.();
+    }
   }
 
   if (callbackFailed) throw callbackError;
@@ -571,6 +621,7 @@ function configureInternal<
   getInspectionState().configured = true;
 
   let metaConfigured = false;
+  let capturesSourceLocation = false;
   const configuredCategories = new Set<string>();
 
   for (const cfg of config.loggers) {
@@ -602,6 +653,15 @@ function configureInternal<
     if (cfg.lowestLevel !== undefined) {
       logger.lowestLevel = cfg.lowestLevel;
     }
+    if (cfg.captureSourceLocation !== undefined) {
+      if (typeof cfg.captureSourceLocation !== "boolean") {
+        throw new ConfigError(
+          "Logger captureSourceLocation must be a boolean.",
+        );
+      }
+      logger.sourceLocationCapture = cfg.captureSourceLocation;
+      if (cfg.captureSourceLocation) capturesSourceLocation = true;
+    }
     for (const filterId of cfg.filters ?? []) {
       const filter = config.filters?.[filterId];
       if (filter === undefined) {
@@ -619,6 +679,9 @@ function configureInternal<
   }
 
   LoggerImpl.getLogger().contextLocalStorage = config.contextLocalStorage;
+  getSourceLocationRoot().setGlobalSourceLocationCapture?.(
+    capturesSourceLocation,
+  );
 
   for (const sink of Object.values<Sink>(config.sinks)) {
     installedSinks.add(sink);
@@ -704,6 +767,7 @@ function resetInternal(): void {
   unregisterDisposeHook = undefined;
   const rootLogger = LoggerImpl.getLogger([]);
   rootLogger.resetDescendants();
+  getSourceLocationRoot().setGlobalSourceLocationCapture?.(false);
   delete rootLogger.contextLocalStorage;
   strongRefs.clear();
   installedSinks.clear();

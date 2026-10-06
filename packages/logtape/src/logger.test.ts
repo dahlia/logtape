@@ -7,6 +7,7 @@ import {
   withCategoryPrefix,
   withContext,
 } from "./context.ts";
+import { configureSync, resetSync } from "./config.ts";
 import { toFilter } from "./filter.ts";
 import { countRecordWork, debug, error, info, warning } from "./fixtures.ts";
 import type { LogLevel } from "./level.ts";
@@ -23,7 +24,7 @@ import {
   renderMessage,
 } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
-import { getConsoleSink, type Sink } from "./sink.ts";
+import { fingersCrossed, getConsoleSink, type Sink } from "./sink.ts";
 
 function templateLiteral(tpl: TemplateStringsArray, ..._: unknown[]) {
   return tpl;
@@ -4125,4 +4126,599 @@ test("Logger does not build records for disabled calls under a context", () => {
     logger.resetDescendants();
     LoggerImpl.getLogger(["record-work-prefix"]).resetDescendants();
   }
+});
+
+/**
+ * Returns the file and line of the call to this function, read from a stack
+ * trace independently of the parser under test.  Source location tests call
+ * it on the line right above the logging call they check.
+ */
+function callerPosition(): { file: string; line: number } {
+  const frame = new Error().stack!.split("\n")[2];
+  const match = /^\s*at (?:.* \()?(.+):(\d+):\d+\)?$/.exec(frame);
+  assert.ok(match != null, `Unexpected stack frame: ${frame}`);
+  return { file: match[1], line: Number(match[2]) };
+}
+
+function assertLoggedBelow(
+  record: LogRecord | undefined,
+  position: { file: string; line: number },
+): void {
+  assert.ok(record != null, "No record was logged.");
+  const location = record.sourceLocation;
+  assert.ok(location != null, "The record has no source location.");
+  assert.strictEqual(location.file, position.file);
+  assert.strictEqual(location.line, position.line + 1);
+  assert.ok(location.column > 0);
+}
+
+/**
+ * Counts how many Error objects are constructed while running the callback.
+ */
+function countErrorConstructions(callback: () => void): number {
+  const OriginalError = globalThis.Error;
+  let count = 0;
+  // A plain function rather than a subclass, because Bun calls a replaced
+  // global Error without new:
+  const CountingError = function (...args: [string?]) {
+    count++;
+    return new OriginalError(...args);
+  } as unknown as ErrorConstructor;
+  globalThis.Error = CountingError;
+  try {
+    callback();
+  } finally {
+    globalThis.Error = OriginalError;
+  }
+  return count;
+}
+
+function configureSourceLocationTest(
+  records: LogRecord[],
+  loggers: {
+    category: string | string[];
+    captureSourceLocation?: boolean;
+    sinks?: "buffer"[];
+    lowestLevel?: LogLevel;
+    parentSinks?: "inherit" | "override" | "forward";
+  }[],
+): void {
+  configureSync({
+    sinks: {
+      buffer(record: LogRecord): void {
+        records.push(record);
+      },
+    },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+      ...loggers,
+    ],
+    contextLocalStorage: new TestContextLocalStorage(),
+  });
+}
+
+test("Logger does not capture source locations by default", () => {
+  const records: LogRecord[] = [];
+  const error = new Error("boom");
+  const cases: [
+    string,
+    Parameters<typeof configureSourceLocationTest>[1],
+  ][] = [
+    ["default", [{ category: "source-location", sinks: ["buffer"] }]],
+    ["explicitly disabled", [{
+      category: "source-location",
+      sinks: ["buffer"],
+      captureSourceLocation: false,
+    }]],
+    ["enabled for another category", [
+      { category: "source-location", sinks: ["buffer"] },
+      { category: "source-location-other", captureSourceLocation: true },
+    ]],
+  ];
+  for (const [name, loggers] of cases) {
+    records.length = 0;
+    configureSourceLocationTest(records, loggers);
+    try {
+      const logger = getLogger("source-location");
+      const ctx = logger.with({ requestId: 1 });
+      const constructions = countErrorConstructions(() => {
+        logger.info("Hello.");
+        logger.info("Hello, {name}.", { name: "world" });
+        logger.info`Hello, ${"world"}.`;
+        logger.info((l) => l`Hello.`);
+        logger.error(error);
+        ctx.warn("Hello.");
+        ctx.getChild("child").info`Hello.`;
+      });
+      assert.strictEqual(constructions, 0, name);
+      assert.strictEqual(records.length, 7, name);
+      for (const record of records) {
+        assert.ok(!("sourceLocation" in record), name);
+      }
+    } finally {
+      resetSync();
+    }
+  }
+  // A positive control that shows the probe works:
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    assert.ok(countErrorConstructions(() => logger.info("Hello.")) > 0);
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger does not capture source locations for dropped levels", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    lowestLevel: "info",
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    const ctx = logger.with({ requestId: 1 });
+    const meta = getLogger(["logtape", "meta"]);
+    assert.strictEqual(
+      countErrorConstructions(() => {
+        logger.debug("Hello.");
+        logger.debug`Hello.`;
+        ctx.trace((l) => l`Hello.`);
+        meta.info("Meta loggers never capture source locations.");
+      }),
+      0,
+    );
+    assert.deepStrictEqual(records, []);
+    // A positive control that shows the probe works:
+    assert.ok(countErrorConstructions(() => logger.info("Hello.")) > 0);
+    assert.strictEqual(records.length, 1);
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger captures source locations of every logging method", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    lowestLevel: "trace",
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    const ctx = logger.with({ requestId: 1 });
+    const methods = [
+      "trace",
+      "debug",
+      "info",
+      "warn",
+      "warning",
+      "error",
+      "fatal",
+    ] as const;
+    for (const target of [logger, ctx]) {
+      for (const method of methods) {
+        records.length = 0;
+        const position = callerPosition();
+        target[method]("Hello, {name}.", { name: "world" });
+        assertLoggedBelow(records[0], position);
+      }
+    }
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger captures source locations of every overload", async () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    lowestLevel: "trace",
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    const error = new Error("boom");
+    const methods = [
+      "trace",
+      "debug",
+      "info",
+      "warn",
+      "warning",
+      "error",
+      "fatal",
+    ] as const;
+    for (const target of [logger, logger.with({ requestId: 1 })]) {
+      for (const method of methods) {
+        const log: LogMethod = target[method].bind(target);
+        records.length = 0;
+        let position = callerPosition();
+        target[method]("Hello.");
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        target[method]("Hello, {name}.", () => ({ name: "world" }));
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        const promise = target[method]("Hello, {name}.", async () => {
+          await Promise.resolve();
+          return { name: "world" };
+        });
+        assert.ok(promise instanceof Promise);
+        await promise;
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        target[method]({ name: "world" });
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        target[method]`Hello, ${"world"}.`;
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        target[method]((l) => l`Hello, ${"world"}.`);
+        assertLoggedBelow(records.pop(), position);
+
+        // A bound method reports the same call site:
+        position = callerPosition();
+        log("Hello.");
+        assertLoggedBelow(records.pop(), position);
+
+        assert.deepStrictEqual(records, [], method);
+      }
+      for (const method of ["warn", "warning", "error", "fatal"] as const) {
+        let position = callerPosition();
+        target[method](error);
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        target[method](error, { reason: "test" });
+        assertLoggedBelow(records.pop(), position);
+
+        position = callerPosition();
+        target[method]("Failed: {error}", error);
+        assertLoggedBelow(records.pop(), position);
+
+        assert.deepStrictEqual(records, [], method);
+      }
+    }
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger captures source locations with error property callbacks", async () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    lowestLevel: "error",
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    const error = new Error("boom");
+    for (const target of [logger, logger.with({ requestId: 1 })]) {
+      let calls = 0;
+      let position = callerPosition();
+      const syncResult = target.error(error, () => ({ calls: ++calls }));
+      assert.strictEqual(syncResult, undefined);
+      assert.strictEqual(calls, 1);
+      assertLoggedBelow(records.pop(), position);
+
+      position = callerPosition();
+      const asyncResult = target.error(error, async () => {
+        await Promise.resolve();
+        return { calls: ++calls };
+      });
+      assert.ok(asyncResult instanceof Promise);
+      await asyncResult;
+      assert.strictEqual(calls, 2);
+      assertLoggedBelow(records.pop(), position);
+
+      const rejection = new Error("rejected");
+      await assert.rejects(
+        target.error(error, () => Promise.reject(rejection)),
+        rejection,
+      );
+      assert.deepStrictEqual(records, []);
+
+      // Filtered out by the level, the callback is not called:
+      const filtered: unknown = target.warn(error, () => ({ calls: ++calls }));
+      assert.ok(filtered instanceof Promise);
+      await filtered;
+      assert.strictEqual(calls, 2);
+      assert.deepStrictEqual(records, []);
+    }
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger reports async callers of bound logging methods", async () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    await Promise.resolve("Called by the microtask queue.").then(
+      logger.info.bind(logger),
+    );
+    assert.strictEqual(records.length, 1);
+    // The caller is the runtime, so the location is that of the awaiting
+    // async function, a frame inside the runtime, or absent, depending on
+    // the runtime, but never a malformed one like "async file:///…":
+    const location = records[0].sourceLocation;
+    if (location != null) {
+      assert.ok(!location.file.startsWith("async "), location.file);
+      assert.ok(location.line > 0);
+    }
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger.with() and getChild() report the logging call", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    const ctx = logger.with({ requestId: 1 });
+    const child = logger.getChild("child");
+    const ctxChild = ctx.getChild("child").with({ userId: 2 });
+
+    let position = callerPosition();
+    ctx.info("Hello.");
+    assertLoggedBelow(records.pop(), position);
+
+    position = callerPosition();
+    child.info("Hello.");
+    assertLoggedBelow(records.pop(), position);
+
+    position = callerPosition();
+    ctxChild.info("Hello, {userId}.");
+    const record = records.pop();
+    assertLoggedBelow(record, position);
+    assert.deepStrictEqual(record?.properties, { requestId: 1, userId: 2 });
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger source location capture follows category inheritance", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [
+    { category: [], captureSourceLocation: true },
+    { category: "app", sinks: ["buffer"] },
+    { category: ["app", "quiet"], captureSourceLocation: false },
+    {
+      category: ["app", "quiet", "loud"],
+      captureSourceLocation: true,
+      parentSinks: "override",
+      sinks: ["buffer"],
+    },
+  ]);
+  try {
+    getLogger(["app", "module"]).info("inherited from the root");
+    getLogger(["app", "quiet"]).info("disabled");
+    getLogger(["app", "quiet", "child"]).info("inherited the disabled");
+    getLogger(["app", "quiet", "loud", "child"]).info("enabled again");
+    assert.deepStrictEqual(
+      records.map((r) => [r.message[0], r.sourceLocation != null]),
+      [
+        ["inherited from the root", true],
+        ["disabled", false],
+        ["inherited the disabled", false],
+        ["enabled again", true],
+      ],
+    );
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger source location capture follows category prefixes", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [
+    { category: "app", sinks: ["buffer"] },
+    {
+      category: ["sdk", "app"],
+      sinks: ["buffer"],
+      captureSourceLocation: true,
+    },
+  ]);
+  try {
+    const logger = getLogger("app");
+    logger.info("without prefix");
+    withCategoryPrefix("sdk", () => logger.info("with prefix"));
+    assert.deepStrictEqual(
+      records.map((r) => [r.category, r.sourceLocation != null]),
+      [[["app"], false], [["sdk", "app"], true]],
+    );
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger.emit() does not capture source locations", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    captureSourceLocation: true,
+  }]);
+  try {
+    const logger = getLogger("source-location");
+    const record = {
+      level: "info" as const,
+      message: ["Hello."],
+      rawMessage: "Hello.",
+      timestamp: 0,
+      properties: {},
+    };
+    logger.emit(record);
+    assert.ok(!("sourceLocation" in records[0]));
+    const sourceLocation = { file: "external.js", line: 1, column: 2 };
+    logger.with({ requestId: 1 }).emit({ ...record, sourceLocation });
+    assert.deepStrictEqual(records[1].sourceLocation, sourceLocation);
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger captures source locations before records are buffered", () => {
+  const records: LogRecord[] = [];
+  const sink = fingersCrossed((record: LogRecord) => {
+    records.push(record);
+  }, { triggerLevel: "error" });
+  configureSync({
+    sinks: { buffered: sink },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+      {
+        category: "source-location",
+        sinks: ["buffered"],
+        captureSourceLocation: true,
+      },
+    ],
+  });
+  try {
+    const logger = getLogger("source-location");
+    const position = callerPosition();
+    logger.debug("Buffered.");
+    assert.deepStrictEqual(records, []);
+    logger.error("Triggered.");
+    assert.strictEqual(records.length, 2);
+    assertLoggedBelow(records[0], position);
+  } finally {
+    resetSync();
+  }
+});
+
+test("Logger leaves source locations absent if stacks are unavailable", () => {
+  const records: LogRecord[] = [];
+  configureSourceLocationTest(records, [{
+    category: "source-location",
+    sinks: ["buffer"],
+    captureSourceLocation: true,
+  }]);
+  const errorConstructor = Error as ErrorConstructor & {
+    prepareStackTrace?: unknown;
+    stackTraceLimit?: number;
+  };
+  const originalLimit = errorConstructor.stackTraceLimit;
+  const originalPrepare = errorConstructor.prepareStackTrace;
+  try {
+    const logger = getLogger("source-location");
+    errorConstructor.stackTraceLimit = 0;
+    try {
+      logger.info("No frames.");
+    } finally {
+      errorConstructor.stackTraceLimit = originalLimit;
+    }
+    assert.strictEqual(records.length, 1);
+    if (originalLimit != null) {
+      // Error.stackTraceLimit is not supported by every engine:
+      assert.ok(!("sourceLocation" in records[0]));
+    }
+
+    let prepareCalled = false;
+    errorConstructor.prepareStackTrace = () => {
+      prepareCalled = true;
+      throw new TypeError("Broken stack trace hook.");
+    };
+    try {
+      logger.info("Broken hook.");
+    } finally {
+      errorConstructor.prepareStackTrace = originalPrepare;
+    }
+    assert.strictEqual(records.length, 2);
+    if (prepareCalled) assert.ok(!("sourceLocation" in records[1]));
+
+    errorConstructor.prepareStackTrace = () => ({ notAString: true });
+    try {
+      logger.info("Odd hook.");
+    } finally {
+      errorConstructor.prepareStackTrace = originalPrepare;
+    }
+    assert.strictEqual(records.length, 3);
+    assert.ok(
+      records[2].sourceLocation == null ||
+        typeof records[2].sourceLocation.file === "string",
+    );
+  } finally {
+    errorConstructor.stackTraceLimit = originalLimit;
+    errorConstructor.prepareStackTrace = originalPrepare;
+    resetSync();
+  }
+});
+
+test("Logger source location capture follows reconfiguration", () => {
+  const records: LogRecord[] = [];
+  const loggers = (captureSourceLocation: boolean) => [{
+    category: "source-location",
+    sinks: ["buffer" as const],
+    captureSourceLocation,
+  }];
+  const log = () => {
+    getLogger("source-location").info("Hello.");
+    return records.pop()?.sourceLocation != null;
+  };
+  try {
+    configureSourceLocationTest(records, loggers(true));
+    assert.ok(log());
+    resetSync();
+    resetSync();
+    configureSourceLocationTest(records, loggers(false));
+    assert.ok(!log());
+    resetSync();
+    configureSourceLocationTest(records, loggers(true));
+    assert.ok(log());
+    resetSync();
+
+    // A failed configuration does not leave capture enabled or broken:
+    assert.throws(() =>
+      configureSync({
+        sinks: {} as Record<"missing", Sink>,
+        loggers: [{
+          category: "source-location",
+          sinks: ["missing"],
+          captureSourceLocation: true,
+        }],
+      })
+    );
+    resetSync();
+    configureSourceLocationTest(records, [{
+      category: "source-location",
+      sinks: ["buffer"],
+    }]);
+    assert.ok(!log());
+    resetSync();
+    configureSourceLocationTest(records, loggers(true));
+    assert.ok(log());
+  } finally {
+    resetSync();
+  }
+  // Without any configuration, the logger tree no longer captures:
+  assert.strictEqual(
+    LoggerImpl.getLogger("source-location").sourceLocationCapture,
+    undefined,
+  );
 });

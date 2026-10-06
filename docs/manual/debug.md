@@ -2,7 +2,8 @@ Debugging and error handling
 ============================
 
 This guide covers troubleshooting LogTape issues, debugging configuration
-problems, and understanding LogTape's internal error handling mechanisms.
+problems, understanding LogTape's internal error handling mechanisms, and
+finding where in your code a log record was made.
 
 
 Understanding LogTape's error handling
@@ -323,3 +324,151 @@ as delivered.
 > root, not a child of `["my-app"]`; use `["my-app", "http"]` instead.
 
 [forwarding]: ./categories.md#forwarding-sinks-regardless-of-ancestor-levels
+
+
+Showing where log records come from
+-----------------------------------
+
+*This API is available since LogTape 2.4.0.*
+
+Browser consoles show a link to the place that called `console.log()`, which
+is always inside LogTape's console sink rather than the code that logged the
+message.  To find the logging call itself during development, you can let
+LogTape capture the *source location* of each logging call and show it in
+the formatted output.
+
+Capturing and showing are configured separately, so that, for example, a file
+sink can keep the locations without adding them to every console message.
+Turn on capturing with the `~LoggerConfig.captureSourceLocation` option of
+a logger configuration, and showing with the `sourceLocation` option of
+a formatter:
+
+~~~~ typescript twoslash
+import {
+  configure,
+  getConsoleFormatter,
+  getConsoleSink,
+} from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: getConsoleSink({
+      formatter: getConsoleFormatter({ sourceLocation: true }), // [!code highlight]
+    }),
+  },
+  loggers: [
+    {
+      category: "my-app",
+      lowestLevel: "debug",
+      sinks: ["console"],
+      captureSourceLocation: true, // [!code highlight]
+    },
+  ],
+});
+~~~~
+
+The console then shows the location after the category, e.g.:
+
+~~~~
+12:34:56.789 INF my-app (http://localhost:5173/src/main.ts:42:7) Hello, world!
+~~~~
+
+The text formatters take the same option,
+`~TextFormatterOptions.sourceLocation`, and accept a function that renders the
+location, e.g., to show only the file name:
+
+~~~~ typescript twoslash
+import { getTextFormatter } from "@logtape/logtape";
+
+const formatter = getTextFormatter({
+  sourceLocation: ({ file, line }) =>
+    `${file.slice(file.lastIndexOf("/") + 1)}:${line}`,
+});
+// 2023-11-14 22:13:20.000 +00:00 [INF] my-app (main.ts:42): Hello, world!
+~~~~
+
+Captured locations are in the `~LogRecord.sourceLocation` field of log
+records, as `SourceLocation` objects with `file`, `line`, and `column` fields,
+so that custom sinks and formatters can use them as well.  The other built-in
+formatters, such as the JSON Lines and logfmt formatters, and the formatters
+of other packages, such as *@logtape/pretty*, do not output them.
+
+> [!WARNING]
+> Capturing a source location builds a stack trace for every logging call
+> whose level is not filtered out by the logger's `lowestLevel`, which costs
+> several microseconds per call, or tens of microseconds on Deno.  Use it for
+> development, and leave it off in production.  While no configuration turns it
+> on, it costs next to nothing.
+
+### Which loggers capture source locations
+
+The `~LoggerConfig.captureSourceLocation` option is inherited by child
+categories: a logger without the option uses the setting of its nearest
+ancestor that has it, and the root logger's default is `false`.  So you can
+turn it on for a whole application and off for some noisy part of it:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink } from "@logtape/logtape";
+// ---cut-before---
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: "my-app", sinks: ["console"], captureSourceLocation: true },
+    { category: ["my-app", "hot-loop"], captureSourceLocation: false },
+  ],
+});
+~~~~
+
+The inheritance does not depend on the `parentSinks` option.  Within
+a `withConfig()` or `withConfigSync()` callback, the scoped configuration's
+loggers decide instead, just as they decide the sinks.  Under
+`withCategoryPrefix()`, the setting of the prefixed category applies.  The
+meta logger never captures source locations.
+
+### Which location is reported
+
+The location is where your code calls a logging method such as
+`~Logger.info()` or `~Logger.error()`, in every form of the call:
+
+ -  For a logger made by `~Logger.with()` or `~Logger.getChild()`, it is where
+    the logging method of that logger is called, not where the logger was
+    made.
+ -  For tagged templates, callbacks, and lazy or asynchronous property
+    callbacks, it is where the logging method is called.  The location is
+    captured before any callback runs and before the record reaches any sink,
+    so buffering sinks such as `fingersCrossed()` keep it as well.
+ -  For `~Logger.warn()` or `~Logger.error()` with an `Error`, it is where the
+    logging method is called, not where the error was thrown.
+ -  `~Logger.emit()` does not capture a location, but keeps
+    the `sourceLocation` field of the record you pass to it.
+ -  If you wrap LogTape's logging methods in functions of your own, it is
+    the call inside your wrapper.  If you pass a logging method as a callback,
+    e.g., to `Promise.prototype.then()`, it is where that callback is called,
+    which can be inside the runtime.
+
+### Limitations
+
+The location is read from the runtime's stack trace, so it is not always
+available or exact:
+
+ -  It points to the code that actually runs.  LogTape does not resolve source
+    maps, so bundled or minified code may report positions in the generated
+    code, unless the runtime applies source maps to stack traces itself, as
+    Deno and Bun do for TypeScript, and Node.js does with
+    `--enable-source-maps`.
+ -  Runtimes format stack traces differently.  This feature has been tested
+    on Node.js, Deno, Bun, Chromium, and Firefox; it has not been tested on
+    Safari or other runtimes.  The column may point to a different part of the
+    call depending on the runtime.
+ -  JavaScriptCore, the engine of Bun and Safari, omits the frame of
+    a function that ends with a call in tail position, e.g., an arrow function
+    like `() => logger.info("…")` or `return logger.info("…")`.  For such
+    calls, the location of the caller is reported, or no location at all.
+ -  If the stack trace cannot be read unambiguously, for example, because
+    `Error.stackTraceLimit` is too small, `Error.prepareStackTrace` fails or
+    returns an unusual format, or the code was created by `eval()`, the
+    location is left out rather than guessed.  The logging call still
+    succeeds.  A custom `Error.prepareStackTrace` that adds or removes frames
+    while keeping the usual format can make the location inaccurate.
+ -  The clickable link in the browser console still points to LogTape's console
+    sink.  The location only appears in the message text.

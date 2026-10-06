@@ -43,6 +43,26 @@ To be released.
         and `InheritanceBoundaryInspection` interfaces.
      -  Added `LoggerInspectionStatus` type.
 
+ -  Added opt-in source location capture for development logging.  Setting
+    the new `captureSourceLocation` option of a logger configuration to
+    `true` records where each logging method was called, when the runtime's
+    stack trace makes it available, in the new optional
+    `LogRecord.sourceLocation` field, typed as the new `SourceLocation`
+    interface.  Child categories inherit the setting, `withConfig()` and
+    `withConfigSync()` accept it too, and it is off by default.  LogTape
+    does not resolve source maps, so bundled or minified code may report
+    positions in the generated code.  [[#134], [#241], [#253]]
+
+ -  Added the `TextFormatterOptions.sourceLocation` option so that
+    `getTextFormatter()` and `getAnsiColorFormatter()` can show captured
+    source locations, and the optional `FormattedValues.sourceLocation`
+    field for custom `format` callbacks.  [[#134], [#241], [#253]]
+
+ -  Added the `getConsoleFormatter()` function and the
+    `ConsoleFormatterOptions` interface.  Its `sourceLocation` option shows
+    captured source locations in console output; without options it
+    formats records like `defaultConsoleFormatter()`.  [[#134], [#241], [#253]]
+
  -  Added optional `onDrop` and `onError` callbacks to non-blocking console
     and stream sinks to report aggregated buffer overflow counts and output
     failures without exposing dropped records.  Added the `SinkDropReason`,
@@ -132,6 +152,7 @@ To be released.
     [[#239], [#247]]
 
 [#62]: https://github.com/dahlia/logtape/issues/62
+[#134]: https://github.com/dahlia/logtape/issues/134
 [#198]: https://github.com/dahlia/logtape/issues/198
 [#203]: https://github.com/dahlia/logtape/issues/203
 [#205]: https://github.com/dahlia/logtape/issues/205
@@ -142,6 +163,7 @@ To be released.
 [#237]: https://github.com/dahlia/logtape/pull/237
 [#238]: https://github.com/dahlia/logtape/issues/238
 [#239]: https://github.com/dahlia/logtape/issues/239
+[#241]: https://github.com/dahlia/logtape/issues/241
 [#242]: https://github.com/dahlia/logtape/issues/242
 [#243]: https://github.com/dahlia/logtape/issues/243
 [#245]: https://github.com/dahlia/logtape/issues/245
@@ -150,9 +172,12 @@ To be released.
 [#249]: https://github.com/dahlia/logtape/pull/249
 [#250]: https://github.com/dahlia/logtape/pull/250
 [#251]: https://github.com/dahlia/logtape/pull/251
+[#253]: https://github.com/dahlia/logtape/pull/253
 
 ### @logtape/config
 
+ -  Added support for the `captureSourceLocation` option of logger
+    configurations, matching *@logtape/logtape* 2.4.0.  [[#134], [#241], [#253]]
  -  The `parentSinks` option of logger configurations now accepts
     `"forward"`, matching *@logtape/logtape* 2.4.0.  [[#198]]
 

@@ -346,6 +346,26 @@ A few things to keep in mind when you use it:
 `getAnsiColorFormatter()` accepts `"bare"` as well, and keeps coloring the
 values that are not strings.
 
+#### `~TextFormatterOptions.sourceLocation`
+
+*This option is available since LogTape 2.4.0.*
+
+Whether and how to show where the logging method was called.  Log records
+have a source location only if the `~LoggerConfig.captureSourceLocation`
+option is enabled for their logger; see [*Showing where log records come
+from*](./debug.md#showing-where-log-records-come-from).
+
+ -  `false` (default): The source location is not shown.
+ -  `true`: The source location is shown as `file:line:column` after the
+    category, e.g.,
+    `2023-11-14 22:13:20.000 +00:00 [INF] my-app (file:///app/main.ts:42:7): Hello, world!`.
+ -  A function that takes a `SourceLocation` object and returns the text to
+    show in the same place.
+
+Records without a source location are formatted as if this option were
+disabled.  With a custom `~TextFormatterOptions.format` function, the rendered
+location is passed as `~FormattedValues.sourceLocation`.
+
 #### `~TextFormatterOptions.format`
 
 How those formatted parts are concatenated.
@@ -427,6 +447,14 @@ The ANSI style for the category.  `"dim"` is used by default.
 #### `~AnsiColorFormatterOptions.categoryColor`
 
 The ANSI color for the category.  No color is used by default.
+
+#### `~TextFormatterOptions.sourceLocation`
+
+*This option is available since LogTape 2.4.0.*
+
+Whether and how to show where the logging method was called.  It works the
+same as in the default text formatter, and the location is styled like the
+category.
 
 #### `~TextFormatterOptions.value`
 

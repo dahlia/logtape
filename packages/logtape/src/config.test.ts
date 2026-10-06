@@ -3069,3 +3069,308 @@ test("drain() rejects while LogTape is being reconfigured", async () => {
   await started;
   assert.strictEqual(sink.drains, 1);
 });
+
+test("withConfig() scopes source location capture", async () => {
+  const globalLogs: LogRecord[] = [];
+  const outerLogs: LogRecord[] = [];
+  const innerLogs: LogRecord[] = [];
+  const hasLocation = (records: LogRecord[]) =>
+    records.map((r) => [r.rawMessage, r.sourceLocation != null]);
+
+  await configure({
+    sinks: { global: globalLogs.push.bind(globalLogs) },
+    loggers: [
+      { category: [], sinks: ["global"], lowestLevel: "trace" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    getLogger("app").info("global before");
+    await withConfig({
+      sinks: { outer: outerLogs.push.bind(outerLogs) },
+      loggers: [{
+        category: "app",
+        sinks: ["outer"],
+        captureSourceLocation: true,
+      }],
+    }, async () => {
+      getLogger(["app", "child"]).info("outer before");
+      await withConfig({
+        sinks: { inner: innerLogs.push.bind(innerLogs) },
+        loggers: [{
+          category: "app",
+          sinks: ["inner"],
+          captureSourceLocation: false,
+        }],
+      }, () => {
+        getLogger("app").info("inner");
+      });
+      getLogger("app").info("outer after");
+    });
+    getLogger("app").info("global after");
+
+    assert.deepStrictEqual(hasLocation(globalLogs), [
+      ["global before", false],
+      ["global after", false],
+    ]);
+    assert.deepStrictEqual(hasLocation(outerLogs), [
+      ["outer before", true],
+      ["outer after", true],
+    ]);
+    assert.deepStrictEqual(hasLocation(innerLogs), [["inner", false]]);
+  } finally {
+    await reset();
+  }
+
+  // The other way around: a scope can disable what the global enables.
+  globalLogs.length = 0;
+  outerLogs.length = 0;
+  await configure({
+    sinks: { global: globalLogs.push.bind(globalLogs) },
+    loggers: [
+      { category: [], sinks: ["global"], captureSourceLocation: true },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+  try {
+    await withConfig({
+      sinks: { outer: outerLogs.push.bind(outerLogs) },
+      loggers: [{ category: [], sinks: ["outer"] }],
+    }, () => {
+      getLogger("app").info("scoped");
+    });
+    getLogger("app").info("global");
+    assert.deepStrictEqual(hasLocation(outerLogs), [["scoped", false]]);
+    assert.deepStrictEqual(hasLocation(globalLogs), [["global", true]]);
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() keeps source location capture of overlapping scopes", async () => {
+  const globalLogs: LogRecord[] = [];
+  const logsA: LogRecord[] = [];
+  const logsB: LogRecord[] = [];
+  let releaseA!: () => void;
+  const gateA = new Promise<void>((resolve) => releaseA = resolve);
+  let releaseB!: () => void;
+  const gateB = new Promise<void>((resolve) => releaseB = resolve);
+  let releaseSpawned!: () => void;
+  const gateSpawned = new Promise<void>((resolve) => releaseSpawned = resolve);
+  let spawned!: Promise<void>;
+
+  await configure({
+    sinks: { global: globalLogs.push.bind(globalLogs) },
+    loggers: [
+      { category: [], sinks: ["global"] },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    const scopeA = withConfig({
+      sinks: { a: logsA.push.bind(logsA) },
+      loggers: [{ category: [], sinks: ["a"], captureSourceLocation: true }],
+    }, async () => {
+      getLogger("app").info("a before");
+      // Work that outlives this scope:
+      spawned = (async () => {
+        await gateSpawned;
+        getLogger("app").info("spawned");
+      })();
+      await gateA;
+      getLogger("app").info("a after");
+    });
+    const scopeB = withConfig({
+      sinks: { b: logsB.push.bind(logsB) },
+      loggers: [{ category: [], sinks: ["b"] }],
+    }, async () => {
+      getLogger("app").info("b before");
+      await gateB;
+      getLogger("app").info("b after");
+    });
+    // Scope A ends while scope B is still active, and vice versa:
+    releaseA();
+    await scopeA;
+    getLogger("app").info("global between");
+    releaseSpawned();
+    await spawned;
+    releaseB();
+    await scopeB;
+    getLogger("app").info("global after");
+
+    const hasLocation = (records: LogRecord[]) =>
+      records.map((r) => [r.rawMessage, r.sourceLocation != null]);
+    assert.deepStrictEqual(hasLocation(logsA), [
+      ["a before", true],
+      ["a after", true],
+    ]);
+    assert.deepStrictEqual(hasLocation(logsB), [
+      ["b before", false],
+      ["b after", false],
+    ]);
+    // The spawned work falls back to the global configuration once scope A
+    // is disposed, including its source location capture setting:
+    assert.deepStrictEqual(hasLocation(globalLogs), [
+      ["global between", false],
+      ["spawned", false],
+      ["global after", false],
+    ]);
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() releases source location capture on errors", async () => {
+  const globalLogs: LogRecord[] = [];
+  const scopedLogs: LogRecord[] = [];
+  const disposeError = new Error("dispose failed");
+  const failingSink: Sink & AsyncDisposable = () => {};
+  failingSink[Symbol.asyncDispose] = () => Promise.reject(disposeError);
+
+  await configure({
+    sinks: { global: globalLogs.push.bind(globalLogs) },
+    loggers: [
+      { category: [], sinks: ["global"] },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+
+  try {
+    const callbackError = new Error("callback failed");
+    await assert.rejects(
+      withConfig({
+        sinks: { failing: failingSink },
+        loggers: [{
+          category: [],
+          sinks: ["failing"],
+          captureSourceLocation: true,
+        }],
+      }, () => {
+        throw callbackError;
+      }),
+      AggregateError,
+    );
+    assert.throws(
+      () =>
+        withConfigSync({
+          sinks: { scoped: scopedLogs.push.bind(scopedLogs) },
+          loggers: [{
+            category: [],
+            sinks: ["scoped"],
+            captureSourceLocation: true,
+          }],
+        }, () => Promise.resolve() as never),
+      ConfigError,
+    );
+    getLogger("app").info("global");
+    assert.strictEqual(globalLogs.length, 1);
+    assert.ok(!("sourceLocation" in globalLogs[0]));
+
+    // Capture still works for a later scope:
+    withConfigSync({
+      sinks: { scoped: scopedLogs.push.bind(scopedLogs) },
+      loggers: [{
+        category: [],
+        sinks: ["scoped"],
+        captureSourceLocation: true,
+      }],
+    }, () => {
+      getLogger("app").info("scoped");
+    });
+    assert.strictEqual(scopedLogs.length, 1);
+    assert.ok(scopedLogs[0].sourceLocation != null);
+  } finally {
+    await reset();
+  }
+});
+
+test("withConfig() rejects an invalid captureSourceLocation value", async () => {
+  await configure({
+    sinks: {},
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+  try {
+    await assert.rejects(
+      withConfig({
+        sinks: {},
+        loggers: [{
+          category: "app",
+          captureSourceLocation: "yes" as unknown as boolean,
+        }],
+      }, () => {}),
+      new ConfigError("Logger captureSourceLocation must be a boolean."),
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("configureSync() works with a root logger made by an older LogTape", () => {
+  // Another package can load an older copy of LogTape first, whose root
+  // logger lacks the methods for source location capture:
+  const prototype = LoggerImpl.prototype as unknown as Record<string, unknown>;
+  const names = [
+    "setGlobalSourceLocationCapture",
+    "retainScopedSourceLocationCapture",
+    "releaseScopedSourceLocationCapture",
+  ];
+  const saved = names.map((name) => prototype[name]);
+  for (const name of names) delete prototype[name];
+  const records: LogRecord[] = [];
+  try {
+    configureSync({
+      sinks: { buffer: records.push.bind(records) },
+      loggers: [
+        { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+        { category: "app", sinks: ["buffer"], captureSourceLocation: true },
+      ],
+      contextLocalStorage: new AsyncLocalStorage(),
+    });
+    getLogger("app").info("global");
+    withConfigSync({
+      sinks: { buffer: records.push.bind(records) },
+      loggers: [{
+        category: "app",
+        sinks: ["buffer"],
+        captureSourceLocation: true,
+      }],
+    }, () => getLogger("app").info("scoped"));
+    resetSync();
+    assert.deepStrictEqual(records.map((r) => r.rawMessage), [
+      "global",
+      "scoped",
+    ]);
+  } finally {
+    names.forEach((name, i) => prototype[name] = saved[i]);
+    resetSync();
+  }
+});
+
+test("configureSync() rejects a non-boolean captureSourceLocation", () => {
+  assert.throws(
+    () =>
+      configureSync({
+        sinks: {},
+        loggers: [{
+          category: "app",
+          captureSourceLocation: "true" as unknown as boolean,
+        }],
+      }),
+    new ConfigError("Logger captureSourceLocation must be a boolean."),
+  );
+  // The failed configuration was not applied:
+  assert.strictEqual(getConfig(), null);
+  resetSync();
+});
