@@ -1,10 +1,17 @@
 import { Elysia } from "elysia";
-import { getLogger, type LogLevel, withContext } from "@logtape/logtape";
+import {
+  getLogger,
+  isLogLevel,
+  type LogLevel,
+  withContext,
+} from "@logtape/logtape";
 
 import {
+  completionStatus,
   createCompatibility,
   materializeHeaders,
   nativeErrorCode,
+  numericStatus,
   wrapV2LocalContext,
 } from "./compat.ts";
 
@@ -84,6 +91,56 @@ export type FormatFunction = (
   ctx: ElysiaContext,
   responseTime: number,
 ) => string | Record<string, unknown>;
+
+/**
+ * The outcome of a completed request, passed to
+ * {@link ElysiaLogTapeOptions.completionLevel}.
+ *
+ * The values are computed independently of the configured `format`, so they
+ * are the same for structured, text, and custom formats.
+ * @since 2.4.0
+ */
+export interface RequestCompletion {
+  /**
+   * The HTTP response status code known when the record is written.  A
+   * returned `Response` or `status()` value and string status names are
+   * resolved to a number.  For a returned `Response`, a non-200 `set.status`
+   * replaces a 200 response status, as in current Elysia versions; older
+   * versions such as 1.4.0 may send `set.status` over other response
+   * statuses too.  Hooks that run later, such as an error handler registered
+   * after this plugin, can still change the status sent to the client.
+   */
+  readonly status: number;
+
+  /**
+   * The response time in milliseconds, the same value passed to the format
+   * function.
+   */
+  readonly responseTime: number;
+
+  /**
+   * The error reported by Elysia's error hook, for the record the plugin
+   * writes when handling a request fails.  `undefined` for the record written
+   * after a handler completes.
+   */
+  readonly error?: unknown;
+}
+
+/**
+ * A function that chooses the log level of a completed request's log record.
+ *
+ * The function must return a valid {@link LogLevel} synchronously.  Returning
+ * a promise is not supported.
+ *
+ * @param ctx The Elysia context object.
+ * @param completion The outcome of the request.
+ * @returns The log level for the request's log record.
+ * @since 2.4.0
+ */
+export type CompletionLevelFunction = (
+  ctx: ElysiaContext,
+  completion: RequestCompletion,
+) => LogLevel;
 
 /**
  * Structured log properties for HTTP requests.
@@ -198,9 +255,43 @@ export interface ElysiaLogTapeOptions {
 
   /**
    * The log level to use for request logging.
+   *
+   * When {@link ElysiaLogTapeOptions.completionLevel} is set, this level is
+   * still used for `logRequest` logs and as the fallback when the callback
+   * fails for a completed request.
    * @default "info"
    */
   readonly level?: LogLevel;
+
+  /**
+   * Chooses the log level of each completed request's log record from the
+   * response outcome, instead of always using
+   * {@link ElysiaLogTapeOptions.level}.
+   *
+   * The callback is called, after `skip`, for the record written after a
+   * handler completes and also for the record written by the plugin's error
+   * hook, which is otherwise always logged at `"error"`.  For the error
+   * record, it receives the error, so it can, for example, log 404 responses
+   * at a lower level.  Choosing a level never adds or removes a record.  The
+   * callback is not called for `logRequest` logs, which are written before
+   * the outcome is known.
+   *
+   * If the callback throws or returns anything other than a valid log level,
+   * the failure is reported to the `["logtape", "meta"]` logger and the
+   * record is written at {@link ElysiaLogTapeOptions.level}, or at `"error"`
+   * for the error record.  The response is never changed.
+   *
+   * @example Log server errors at `"error"` and slow responses at `"warning"`
+   * ```typescript
+   * app.use(elysiaLogger({
+   *   completionLevel: (ctx, { status, responseTime }) =>
+   *     status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+   * }));
+   * ```
+   *
+   * @since 2.4.0
+   */
+  readonly completionLevel?: CompletionLevelFunction;
 
   /**
    * The format for log output.
@@ -696,6 +787,65 @@ const predefinedFormats: Record<PredefinedFormat, FormatFunction> = {
   tiny: formatTiny,
 };
 
+const metaLogger = getLogger(["logtape", "meta"]);
+
+/**
+ * Report a completion level callback failure without affecting the response.
+ */
+function reportCompletionLevelFailure(error: unknown): void {
+  try {
+    metaLogger.error(
+      "Failed to choose the log level for an Elysia request: {error}",
+      { error },
+    );
+  } catch {
+    // Last resort: logging must never affect the response.
+  }
+}
+
+/**
+ * Resolve a completion log level, falling back when the callback fails.
+ */
+function resolveCompletionLevel(
+  choose: () => unknown,
+  fallback: LogLevel,
+): LogLevel {
+  try {
+    const level = choose();
+    if (typeof level === "string" && isLogLevel(level)) return level;
+    if (
+      (typeof level === "object" && level !== null) ||
+      typeof level === "function"
+    ) {
+      // Observe a returned native promise so its rejection is reported rather
+      // than left unhandled.  The intrinsic `then` bypasses user-defined `then`
+      // methods, and both reactions return nothing so the discarded derived
+      // promise cannot reject.  Attaching throws for non-promises, and also for
+      // a promise with a throwing `constructor` or species getter, whose
+      // rejection then cannot be observed here.
+      try {
+        Promise.prototype.then.call(
+          level,
+          () => {},
+          (error: unknown) => {
+            reportCompletionLevelFailure(error);
+          },
+        );
+      } catch {
+        // Not an observable native promise.
+      }
+    }
+    throw new TypeError(
+      `Expected a log level from completionLevel, but got ${
+        level === null ? "null" : typeof level
+      }${typeof level === "string" ? ` ${JSON.stringify(level)}` : ""}.`,
+    );
+  } catch (error) {
+    reportCompletionLevelFailure(error);
+    return fallback;
+  }
+}
+
 /**
  * Normalize category to array format.
  */
@@ -1117,6 +1267,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const category = normalizeCategory(options.category ?? ["elysia"]);
   const logger = getLogger(category);
   const level = options.level ?? "info";
+  const completionLevel = options.completionLevel;
   const formatOption = options.format ?? "structured-combined";
   const skip = options.skip ?? (() => false);
   const logRequest = options.logRequest ?? false;
@@ -1286,15 +1437,27 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
       const responseTime = performance.now() - store.startTime;
       const requestContext = requestContextStates.get(ctx.request)?.context ??
         {};
+      // A callback failure is contained here: an exception escaping this hook
+      // would turn the response into an error and add an error record.
+      const log = completionLevel == null ? logMethod : logger[
+        resolveCompletionLevel(
+          () =>
+            completionLevel(ctx as unknown as ElysiaContext, {
+              status: completionStatus(ctx, compatibility.v2),
+              responseTime,
+            }),
+          level,
+        )
+      ].bind(logger);
       const result = withRequestLogContext(
         formatFn(ctx as unknown as ElysiaContext, responseTime),
         requestContext,
       );
 
       if (typeof result === "string") {
-        logMethod(result, requestContext);
+        log(result, requestContext);
       } else {
-        logMethod("{method} {url} {status} - {responseTime} ms", result);
+        log("{method} {url} {status} - {responseTime} ms", result);
       }
     });
   }
@@ -1317,7 +1480,18 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     // Extract error message safely
     const error = ctx.error as { message?: string } | undefined;
     const errorMessage = error?.message ?? "Unknown error";
-    errorLogMethod(
+    const log = completionLevel == null ? errorLogMethod : logger[
+      resolveCompletionLevel(
+        () =>
+          completionLevel(elysiaCtx, {
+            status: numericStatus(status, 500),
+            responseTime,
+            error: ctx.error,
+          }),
+        "error",
+      )
+    ].bind(logger);
+    log(
       "Error: {method} {url} {status} - {responseTime} ms - {errorMessage}",
       {
         ...props,

@@ -253,6 +253,39 @@ const middleware = expressLogger({
 });
 ~~~~
 
+### Completion log levels
+
+By default, every request log record uses the `level` option.  To choose
+the level from the response outcome instead, pass a `completionLevel`
+callback.  It receives the request, the response, and a `RequestCompletion`
+object with the final `status` and `responseTime`, and returns a log level:
+
+~~~~ typescript twoslash
+import { expressLogger } from "@logtape/express";
+// ---cut-before---
+const middleware = expressLogger({
+  completionLevel: (req, res, { status, responseTime }) =>
+    status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+});
+~~~~
+
+The callback is called when the response finishes, after `skip`, and receives
+the same values whichever `format` is used.  It is not used for
+`immediate: true` logs, which are written before the outcome is known; those
+always use `level`.
+
+A route handler that throws or calls `next(error)` is logged with the status
+of the response sent by Express's error handler, usually 500.  The error object
+itself is not available to the middleware.  Express 4 does not forward
+rejected promises from `async` handlers to its error handler, so such a request
+may never finish and is not logged.  A connection closed before the response
+finishes is not logged either.
+
+If the callback throws or does not return a valid log level, for example
+because it returns a promise, the failure is reported to the
+[meta logger](./categories.md#meta-logger) and the record is written at
+`level`.  The response is never affected.
+
 ### Predefined formats
 
 The middleware supports structured presets and text presets:
@@ -500,6 +533,50 @@ const plugin = elysiaLogger({
 });
 ~~~~
 
+### Completion log levels
+
+By default, request log records use the `level` option and error records use
+`"error"`.  To choose the level from the response outcome instead, pass
+a `completionLevel` callback.  It receives the Elysia context and
+a `RequestCompletion` object with the `status`, the `responseTime`, and, for
+error records, the `error`, and returns a log level:
+
+~~~~ typescript twoslash
+import { elysiaLogger } from "@logtape/elysia";
+// ---cut-before---
+const plugin = elysiaLogger({
+  completionLevel: (ctx, { status, responseTime }) =>
+    status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+});
+~~~~
+
+The callback is called after `skip` for the record written after a handler
+completes and for the record written by the error hook, so it can also log,
+for example, 404 errors at `"info"`.  It receives the same values whichever
+`format` is used.  It is not used for `logRequest: true` logs, which are
+written before the outcome is known; those always use `level`.
+
+Choosing a level never adds or removes a record.  When a later hook or
+response validation fails after the plugin has logged the handler's result,
+Elysia runs the error hook as well, so the request has both records and the
+callback is called for each.
+
+`status` is a number.  A returned `Response` or `status()` value and string
+status names are resolved, so on Elysia 1 it can differ from the record's
+`status` property, which shows `set.status` as before.  For a returned
+`Response`, `status` follows current Elysia versions: a non-200 `set.status`
+replaces a 200 response status, and a non-200 response status is kept.
+Elysia 1.4.0 instead sends a non-200 `set.status` over most non-200 response
+statuses, so `status` can differ from the sent status there.  Hooks that run
+after the plugin's hooks, such as an error handler registered later, can still
+change the status sent to the client.  Failures while streaming a response
+body are not observed.
+
+If the callback throws or does not return a valid log level, for example
+because it returns a promise, the failure is reported to the
+[meta logger](./categories.md#meta-logger) and the record is written at
+`level`, or at `"error"` for an error record.  The response is never affected.
+
 ### Predefined formats
 
 The plugin supports structured presets and text presets:
@@ -544,7 +621,9 @@ The plugin automatically logs errors at the error level using Elysia's
 `onError` hook in Elysia 1 or `error` hook in Elysia 2.  Error logs include
 `errorMessage` in addition to standard request properties.  `errorCode` is
 Elysia 1's context code, or Elysia 2's `error.code` when it is a string or
-number; it is omitted when Elysia 2 supplies no code.
+number; it is omitted when Elysia 2 supplies no code.  Use `completionLevel`
+to choose a different level for error records; see
+[completion log levels](#completion-log-levels-1).
 
 ### Structured logging output
 
@@ -706,6 +785,52 @@ without being read or cancelled is never logged.  Responses with a null or
 already-locked body, and `HEAD` responses, are logged immediately.  Because
 the body is wrapped, responses are sent as streams rather than with
 runtime-generated `Content-Length` framing.
+
+### Completion log levels
+
+By default, every request log record uses the `level` option.  To choose
+the level from the response outcome instead, pass a `completionLevel`
+callback.  It receives the Hono context and a `RequestCompletion` object, and
+returns a log level:
+
+~~~~ typescript twoslash
+import { honoLogger } from "@logtape/hono";
+// ---cut-before---
+const middleware = honoLogger({
+  completionLevel: (c, { status, responseTime, error, aborted }) =>
+    status >= 500 || error != null
+      ? "error"
+      : aborted || responseTime > 1000
+      ? "warning"
+      : "info",
+});
+~~~~
+
+`RequestCompletion` has the following properties:
+
+ -  `status`: HTTP response status code
+ -  `responseTime`: Response time in milliseconds, covering the whole body
+    stream
+ -  `error`: The error that terminated the response body stream, or otherwise
+    the error that Hono's error handler turned into the response (`c.error`)
+ -  `aborted`: Whether the response body was cancelled before it completed,
+    for example because the client disconnected
+
+The callback is called when the request log record is written, after `skip`,
+and receives the same values whichever `format` is used.  It is not used for
+`logRequest: true` logs, which are written before the outcome is known; those
+always use `level`.
+
+Only failures to read the response body are reported as stream errors.  Hono's
+`stream()` and `streamText()` helpers catch errors thrown by their callbacks
+and close the stream normally, so those errors are not reported.  Whether
+a client disconnect cancels the body depends on the runtime.  When the body
+both fails and is cancelled, the first one observed is reported.
+
+If the callback throws or does not return a valid log level, for example
+because it returns a promise, the failure is reported to the
+[meta logger](./categories.md#meta-logger) and the record is written at
+`level`.  The response is never affected.
 
 ### Predefined formats
 
@@ -1112,6 +1237,58 @@ const middleware = koaLogger({
   },
 });
 ~~~~
+
+### Completion log levels
+
+By default, every request log record uses the `level` option.  To choose
+the level from the response outcome instead, pass a `completionLevel`
+callback.  It receives the Koa context and a `RequestCompletion` object with
+the `status` and `responseTime`, and returns a log level:
+
+~~~~ typescript twoslash
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const middleware = koaLogger({
+  completionLevel: (ctx, { status, responseTime }) =>
+    status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+});
+~~~~
+
+The callback is called after the downstream middleware resolves, after
+`skip`, and receives the same values whichever `format` is used.  It is not
+used for `logRequest: true` logs, which are written before the outcome is
+known; those always use `level`.
+
+When a downstream middleware throws, the error propagates through
+`koaLogger()` to Koa's error handling and no request log record is written, as
+before.  To log failed requests, register an error-handling middleware after
+`koaLogger()` so that the request resolves with its final status:
+
+~~~~ typescript twoslash
+import Koa from "koa";
+import { koaLogger } from "@logtape/koa";
+// ---cut-before---
+const app = new Koa();
+app.use(koaLogger({
+  completionLevel: (ctx, { status }) => status >= 500 ? "error" : "info",
+}));
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch {
+    ctx.status = 500;
+    ctx.body = "Internal Server Error";
+  }
+});
+~~~~
+
+Koa sends the response body after the middleware chain, so failures while
+streaming the body are not observed.
+
+If the callback throws or does not return a valid log level, for example
+because it returns a promise, the failure is reported to the
+[meta logger](./categories.md#meta-logger) and the record is written at
+`level`.  The response is never affected.
 
 ### Predefined formats
 

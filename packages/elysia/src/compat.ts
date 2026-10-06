@@ -52,7 +52,7 @@ export function materializeHeaders(set: ElysiaContext["set"]): void {
   }
 }
 
-function numericStatus(value: unknown, fallback: number): number {
+export function numericStatus(value: unknown, fallback: number): number {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
     return (elysia.StatusMap as Record<string, number>)[value] ?? fallback;
@@ -91,6 +91,36 @@ function normalizeContext(raw: HookContext, error: boolean): HookContext {
     },
   });
   return Object.assign(Object.create(raw), { set });
+}
+
+/**
+ * The response status known when an after-handle hook runs.  Elysia 1 keeps
+ * `set.status` unchanged when a handler returns a `Response` or `status()`
+ * value, and allows string status names.  Elysia 2 contexts are already
+ * normalized by `normalizeContext()`.  For a returned `Response`, Elysia sends
+ * a non-200 `set.status` instead of the response's own 200 status.
+ */
+export function completionStatus(context: HookContext, v2: boolean): number {
+  const fields = context as unknown as Fields;
+  // Elysia 1 without AOT compilation only populates the deprecated field.
+  const response = fields.responseValue !== undefined
+    ? fields.responseValue
+    : fields.response;
+  // An Elysia 2 context's normalized `set` inherits from the native one.
+  const set: { readonly status?: unknown } = v2
+    ? Object.getPrototypeOf(context.set)
+    : context.set;
+  if (response instanceof Response) {
+    return response.status === 200
+      ? numericStatus(set.status, 200)
+      : response.status;
+  }
+  if (v2) return numericStatus(context.set.status, 200);
+  const statusClass = (elysia as unknown as Fields).ElysiaCustomStatusResponse;
+  if (typeof statusClass === "function" && response instanceof statusClass) {
+    return numericStatus((response as Fields).code, 200);
+  }
+  return numericStatus(set.status, 200);
 }
 
 export function nativeErrorCode(error: unknown): string | number | undefined {

@@ -175,6 +175,30 @@ Elysia supports plugin scoping to control how lifecycle hooks propagate:
  -  `"local"`: Hooks only apply within the plugin itself
 
 
+Completion log levels
+---------------------
+
+Pass `completionLevel` to choose the level of each completed request's log
+record from the response outcome instead of always using `level`:
+
+~~~~ typescript
+app.use(elysiaLogger({
+  completionLevel: (ctx, { status, responseTime }) =>
+    status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+}));
+~~~~
+
+The callback receives the Elysia context and the `status`, the `responseTime`,
+and, for records written by the error hook, the `error`.  It also chooses the
+level of error records, which otherwise use `"error"`, without adding another
+record.  It is not used for `logRequest: true` logs, which are written before
+the outcome is known.
+
+If the callback throws or does not return a valid log level, the failure is
+reported to the meta logger and the record is written at `level`, or at
+`"error"` for an error record.  The response is never affected.
+
+
 Predefined formats
 ------------------
 
@@ -221,7 +245,8 @@ The plugin automatically logs errors at the error level using Elysia's
 `onError` hook in Elysia 1 or `error` hook in Elysia 2.  Error logs include
 `errorMessage` in addition to standard request properties.  `errorCode` is
 Elysia 1's context code, or Elysia 2's `error.code` when it is a string or
-number; it is omitted when Elysia 2 supplies no code.
+number; it is omitted when Elysia 2 supplies no code.  Use `completionLevel`
+to choose a different level for error records.
 
 
 Structured logging output

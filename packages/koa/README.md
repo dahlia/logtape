@@ -116,6 +116,30 @@ app.use(koaLogger({
 ~~~~
 
 
+Completion log levels
+---------------------
+
+Pass `completionLevel` to choose the level of each completed request's log
+record from the response outcome instead of always using `level`:
+
+~~~~ typescript
+app.use(koaLogger({
+  completionLevel: (ctx, { status, responseTime }) =>
+    status >= 500 ? "error" : responseTime > 1000 ? "warning" : "info",
+}));
+~~~~
+
+The callback receives the Koa context and the `status` and `responseTime` after
+the downstream middleware resolves.  It is not used for `logRequest: true` logs,
+which are written before the outcome is known.  When a downstream middleware
+throws, no request log record is written, as before; register an
+error-handling middleware after `koaLogger()` to log failed requests.
+
+If the callback throws or does not return a valid log level, the failure is
+reported to the meta logger and the record is written at `level`.  The response
+is never affected.
+
+
 Predefined formats
 ------------------
 

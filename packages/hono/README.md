@@ -127,6 +127,34 @@ the body is wrapped, responses are sent as streams rather than with
 runtime-generated `Content-Length` framing.
 
 
+Completion log levels
+---------------------
+
+Pass `completionLevel` to choose the level of each completed request's log
+record from the response outcome instead of always using `level`:
+
+~~~~ typescript
+app.use(honoLogger({
+  completionLevel: (c, { status, responseTime, error, aborted }) =>
+    status >= 500 || error != null
+      ? "error"
+      : aborted || responseTime > 1000
+      ? "warning"
+      : "info",
+}));
+~~~~
+
+The callback receives the Hono context and the `status`, the `responseTime`,
+the `error` that terminated the response body stream or that Hono's error
+handler turned into the response, and whether the body was `aborted`.  It is
+not used for `logRequest: true` logs, which are written before the outcome is
+known.
+
+If the callback throws or does not return a valid log level, the failure is
+reported to the meta logger and the record is written at `level`.  The response
+is never affected.
+
+
 Predefined formats
 ------------------
 
