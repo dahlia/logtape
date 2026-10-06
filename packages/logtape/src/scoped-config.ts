@@ -46,11 +46,13 @@ export interface CompiledScopedConfig {
   readonly sinks: ReadonlySet<Sink>;
 }
 
-interface CompiledScopedLogger {
+export interface CompiledScopedLogger {
   readonly filters: readonly ((record: LogRecord) => boolean)[];
+  readonly filterIds: readonly string[];
   readonly lowestLevel: LogLevel | null;
   readonly parentSinks: "inherit" | "override" | "forward";
   readonly sinks: readonly Sink[];
+  readonly sinkIds: readonly string[];
 }
 
 type ScopedSinkDispatchPlan =
@@ -60,9 +62,11 @@ type ScopedSinkDispatchPlan =
 
 const defaultScopedLogger: CompiledScopedLogger = {
   filters: [],
+  filterIds: [],
   lowestLevel: "trace",
   parentSinks: "inherit",
   sinks: [],
+  sinkIds: [],
 };
 const noFilters: readonly ((record: LogRecord) => boolean)[] = [];
 
@@ -160,11 +164,15 @@ export function compileScopedConfig<
 
     nodes.set(key, {
       filters,
+      // Copy the identifiers so that mutating the given configuration later
+      // cannot change what inspectLogger() reports:
+      filterIds: [...filterIds],
       lowestLevel: loggerConfig.lowestLevel === undefined
         ? "trace"
         : loggerConfig.lowestLevel,
       parentSinks: loggerConfig.parentSinks ?? "inherit",
       sinks,
+      sinkIds: [...sinkIds],
     });
   }
 
@@ -241,6 +249,17 @@ export function runWithScopedConfig<R>(
     ...parentStore,
     [scopedConfigSymbol]: scopedConfig,
   } as Record<string, unknown>, callback);
+}
+
+/**
+ * Gets the compiled logger configured for exactly the given category in a
+ * scoped configuration, without touching its dispatch or filter caches.
+ */
+export function getScopedLogger(
+  scopedConfig: CompiledScopedConfig,
+  category: readonly string[],
+): CompiledScopedLogger | undefined {
+  return scopedConfig.nodes.get(categoryKey(category));
 }
 
 export function scopedConfigHasSink(

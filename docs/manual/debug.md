@@ -223,3 +223,103 @@ try {
   // "Previously configured async disposables are still active..."
 }
 ~~~~
+
+
+Inspecting the effective configuration
+--------------------------------------
+
+*This API is available since LogTape 2.4.0.*
+
+When a logger's records do not show up where you expect, `getConfig()` tells
+you what you configured, but not how a particular logger's level, its
+ancestors' sinks, and their filters combine.  `inspectLogger()` explains that
+for one logger in the current execution context:
+
+~~~~ typescript twoslash
+import { configure, getConsoleSink, inspectLogger } from "@logtape/logtape";
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: ["my-app"], lowestLevel: "info", sinks: ["console"] },
+    { category: ["my-app", "db"], lowestLevel: "debug" },
+  ],
+});
+
+const report = inspectLogger(["my-app", "db"], { level: "debug" });
+for (const path of report.sinkPaths) {
+  console.log(path.id, path.category, path.status, path.gates);
+}
+// console [ "my-app" ] disabled [
+//   { category: [ "my-app", "db" ], lowestLevel: "debug" },
+//   { category: [ "my-app" ], lowestLevel: "info" }
+// ]
+~~~~
+
+The `"debug"` record is accepted by `["my-app", "db"]`, but the `console` sink
+belongs to `["my-app"]`, whose `lowestLevel` is `"info"`.  Configuring the
+child with `parentSinks: "forward"` would let the record through; see
+[*Forwarding sinks regardless of ancestor levels*][forwarding].
+
+The report contains:
+
+`source`
+:   Whether the report reflects a scoped configuration set by `withConfig()`
+    or `withConfigSync()` (`"scoped"`), the process-global configuration
+    (`"global"`), or neither (`"unconfigured"`).
+
+`categoryPrefix` and `effectiveCategory`
+:   The category prefix set by `withCategoryPrefix()`, and the category
+    records are actually dispatched under.
+
+`loggers`
+:   Each category from the root to the effective category, with whether it is
+    configured and its own `lowestLevel`, `parentSinks`, sink identifiers,
+    and filter identifiers.
+
+`sinkPaths`
+:   Every way a record can reach a sink, in the order the sinks are called.
+    A sink that would receive a record more than once appears more than once.
+    Each path names the category that has the sink, the `lowestLevel` gates
+    on the way along with the categories that supply them, and a status.
+
+`filters`
+:   The filters that apply, and the category that supplies them.
+
+`inheritanceBoundary`
+:   The nearest category configured with `parentSinks: "override"`, beyond
+    which no sinks are inherited, or the root.
+
+`status`
+:   Whether records can reach any sink.
+
+Each status is one of:
+
+`"enabled"`
+:   Records are delivered without consulting any custom filter.
+
+`"conditional"`
+:   Records are delivered only if custom filters accept them.  Since the
+    outcome of a custom filter is only known when a record is logged, the
+    report cannot tell more than that.
+
+`"disabled"`
+:   Records are never delivered, because a `lowestLevel` gate or a level
+    filter rejects them.
+
+Pass the `level` option to evaluate statuses for records of that level.
+Without it, a status tells whether records of some level can be delivered,
+and each path's `lowestLevel` tells which levels.
+
+`inspectLogger()` has no side effects: it does not log anything, invoke sinks
+or filters, evaluate lazy properties, or create loggers.  Sinks are opaque to
+it, so a sink that filters records by itself, such as one made by
+`withFilter()` or `fingersCrossed()`, may still drop records that are reported
+as delivered.
+
+> [!TIP]
+> The report makes category mistakes visible.  `inspectLogger("my-app:http")`
+> shows a single category segment `"my-app:http"` whose only ancestor is the
+> root, not a child of `["my-app"]`; use `["my-app", "http"]` instead.
+
+[forwarding]: ./categories.md#forwarding-sinks-regardless-of-ancestor-levels

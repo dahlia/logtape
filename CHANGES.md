@@ -30,6 +30,19 @@ To be released.
     the given logger itself, in depth-first pre-order.
     [[#62], [#207] by Jepoy\]
 
+ -  Added `inspectLogger()` function, which explains how the current
+    configuration routes records for a logger without logging anything or
+    invoking filters and sinks.  It reports the effective category, the
+    level gates and sink paths (repeats included) with the categories that
+    supplied them, the selected filters, where sink inheritance stops, and
+    whether a scoped configuration applies.  [[#243], [#251]]
+
+     -  Added `InspectLoggerOptions`, `LoggerInspection`,
+        `LoggerNodeInspection`, `SinkPathInspection`,
+        `LevelGateInspection`, `FilterSetInspection`, `FilterInspection`,
+        and `InheritanceBoundaryInspection` interfaces.
+     -  Added `LoggerInspectionStatus` type.
+
  -  Added optional `onDrop` and `onError` callbacks to non-blocking console
     and stream sinks to report aggregated buffer overflow counts and output
     failures without exposing dropped records.  Added the `SinkDropReason`,
@@ -130,11 +143,13 @@ To be released.
 [#238]: https://github.com/dahlia/logtape/issues/238
 [#239]: https://github.com/dahlia/logtape/issues/239
 [#242]: https://github.com/dahlia/logtape/issues/242
+[#243]: https://github.com/dahlia/logtape/issues/243
 [#245]: https://github.com/dahlia/logtape/issues/245
 [#246]: https://github.com/dahlia/logtape/pull/246
 [#247]: https://github.com/dahlia/logtape/pull/247
 [#249]: https://github.com/dahlia/logtape/pull/249
 [#250]: https://github.com/dahlia/logtape/pull/250
+[#251]: https://github.com/dahlia/logtape/pull/251
 
 ### @logtape/config
 

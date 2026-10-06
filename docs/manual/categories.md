@@ -175,6 +175,12 @@ The `"forward"` mode follows these rules:
  -  As with the default mode, repeated references to the same sink are not
     deduplicated; such a sink receives the record once per reference.
 
+> [!TIP]
+> To see how these rules combine for a particular logger, use
+> `inspectLogger()`; see [*Inspecting the effective configuration*][inspect].
+
+[inspect]: ./debug.md#inspecting-the-effective-configuration
+
 
 Root logger
 -----------

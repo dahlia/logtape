@@ -1578,10 +1578,39 @@ function collectDescendants(logger: LoggerImpl): readonly LoggerImpl[] {
  */
 const globalRootLoggerSymbol = Symbol.for("logtape.rootLogger");
 
-function isMetaLoggerCategory(category: readonly string[]): boolean {
+/**
+ * Checks whether the given category is the meta logger's category or one of
+ * its descendants, to which category prefixes do not apply.
+ */
+export function isMetaLoggerCategory(category: readonly string[]): boolean {
   return category.length >= 2 &&
     category[0] === "logtape" &&
     category[1] === "meta";
+}
+
+/**
+ * Finds the logger with the given category without creating it or any of its
+ * ancestors.
+ * @param category The category of the logger to find.
+ * @returns The logger, or `undefined` if it has not been created.
+ */
+export function findLogger(
+  category: readonly string[],
+): LoggerImpl | undefined {
+  let logger = (globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol];
+  for (const name of category) {
+    if (logger == null) return undefined;
+    const childRef = Object.prototype.hasOwnProperty.call(logger.children, name)
+      ? logger.children[name]
+      : undefined;
+    // Without WeakRef, children are stored directly, and they may have been
+    // created by another copy of LogTape, so instanceof cannot tell them apart:
+    logger = childRef == null ||
+        typeof (childRef as Partial<WeakRef<LoggerImpl>>).deref !== "function"
+      ? childRef as LoggerImpl | undefined
+      : (childRef as WeakRef<LoggerImpl>).deref();
+  }
+  return logger;
 }
 
 /**
