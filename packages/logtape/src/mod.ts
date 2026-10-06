@@ -70,6 +70,8 @@ export {
 export type { LogRecord } from "./record.ts";
 export {
   type AsyncSink,
+  type AsyncSinkOptions,
+  type AsyncSinkOverflowPolicy,
   type ConsoleSinkOptions,
   fingersCrossed,
   type FingersCrossedAfterTrigger,
@@ -81,6 +83,8 @@ export {
   getConsoleSink,
   getStreamSink,
   type Sink,
+  type SinkDropEvent,
+  type SinkDropReason,
   type StreamSinkOptions,
   withFilter,
 } from "./sink.ts";

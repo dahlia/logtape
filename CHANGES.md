@@ -16,13 +16,41 @@ To be released.
     threshold, so records accepted by the logger's own `lowestLevel` reach
     the inherited sinks as well.  An ancestor configured with
     `parentSinks: "override"` still stops the inheritance chain.  [[#198]]
+
  -  Added `FingersCrossedSink.flush()` and `FingersCrossedSink.discard()`
     methods and the `FingersCrossedOptions.bufferAction` callback for flushing
     or discarding isolated buffers when a request or job completes.  [[#205]]
+
  -  Added `getLoggers()` function to enumerate every logger in the category
     tree rooted at a given logger (or the root logger by default), including
     the given logger itself, in depth-first pre-order.
     [[#62], [#207] by Jepoy\]
+
+ -  Added queue limits and a request lifetime hook to `fromAsyncSink()`.
+    Its type is now
+    `(asyncSink: AsyncSink, options?: AsyncSinkOptions) => Sink & AsyncDisposable`
+    (was `(asyncSink: AsyncSink) => Sink & AsyncDisposable`).  Without options,
+    the adapter behaves as before.  [[#238], [#246]]
+
+     -  The `maxQueueSize` and `overflow` options cap how many records wait
+        for the async sink, not counting the one being processed, and choose
+        whether a full queue drops its oldest waiting record (the default)
+        or the incoming one.  The limit bounds queued records, not total
+        memory: with `"drop-oldest"`, the promise and request-context
+        bookkeeping of each dropped record remains until the record being
+        processed at that time settles.  `"drop-newest"` leaves nothing
+        behind for rejected records.
+     -  The `onDrop` callback receives a `SinkDropEvent` with the number of
+        dropped records and the reason, but no record payloads.
+     -  The `waitUntil` callback is called synchronously while a record is
+        being logged, with a `Promise` that settles once that record and
+        every earlier record have been processed or dropped.  Passing
+        a platform's `waitUntil()` function lets serverless functions finish
+        sending logs after returning a response.
+     -  Added the `AsyncSinkOptions` interface and the
+        `AsyncSinkOverflowPolicy`, `SinkDropEvent`, and `SinkDropReason`
+        types.
+
  -  Added the `"bare"` preset to the `TextFormatterOptions.value` option, so
     that `getTextFormatter()` and `getAnsiColorFormatter()` can render
     interpolated string values without the quotes and escapes that
@@ -30,18 +58,21 @@ To be released.
     arrays, are rendered as before.  Bare strings are sanitized instead: SGR
     sequences are always escaped, and newlines are escaped unless
     `TextFormatterOptions.sanitize` explicitly preserves them.  [[#236], [#237]]
+
  -  Changed the type of the `TextFormatterOptions.value` option to
     `"bare" | ((value: unknown, inspect: (value: unknown, options?: { colors?: boolean }) => string) => string)`
     (was
     `(value: unknown, inspect: (value: unknown, options?: { colors?: boolean }) => string) => string`).
     Code that calls the option directly now has to check that it is a function
     first.  [[#236], [#237]]
+
  -  Added the `FingersCrossedOptions.afterTrigger` option and the
     `FingersCrossedAfterTrigger` type.  Setting it to `"buffer"` makes
     `fingersCrossed()` go back to buffering after each trigger instead of
     passing every subsequent record through, so long-running processes can
     output each error together with the records that led up to it.
     [[#234], [#235]]
+
  -  Added the `StreamSinkOptions.closeStream` option to dispose stream sinks
     without closing caller-owned streams. [[#203]]
 
@@ -54,6 +85,8 @@ To be released.
 [#235]: https://github.com/dahlia/logtape/pull/235
 [#236]: https://github.com/dahlia/logtape/issues/236
 [#237]: https://github.com/dahlia/logtape/pull/237
+[#238]: https://github.com/dahlia/logtape/issues/238
+[#246]: https://github.com/dahlia/logtape/pull/246
 
 ### @logtape/config
 

@@ -44,6 +44,33 @@ export type Sink = (record: LogRecord) => void;
 export type AsyncSink = (record: LogRecord) => Promise<void>;
 
 /**
+ * The reason why a sink discarded log records without writing them.
+ *
+ *  -  `"overflow"`: The sink's limit on pending records was reached.
+ *
+ * @since 2.4.0
+ */
+export type SinkDropReason = "overflow";
+
+/**
+ * Describes log records that a sink discarded without writing them.
+ * It intentionally carries no record payloads.
+ *
+ * @since 2.4.0
+ */
+export interface SinkDropEvent {
+  /**
+   * The number of discarded records.  Always a positive integer.
+   */
+  readonly count: number;
+
+  /**
+   * The reason why the records were discarded.
+   */
+  readonly reason: SinkDropReason;
+}
+
+/**
  * Turns a sink into a filtered sink.  The returned sink only logs records that
  * pass the filter.
  *
@@ -466,9 +493,101 @@ export function getConsoleSink(
 }
 
 /**
+ * What {@link fromAsyncSink} does with a new record when its queue is full.
+ *
+ *  -  `"drop-oldest"`: Discards the record that has been waiting the longest
+ *     and accepts the new record.  The record currently being processed is
+ *     never discarded.
+ *  -  `"drop-newest"`: Discards the new record and leaves the queue as is.
+ *
+ * @since 2.4.0
+ */
+export type AsyncSinkOverflowPolicy = "drop-oldest" | "drop-newest";
+
+/**
+ * Options for the {@link fromAsyncSink} function.
+ * @since 2.4.0
+ */
+export interface AsyncSinkOptions {
+  /**
+   * The maximum number of records waiting for the async sink, not counting
+   * the record currently being processed.  When a record arrives while this
+   * many records are waiting, the {@link AsyncSinkOptions.overflow} policy
+   * decides which record is dropped.  Dropping a record never cancels the
+   * record currently being processed.
+   *
+   * This limits how many records the adapter keeps queued; it is not a bound
+   * on total memory use.  With the `"drop-oldest"` policy, the adapter
+   * releases a dropped record right away, but the promise bookkeeping for it,
+   * including the async context (such as request context) the runtime
+   * captured for it, remains until the record being processed at that time
+   * settles.  If the async sink can stall for a long time, give it
+   * a timeout, or use the `"drop-newest"` policy, which leaves nothing behind
+   * for rejected records.
+   *
+   * Must be a positive integer or `Infinity`.
+   * @default `Infinity`
+   */
+  readonly maxQueueSize?: number;
+
+  /**
+   * What to do when a record arrives while the queue is full.  It has no
+   * effect unless {@link AsyncSinkOptions.maxQueueSize} is finite.
+   * @default `"drop-oldest"`
+   */
+  readonly overflow?: AsyncSinkOverflowPolicy;
+
+  /**
+   * A callback invoked synchronously, inside the logging call, whenever the
+   * queue is full and a record is dropped.  It receives the number of
+   * dropped records and the reason, but not the records themselves.
+   *
+   * If the callback logs through a logger that routes back to this sink and
+   * that causes further drops, those drops are not reported re-entrantly;
+   * their count is added to the next drop notification, or reported when
+   * the sink is disposed.
+   *
+   * Errors thrown by the callback, and rejections of a promise it returns,
+   * are reported to the meta logger and never propagate to the logging call.
+   */
+  readonly onDrop?: (event: SinkDropEvent) => void;
+
+  /**
+   * A callback invoked synchronously, inside the logging call that accepted
+   * a record, with a promise that settles once that record and every record
+   * accepted before it have been processed or dropped.  The promise never
+   * rejects; failures of the async sink are reported to the meta logger
+   * before it settles.  It does not wait for records accepted later.
+   *
+   * Since it is called in the execution context of the logging call, it can
+   * pass the promise to the lifetime mechanism of the current request, such
+   * as `waitUntil()` from `@vercel/functions` or from `cloudflare:workers`,
+   * so that the request is kept alive until its log records have been sent.
+   * This only requests more time; the platform's limits still apply.
+   * The sink does not keep any request context around; it calls this
+   * callback for every accepted record and never for dropped new records.
+   *
+   * Errors thrown by the callback, and rejections of a promise it returns,
+   * are reported to the meta logger and never propagate to the logging call.
+   * The callback must not log through this sink, as that would call it again
+   * recursively.
+   */
+  readonly waitUntil?: (promise: Promise<void>) => void;
+}
+
+interface AsyncSinkQueueEntry {
+  record: LogRecord | undefined;
+  next: AsyncSinkQueueEntry | null;
+}
+
+/**
  * Converts an async sink into a regular sink with proper async handling.
  * The returned sink chains async operations to ensure proper ordering and
  * implements AsyncDisposable to wait for all pending operations on disposal.
+ *
+ * Records are passed to the async sink one at a time, in the order they
+ * were logged.  By default the number of waiting records is unbounded; use
+ * {@link AsyncSinkOptions.maxQueueSize} to limit it.
  *
  * @example Create a sink that asynchronously posts to a webhook
  * ```typescript
@@ -481,42 +600,238 @@ export function getConsoleSink(
  * const sink = fromAsyncSink(asyncSink);
  * ```
  *
+ * @example Bound the queue and keep serverless requests alive
+ * ```typescript
+ * import { waitUntil } from "@vercel/functions";
+ *
+ * const sink = fromAsyncSink(asyncSink, {
+ *   maxQueueSize: 1000,
+ *   overflow: "drop-oldest",
+ *   onDrop: ({ count, reason }) => droppedLogs.add(count, { reason }),
+ *   waitUntil,
+ * });
+ * ```
+ *
  * @param asyncSink The async sink function to convert.
+ * @param options Options for queue limits and lifetime registration.
+ *                Available since 2.4.0.
  * @returns A sink that properly handles async operations and disposal.
+ * @throws {RangeError} If `maxQueueSize` is not a positive integer or
+ *                      `Infinity`.
+ * @throws {TypeError} If `overflow` is not a known policy.
  * @since 1.0.0
  */
-export function fromAsyncSink(asyncSink: AsyncSink): Sink & AsyncDisposable {
-  let lastPromise = Promise.resolve();
-  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
-    lastPromise = lastPromise
-      .then(() => asyncSink(record))
-      .catch((error) => {
-        try {
-          if (_asyncSinkError in record) return;
+export function fromAsyncSink(
+  asyncSink: AsyncSink,
+  options: AsyncSinkOptions = {},
+): Sink & AsyncDisposable {
+  const maxQueueSize = options.maxQueueSize ?? Infinity;
+  if (
+    maxQueueSize !== Infinity &&
+    !(Number.isInteger(maxQueueSize) && maxQueueSize >= 1)
+  ) {
+    throw new RangeError(
+      "The maxQueueSize option must be a positive integer or Infinity, " +
+        `but got ${maxQueueSize}.`,
+    );
+  }
+  const overflow = options.overflow ?? "drop-oldest";
+  if (overflow !== "drop-oldest" && overflow !== "drop-newest") {
+    throw new TypeError(
+      'The overflow option must be either "drop-oldest" or "drop-newest", ' +
+        `but got ${JSON.stringify(overflow)}.`,
+    );
+  }
+  const { onDrop, waitUntil } = options;
 
-          const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
-          const errorRecord = {
-            category: ["logtape", "meta"],
-            level: "error",
-            timestamp: Date.now(),
-            rawMessage: "Async sink error: {error}",
-            message: ["Async sink error: ", error, ""],
-            properties: { error, sink: asyncSink, record },
-            [_asyncSinkError]: true,
-          } as LogRecord;
-          metaLogger.emit(errorRecord, new Set([sink]));
-        } catch {
-          // Last resort – cannot log at all
-        }
+  let lastPromise = Promise.resolve();
+  // Records that are accepted but neither finished nor dropped, in order.
+  // The head is the record being processed (or about to be), so it is never
+  // dropped and does not count against maxQueueSize.
+  let head: AsyncSinkQueueEntry | null = null;
+  let tail: AsyncSinkQueueEntry | null = null;
+  let live = 0;
+  let inOnDrop = false;
+  let carriedDrops = 0;
+  let reportingCallbackError = false;
+
+  function reportToMetaLogger(
+    rawMessage: string,
+    message: unknown[],
+    properties: Record<string, unknown>,
+  ): void {
+    try {
+      const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+      const errorRecord = {
+        category: ["logtape", "meta"],
+        level: "error",
+        timestamp: Date.now(),
+        rawMessage,
+        message,
+        properties,
+        [_asyncSinkError]: true,
+      } as LogRecord;
+      metaLogger.emit(errorRecord, new Set([sink]));
+    } catch {
+      // Last resort – cannot log at all
+    }
+  }
+
+  function reportCallbackError(
+    callback: "onDrop" | "waitUntil",
+    error: unknown,
+  ): void {
+    // A callback that keeps failing while its own failure is being reported
+    // (e.g., because the report is routed back to this sink) must not
+    // recurse.
+    if (reportingCallbackError) return;
+    reportingCallbackError = true;
+    try {
+      reportToMetaLogger(
+        "Async sink {callback} callback failed: {error}",
+        ["Async sink ", callback, " callback failed: ", error, ""],
+        { error, callback, sink: asyncSink },
+      );
+    } finally {
+      reportingCallbackError = false;
+    }
+  }
+
+  function invokeCallback(
+    callback: "onDrop" | "waitUntil",
+    invoke: () => unknown,
+    diagnostic: boolean,
+  ): void {
+    let result: unknown;
+    try {
+      result = invoke();
+    } catch (error) {
+      reportCallbackError(callback, error);
+      return;
+    }
+    // A callback may be an async function even though its return value is
+    // ignored; its rejection must not become an unhandled rejection.
+    // Rejections caused by this sink's own diagnostic records are not
+    // reported, so that a report routed back to this sink cannot keep
+    // producing new reports.
+    if (result == null) return;
+    try {
+      const then = (result as PromiseLike<unknown>).then;
+      if (typeof then !== "function") return;
+      then.call(result, undefined, (error: unknown) => {
+        if (!diagnostic) reportCallbackError(callback, error);
       });
+    } catch (error) {
+      // A thenable that cannot be inspected or subscribed to
+      reportCallbackError(callback, error);
+    }
+  }
+
+  function isDiagnostic(record: LogRecord): boolean {
+    try {
+      return _asyncSinkError in record;
+    } catch {
+      return false;
+    }
+  }
+
+  function notifyDrop(count: number, diagnostic: boolean): void {
+    if (onDrop == null) return;
+    if (inOnDrop) {
+      carriedDrops += count;
+      return;
+    }
+    const total = count + carriedDrops;
+    carriedDrops = 0;
+    if (total < 1) return;
+    inOnDrop = true;
+    try {
+      invokeCallback(
+        "onDrop",
+        () => onDrop({ count: total, reason: "overflow" }),
+        diagnostic,
+      );
+    } finally {
+      inOnDrop = false;
+    }
+  }
+
+  async function run(entry: AsyncSinkQueueEntry): Promise<void> {
+    const record = entry.record;
+    if (record === undefined) return; // Dropped while waiting
+    let failed = false;
+    let error: unknown;
+    try {
+      await asyncSink(record);
+    } catch (e) {
+      failed = true;
+      error = e;
+    }
+    // The chain is serial, so the finished entry is always the head:
+    head = entry.next;
+    if (head === null) tail = null;
+    entry.next = null;
+    entry.record = undefined;
+    live--;
+    if (!failed) return;
+    try {
+      if (_asyncSinkError in record) return;
+      reportToMetaLogger(
+        "Async sink error: {error}",
+        ["Async sink error: ", error, ""],
+        { error, sink: asyncSink, record },
+      );
+    } catch {
+      // Last resort – cannot log at all
+    }
+  }
+
+  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
+    let dropped = 0;
+    if (live > maxQueueSize) {
+      if (overflow === "drop-newest") {
+        notifyDrop(1, isDiagnostic(record));
+        return;
+      }
+      // Drop the oldest waiting record, which follows the head:
+      const evicted = head!.next!;
+      head!.next = evicted.next;
+      if (tail === evicted) tail = head;
+      evicted.next = null;
+      evicted.record = undefined;
+      live--;
+      dropped = 1;
+    }
+    const entry: AsyncSinkQueueEntry = { record, next: null };
+    if (tail === null) head = entry;
+    else tail.next = entry;
+    tail = entry;
+    live++;
+    const promise = lastPromise.then(() => run(entry));
+    lastPromise = promise;
+    if (dropped < 1 && waitUntil == null) return;
+    const diagnostic = isDiagnostic(record);
+    if (dropped > 0) notifyDrop(dropped, diagnostic);
+    if (waitUntil != null) {
+      invokeCallback("waitUntil", () => waitUntil(promise), diagnostic);
+    }
   };
   sink[Symbol.asyncDispose] = async () => {
-    // Drain the promise chain until it settles – catch handlers
-    // may enqueue additional async work (e.g., meta-logger writes)
+    // Drain the promise chain until it settles – failure reports and drop
+    // notifications may enqueue additional async work (e.g., meta-logger
+    // writes).  Drops that were not reported because they happened inside
+    // onDrop are reported here, at most once per call.
+    let notified = false;
     for (;;) {
       const promise = lastPromise;
       await promise;
-      if (promise === lastPromise) break;
+      if (promise !== lastPromise) continue;
+      if (!notified && carriedDrops > 0 && !inOnDrop) {
+        notified = true;
+        notifyDrop(0, false);
+        continue;
+      }
+      break;
     }
   };
   return sink;
