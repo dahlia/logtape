@@ -464,6 +464,9 @@ While a scoped configuration is active, LogTape rejects process-wide state
 changes.  Calling `configure()`, `configureSync()`, `reset()`, `resetSync()`,
 `dispose()`, or `disposeSync()` inside the callback throws `ConfigError`.
 If you need another temporary policy, use nested `withConfig()` instead.
+`drain()` is allowed inside the callback, and drains the sinks of the
+innermost active scoped configuration instead of the process-wide ones.  See
+also the [*Draining sinks* section](./sinks.md#draining-sinks).
 
 `getConfig()` always returns the process-wide configuration.  It is not an
 “effective configuration” API, and it does not return the scoped configuration
