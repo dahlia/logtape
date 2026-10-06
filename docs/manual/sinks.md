@@ -204,6 +204,10 @@ Disposing the sink still waits for pending writes, flushes buffered records
 when non-blocking mode is enabled, and releases the writer lock without closing
 the stream.
 
+To wait for pending writes while keeping the sink open, call its `drain()`
+method instead of disposing it.  See the [*Draining sinks*
+section](#draining-sinks) for details.
+
 See also `getStreamSink()` function and `StreamSinkOptions` interface
 in the API reference for more details.
 
@@ -364,8 +368,11 @@ Disposal
     (stream) to ensure all buffered logs are flushed on cleanup.  Usually,
     they are automatically disposed when the application exits or when
     the configuration is reset.  However, you may need to
-    [explicitly dispose](#example-disposal) them to ensure all logs are flushed
-    on some platforms (e.g., Cloudflare Workers).
+    [explicitly dispose](#explicit-disposal) them to ensure all logs are
+    flushed on some platforms (e.g., Cloudflare Workers).  The stream sink can
+    also be [drained](#draining-sinks), which writes the buffered records
+    right away without waiting for the flush interval and keeps the sink
+    open.
 
 Error handling
 :   Errors during background flushing are suppressed to avoid disrupting the
@@ -844,6 +851,11 @@ Both methods release buffered and triggered state.  Calling either method for
 an already-triggered isolation resets it, so the next record with the same key
 is buffered again.
 
+These methods are unrelated to [draining](#draining-sinks).  When the wrapped
+sink is drainable, the fingers crossed sink's `~Drainable.drain()` method waits
+only for the records it has already passed to the wrapped sink, and leaves the
+buffers untouched.
+
 ### Buffer management
 
 The fingers crossed sink provides several mechanisms to manage memory usage
@@ -1161,6 +1173,9 @@ The `fromAsyncSink()` function:
     caught to prevent breaking the chain for subsequent logs.
 3.  [*Implements `AsyncDisposable`*](#disposable-sink): The returned sink can be
     properly disposed, waiting for all pending operations to complete.
+4.  [*Implements `Drainable`*](#draining-sinks): The returned sink's
+    `drain()` method waits for the operations of the records logged so far,
+    without disposing the sink.
 
 By default, the number of records waiting for the async sink is unbounded.
 The second parameter of `fromAsyncSink()` takes options to
@@ -1371,6 +1386,8 @@ Disposal
     ~~~~
 
     See also the [*Explicit disposal* section](#explicit-disposal) below.
+    To wait for pending operations without disposing the sink, see the
+    [*Draining sinks* section](#draining-sinks).
 
 For more details, see the `fromAsyncSink()` function and `AsyncSink` type
 in the API reference.
@@ -1442,5 +1459,87 @@ export default {
 ~~~~
 
 [`ctx.waitUntil()`]: https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil
+
+
+Draining sinks
+--------------
+
+*This API is available since LogTape 2.4.0.*
+
+Disposal ends a sink's lifetime: a disposed stream sink closes its stream or
+releases its writer, and stops accepting records.  When you only need to wait
+for the records logged so far, for example at the end of each job in
+a long-running process, drain the sinks instead.  Draining waits for pending
+output while keeping the sinks open for the next job.
+
+The `drain()` function drains every drainable sink in the active
+configuration:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { type ExportedHandler, Response } from "@cloudflare/workers-types";
+// ---cut-before---
+import { configure, drain } from "@logtape/logtape";
+
+await configure({ /* ... */ });
+
+export default {
+  async fetch(request, env, ctx) {
+    // ...
+    ctx.waitUntil(drain());
+    return new Response("...");
+  }
+} satisfies ExportedHandler;
+~~~~
+
+A sink is drainable if it implements the `Drainable` interface, which has
+a `~Drainable.drain()` method.  You can also drain a single sink by calling
+the method directly:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { getStreamSink } from "@logtape/logtape";
+declare const stream: WritableStream;
+async function runJob(): Promise<void> {}
+// ---cut-before---
+const sink = getStreamSink(stream);
+
+for (let i = 0; i < 3; i++) {
+  await runJob();
+  await sink.drain();  // The sink is still open for the next job.
+}
+~~~~
+
+A drain waits only for the records the sink accepted before the call, so
+records logged afterwards cannot keep it waiting.  It finishes once each of
+those records has *settled*: its output has finished, failed, or the record
+was dropped (for example, by the overflow protection of a non-blocking sink).
+This does not mean that the output was synchronized to disk or durably stored
+by a remote service.  Concurrent drains are allowed.
+
+The following sinks are drainable:
+
+`getStreamSink()`
+:   Waits for pending writes.  In non-blocking mode, it writes the buffered
+    records right away instead of waiting for the flush interval.  A failed
+    write makes the drain reject, except in non-blocking mode, where write
+    errors are suppressed or passed to `nonBlocking.onError` instead.
+
+`fromAsyncSink()`
+:   Waits for the async operations of the records logged so far.  Failed
+    operations are reported to the [meta logger] as usual, and do not make the
+    drain reject.
+
+`withFilter()`, `fingersCrossed()`
+:   Forward `~Drainable.drain()` to the wrapped sink if it is drainable.
+    Draining a fingers crossed sink does not emit the records that are still
+    buffered waiting for a trigger; use `~FingersCrossedSink.flush()` for that.
+
+The `drain()` function skips sinks that are not drainable, drains a sink
+configured under multiple identifiers only once, and rejects if any sink fails
+to drain.  Inside a `withConfig()` callback, it drains the sinks of the scoped
+configuration instead of the process-wide ones.
+
+[meta logger]: ./categories.md#meta-logger
 
 <!-- cSpell: ignore otel -->

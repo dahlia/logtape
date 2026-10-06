@@ -43,6 +43,7 @@ export interface CompiledScopedConfig {
   readonly asyncFilters: Set<AsyncDisposable>;
   readonly syncSinks: Set<Disposable>;
   readonly asyncSinks: Set<AsyncDisposable>;
+  readonly sinks: ReadonlySet<Sink>;
 }
 
 interface CompiledScopedLogger {
@@ -171,9 +172,11 @@ export function compileScopedConfig<
   const asyncFilters = new Set<AsyncDisposable>();
   const syncSinks = new Set<Disposable>();
   const asyncSinks = new Set<AsyncDisposable>();
+  const sinks = new Set<Sink>();
 
   for (const sink of Object.values<Sink>(config.sinks)) {
     if (!isObjectLike(sink)) continue;
+    sinks.add(sink);
     if (Symbol.asyncDispose in sink) {
       if (!allowAsync) {
         throw createError(
@@ -208,6 +211,7 @@ export function compileScopedConfig<
     filterCache: new Map(),
     nodes,
     parent: undefined,
+    sinks,
     syncFilters,
     syncSinks,
   };

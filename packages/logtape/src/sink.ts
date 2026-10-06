@@ -161,8 +161,46 @@ function createSinkNotifications(
 }
 
 /**
+ * A capability of sinks that can wait for their pending output without being
+ * disposed of.  Unlike disposal, draining does not end the sink's lifetime:
+ * records logged after a drain are still accepted as usual.
+ *
+ * See also the `drain()` function, which drains every drainable sink of
+ * the active configuration.
+ * @since 2.4.0
+ */
+export interface Drainable {
+  /**
+   * Waits until every record the sink accepted before this call has settled,
+   * which means that its sink operation has finished, either successfully or
+   * with a failure, or that the record was dropped.  Records accepted after
+   * this call are not waited for.
+   *
+   * Settlement does not mean that the output has been synchronized to disk
+   * or durably stored at a remote destination.  A wrapper sink covers only
+   * the records it has already passed to the wrapped sink; for example,
+   * records that a {@link fingersCrossed} sink holds in its buffer are not
+   * released.
+   *
+   * Draining does not dispose of the sink.  Concurrent calls are allowed,
+   * and each call waits only for the records accepted before it.
+   *
+   * @returns A promise that resolves when the covered records have settled.
+   *          Whether it rejects on output failures depends on the sink.
+   */
+  drain(): Promise<void>;
+}
+
+function isDrainable(sink: Sink): sink is Sink & Drainable {
+  return typeof (sink as Sink & Partial<Drainable>).drain === "function";
+}
+
+/**
  * Turns a sink into a filtered sink.  The returned sink only logs records that
  * pass the filter.
+ *
+ * If the given sink is {@link Drainable}, the returned sink forwards
+ * {@link Drainable.drain} to it.
  *
  * @example Filter a console sink to only log records with the info level
  * ```typescript
@@ -174,9 +212,14 @@ function createSinkNotifications(
  *               function or a {@link LogLevel} string.
  * @returns A sink that only logs records that pass the filter.
  */
+export function withFilter(
+  sink: Sink & Drainable,
+  filter: FilterLike,
+): Sink & Drainable;
+export function withFilter(sink: Sink, filter: FilterLike): Sink;
 export function withFilter(sink: Sink, filter: FilterLike): Sink {
   const filterFunc = toFilter(filter);
-  const filtered: Sink & Partial<Disposable & AsyncDisposable> = (
+  const filtered: Sink & Partial<Disposable & AsyncDisposable & Drainable> = (
     record: LogRecord,
   ) => {
     if (filterFunc(record)) sink(record);
@@ -190,6 +233,7 @@ export function withFilter(sink: Sink, filter: FilterLike): Sink {
       sink,
     );
   }
+  if (isDrainable(sink)) filtered.drain = sink.drain.bind(sink);
   return filtered;
 }
 
@@ -211,6 +255,8 @@ export interface StreamSinkOptions {
    * Whether to close the stream when the sink is disposed.  Set this to
    * `false` for caller-owned streams that need to remain open after disposal.
    * The sink still waits for pending writes and releases its writer lock.
+   * To wait for pending writes without disposing the sink at all, use
+   * {@link Drainable.drain} instead.
    *
    * @default `true`
    * @since 2.4.0
@@ -294,6 +340,15 @@ export interface StreamSinkOptions {
  * const stderrSink = getStreamSink(stream.Writable.toWeb(process.stderr));
  * ```
  *
+ * The returned sink is {@link Drainable}: its {@link Drainable.drain} method
+ * waits for the records accepted so far to be written (or, in non-blocking
+ * mode, to fail or be dropped) without closing the stream or releasing its
+ * writer.  In non-blocking mode, draining starts flushing the buffer
+ * immediately instead of waiting for the flush interval, and never rejects
+ * because of write failures, which that mode suppresses or passes to
+ * the `onError` callback instead.  In the default mode, a failed write makes
+ * draining reject with the same error that disposal would.
+ *
  * @param stream The stream to write to.
  * @param options The options for the sink.
  * @returns A sink that writes to the stream.
@@ -301,7 +356,7 @@ export interface StreamSinkOptions {
 export function getStreamSink(
   stream: WritableStream,
   options: StreamSinkOptions = {},
-): Sink & AsyncDisposable {
+): Sink & AsyncDisposable & Drainable {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
   const closeStream = options.closeStream ?? true;
@@ -309,7 +364,7 @@ export function getStreamSink(
 
   if (!options.nonBlocking) {
     let lastPromise = Promise.resolve();
-    const sink: Sink & AsyncDisposable = (record: LogRecord) => {
+    const sink: Sink & AsyncDisposable & Drainable = (record: LogRecord) => {
       const bytes = encoder.encode(formatter(record));
       lastPromise = lastPromise
         .then(() => writer.ready)
@@ -322,6 +377,9 @@ export function getStreamSink(
       } finally {
         writer.releaseLock();
       }
+    };
+    sink.drain = async () => {
+      await lastPromise;
     };
     return markSinkAsImmediate(sink);
   }
@@ -339,17 +397,56 @@ export function getStreamSink(
     nonBlockingConfig.onError,
   );
 
+  // The buffer always holds the most recently accepted records in order:
+  // records are only pushed at the end, dropped from the front, or detached
+  // all at once.  So the sequence number of buffer[i] is
+  // acceptedSeq - buffer.length + 1 + i.
   const buffer: LogRecord[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let disposed = false;
+  let disposePromise: Promise<void> | null = null;
   let activeFlush: Promise<void> | null = null;
   let startingFlush = false;
-  let disposePromise: Promise<void> | null = null;
+  // Set before the flush loop runs any formatter, so that records logged by
+  // the formatter cannot start an overlapping flush.
+  let flushOwned = false;
   const maxBufferSize = bufferSize * 2; // Overflow protection
+
+  // Sequence number of the most recently accepted record (1-based).
+  let acceptedSeq = 0;
+  // Sequence numbers of the next unsettled record and the last record of the
+  // batch being written; batchNext > batchEnd when no batch is outstanding.
+  let batchNext = 1;
+  let batchEnd = 0;
+  // Pending drains, in the order of their (non-decreasing) targets.
+  const drainWaiters: { readonly target: number; resolve(): void }[] = [];
+
+  // Every record up to the returned sequence number has been written, has
+  // failed, or has been dropped.  Dropped records are neither in the batch
+  // nor in the buffer, so they never hold the frontier back.
+  function getSettledSeq(): number {
+    if (batchNext <= batchEnd) return batchNext - 1;
+    if (buffer.length > 0) return acceptedSeq - buffer.length;
+    return acceptedSeq;
+  }
+
+  function resolveDrainWaiters(): void {
+    if (drainWaiters.length < 1) return;
+    const settledSeq = getSettledSeq();
+    let count = 0;
+    while (
+      count < drainWaiters.length && drainWaiters[count].target <= settledSeq
+    ) {
+      count++;
+    }
+    for (const waiter of drainWaiters.splice(0, count)) waiter.resolve();
+  }
 
   async function flush(): Promise<void> {
     if (buffer.length === 0) return;
 
+    batchEnd = acceptedSeq;
+    batchNext = acceptedSeq - buffer.length + 1;
     const records = buffer.splice(0);
     for (const record of records) {
       let operation: SinkErrorEvent["operation"] = "format";
@@ -363,17 +460,38 @@ export function getStreamSink(
       } catch (error) {
         notifications.error(error, operation, startingFlush);
       }
+      batchNext++;
+      resolveDrainWaiters();
+    }
+  }
+
+  async function runFlushLoop(): Promise<void> {
+    try {
+      for (;;) {
+        await flush();
+        // Deciding to stop and releasing the ownership must happen together;
+        // otherwise a drain requested in between would never be served.
+        if (drainWaiters.length < 1 || buffer.length < 1) {
+          flushOwned = false;
+          activeFlush = null;
+          return;
+        }
+      }
+    } finally {
+      flushOwned = false;
+      activeFlush = null;
     }
   }
 
   function scheduleFlush(): void {
-    if (activeFlush) return;
-
+    if (flushOwned || disposed) return;
+    flushOwned = true;
+    // The loop detaches the buffer synchronously, as it did before drain()
+    // was introduced, so a synchronous burst does not overflow the buffer.
+    // Failures in that synchronous part are reported after the caller returns.
     startingFlush = true;
     try {
-      activeFlush = flush().finally(() => {
-        activeFlush = null;
-      });
+      activeFlush = runFlushLoop();
     } finally {
       startingFlush = false;
     }
@@ -387,16 +505,22 @@ export function getStreamSink(
     }, flushInterval);
   }
 
-  const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
+  const nonBlockingSink: Sink & AsyncDisposable & Drainable = (
+    record: LogRecord,
+  ) => {
     if (disposed || notifications.notifying) return;
 
     // Buffer overflow protection: count only actual removed records.
+    let dropped = false;
     if (buffer.length >= maxBufferSize && buffer.length > 0) {
       buffer.shift();
       notifications.drop();
+      dropped = true;
     }
 
     buffer.push(record);
+    acceptedSeq++;
+    if (dropped) resolveDrainWaiters();
 
     if (buffer.length >= bufferSize) {
       scheduleFlush();
@@ -420,6 +544,10 @@ export function getStreamSink(
     notifications.dispose();
     complete((async () => {
       try {
+        // A disposal requested by a formatter at the start of a flush runs
+        // before that flush is published as activeFlush, so read it only
+        // after a tick instead of closing the writer in the middle of it.
+        await Promise.resolve();
         await activeFlush;
         await flush();
         if (closeStream) {
@@ -434,6 +562,16 @@ export function getStreamSink(
       }
     })());
     return disposePromise;
+  };
+
+  nonBlockingSink.drain = () => {
+    const target = acceptedSeq;
+    if (getSettledSeq() >= target) return Promise.resolve();
+    const promise = new Promise<void>((resolve) => {
+      drainWaiters.push({ target, resolve });
+    });
+    scheduleFlush();
+    return promise;
   };
 
   return nonBlockingSink;
@@ -765,6 +903,13 @@ interface AsyncSinkQueueEntry {
  * were logged.  By default the number of waiting records is unbounded; use
  * {@link AsyncSinkOptions.maxQueueSize} to limit it.
  *
+ * The returned sink is also {@link Drainable}: its {@link Drainable.drain}
+ * method waits for the operations of the records accepted before the call
+ * without disposing of the sink.  Since failures of the async sink are
+ * reported to the meta logger, draining resolves even if some of the covered
+ * operations failed.  Records that the meta logger emits while reporting
+ * such failures are not covered.
+ *
  * @example Create a sink that asynchronously posts to a webhook
  * ```typescript
  * const asyncSink: AsyncSink = async (record) => {
@@ -800,7 +945,7 @@ interface AsyncSinkQueueEntry {
 export function fromAsyncSink(
   asyncSink: AsyncSink,
   options: AsyncSinkOptions = {},
-): Sink & AsyncDisposable {
+): Sink & AsyncDisposable & Drainable {
   const maxQueueSize = options.maxQueueSize ?? Infinity;
   if (
     maxQueueSize !== Infinity &&
@@ -962,7 +1107,7 @@ export function fromAsyncSink(
     }
   }
 
-  const sink: Sink & AsyncDisposable = (record: LogRecord) => {
+  const sink: Sink & AsyncDisposable & Drainable = (record: LogRecord) => {
     let dropped = 0;
     if (live > maxQueueSize) {
       if (overflow === "drop-newest") {
@@ -1009,6 +1154,11 @@ export function fromAsyncSink(
       }
       break;
     }
+  };
+  sink.drain = async () => {
+    // Unlike disposal, do not wait for work enqueued after this call,
+    // including meta log records about failures of the covered work
+    await lastPromise;
   };
   return sink;
 }
@@ -1069,6 +1219,9 @@ export interface FingersCrossedSink {
   /**
    * Emits the selected buffered records, then releases their buffered and
    * triggered state.  With no selector, every buffer is flushed.
+   *
+   * This is unrelated to {@link Drainable.drain}, which waits for output that
+   * has already been passed to the wrapped sink and leaves buffers intact.
    *
    * @param selector The buffers to flush.
    */
@@ -1396,12 +1549,34 @@ interface TriggeredBufferMetadata extends BufferIdentity {
  * // But not ["other"] buffer
  * ```
  *
+ * If the wrapped sink is {@link Drainable}, the returned sink forwards
+ * {@link Drainable.drain} to it.  Draining waits only for the records that
+ * have already been passed to the wrapped sink; unlike
+ * {@link FingersCrossedSink.flush}, it does not release buffered records that
+ * are still waiting for a trigger.
+ *
  * @param sink The sink to wrap. Buffered records are sent to this sink when
  *             triggered.
  * @param options Configuration options for the fingers crossed behavior.
  * @returns A sink that buffers records until the trigger level is reached.
  * @since 1.1.0
  */
+export function fingersCrossed(
+  sink: Sink & Drainable & Disposable & AsyncDisposable,
+  options?: FingersCrossedOptions,
+): FingersCrossedSink & Drainable & Disposable & AsyncDisposable;
+export function fingersCrossed(
+  sink: Sink & Drainable & AsyncDisposable,
+  options?: FingersCrossedOptions,
+): FingersCrossedSink & Drainable & AsyncDisposable & Partial<Disposable>;
+export function fingersCrossed(
+  sink: Sink & Drainable & Disposable,
+  options?: FingersCrossedOptions,
+): FingersCrossedSink & Drainable & Disposable;
+export function fingersCrossed(
+  sink: Sink & Drainable,
+  options?: FingersCrossedOptions,
+): FingersCrossedSink & Drainable & Partial<Disposable>;
 export function fingersCrossed(
   sink: Sink & Disposable & AsyncDisposable,
   options?: FingersCrossedOptions,
@@ -1421,7 +1596,7 @@ export function fingersCrossed(
 export function fingersCrossed(
   sink: Sink,
   options: FingersCrossedOptions = {},
-): FingersCrossedSink & Partial<Disposable & AsyncDisposable> {
+): FingersCrossedSink & Partial<Disposable & AsyncDisposable & Drainable> {
   const triggerLevel = options.triggerLevel ?? "error";
   const afterTrigger = options.afterTrigger === undefined
     ? "passthrough"
@@ -1441,13 +1616,13 @@ export function fingersCrossed(
   function wrapSink<TSink extends Sink>(
     wrapped: TSink,
     disposeSelf?: () => void,
-  ): TSink & Partial<Disposable & AsyncDisposable> {
+  ): TSink & Partial<Disposable & AsyncDisposable & Drainable> {
     const disposableSink = sink as
       & Sink
       & Partial<Disposable & AsyncDisposable>;
     const disposableWrapped = wrapped as
       & TSink
-      & Partial<Disposable & AsyncDisposable>;
+      & Partial<Disposable & AsyncDisposable & Drainable>;
     const disposeSink = disposableSink[Symbol.dispose];
     const asyncDisposeSink = disposableSink[Symbol.asyncDispose];
 
@@ -1463,6 +1638,9 @@ export function fingersCrossed(
         await asyncDisposeSink.call(sink);
       };
     }
+    // Draining only waits for the records already passed to the wrapped
+    // sink; it never releases buffered records waiting for a trigger.
+    if (isDrainable(sink)) disposableWrapped.drain = sink.drain.bind(sink);
     return disposableWrapped;
   }
 

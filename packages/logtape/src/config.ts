@@ -7,11 +7,12 @@ import {
   compileScopedConfig,
   disposeScopedConfig,
   disposeScopedConfigSync,
+  getCurrentScopedConfig,
   runWithScopedConfig,
   type ScopedConfigLike,
   throwCombinedErrors,
 } from "./scoped-config.ts";
-import { getConsoleSink, type Sink } from "./sink.ts";
+import { type Drainable, getConsoleSink, type Sink } from "./sink.ts";
 
 /**
  * A configuration for the loggers.
@@ -131,6 +132,13 @@ let globalConfigMutationInProgress = false;
  * sinks and filters are not removed.
  */
 const strongRefs: Set<LoggerImpl> = new Set();
+
+/**
+ * The sinks installed by the current configuration, which {@link drain}
+ * drains.  Kept separately from {@link currentConfig} because the caller may
+ * mutate the configuration object after configuring.
+ */
+const installedSinks: Set<Sink> = new Set();
 
 /**
  * Sync filter disposables to dispose when resetting the configuration.
@@ -569,6 +577,7 @@ function configureInternal<
   LoggerImpl.getLogger().contextLocalStorage = config.contextLocalStorage;
 
   for (const sink of Object.values<Sink>(config.sinks)) {
+    installedSinks.add(sink);
     if (Symbol.asyncDispose in sink) {
       if (allowAsync) asyncSinkDisposables.add(sink as AsyncDisposable);
       else {
@@ -653,6 +662,7 @@ function resetInternal(): void {
   rootLogger.resetDescendants();
   delete rootLogger.contextLocalStorage;
   strongRefs.clear();
+  installedSinks.clear();
   currentConfig = null;
 }
 
@@ -686,6 +696,83 @@ async function disposeInternal(): Promise<void> {
     errors.push(error);
   }
   throwDisposeErrors(errors);
+}
+
+/**
+ * Waits for the pending output of every {@link Drainable} sink in the active
+ * configuration without disposing of the sinks, so that they keep accepting
+ * records afterwards.  Sinks that are not drainable are skipped.
+ *
+ * The active configuration is the innermost scoped configuration when called
+ * within a {@link withConfig} or {@link withConfigSync} callback, and
+ * otherwise the configuration set by {@link configure} or
+ * {@link configureSync}.  A sink registered under multiple identifiers is
+ * drained once.  Each sink's {@link Drainable.drain} method is called before
+ * this function returns, so records logged after this call are not waited
+ * for.
+ *
+ * Unlike `FingersCrossedSink.flush()`, draining does not release records
+ * that a fingers crossed sink buffers until a trigger.
+ *
+ * @example Wait for logs after responding in Cloudflare Workers
+ * ```typescript
+ * export default {
+ *   async fetch(request, env, ctx) {
+ *     // ...
+ *     ctx.waitUntil(drain());
+ *     return new Response("...");
+ *   },
+ * };
+ * ```
+ *
+ * @returns A promise that resolves when every drained sink has settled its
+ *          pending output.  If a sink fails to drain, the promise rejects with
+ *          its error after the other sinks have settled, or with an
+ *          {@link AggregateError} if multiple sinks fail.  It also rejects with
+ *          a {@link ConfigError} if LogTape is being reconfigured.
+ * @since 2.4.0
+ */
+export function drain(): Promise<void> {
+  if (globalConfigMutationInProgress) {
+    return Promise.reject(
+      new ConfigError(
+        "drain() cannot be called while LogTape is being reconfigured.",
+      ),
+    );
+  }
+  const scopedConfig = getCurrentScopedConfig(
+    LoggerImpl.getLogger().contextLocalStorage,
+  );
+  const sinks = [...(scopedConfig?.sinks ?? installedSinks)];
+  const promises: PromiseLike<void>[] = [];
+  for (const sink of sinks) {
+    try {
+      // Read the method once, inside the try, since it may be a getter
+      const method = (sink as Sink & Partial<Drainable>).drain;
+      if (typeof method !== "function") continue;
+      promises.push(Promise.resolve(method.call(sink)));
+    } catch (error) {
+      promises.push(Promise.reject(error));
+    }
+  }
+  return settleDrainPromises(promises);
+}
+
+async function settleDrainPromises(
+  promises: readonly PromiseLike<void>[],
+): Promise<void> {
+  const results = await Promise.allSettled(promises);
+  const errors = results
+    .filter((result): result is PromiseRejectedResult =>
+      result.status === "rejected"
+    )
+    .map((result) => result.reason);
+  if (errors.length < 1) return;
+  if (errors.length === 1) throw errors[0];
+  throw new AggregateError(
+    errors,
+    "Multiple errors occurred while draining LogTape sinks.",
+  );
 }
 
 /**

@@ -14,7 +14,7 @@ import {
   emitWithScopedConfig,
   scopedConfigHasSink,
 } from "./scoped-config.ts";
-import type { Sink } from "./sink.ts";
+import type { Drainable, Sink } from "./sink.ts";
 import {
   type Config,
   ConfigError,
@@ -22,6 +22,7 @@ import {
   configureSync,
   dispose,
   disposeSync,
+  drain,
   getConfig,
   reset,
   resetSync,
@@ -2724,3 +2725,347 @@ test(
     }
   },
 );
+
+type DrainSpySink = Sink & Drainable & {
+  readonly records: LogRecord[];
+  drains: number;
+};
+
+function createDrainSpySink(
+  drainImpl: () => Promise<void> = () => Promise.resolve(),
+): DrainSpySink {
+  const records: LogRecord[] = [];
+  const sink = ((record: LogRecord) => {
+    records.push(record);
+  }) as DrainSpySink;
+  Object.defineProperty(sink, "records", { value: records });
+  sink.drains = 0;
+  sink.drain = () => {
+    sink.drains++;
+    return drainImpl();
+  };
+  return sink;
+}
+
+test("drain() without a configuration", async () => {
+  await reset();
+  await drain();
+});
+
+test("drain() drains each configured sink once without disposing it", async () => {
+  const shared = createDrainSpySink();
+  let disposed = false;
+  const disposable = createDrainSpySink() as DrainSpySink & AsyncDisposable;
+  disposable[Symbol.asyncDispose] = () => {
+    disposed = true;
+    return Promise.resolve();
+  };
+  const plain: Sink = () => {};
+  await configure({
+    sinks: { a: shared, b: shared, disposable, plain },
+    loggers: [
+      { category: "app", sinks: ["a", "b", "disposable", "plain"] },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  });
+  try {
+    await drain();
+    assert.strictEqual(shared.drains, 1);
+    assert.strictEqual(disposable.drains, 1);
+    assert.strictEqual(disposed, false);
+
+    getLogger("app").info("after drain");
+    assert.strictEqual(disposable.records.length, 1);
+  } finally {
+    await reset();
+  }
+  assert.strictEqual(disposed, true);
+});
+
+test("drain() calls every sink before returning", async () => {
+  const first = createDrainSpySink();
+  const second = createDrainSpySink();
+  await configure({
+    sinks: { first, second },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  });
+  try {
+    const promise = drain();
+    assert.strictEqual(first.drains, 1);
+    assert.strictEqual(second.drains, 1);
+    await promise;
+  } finally {
+    await reset();
+  }
+});
+
+test("drain() waits for every sink before reporting failures", async () => {
+  const failure = new Error("drain failed");
+  let releaseHeld!: () => void;
+  let heldSettled = false;
+  const held = createDrainSpySink(() =>
+    new Promise<void>((resolve) => {
+      releaseHeld = resolve;
+    }).then(() => {
+      heldSettled = true;
+    })
+  );
+  const throwing = createDrainSpySink(() => {
+    throw failure;
+  });
+  await configure({
+    sinks: { throwing, held },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  });
+  try {
+    const promise = drain();
+    assert.strictEqual(held.drains, 1);
+    let rejected = false;
+    promise.catch(() => rejected = true);
+    await delay(10);
+    assert.strictEqual(rejected, false);
+    releaseHeld();
+    await assert.rejects(promise, failure);
+    assert.strictEqual(heldSettled, true);
+  } finally {
+    await reset();
+  }
+});
+
+test("drain() captures a failing drain getter as a rejection", async () => {
+  const failure = new Error("drain getter failed");
+  const throwing: Sink = () => {};
+  Object.defineProperty(throwing, "drain", {
+    get() {
+      throw failure;
+    },
+  });
+  let getterReads = 0;
+  let receiver: unknown;
+  const later = Object.assign((_record: LogRecord) => {}, { drains: 0 });
+  Object.defineProperty(later, "drain", {
+    get() {
+      getterReads++;
+      return function (this: unknown): Promise<void> {
+        receiver = this;
+        later.drains++;
+        return Promise.resolve();
+      };
+    },
+  });
+  await configure({
+    sinks: { throwing, later },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  });
+  try {
+    let promise: Promise<void> | undefined;
+    assert.doesNotThrow(() => {
+      promise = drain();
+    });
+    assert.strictEqual(later.drains, 1);
+    assert.strictEqual(getterReads, 1);
+    assert.strictEqual(receiver, later);
+    await assert.rejects(promise!, failure);
+  } finally {
+    await reset();
+  }
+});
+
+test("drain() aggregates multiple failures", async () => {
+  const failureA = new Error("a");
+  const failureB = new Error("b");
+  await configure({
+    sinks: {
+      a: createDrainSpySink(() => Promise.reject(failureA)),
+      b: createDrainSpySink(() => Promise.reject(failureB)),
+    },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  });
+  try {
+    await assert.rejects(drain(), (error: unknown) => {
+      assert.ok(error instanceof AggregateError);
+      assert.deepStrictEqual(error.errors, [failureA, failureB]);
+      return true;
+    });
+  } finally {
+    await reset();
+  }
+});
+
+test("drain() follows the installed configuration", async () => {
+  const first = createDrainSpySink();
+  const replacement = createDrainSpySink();
+  const config: Config<string, string> = {
+    sinks: { output: first },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  };
+  await configure(config);
+  try {
+    // Mutating the configuration object does not change routing.
+    config.sinks.output = replacement;
+    await drain();
+    assert.strictEqual(first.drains, 1);
+    assert.strictEqual(replacement.drains, 0);
+
+    const next = createDrainSpySink();
+    await configure({
+      sinks: { next },
+      loggers: [
+        { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+      ],
+      reset: true,
+    });
+    await drain();
+    assert.strictEqual(first.drains, 1);
+    assert.strictEqual(next.drains, 1);
+
+    const synced = createDrainSpySink();
+    configureSync({
+      sinks: { synced },
+      loggers: [
+        { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+      ],
+      reset: true,
+    });
+    await drain();
+    assert.strictEqual(next.drains, 1);
+    assert.strictEqual(synced.drains, 1);
+  } finally {
+    await reset();
+  }
+  await drain();
+});
+
+test("drain() after a failed configure()", async () => {
+  await reset();
+  const sink = createDrainSpySink();
+  await assert.rejects(
+    configure({
+      sinks: { sink },
+      loggers: [{ category: "app", sinks: ["missing" as "sink"] }],
+    }),
+    ConfigError,
+  );
+  try {
+    await drain();
+    assert.strictEqual(sink.drains, 0);
+  } finally {
+    await reset();
+  }
+});
+
+test("drain() respects scoped configurations", async () => {
+  const global = createDrainSpySink();
+  const outer = createDrainSpySink();
+  const inner = createDrainSpySink();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let spawned!: Promise<void>;
+  await configure({
+    sinks: { global },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    contextLocalStorage: new AsyncLocalStorage(),
+    reset: true,
+  });
+  try {
+    await withConfig({
+      sinks: { outer },
+      loggers: [{ category: [], sinks: ["outer"] }],
+    }, async () => {
+      await drain();
+      assert.deepStrictEqual(
+        [global.drains, outer.drains, inner.drains],
+        [0, 1, 0],
+      );
+
+      await withConfig({
+        sinks: { inner },
+        loggers: [{ category: [], sinks: ["inner"] }],
+      }, async () => {
+        await drain();
+        spawned = (async () => {
+          await gate;
+          // The inner scope has ended, so this falls back to the outer one.
+          await drain();
+        })();
+      });
+      assert.deepStrictEqual(
+        [global.drains, outer.drains, inner.drains],
+        [0, 1, 1],
+      );
+      release();
+      await spawned;
+      assert.deepStrictEqual(
+        [global.drains, outer.drains, inner.drains],
+        [0, 2, 1],
+      );
+    });
+
+    withConfigSync({
+      sinks: { inner },
+      loggers: [{ category: [], sinks: ["inner"] }],
+    }, () => {
+      void drain();
+    });
+    assert.deepStrictEqual(
+      [global.drains, outer.drains, inner.drains],
+      [0, 2, 2],
+    );
+
+    await drain();
+    assert.deepStrictEqual(
+      [global.drains, outer.drains, inner.drains],
+      [1, 2, 2],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("drain() rejects while LogTape is being reconfigured", async () => {
+  let releaseDispose: (() => void) | undefined;
+  const sink = createDrainSpySink() as DrainSpySink & AsyncDisposable;
+  sink[Symbol.asyncDispose] = () =>
+    new Promise<void>((resolve) => {
+      releaseDispose = resolve;
+    });
+  await configure({
+    sinks: { sink },
+    loggers: [
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+    reset: true,
+  });
+  const started = drain();
+  const resetting = reset();
+  try {
+    await assert.rejects(drain(), ConfigError);
+  } finally {
+    for (let i = 0; releaseDispose == null && i < 100; i++) await delay(1);
+    releaseDispose?.();
+    await resetting;
+  }
+  // A drain started before the reset still settles.
+  await started;
+  assert.strictEqual(sink.drains, 1);
+});

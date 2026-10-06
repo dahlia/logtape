@@ -14,6 +14,7 @@ import {
   type AsyncSink,
   type AsyncSinkOptions,
   type AsyncSinkOverflowPolicy,
+  type Drainable,
   fingersCrossed,
   type FingersCrossedOptions,
   fromAsyncSink,
@@ -6334,3 +6335,668 @@ async function beforeDeadline<T>(
     if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId);
   }
 }
+
+interface Deferred {
+  readonly promise: Promise<void>;
+  resolve(): void;
+  reject(error: unknown): void;
+}
+
+function createDeferred(): Deferred {
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+async function isSettled(promise: Promise<unknown>): Promise<boolean> {
+  let settled = false;
+  promise.then(() => settled = true, () => settled = true);
+  await delay(20);
+  return settled;
+}
+
+function textRecord(text: string): LogRecord {
+  return { ...info, message: [text], rawMessage: text };
+}
+
+const textFormatter = (record: LogRecord): string => String(record.message[0]);
+
+/**
+ * A stream whose writes can be held until released.  It records every
+ * operation in `events` in the order the stream sees them.
+ */
+function createControlledStream(hold = true) {
+  const decoder = new TextDecoder();
+  const events: string[] = [];
+  const holds: Deferred[] = [];
+  let holding = hold;
+  const stream = new WritableStream<Uint8Array>({
+    write(chunk) {
+      const text = decoder.decode(chunk);
+      events.push(`start ${text}`);
+      if (!holding) {
+        events.push(`write ${text}`);
+        return;
+      }
+      const deferred = createDeferred();
+      holds.push(deferred);
+      return deferred.promise.then(() => {
+        events.push(`write ${text}`);
+      });
+    },
+    close() {
+      events.push("close");
+    },
+  });
+  return {
+    stream,
+    events,
+    /** Releases the oldest held write and waits for it to settle. */
+    async releaseNext(): Promise<void> {
+      for (let i = 0; holds.length < 1 && i < 100; i++) await delay(1);
+      const deferred = holds.shift();
+      assert.ok(deferred != null, "No held write to release.");
+      deferred.resolve();
+      await delay(0);
+    },
+    /** Stops holding writes and releases every held write. */
+    releaseAll(): void {
+      holding = false;
+      for (const deferred of holds.splice(0)) deferred.resolve();
+    },
+    get heldCount(): number {
+      return holds.length;
+    },
+  };
+}
+
+function writtenTexts(events: readonly string[]): string[] {
+  return events.filter((event) => event.startsWith("write "))
+    .map((event) => event.slice("write ".length));
+}
+
+test("getStreamSink() drain() waits only for records accepted before it", async () => {
+  const controlled = createControlledStream();
+  const sink = getStreamSink(controlled.stream, { formatter: textFormatter });
+  try {
+    sink(textRecord("a"));
+    sink(textRecord("b"));
+    const drained = sink.drain();
+    sink(textRecord("c"));
+
+    assert.strictEqual(await isSettled(drained), false);
+    await controlled.releaseNext();
+    assert.strictEqual(await isSettled(drained), false);
+    await controlled.releaseNext();
+    // "c" has started but is still held, yet the drain has settled.
+    await beforeDeadline(drained, "drain() waited for a later record.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b"]);
+    assert.ok(controlled.events.includes("start c"));
+
+    // The sink remains open for later records.
+    controlled.releaseAll();
+    sink(textRecord("d"));
+    await beforeDeadline(sink.drain(), "drain() did not settle.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), [
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
+    assert.ok(!controlled.events.includes("close"));
+  } finally {
+    controlled.releaseAll();
+    await sink[Symbol.asyncDispose]();
+  }
+  assert.strictEqual(controlled.events.at(-1), "close");
+});
+
+test("getStreamSink() concurrent drain() calls settle in order", async () => {
+  const controlled = createControlledStream();
+  const sink = getStreamSink(controlled.stream, { formatter: textFormatter });
+  try {
+    const settled: string[] = [];
+    sink(textRecord("a"));
+    const first = sink.drain().then(() => settled.push("first"));
+    sink(textRecord("b"));
+    const second = sink.drain().then(() => settled.push("second"));
+
+    await controlled.releaseNext();
+    await beforeDeadline(first, "The first drain did not settle.");
+    assert.deepStrictEqual(settled, ["first"]);
+    await controlled.releaseNext();
+    await beforeDeadline(second, "The second drain did not settle.");
+    assert.deepStrictEqual(settled, ["first", "second"]);
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b"]);
+  } finally {
+    controlled.releaseAll();
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getStreamSink() drain() rejects with a write failure", async () => {
+  const failure = new Error("write failed");
+  const sink = getStreamSink(
+    new WritableStream({
+      write() {
+        throw failure;
+      },
+    }),
+    { formatter: textFormatter },
+  );
+  sink(textRecord("a"));
+  await assert.rejects(sink.drain(), failure);
+  await assert.rejects(Promise.resolve(sink[Symbol.asyncDispose]()), failure);
+});
+
+test("getStreamSink() with nonBlocking - a synchronous burst detaches full buffers", async () => {
+  const controlled = createControlledStream(false);
+  const sink = getStreamSink(controlled.stream, {
+    formatter: textFormatter,
+    nonBlocking: { bufferSize: 2, flushInterval: 60000 },
+  });
+  const texts = ["a", "b", "c", "d", "e"];
+  for (const text of texts) sink(textRecord(text));
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(writtenTexts(controlled.events), texts);
+});
+
+test("getStreamSink() with nonBlocking - drain() flushes without waiting for the interval", async () => {
+  const controlled = createControlledStream(false);
+  const sink = getStreamSink(controlled.stream, {
+    formatter: textFormatter,
+    nonBlocking: { bufferSize: 100, flushInterval: 60000 },
+  });
+  try {
+    sink(textRecord("a"));
+    sink(textRecord("b"));
+    await beforeDeadline(sink.drain(), "drain() did not flush the buffer.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b"]);
+
+    sink(textRecord("c"));
+    await beforeDeadline(sink.drain(), "drain() did not flush the buffer.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b", "c"]);
+    assert.ok(!controlled.events.includes("close"));
+  } finally {
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getStreamSink() with nonBlocking - drain() keeps periodic flushing", async () => {
+  const controlled = createControlledStream(false);
+  const sink = getStreamSink(controlled.stream, {
+    formatter: textFormatter,
+    nonBlocking: { bufferSize: 100, flushInterval: 10 },
+  });
+  try {
+    sink(textRecord("a"));
+    await beforeDeadline(sink.drain(), "drain() did not settle.");
+    sink(textRecord("b"));
+    await beforeDeadline(
+      (async () => {
+        while (!writtenTexts(controlled.events).includes("b")) {
+          await delay(5);
+        }
+      })(),
+      "The interval flush stopped after drain().",
+    );
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b"]);
+  } finally {
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getStreamSink() with nonBlocking - drain() is not settled by later drops", async () => {
+  const controlled = createControlledStream();
+  const sink = getStreamSink(controlled.stream, {
+    formatter: textFormatter,
+    nonBlocking: { bufferSize: 1, flushInterval: 60000 },
+  });
+  try {
+    sink(textRecord("a"));
+    await delay(0);
+    assert.strictEqual(controlled.heldCount, 1);
+    const drained = sink.drain();
+    // With bufferSize 1 the buffer holds at most two records, so "d" drops
+    // "b", which was accepted after the drain.
+    sink(textRecord("b"));
+    sink(textRecord("c"));
+    sink(textRecord("d"));
+    assert.strictEqual(await isSettled(drained), false);
+
+    await controlled.releaseNext();
+    await beforeDeadline(drained, "drain() did not settle.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a"]);
+  } finally {
+    controlled.releaseAll();
+    await sink[Symbol.asyncDispose]();
+  }
+  assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "c", "d"]);
+});
+
+test("getStreamSink() with nonBlocking - drain() covers dropped records without waiting for later ones", async () => {
+  const controlled = createControlledStream();
+  const sink = getStreamSink(controlled.stream, {
+    formatter: textFormatter,
+    nonBlocking: { bufferSize: 1, flushInterval: 60000 },
+  });
+  try {
+    sink(textRecord("a"));
+    await delay(0);
+    sink(textRecord("b"));
+    const drained = sink.drain();
+    // "d" drops "b", which the drain covers; "c" and "d" are not covered.
+    sink(textRecord("c"));
+    sink(textRecord("d"));
+    assert.strictEqual(await isSettled(drained), false);
+
+    await controlled.releaseNext();
+    await beforeDeadline(drained, "drain() waited for a later record.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a"]);
+  } finally {
+    controlled.releaseAll();
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getStreamSink() with nonBlocking - drain() settles each call at its own frontier", async () => {
+  const controlled = createControlledStream();
+  const sink = getStreamSink(controlled.stream, {
+    formatter: textFormatter,
+    nonBlocking: { bufferSize: 100, flushInterval: 60000 },
+  });
+  try {
+    const settled: string[] = [];
+    sink(textRecord("a"));
+    const first = sink.drain().then(() => settled.push("first"));
+    await delay(0);
+    // "a" is being written; "b" and "c" go into the next batch.
+    sink(textRecord("b"));
+    const second = sink.drain().then(() => settled.push("second"));
+    sink(textRecord("c"));
+
+    await controlled.releaseNext();
+    await beforeDeadline(first, "The first drain did not settle.");
+    assert.deepStrictEqual(settled, ["first"]);
+    await controlled.releaseNext();
+    await beforeDeadline(second, "The second drain did not settle.");
+    assert.deepStrictEqual(settled, ["first", "second"]);
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b"]);
+  } finally {
+    controlled.releaseAll();
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getStreamSink() with nonBlocking - drain() ignores write failures", async () => {
+  let writes = 0;
+  const sink = getStreamSink(
+    new WritableStream({
+      write() {
+        writes++;
+        throw new Error("write failed");
+      },
+    }),
+    {
+      formatter: textFormatter,
+      nonBlocking: { bufferSize: 100, flushInterval: 60000 },
+    },
+  );
+  try {
+    sink(textRecord("a"));
+    await beforeDeadline(sink.drain(), "drain() did not settle.");
+    assert.strictEqual(writes, 1);
+  } finally {
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getStreamSink() with nonBlocking - drain() after a formatter failure", async () => {
+  // The drain arrives at various microtask depths after the formatter fails,
+  // so that one of them lands while the flush is deciding to stop.
+  for (let depth = 0; depth < 12; depth++) {
+    const controlled = createControlledStream(false);
+    let drained: Promise<void> | undefined;
+    const sink: Sink & AsyncDisposable & Drainable = getStreamSink(
+      controlled.stream,
+      {
+        formatter(record) {
+          const text = textFormatter(record);
+          if (text !== "bad") return text;
+          let promise = Promise.resolve();
+          for (let i = 0; i < depth; i++) promise = promise.then(() => {});
+          promise.then(() => {
+            sink(textRecord("b"));
+            drained = sink.drain();
+          });
+          throw new Error("format failed");
+        },
+        nonBlocking: { bufferSize: 1, flushInterval: 60000 },
+      },
+    );
+    try {
+      sink(textRecord("bad"));
+      await delay(0);
+      assert.ok(drained != null);
+      await beforeDeadline(drained, `drain() was never served (${depth}).`);
+      assert.deepStrictEqual(writtenTexts(controlled.events), ["b"]);
+    } finally {
+      await sink[Symbol.asyncDispose]();
+    }
+  }
+});
+
+test("getStreamSink() with nonBlocking - drain() from a formatter does not overlap flushes", async () => {
+  const controlled = createControlledStream(false);
+  let innerDrain: Promise<void> | undefined;
+  const sink: Sink & AsyncDisposable & Drainable = getStreamSink(
+    controlled.stream,
+    {
+      formatter(record) {
+        const text = textFormatter(record);
+        if (text === "a") {
+          sink(textRecord("x"));
+          innerDrain = sink.drain();
+        }
+        return text;
+      },
+      nonBlocking: { bufferSize: 2, flushInterval: 60000 },
+    },
+  );
+  try {
+    sink(textRecord("a"));
+    sink(textRecord("b"));
+    const outerDrain = sink.drain();
+    await beforeDeadline(outerDrain, "The outer drain did not settle.");
+    assert.ok(innerDrain != null);
+    await beforeDeadline(innerDrain, "The inner drain did not settle.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b", "x"]);
+  } finally {
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+for (const closeStream of [true, false]) {
+  test(`getStreamSink() with nonBlocking - drain() and dispose with closeStream: ${closeStream}`, async () => {
+    const controlled = createControlledStream();
+    const sink = getStreamSink(controlled.stream, {
+      formatter: textFormatter,
+      closeStream,
+      nonBlocking: { bufferSize: 100, flushInterval: 60000 },
+    });
+    sink(textRecord("a"));
+    sink(textRecord("b"));
+    const beforeDispose = sink.drain();
+    await delay(0);
+    const disposed = Promise.resolve(sink[Symbol.asyncDispose]());
+    sink(textRecord("ignored"));
+    const duringDispose = sink.drain();
+    for (let i = 0; i < 2; i++) await controlled.releaseNext();
+    await beforeDeadline(beforeDispose, "The drain before disposal hung.");
+    await beforeDeadline(duringDispose, "The drain during disposal hung.");
+    await beforeDeadline(disposed, "Disposal did not finish.");
+    await beforeDeadline(sink.drain(), "The drain after disposal hung.");
+
+    const expected = ["start a", "write a", "start b", "write b"];
+    assert.deepStrictEqual(
+      controlled.events,
+      closeStream ? [...expected, "close"] : expected,
+    );
+    if (!closeStream) {
+      // The writer lock has been released, so the stream is still usable.
+      const writer = controlled.stream.getWriter();
+      writer.releaseLock();
+    }
+  });
+}
+
+for (const trigger of ["buffer", "drain"] as const) {
+  test(`getStreamSink() with nonBlocking - disposal from a formatter at the start of a ${trigger} flush`, async () => {
+    const controlled = createControlledStream(false);
+    let disposal: PromiseLike<void> | undefined;
+    const sink: Sink & AsyncDisposable & Drainable = getStreamSink(
+      controlled.stream,
+      {
+        formatter(record) {
+          const text = textFormatter(record);
+          if (text === "a") disposal ??= sink[Symbol.asyncDispose]();
+          return text;
+        },
+        nonBlocking: {
+          bufferSize: trigger === "buffer" ? 3 : 100,
+          flushInterval: 60000,
+        },
+      },
+    );
+    sink(textRecord("a"));
+    sink(textRecord("b"));
+    sink(textRecord("c"));
+    if (trigger === "drain") {
+      await beforeDeadline(sink.drain(), "drain() did not settle.");
+    }
+    assert.ok(disposal != null);
+    await beforeDeadline(Promise.resolve(disposal), "Disposal did not finish.");
+    assert.deepStrictEqual(writtenTexts(controlled.events), ["a", "b", "c"]);
+    assert.strictEqual(controlled.events.at(-1), "close");
+  });
+}
+
+test("getStreamSink() with nonBlocking - disposal re-entered from a formatter", async () => {
+  const controlled = createControlledStream(false);
+  let reentrantDisposal: PromiseLike<void> | undefined;
+  const sink: Sink & AsyncDisposable & Drainable = getStreamSink(
+    controlled.stream,
+    {
+      formatter(record) {
+        const text = textFormatter(record);
+        if (text === "b") reentrantDisposal = sink[Symbol.asyncDispose]();
+        return text;
+      },
+      nonBlocking: { bufferSize: 100, flushInterval: 60000 },
+    },
+  );
+  sink(textRecord("a"));
+  sink(textRecord("b"));
+  sink(textRecord("c"));
+  const disposal = Promise.resolve(sink[Symbol.asyncDispose]());
+  await beforeDeadline(disposal, "Disposal did not finish.");
+  assert.ok(reentrantDisposal != null);
+  await beforeDeadline(
+    Promise.resolve(reentrantDisposal),
+    "Re-entrant disposal hung.",
+  );
+  assert.deepStrictEqual(controlled.events, [
+    "start a",
+    "write a",
+    "start b",
+    "write b",
+    "start c",
+    "write c",
+    "close",
+  ]);
+  await beforeDeadline(
+    Promise.resolve(sink[Symbol.asyncDispose]()),
+    "Repeated disposal did not finish.",
+  );
+});
+
+test("fromAsyncSink() - drain() waits only for records accepted before it", async () => {
+  const holds = new Map<string, Deferred>();
+  const done: string[] = [];
+  const sink = fromAsyncSink(async (record) => {
+    const text = textFormatter(record);
+    const deferred = createDeferred();
+    holds.set(text, deferred);
+    await deferred.promise;
+    done.push(text);
+  });
+  try {
+    sink(textRecord("a"));
+    const drained = sink.drain();
+    sink(textRecord("b"));
+    await delay(0);
+    assert.strictEqual(await isSettled(drained), false);
+    holds.get("a")!.resolve();
+    await beforeDeadline(drained, "drain() waited for a later record.");
+    assert.deepStrictEqual(done, ["a"]);
+
+    // The sink keeps working after draining.
+    await delay(0);
+    holds.get("b")!.resolve();
+    sink(textRecord("c"));
+    await delay(0);
+    holds.get("c")!.resolve();
+    await beforeDeadline(sink.drain(), "drain() did not settle.");
+    assert.deepStrictEqual(done, ["a", "b", "c"]);
+  } finally {
+    for (const deferred of holds.values()) deferred.resolve();
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("fromAsyncSink() - drain() resolves after reporting failures", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const metaBuffer: LogRecord[] = [];
+  metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+  try {
+    const sink = fromAsyncSink(async () => {
+      await Promise.resolve();
+      throw new Error("Async sink error");
+    });
+    sink(error);
+    await beforeDeadline(sink.drain(), "drain() did not settle.");
+    assert.strictEqual(metaBuffer.length, 1);
+    await sink[Symbol.asyncDispose]();
+  } finally {
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("fromAsyncSink() - drain() does not wait for failure reports routed back to the sink", async () => {
+  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+  const originalLowestLevel = metaLogger.lowestLevel;
+  metaLogger.lowestLevel = "error";
+  const metaHold = createDeferred();
+  let metaStarted = false;
+  const rawSink = fromAsyncSink(async (record) => {
+    if (record.category[0] === "logtape") {
+      metaStarted = true;
+      await metaHold.promise;
+      return;
+    }
+    await Promise.resolve();
+    throw new Error("Async sink error");
+  });
+  const wrappedSink = withFilter(rawSink, "error");
+  metaLogger.sinks.push(wrappedSink);
+  try {
+    wrappedSink(error);
+    await beforeDeadline(
+      wrappedSink.drain(),
+      "drain() waited for the failure report.",
+    );
+    await delay(0);
+    assert.ok(metaStarted);
+    metaHold.resolve();
+    await rawSink[Symbol.asyncDispose]();
+  } finally {
+    metaHold.resolve();
+    metaLogger.sinks.pop();
+    metaLogger.lowestLevel = originalLowestLevel;
+  }
+});
+
+test("withFilter() forwards drain()", async () => {
+  const buffer: LogRecord[] = [];
+  const rawSink = ((record: LogRecord) => {
+    buffer.push(record);
+  }) as Sink & Drainable & { drained: number };
+  rawSink.drained = 0;
+  rawSink.drain = async function (this: typeof rawSink) {
+    await Promise.resolve();
+    assert.strictEqual(this, rawSink);
+    this.drained++;
+  };
+
+  const sink = withFilter(rawSink, "warning");
+  sink(info);
+  sink(warning);
+  await sink.drain();
+  assert.deepStrictEqual(buffer, [warning]);
+  assert.strictEqual(rawSink.drained, 1);
+
+  const plain = withFilter((_record: LogRecord) => {}, "warning");
+  assert.ok(!("drain" in plain));
+  // @ts-expect-error: A plain sink is not drainable.
+  plain.drain;
+});
+
+test("fingersCrossed() forwards drain() without releasing buffers", async () => {
+  const received: LogRecord[] = [];
+  const inner = fromAsyncSink(async (record) => {
+    await Promise.resolve();
+    received.push(record);
+  });
+  const sink = fingersCrossed(inner, {
+    isolateByContext: { keys: ["requestId"] },
+  });
+  const a = (level: LogLevel) => ({
+    ...recordWithLevel(level),
+    properties: { requestId: "a" },
+  });
+  const b = (level: LogLevel) => ({
+    ...recordWithLevel(level),
+    properties: { requestId: "b" },
+  });
+
+  const bufferedA = a("debug");
+  const bufferedB = b("debug");
+  const triggerB = b("error");
+  sink(bufferedA);
+  sink(bufferedB);
+  sink(triggerB);
+  await sink.drain();
+  // Only the triggered context reached the wrapped sink.
+  assert.deepStrictEqual(received, [bufferedB, triggerB]);
+
+  // The triggered context keeps passing records through, and the other
+  // context is still buffered.
+  const laterB = b("info");
+  sink(laterB);
+  await sink.drain();
+  assert.deepStrictEqual(received, [bufferedB, triggerB, laterB]);
+
+  const triggerA = a("error");
+  sink(triggerA);
+  await sink.drain();
+  assert.deepStrictEqual(received, [
+    bufferedB,
+    triggerB,
+    laterB,
+    bufferedA,
+    triggerA,
+  ]);
+  await sink[Symbol.asyncDispose]();
+
+  const plain = fingersCrossed((_record: LogRecord) => {});
+  assert.ok(!("drain" in plain));
+});
+
+test("Drainable is preserved by wrapper types", () => {
+  const sink = getStreamSink(new WritableStream());
+  const filtered: Drainable = withFilter(sink, "info");
+  const crossed: Drainable & AsyncDisposable = fingersCrossed(sink);
+  const crossedFiltered: Drainable = fingersCrossed(
+    withFilter(fromAsyncSink(async () => {}), "info"),
+  );
+  assert.strictEqual(typeof filtered.drain, "function");
+  assert.strictEqual(typeof crossed.drain, "function");
+  assert.strictEqual(typeof crossedFiltered.drain, "function");
+});
