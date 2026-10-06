@@ -299,6 +299,62 @@ await configure({
 
 :::
 
+### Loss notifications
+
+*This API is available since LogTape 2.4.0.*
+
+Set `onDrop` and `onError` inside the `nonBlocking` object to monitor loss
+through a separate diagnostic path.  Both console and stream sinks accept
+these callbacks:
+
+~~~~ typescript twoslash
+import { getConsoleSink, type SinkErrorEvent } from "@logtape/logtape";
+declare function reportFailure(event: SinkErrorEvent): void;
+// ---cut-before---
+let droppedRecords = 0;
+const sink = getConsoleSink({
+  nonBlocking: {
+    bufferSize: 1000,
+    flushInterval: 50,
+    onDrop(event) {
+      droppedRecords += event.count;
+    },
+    onError: reportFailure,
+  },
+});
+~~~~
+
+`SinkDropEvent` contains only `count` and `reason`, with no record payloads.
+The `SinkDropReason` is currently `"overflow"`, independently of which queue
+policy discarded the records.  Counts are aggregated for `flushInterval`
+milliseconds after the first drop.  Reporting uses its own timer, so a
+stalled stream write does not prevent loss notifications.  Disposal reports
+any remaining count immediately.  A long flush interval also means a long
+notification window.
+
+`SinkErrorEvent` contains the original `error`, the sink kind (`"console"`
+or `"stream"`), and the failed `operation`: `"format"`, `"encode"`,
+`"write"`, or `"close"`.  Waiting for stream readiness is part of `"write"`.
+Each event except `"close"` represents one failed record; a close failure
+reports a resource operation rather than another dropped record.  A closure
+can identify an individual sink when several sinks share the same handler.
+Reasons and operation names may gain members in future versions.
+
+Callback exceptions and rejected promises are suppressed.  Callback promises
+are not awaited and do not delay output completion.  Calls that reach the
+same sink synchronously from its callback are ignored without a further
+notification.  This guard does not cover logs that arrive later, such as
+after an `await`, through a buffering wrapper, or from another sink's error
+handler.  Use a separate diagnostic path to avoid feedback loops.  Calls
+after disposal are also ignored; overflow counts do not include these calls
+or callback reentry.
+
+Stream disposal shares one completion promise across concurrent or repeated
+calls and waits for pending output before closing or releasing the writer.
+Console disposal flushes synchronously.  If a console callback invokes
+disposal during an output batch, that batch finishes after the nested call
+returns and may report further errors.
+
 ### Important considerations
 
 When using non-blocking sinks:
@@ -312,14 +368,16 @@ Disposal
     on some platforms (e.g., Cloudflare Workers).
 
 Error handling
-:   Errors during background flushing are silently ignored to avoid disrupting
-    the application. Ensure your logging destination is reliable.
+:   Errors during background flushing are suppressed to avoid disrupting the
+    application.  Set `nonBlocking.onError` to report them through a separate
+    diagnostic path.
 
 Buffer overflow protection
 :   To prevent unbounded memory growth during high-volume logging, both sinks
     implement overflow protection. When the internal buffer exceeds twice the
     configured buffer size, the oldest log records are automatically dropped
-    to make room for new ones.
+    to make room for new ones.  Set `nonBlocking.onDrop` to receive aggregated
+    counts of these dropped records.
 
 Performance characteristics
 :

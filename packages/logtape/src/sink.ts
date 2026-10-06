@@ -71,6 +71,96 @@ export interface SinkDropEvent {
 }
 
 /**
+ * A failed output operation in a non-blocking console or stream sink.
+ * Each event except `"close"` represents one failed record.  Operation names
+ * may gain members in future versions.
+ * @since 2.4.0
+ */
+export interface SinkErrorEvent {
+  /** The original thrown value or rejection reason. */
+  readonly error: unknown;
+  /** The kind of sink that failed. */
+  readonly sink: "console" | "stream";
+  /** The failed operation.  Waiting for stream readiness is part of writing. */
+  readonly operation: "format" | "encode" | "write" | "close";
+}
+
+interface SinkNotifications {
+  readonly notifying: boolean;
+  drop(): void;
+  error(
+    error: unknown,
+    operation: SinkErrorEvent["operation"],
+    defer?: boolean,
+  ): void;
+  dispose(): void;
+}
+
+function createSinkNotifications(
+  sink: SinkErrorEvent["sink"],
+  interval: number,
+  onDrop: ((event: SinkDropEvent) => void) | undefined,
+  onError: ((event: SinkErrorEvent) => void) | undefined,
+): SinkNotifications {
+  let notificationDepth = 0;
+  let dropped = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  function notify<T>(callback: (event: T) => void, event: T): void {
+    notificationDepth++;
+    try {
+      const result: unknown = callback(event);
+      if (result != null) {
+        Promise.resolve(result).catch(() => {
+          // Diagnostics must not create unhandled rejections or feedback logs.
+        });
+      }
+    } catch {
+      // Notification failures must not disrupt output or recurse through logging.
+    } finally {
+      notificationDepth--;
+    }
+  }
+
+  function reportDrops(): void {
+    const count = dropped;
+    dropped = 0;
+    if (count > 0 && onDrop != null) {
+      notify(onDrop, { count, reason: "overflow" });
+    }
+  }
+
+  return {
+    get notifying(): boolean {
+      return notificationDepth > 0;
+    },
+    drop(): void {
+      if (onDrop == null) return;
+      dropped++;
+      if (timer == null) {
+        timer = setTimeout(() => {
+          timer = null;
+          reportDrops();
+        }, interval);
+      }
+    },
+    error(error, operation, defer = false): void {
+      if (onError == null) return;
+      const event: SinkErrorEvent = { error, sink, operation };
+      if (defer) queueMicrotask(() => notify(onError, event));
+      else notify(onError, event);
+    },
+    dispose(): void {
+      if (timer != null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      reportDrops();
+    },
+  };
+}
+
+/**
  * Turns a sink into a filtered sink.  The returned sink only logs records that
  * pass the filter.
  *
@@ -161,6 +251,26 @@ export interface StreamSinkOptions {
      * @default `100`
      */
     flushInterval?: number;
+
+    /**
+     * Reports overflow counts aggregated over `flushInterval` milliseconds,
+     * independently of output progress, and any remaining count on disposal.
+     * No record payloads are passed.  Handler failures are suppressed.
+     * Calls reaching this sink synchronously from its callback are ignored
+     * and are not counted.  Use a separate diagnostic path for delayed logs.
+     * Returned promises are not awaited.
+     * @since 2.4.0
+     */
+    onDrop?: (event: SinkDropEvent) => void;
+
+    /**
+     * Reports failed background output operations, including formatter errors.
+     * Handler failures are suppressed.  Calls reaching this sink synchronously
+     * from its callback are ignored; delayed logs need a separate diagnostic
+     * path.  Returned promises do not extend output completion.
+     * @since 2.4.0
+     */
+    onError?: (event: SinkErrorEvent) => void;
   };
 }
 
@@ -222,11 +332,19 @@ export function getStreamSink(
     : options.nonBlocking;
   const bufferSize = nonBlockingConfig.bufferSize ?? 100;
   const flushInterval = nonBlockingConfig.flushInterval ?? 100;
+  const notifications = createSinkNotifications(
+    "stream",
+    flushInterval,
+    nonBlockingConfig.onDrop,
+    nonBlockingConfig.onError,
+  );
 
   const buffer: LogRecord[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let disposed = false;
   let activeFlush: Promise<void> | null = null;
+  let startingFlush = false;
+  let disposePromise: Promise<void> | null = null;
   const maxBufferSize = bufferSize * 2; // Overflow protection
 
   async function flush(): Promise<void> {
@@ -234,12 +352,16 @@ export function getStreamSink(
 
     const records = buffer.splice(0);
     for (const record of records) {
+      let operation: SinkErrorEvent["operation"] = "format";
       try {
-        const bytes = encoder.encode(formatter(record));
+        const text = formatter(record);
+        operation = "encode";
+        const bytes = encoder.encode(text);
+        operation = "write";
         await writer.ready;
         await writer.write(bytes);
-      } catch {
-        // Silently ignore errors in non-blocking mode to avoid disrupting the application
+      } catch (error) {
+        notifications.error(error, operation, startingFlush);
       }
     }
   }
@@ -247,9 +369,14 @@ export function getStreamSink(
   function scheduleFlush(): void {
     if (activeFlush) return;
 
-    activeFlush = flush().finally(() => {
-      activeFlush = null;
-    });
+    startingFlush = true;
+    try {
+      activeFlush = flush().finally(() => {
+        activeFlush = null;
+      });
+    } finally {
+      startingFlush = false;
+    }
   }
 
   function startFlushTimer(): void {
@@ -261,11 +388,12 @@ export function getStreamSink(
   }
 
   const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
-    if (disposed) return;
+    if (disposed || notifications.notifying) return;
 
-    // Buffer overflow protection: drop oldest records if buffer is too large
-    if (buffer.length >= maxBufferSize) {
-      buffer.shift(); // Remove oldest record
+    // Buffer overflow protection: count only actual removed records.
+    if (buffer.length >= maxBufferSize && buffer.length > 0) {
+      buffer.shift();
+      notifications.drop();
     }
 
     buffer.push(record);
@@ -277,25 +405,35 @@ export function getStreamSink(
     }
   };
 
-  nonBlockingSink[Symbol.asyncDispose] = async () => {
+  nonBlockingSink[Symbol.asyncDispose] = () => {
+    if (disposePromise != null) return disposePromise;
+    // Publish completion before any callbacks can dispose this sink again.
+    let complete!: (result: Promise<void>) => void;
+    disposePromise = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
     disposed = true;
     if (flushTimer !== null) {
       clearInterval(flushTimer);
       flushTimer = null;
     }
-    try {
-      await activeFlush;
-      await flush();
-      if (closeStream) {
-        try {
-          await writer.close();
-        } catch {
-          // Writer might already be closed or errored
+    notifications.dispose();
+    complete((async () => {
+      try {
+        await activeFlush;
+        await flush();
+        if (closeStream) {
+          try {
+            await writer.close();
+          } catch (error) {
+            notifications.error(error, "close");
+          }
         }
+      } finally {
+        writer.releaseLock();
       }
-    } finally {
-      writer.releaseLock();
-    }
+    })());
+    return disposePromise;
   };
 
   return nonBlockingSink;
@@ -369,6 +507,26 @@ export interface ConsoleSinkOptions {
      * @default `100`
      */
     flushInterval?: number;
+
+    /**
+     * Reports overflow counts aggregated over `flushInterval` milliseconds,
+     * independently of output progress, and any remaining count on disposal.
+     * No record payloads are passed.  Handler failures are suppressed.
+     * Calls reaching this sink synchronously from its callback are ignored
+     * and are not counted.  Use a separate diagnostic path for delayed logs.
+     * Returned promises are not awaited.
+     * @since 2.4.0
+     */
+    onDrop?: (event: SinkDropEvent) => void;
+
+    /**
+     * Reports failed background output operations, including formatter errors.
+     * Handler failures are suppressed.  Calls reaching this sink synchronously
+     * from its callback are ignored; delayed logs need a separate diagnostic
+     * path.  Returned promises do not extend output completion.
+     * @since 2.4.0
+     */
+    onError?: (event: SinkErrorEvent) => void;
   };
 }
 
@@ -394,8 +552,10 @@ export function getConsoleSink(
   };
   const console = options.console ?? globalThis.console;
 
-  const baseSink = (record: LogRecord) => {
-    const args = formatter(record);
+  const writeToConsole = (
+    record: LogRecord,
+    args: string | readonly unknown[],
+  ): void => {
     const method = levelMap[record.level];
     if (method === undefined) {
       throw new TypeError(`Invalid log level: ${record.level}.`);
@@ -408,6 +568,10 @@ export function getConsoleSink(
     }
   };
 
+  const baseSink = (record: LogRecord): void => {
+    writeToConsole(record, formatter(record));
+  };
+
   if (!options.nonBlocking) {
     return baseSink;
   }
@@ -418,6 +582,12 @@ export function getConsoleSink(
     : options.nonBlocking;
   const bufferSize = nonBlockingConfig.bufferSize ?? 100;
   const flushInterval = nonBlockingConfig.flushInterval ?? 100;
+  const notifications = createSinkNotifications(
+    "console",
+    flushInterval,
+    nonBlockingConfig.onDrop,
+    nonBlockingConfig.onError,
+  );
 
   const buffer: LogRecord[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
@@ -431,10 +601,13 @@ export function getConsoleSink(
 
     const records = buffer.splice(0);
     for (const record of records) {
+      let operation: SinkErrorEvent["operation"] = "format";
       try {
-        baseSink(record);
-      } catch {
-        // Silently ignore errors in non-blocking mode to avoid disrupting the application
+        const args = formatter(record);
+        operation = "write";
+        writeToConsole(record, args);
+      } catch (error) {
+        notifications.error(error, operation);
       }
     }
   }
@@ -459,11 +632,12 @@ export function getConsoleSink(
   }
 
   const nonBlockingSink: Sink & Disposable = (record: LogRecord) => {
-    if (disposed) return;
+    if (disposed || notifications.notifying) return;
 
-    // Buffer overflow protection: drop oldest records if buffer is too large
-    if (buffer.length >= maxBufferSize) {
-      buffer.shift(); // Remove oldest record
+    // Buffer overflow protection: count only actual removed records.
+    if (buffer.length >= maxBufferSize && buffer.length > 0) {
+      buffer.shift();
+      notifications.drop();
     }
 
     buffer.push(record);
@@ -476,6 +650,7 @@ export function getConsoleSink(
   };
 
   nonBlockingSink[Symbol.dispose] = () => {
+    if (disposed) return;
     disposed = true;
     if (flushTimer !== null) {
       clearInterval(flushTimer);
@@ -486,6 +661,7 @@ export function getConsoleSink(
       scheduledFlushTimer = null;
       flushScheduled = false;
     }
+    notifications.dispose();
     flush();
   };
 

@@ -26,6 +26,16 @@ To be released.
     the given logger itself, in depth-first pre-order.
     [[#62], [#207] by Jepoy\]
 
+ -  Added optional `onDrop` and `onError` callbacks to non-blocking console
+    and stream sinks to report aggregated buffer overflow counts and output
+    failures without exposing dropped records.  Added the `SinkDropReason`,
+    `SinkDropEvent`, and `SinkErrorEvent` types for these notifications.
+    [[#245], [#249]]
+
+ -  Fixed concurrent or repeated disposal of a non-blocking stream sink so
+    pending output finishes before its writer is closed or released.
+    [[#245], [#249]]
+
  -  Added queue limits and a request lifetime hook to `fromAsyncSink()`.
     Its type is now
     `(asyncSink: AsyncSink, options?: AsyncSinkOptions) => Sink & AsyncDisposable`
@@ -86,7 +96,9 @@ To be released.
 [#236]: https://github.com/dahlia/logtape/issues/236
 [#237]: https://github.com/dahlia/logtape/pull/237
 [#238]: https://github.com/dahlia/logtape/issues/238
+[#245]: https://github.com/dahlia/logtape/issues/245
 [#246]: https://github.com/dahlia/logtape/pull/246
+[#249]: https://github.com/dahlia/logtape/pull/249
 
 ### @logtape/config
 
