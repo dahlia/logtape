@@ -406,7 +406,9 @@ With this configuration:
  -  `"debug"`, `"info"`, and `"warning"` logs are buffered in memory
  -  When an `"error"` (or higher) occurs, all buffered logs plus the error are
     output
- -  Subsequent logs pass through directly until the next trigger event
+ -  Subsequent logs pass through directly instead of being buffered (see
+    [*Buffering again after a trigger*](#buffering-again-after-a-trigger) to
+    change this)
 
 ### Customizing trigger level
 
@@ -464,6 +466,58 @@ This is useful when you want to:
  -  Always see `info` level logs in real-time
  -  Only see detailed `trace`/`debug` logs when something goes wrong
  -  Reduce log noise while preserving debugging context
+
+### Buffering again after a trigger
+
+*This API is available since LogTape 2.4.0.*
+
+By default, a trigger switches the sink into pass-through mode: once an error
+has flushed the buffer, every subsequent record is output immediately.  That
+suits short-lived requests or jobs, but in a long-running process a single
+error would turn the sink into a plain sink for the rest of its lifetime.
+
+Set `~FingersCrossedOptions.afterTrigger` to `"buffer"` to make the sink go
+back to buffering after each trigger, so that every error is output together
+with the records that led up to it:
+
+~~~~ typescript twoslash
+// @noErrors: 2345
+import { configure, fingersCrossed, getConsoleSink } from "@logtape/logtape";
+
+await configure({
+  sinks: {
+    console: fingersCrossed(getConsoleSink(), {
+      triggerLevel: "warning",
+      maxBufferSize: 100,
+      afterTrigger: "buffer",
+    }),
+  },
+  // Omitted for brevity
+});
+~~~~
+
+With this configuration, the following sequence:
+
+1.  `debug` A, `debug` B
+2.  `warning` W1
+3.  `debug` C
+4.  `error` E2
+
+outputs A, B, and W1 when W1 arrives, then C and E2 when E2 arrives.  Each
+trigger emits the records currently retained in the selected buffers, followed
+by the trigger record.  Records flushed by an earlier trigger are not repeated,
+and `~FingersCrossedOptions.maxBufferSize`, TTL cleanup, and LRU eviction can
+still drop older records before the next trigger.
+
+The option also applies to isolated buffers: the buffers flushed by a trigger
+start buffering again, while other buffers keep their records.  Since
+`~FingersCrossedOptions.maxBufferSize` applies per buffer, a trigger that
+selects several buffers can emit more records than that limit.
+
+Records between `~FingersCrossedOptions.bufferLevel` and
+`~FingersCrossedOptions.triggerLevel` still pass through immediately, and
+actions returned by `~FingersCrossedOptions.bufferAction` take precedence over
+this option.
 
 ### Category isolation
 
@@ -624,8 +678,9 @@ triggered context.
 
 Both callback actions are terminal.  After flushing or discarding, the same
 isolation key starts a fresh buffer if it appears again.  This differs from a
-`triggerLevel` match, which flushes the buffer and lets subsequent records for
-the triggered isolation pass through directly.
+`triggerLevel` match, which by default flushes the buffer and lets subsequent
+records for the triggered isolation pass through directly, unless
+`~FingersCrossedOptions.afterTrigger` is set to `"buffer"`.
 
 ### Manual buffer control
 

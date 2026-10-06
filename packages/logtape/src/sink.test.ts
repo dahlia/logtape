@@ -3247,6 +3247,621 @@ test("fingersCrossed() - context selectors require every isolation key", () => {
   );
 });
 
+test("fingersCrossed() - afterTrigger defaults to passthrough", () => {
+  for (const afterTrigger of [undefined, "passthrough"] as const) {
+    // Arrange
+    const output: LogRecord[] = [];
+    const sink = fingersCrossed(output.push.bind(output), { afterTrigger });
+    const before: LogRecord = { ...debug, message: ["Before."] };
+    const after: LogRecord = { ...debug, message: ["After."] };
+
+    // Act
+    sink(before);
+    sink(error);
+    sink(after);
+
+    // Assert
+    assert.deepStrictEqual(output, [before, error, after]);
+  }
+});
+
+test("fingersCrossed() - afterTrigger passthrough keeps isolated buffers triggered", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+    afterTrigger: "passthrough",
+  });
+  const after: LogRecord = { ...debug, properties: { requestId: "req-1" } };
+
+  // Act
+  sink({ ...error, properties: { requestId: "req-1" } });
+  sink(after);
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    { ...error, properties: { requestId: "req-1" } },
+    after,
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer returns to buffering", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+  });
+  const first: LogRecord = { ...debug, message: ["First."] };
+  const firstError: LogRecord = { ...error, message: ["First error."] };
+  const second: LogRecord = { ...info, message: ["Second."] };
+  const third: LogRecord = { ...debug, message: ["Third."] };
+  const secondError: LogRecord = { ...fatal, message: ["Second error."] };
+
+  // Act
+  sink(first);
+  sink(firstError);
+  sink(second);
+  sink(third);
+
+  // Assert
+  assert.deepStrictEqual(output, [first, firstError]);
+  sink(secondError);
+  assert.deepStrictEqual(output, [
+    first,
+    firstError,
+    second,
+    third,
+    secondError,
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer handles consecutive triggers", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+  });
+  const secondError: LogRecord = { ...error, message: ["Second error."] };
+
+  // Act
+  sink(debug);
+  sink(error);
+  sink(secondError);
+
+  // Assert
+  assert.deepStrictEqual(output, [debug, error, secondError]);
+});
+
+test("fingersCrossed() - afterTrigger buffer limits each cycle", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+    maxBufferSize: 2,
+  });
+  const records = Array.from(
+    { length: 6 },
+    (_, i): LogRecord => ({ ...debug, message: [`Record ${i}.`] }),
+  );
+
+  // Act
+  for (const record of records.slice(0, 3)) sink(record);
+  sink(error);
+  for (const record of records.slice(3)) sink(record);
+  sink(fatal);
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    records[1],
+    records[2],
+    error,
+    records[4],
+    records[5],
+    fatal,
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer with zero maxBufferSize", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+    bufferLevel: "debug",
+    maxBufferSize: 0,
+  });
+
+  // Act
+  sink(debug);
+  sink(error);
+  sink(debug);
+  sink(info);
+  sink(fatal);
+
+  // Assert
+  assert.deepStrictEqual(output, [error, info, fatal]);
+});
+
+test("fingersCrossed() - afterTrigger buffer respects bufferLevel", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+    bufferLevel: "debug",
+    triggerLevel: "warning",
+  });
+
+  // Act
+  sink(warning);
+  sink(debug);
+  sink(info);
+
+  // Assert
+  assert.deepStrictEqual(output, [warning, info]);
+  sink(error);
+  assert.deepStrictEqual(output, [warning, info, debug, error]);
+});
+
+test("fingersCrossed() - afterTrigger buffer restarts context buffers", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"] },
+    afterTrigger: "buffer",
+  });
+  const req1Before: LogRecord = {
+    ...debug,
+    message: ["Request 1 before."],
+    properties: { requestId: "req-1" },
+  };
+  const req1After: LogRecord = {
+    ...debug,
+    message: ["Request 1 after."],
+    properties: { requestId: "req-1" },
+  };
+  const req2: LogRecord = { ...debug, properties: { requestId: "req-2" } };
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  const req2Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-2" },
+  };
+
+  // Act
+  sink(req1Before);
+  sink(req2);
+  sink(req1Error);
+  sink(req1After);
+
+  // Assert
+  assert.deepStrictEqual(output, [req1Before, req1Error]);
+  sink(req2Error);
+  assert.deepStrictEqual(output, [req1Before, req1Error, req2, req2Error]);
+  sink(req1Error);
+  assert.deepStrictEqual(output, [
+    req1Before,
+    req1Error,
+    req2,
+    req2Error,
+    req1After,
+    req1Error,
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer reselects descendant buffers", () => {
+  for (const afterTrigger of ["passthrough", "buffer"] as const) {
+    // Arrange
+    const output: LogRecord[] = [];
+    const sink = fingersCrossed(output.push.bind(output), {
+      isolateByCategory: "descendant",
+      afterTrigger,
+    });
+    const parentError: LogRecord = { ...error, category: ["app"] };
+    const child: LogRecord = { ...debug, category: ["app", "db"] };
+
+    // Act
+    sink(parentError);
+    sink(child);
+    sink(parentError);
+
+    // Assert
+    assert.deepStrictEqual(
+      output,
+      afterTrigger === "buffer"
+        ? [parentError, child, parentError]
+        : [parentError, parentError],
+      afterTrigger,
+    );
+  }
+});
+
+test("fingersCrossed() - afterTrigger buffer with category matchers", () => {
+  const parent: LogRecord = { ...debug, category: ["app"] };
+  const child: LogRecord = { ...debug, category: ["app", "db"] };
+  const other: LogRecord = { ...debug, category: ["other"] };
+  const cases = [
+    {
+      isolateByCategory: "ancestor",
+      trigger: { ...error, category: ["app", "db"] },
+      flushed: [parent, child],
+    },
+    {
+      isolateByCategory: "both",
+      trigger: { ...error, category: ["app"] },
+      flushed: [parent, child],
+    },
+    {
+      isolateByCategory: (
+        trigger: readonly string[],
+        buffered: readonly string[],
+      ) => trigger[0] === "app" && buffered[0] === "other",
+      trigger: { ...error, category: ["app"] },
+      flushed: [parent, other],
+    },
+  ] as const;
+  for (const { isolateByCategory, trigger, flushed } of cases) {
+    // Arrange
+    const output: LogRecord[] = [];
+    const sink = fingersCrossed(output.push.bind(output), {
+      isolateByCategory,
+      afterTrigger: "buffer",
+    });
+
+    // Act
+    sink(parent);
+    sink(child);
+    sink(other);
+    sink(trigger);
+    output.length = 0;
+    sink(parent);
+    sink(child);
+    sink(other);
+    sink(trigger);
+
+    // Assert
+    assert.deepStrictEqual(
+      new Set(output.slice(0, -1)),
+      new Set(flushed),
+      String(isolateByCategory),
+    );
+    assert.strictEqual(output.at(-1), trigger);
+    assert.strictEqual(output.length, flushed.length + 1);
+  }
+});
+
+test("fingersCrossed() - afterTrigger buffer with combined isolation", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByCategory: "descendant",
+    isolateByContext: { keys: ["requestId"] },
+    afterTrigger: "buffer",
+  });
+  const req1Child: LogRecord = {
+    ...debug,
+    category: ["app", "db"],
+    properties: { requestId: "req-1" },
+  };
+  const req2Child: LogRecord = {
+    ...debug,
+    category: ["app", "db"],
+    properties: { requestId: "req-2" },
+  };
+  const req1Error: LogRecord = {
+    ...error,
+    category: ["app"],
+    properties: { requestId: "req-1" },
+  };
+  const req2Error: LogRecord = {
+    ...error,
+    category: ["app"],
+    properties: { requestId: "req-2" },
+  };
+
+  // Act
+  sink(req1Child);
+  sink(req2Child);
+  sink(req1Error);
+  sink(req1Child);
+  sink(req2Error);
+
+  // Assert
+  assert.deepStrictEqual(output, [req1Child, req1Error, req2Child, req2Error]);
+  sink(req1Error);
+  assert.deepStrictEqual(output.slice(-2), [req1Child, req1Error]);
+});
+
+test("fingersCrossed() - bufferAction takes precedence over afterTrigger", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const flushRecord: LogRecord = { ...debug, message: ["Flush."] };
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+    bufferAction: (record) =>
+      record === flushRecord
+        ? "flush"
+        : record.level === "fatal"
+        ? "discard"
+        : undefined,
+  });
+
+  // Act
+  sink(info);
+  sink(fatal);
+  sink(debug);
+  sink(flushRecord);
+
+  // Assert
+  assert.deepStrictEqual(output, [debug, flushRecord]);
+});
+
+test("fingersCrossed() - manual controls with afterTrigger buffer", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    afterTrigger: "buffer",
+  });
+
+  // Act
+  sink(debug);
+  sink(error);
+  sink(info);
+  sink.discard();
+  sink.discard();
+  sink(debug);
+  sink.flush();
+  sink.flush();
+  sink(info);
+
+  // Assert
+  assert.deepStrictEqual(output, [debug, error, debug]);
+  sink(error);
+  assert.deepStrictEqual(output, [debug, error, debug, info, error]);
+});
+
+test("fingersCrossed() - afterTrigger buffer isolates synchronous re-entry", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const reentrantRecord: LogRecord = {
+    ...debug,
+    message: ["Re-entered while flushing."],
+  };
+  let reenter = (_record: LogRecord): void => {};
+  const sink = fingersCrossed((record) => {
+    output.push(record);
+    if (record === info) reenter(reentrantRecord);
+  }, { afterTrigger: "buffer" });
+  reenter = sink;
+
+  // Act
+  sink(info);
+  sink(debug);
+  sink(error);
+
+  // Assert
+  assert.deepStrictEqual(output, [info, debug, error]);
+  sink(fatal);
+  assert.deepStrictEqual(output, [info, debug, error, reentrantRecord, fatal]);
+});
+
+test("fingersCrossed() - afterTrigger buffer processes re-entrant triggers", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const reentrantError: LogRecord = {
+    ...error,
+    message: ["Re-entered while flushing."],
+  };
+  let reentered = false;
+  let reenter = (_record: LogRecord): void => {};
+  const sink = fingersCrossed((record) => {
+    output.push(record);
+    if (record === info && !reentered) {
+      reentered = true;
+      reenter(trace);
+      reenter(reentrantError);
+    }
+  }, { afterTrigger: "buffer" });
+  reenter = sink;
+
+  // Act
+  sink(info);
+  sink(debug);
+  sink(fatal);
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    info,
+    trace,
+    reentrantError,
+    debug,
+    fatal,
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer isolates re-entry per context", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const buffered: LogRecord = {
+    ...info,
+    properties: { requestId: "req-1" },
+  };
+  const reentrantRecord: LogRecord = {
+    ...debug,
+    message: ["Re-entered while flushing."],
+    properties: { requestId: "req-1" },
+  };
+  const req1Error: LogRecord = {
+    ...error,
+    properties: { requestId: "req-1" },
+  };
+  let reenter = (_record: LogRecord): void => {};
+  const sink = fingersCrossed((record) => {
+    output.push(record);
+    if (record === buffered) reenter(reentrantRecord);
+  }, {
+    isolateByContext: { keys: ["requestId"] },
+    afterTrigger: "buffer",
+  });
+  reenter = sink;
+
+  // Act
+  sink(buffered);
+  sink(req1Error);
+
+  // Assert
+  assert.deepStrictEqual(output, [buffered, req1Error]);
+  sink(req1Error);
+  assert.deepStrictEqual(output, [
+    buffered,
+    req1Error,
+    reentrantRecord,
+    req1Error,
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer consumes batches on sink errors", () => {
+  // Arrange
+  const attempts: LogRecord[] = [];
+  let shouldThrow = true;
+  const sink = fingersCrossed((record) => {
+    attempts.push(record);
+    if (shouldThrow) {
+      shouldThrow = false;
+      throw new Error("Sink failed.");
+    }
+  }, { afterTrigger: "buffer" });
+
+  // Act and assert
+  sink(debug);
+  assert.throws(() => sink(error), { message: "Sink failed." });
+  sink(info);
+  sink(fatal);
+  assert.deepStrictEqual(attempts, [debug, info, fatal]);
+});
+
+test("fingersCrossed() - afterTrigger buffer keeps unselected buffers on sink errors", () => {
+  // Arrange
+  const attempts: LogRecord[] = [];
+  let shouldThrow = true;
+  const req1: LogRecord = { ...debug, properties: { requestId: "req-1" } };
+  const req2: LogRecord = { ...debug, properties: { requestId: "req-2" } };
+  const sink = fingersCrossed((record) => {
+    attempts.push(record);
+    if (shouldThrow) {
+      shouldThrow = false;
+      throw new Error("Sink failed.");
+    }
+  }, {
+    isolateByContext: { keys: ["requestId"] },
+    afterTrigger: "buffer",
+  });
+
+  // Act and assert
+  sink(req1);
+  sink(req2);
+  assert.throws(
+    () => sink({ ...error, properties: { requestId: "req-1" } }),
+    { message: "Sink failed." },
+  );
+  sink({ ...error, properties: { requestId: "req-1" } });
+  sink({ ...error, properties: { requestId: "req-2" } });
+  assert.deepStrictEqual(attempts, [
+    req1,
+    { ...error, properties: { requestId: "req-1" } },
+    req2,
+    { ...error, properties: { requestId: "req-2" } },
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer applies LRU after a trigger", () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: { keys: ["requestId"], maxContexts: 2 },
+    afterTrigger: "buffer",
+  });
+  const record = (requestId: string): LogRecord => ({
+    ...debug,
+    properties: { requestId },
+  });
+  const failure = (requestId: string): LogRecord => ({
+    ...error,
+    properties: { requestId },
+  });
+
+  // Act
+  sink(record("req-1"));
+  sink(failure("req-1"));
+  sink(record("req-1"));
+  sink(record("req-2"));
+  sink(record("req-3"));
+  output.length = 0;
+  sink(failure("req-1"));
+  sink(failure("req-3"));
+
+  // Assert
+  assert.deepStrictEqual(output, [
+    failure("req-1"),
+    record("req-3"),
+    failure("req-3"),
+  ]);
+});
+
+test("fingersCrossed() - afterTrigger buffer applies TTL after a trigger", async () => {
+  // Arrange
+  const output: LogRecord[] = [];
+  const sink = fingersCrossed(output.push.bind(output), {
+    isolateByContext: {
+      keys: ["requestId"],
+      bufferTtlMs: 100,
+      cleanupIntervalMs: 50,
+    },
+    afterTrigger: "buffer",
+  }) as Sink & Disposable;
+
+  try {
+    // Act
+    sink({
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    });
+    sink({ ...error, properties: { requestId: "req-1" } });
+    sink({
+      ...debug,
+      properties: { requestId: "req-1" },
+      timestamp: Date.now(),
+    });
+    await delay(250);
+    output.length = 0;
+    sink({ ...error, properties: { requestId: "req-1" } });
+
+    // Assert
+    assert.deepStrictEqual(output, [
+      { ...error, properties: { requestId: "req-1" } },
+    ]);
+  } finally {
+    sink[Symbol.dispose]();
+  }
+});
+
+test("fingersCrossed() - afterTrigger validation", () => {
+  for (const afterTrigger of [null, "invalid", 1]) {
+    assert.throws(
+      () =>
+        fingersCrossed(() => {}, {
+          afterTrigger: afterTrigger as unknown as "buffer",
+        }),
+      {
+        name: "TypeError",
+        message: `Invalid afterTrigger: ${JSON.stringify(afterTrigger)}. ` +
+          'Expected "passthrough", "buffer", or undefined.',
+      },
+    );
+  }
+});
+
 test("fingersCrossed() - TTL-based buffer cleanup", async () => {
   const buffer: LogRecord[] = [];
   const sink = fingersCrossed(buffer.push.bind(buffer), {
