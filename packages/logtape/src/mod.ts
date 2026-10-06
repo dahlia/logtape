@@ -85,6 +85,7 @@ export {
   type Sink,
   type SinkDropEvent,
   type SinkDropReason,
+  type SinkErrorEvent,
   type StreamSinkOptions,
   withFilter,
 } from "./sink.ts";

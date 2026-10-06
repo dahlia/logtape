@@ -19,6 +19,7 @@ import {
   getStreamSink,
   type Sink,
   type SinkDropEvent,
+  type SinkErrorEvent,
   withFilter,
 } from "./sink.ts";
 
@@ -5294,6 +5295,598 @@ test("fingersCrossed() - bufferLevel preserves chronological order on flush", ()
 
   // info records passed through first, then buffered records flushed, then trigger
   assert.deepStrictEqual(buffer, [t2, t4, t1, t3, t5]);
+});
+
+test("getConsoleSink() aggregates drops without payloads and preserves FIFO", () => {
+  // Arrange
+  const output: number[] = [];
+  const drops: SinkDropEvent[] = [];
+  const sink = getConsoleSink({
+    console: { ...console, info: (n: number) => output.push(n) },
+    formatter: (record) => [record.timestamp],
+    nonBlocking: {
+      bufferSize: 2,
+      flushInterval: 5000,
+      onDrop: (e) => drops.push(e),
+    },
+  }) as Sink & Disposable;
+
+  // Act
+  for (let i = 0; i < 6; i++) sink({ ...info, timestamp: i });
+  assert.deepStrictEqual(drops, []);
+  sink[Symbol.dispose]();
+  sink[Symbol.dispose]();
+
+  // Assert
+  assert.deepStrictEqual(drops, [{ count: 2, reason: "overflow" }]);
+  assert.deepStrictEqual(output, [2, 3, 4, 5]);
+});
+
+test("getConsoleSink() reports drops in separate aggregation windows", () => {
+  // Arrange
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const pending = new Map<number, { callback: () => void; ms: number }>();
+  let nextId = 0;
+  globalThis.setTimeout = ((callback: () => void, ms: number) => {
+    pending.set(++nextId, { callback, ms });
+    return nextId;
+  }) as unknown as typeof setTimeout;
+  globalThis.clearTimeout =
+    ((id: number) => pending.delete(id)) as unknown as typeof clearTimeout;
+  const drops: SinkDropEvent[] = [];
+  const sink = getConsoleSink({
+    console: { ...console, info() {} },
+    nonBlocking: {
+      bufferSize: 1,
+      flushInterval: 50,
+      onDrop: (e) => drops.push(e),
+    },
+  }) as Sink & Disposable;
+  const fire = (ms: number): void => {
+    const entry = [...pending].find(([, task]) => task.ms === ms);
+    assert.ok(entry);
+    pending.delete(entry[0]);
+    entry[1].callback();
+  };
+
+  try {
+    // Act: output flushes first; loss reporting retains its own window.
+    for (let i = 0; i < 5; i++) sink(info);
+    fire(0);
+    assert.deepStrictEqual(drops, []);
+    fire(50);
+    for (let i = 0; i < 3; i++) sink(info);
+    fire(50);
+    sink[Symbol.dispose]();
+
+    // Assert
+    assert.deepStrictEqual(drops, [
+      { count: 3, reason: "overflow" },
+      { count: 1, reason: "overflow" },
+    ]);
+    assert.strictEqual(pending.size, 0);
+  } finally {
+    sink[Symbol.dispose]();
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
+test("getConsoleSink() generated bursts count only real overflow", () => {
+  fc.assert(fc.property(fc.array(fc.string()), (messages) => {
+    // Arrange
+    const output: string[] = [];
+    const drops: SinkDropEvent[] = [];
+    const sink = getConsoleSink({
+      console: { ...console, info: (message: string) => output.push(message) },
+      formatter: (record) => [record.rawMessage],
+      nonBlocking: { bufferSize: 2, onDrop: (event) => drops.push(event) },
+    }) as Sink & Disposable;
+    // Act
+    for (const rawMessage of messages) sink({ ...info, rawMessage });
+    sink[Symbol.dispose]();
+    // Assert
+    assert.deepStrictEqual(output, messages.slice(-4));
+    assert.deepStrictEqual(
+      drops,
+      messages.length > 4
+        ? [{ count: messages.length - 4, reason: "overflow" }]
+        : [],
+    );
+  }));
+});
+
+test("getStreamSink() reports overflow while output is stalled", async () => {
+  // Arrange
+  const started = Promise.withResolvers<void>();
+  const gate = Promise.withResolvers<void>();
+  const notified = Promise.withResolvers<SinkDropEvent>();
+  const output: string[] = [];
+  const stream = new WritableStream({
+    async write(bytes: Uint8Array) {
+      output.push(new TextDecoder().decode(bytes));
+      if (output.length === 1) {
+        started.resolve();
+        await gate.promise;
+      }
+    },
+  });
+  const sink = getStreamSink(stream, {
+    formatter: (record) => String(record.timestamp),
+    nonBlocking: {
+      bufferSize: 1,
+      flushInterval: 5,
+      onDrop: notified.resolve,
+    },
+  });
+  try {
+    // Act
+    sink({ ...info, timestamp: 0 });
+    await beforeDeadline(started.promise, "Write never started");
+    for (let i = 1; i <= 4; i++) sink({ ...info, timestamp: i });
+    const event = await beforeDeadline(
+      notified.promise,
+      "Stalled loss not reported",
+    );
+    // Assert before unblocking output
+    assert.deepStrictEqual(event, { count: 2, reason: "overflow" });
+    assert.deepStrictEqual(output, ["0"]);
+  } finally {
+    gate.resolve();
+    await sink[Symbol.asyncDispose]();
+  }
+  assert.deepStrictEqual(output, ["0", "3", "4"]);
+  assert.strictEqual(stream.locked, false);
+});
+
+test("getConsoleSink() with zero buffer reports only actual removals", () => {
+  const drops: SinkDropEvent[] = [];
+  const sink = getConsoleSink({
+    console: { ...console, info() {} },
+    nonBlocking: { bufferSize: 0, onDrop: (event) => drops.push(event) },
+  }) as Sink & Disposable;
+  sink(info);
+  sink(info);
+  sink[Symbol.dispose]();
+  assert.deepStrictEqual(drops, [{ count: 1, reason: "overflow" }]);
+});
+
+test("getStreamSink() with zero buffer does not invent dropped records", async () => {
+  const drops: SinkDropEvent[] = [];
+  const sink = getStreamSink(new WritableStream(), {
+    nonBlocking: { bufferSize: 0, onDrop: (event) => drops.push(event) },
+  });
+  sink(info);
+  await sink[Symbol.asyncDispose]();
+  assert.deepStrictEqual(drops, []);
+});
+
+test("getConsoleSink() distinguishes format and output errors", () => {
+  const failure = new Error("formatter failed");
+  const outputFailure = new Error("console failed");
+  const events: SinkErrorEvent[] = [];
+  const output: number[] = [];
+  const sink = getConsoleSink({
+    console: {
+      ...console,
+      info(n: number) {
+        if (n === 1) throw outputFailure;
+        output.push(n);
+      },
+    },
+    formatter(record) {
+      if (record.timestamp === 0) throw failure;
+      return [record.timestamp];
+    },
+    nonBlocking: { onError: (event) => events.push(event) },
+  }) as Sink & Disposable;
+  for (let i = 0; i < 3; i++) sink({ ...info, timestamp: i });
+  sink({ ...info, timestamp: 3, level: "invalid" as LogLevel });
+  sink[Symbol.dispose]();
+  assert.deepStrictEqual(events.slice(0, 2), [
+    { error: failure, sink: "console", operation: "format" },
+    { error: outputFailure, sink: "console", operation: "write" },
+  ]);
+  assert.strictEqual(events[0].error, failure);
+  assert.strictEqual(events[1].error, outputFailure);
+  assert.strictEqual(events[2].operation, "write");
+  assert.ok(events[2].error instanceof TypeError);
+  assert.deepStrictEqual(output, [2]);
+});
+
+for (const operation of ["format", "encode", "write", "close"] as const) {
+  test(`getStreamSink() reports ${operation} failure with original error`, async () => {
+    const failure = { operation };
+    const events: SinkErrorEvent[] = [];
+    const stream = new WritableStream({
+      write() {
+        if (operation === "write") throw failure;
+      },
+      close() {
+        if (operation === "close") throw failure;
+      },
+    });
+    const sink = getStreamSink(stream, {
+      formatter() {
+        if (operation === "format") throw failure;
+        return "message";
+      },
+      encoder: {
+        encode(text) {
+          if (operation === "encode") throw failure;
+          return new TextEncoder().encode(text);
+        },
+      },
+      closeStream: operation === "close",
+      nonBlocking: { onError: (event) => events.push(event) },
+    });
+    sink(info);
+    sink(info);
+    await sink[Symbol.asyncDispose]();
+    assert.deepStrictEqual(
+      events,
+      operation === "close"
+        ? [{ error: failure, sink: "stream", operation }]
+        : [
+          { error: failure, sink: "stream", operation },
+          { error: failure, sink: "stream", operation },
+        ],
+    );
+    for (const event of events) assert.strictEqual(event.error, failure);
+    assert.strictEqual(stream.locked, false);
+  });
+}
+
+for (const start of ["producer", "timer"] as const) {
+  test(`getStreamSink() defers ${start} prefix errors before callback disposal`, async () => {
+    const events: SinkErrorEvent[] = [];
+    const output: string[] = [];
+    let closed = 0;
+    let disposal: PromiseLike<void> | undefined;
+    const notified = Promise.withResolvers<void>();
+    const stream = new WritableStream({
+      write(bytes: Uint8Array) {
+        output.push(new TextDecoder().decode(bytes));
+      },
+      close() {
+        closed++;
+      },
+    });
+    const failure = new Error("first record fails");
+    const sink = getStreamSink(stream, {
+      formatter(record) {
+        if (record.timestamp === 0) throw failure;
+        return String(record.timestamp);
+      },
+      nonBlocking: {
+        bufferSize: start === "producer" ? 3 : 100,
+        flushInterval: 5,
+        onError(event) {
+          events.push(event);
+          sink(info); // Synchronous callback reentry must be ignored.
+          disposal = sink[Symbol.asyncDispose]();
+          notified.resolve();
+        },
+      },
+    });
+    try {
+      for (let i = 0; i < 3; i++) sink({ ...info, timestamp: i });
+      assert.deepStrictEqual(events, []);
+      await beforeDeadline(notified.promise, "Flush error not reported");
+      assert.ok(disposal);
+      await disposal;
+      assert.deepStrictEqual(events, [{
+        error: failure,
+        sink: "stream",
+        operation: "format",
+      }]);
+      assert.deepStrictEqual(output, ["1", "2"]);
+      assert.strictEqual(closed, 1);
+      assert.strictEqual(stream.locked, false);
+    } finally {
+      await sink[Symbol.asyncDispose]();
+    }
+  });
+}
+
+test("getStreamSink() nested disposal reports pending drops and retains tail", async () => {
+  // Arrange: three active records; eight waiting records overflow six slots.
+  const started = Promise.withResolvers<void>();
+  const gate = Promise.withResolvers<void>();
+  const events: SinkDropEvent[] = [];
+  const output: string[] = [];
+  let closed = 0;
+  const disposals: PromiseLike<void>[] = [];
+  const disposed = Promise.withResolvers<void>();
+  const stream = new WritableStream({
+    async write(bytes: Uint8Array) {
+      const text = new TextDecoder().decode(bytes);
+      output.push(text);
+      if (text === "0") {
+        started.resolve();
+        await gate.promise;
+      }
+    },
+    close() {
+      closed++;
+    },
+  });
+  const sink = getStreamSink(stream, {
+    formatter(record) {
+      if (record.timestamp === 1) throw new Error("mid-batch format failure");
+      return String(record.timestamp);
+    },
+    nonBlocking: {
+      bufferSize: 3,
+      flushInterval: 5000,
+      onError() {
+        const disposal = sink[Symbol.asyncDispose]();
+        disposals.push(disposal);
+        disposal.then(disposed.resolve, disposed.reject);
+      },
+      onDrop(event) {
+        events.push(event);
+        disposals.push(sink[Symbol.asyncDispose]());
+        sink(info);
+      },
+    },
+  });
+  try {
+    for (let i = 0; i < 3; i++) sink({ ...info, timestamp: i });
+    await beforeDeadline(started.promise, "Write did not start");
+    for (let i = 3; i < 11; i++) sink({ ...info, timestamp: i });
+    gate.resolve();
+    await beforeDeadline(disposed.promise, "Callback disposal hung");
+    await Promise.all(disposals);
+    assert.deepStrictEqual(events, [{ count: 2, reason: "overflow" }]);
+    assert.deepStrictEqual(output, ["0", "2", "5", "6", "7", "8", "9", "10"]);
+    assert.strictEqual(closed, 1);
+    assert.strictEqual(stream.locked, false);
+  } finally {
+    gate.resolve();
+    await sink[Symbol.asyncDispose]();
+  }
+});
+
+test("getConsoleSink() error callback disposal delivers nested drop counts", async () => {
+  const notified = Promise.withResolvers<void>();
+  const drops: SinkDropEvent[] = [];
+  const sink = getConsoleSink({
+    formatter() {
+      throw new Error("format failed");
+    },
+    nonBlocking: {
+      bufferSize: 1,
+      flushInterval: 5000,
+      onError() {
+        sink[Symbol.dispose]();
+        notified.resolve();
+      },
+      onDrop(event) {
+        drops.push(event);
+        sink[Symbol.dispose]();
+      },
+    },
+  }) as Sink & Disposable;
+  for (let i = 0; i < 5; i++) sink(info);
+  try {
+    await beforeDeadline(notified.promise, "Console error not reported");
+  } finally {
+    sink[Symbol.dispose]();
+  }
+  assert.deepStrictEqual(drops, [{ count: 3, reason: "overflow" }]);
+});
+
+test("getStreamSink() close error callback cannot recursively dispose", async () => {
+  const failure = new Error("close failed");
+  const events: SinkErrorEvent[] = [];
+  let closeCalls = 0;
+  const stream = new WritableStream({
+    close() {
+      closeCalls++;
+      throw failure;
+    },
+  });
+  const sink = getStreamSink(stream, {
+    nonBlocking: {
+      onError(event) {
+        events.push(event);
+        return sink[Symbol.asyncDispose]();
+      },
+    },
+  });
+  const first = sink[Symbol.asyncDispose]();
+  assert.strictEqual(sink[Symbol.asyncDispose](), first);
+  await beforeDeadline(
+    Promise.resolve(first),
+    "Recursive disposal never settled",
+  );
+  assert.deepStrictEqual(events, [{
+    error: failure,
+    sink: "stream",
+    operation: "close",
+  }]);
+  assert.strictEqual(closeCalls, 1);
+  assert.strictEqual(stream.locked, false);
+});
+
+const notificationFailures = [
+  () => {
+    throw new Error("callback throws");
+  },
+  () => Promise.reject(new Error("callback rejects")),
+  () => ({
+    get then(): never {
+      throw new Error("then getter throws");
+    },
+  }),
+  () => ({
+    then(): never {
+      throw new Error("then method throws");
+    },
+  }),
+];
+
+for (const [index, fail] of notificationFailures.entries()) {
+  test(`non-blocking callback failure ${index} is isolated and reentry bounded`, async () => {
+    const events: SinkErrorEvent[] = [];
+    const drops: SinkDropEvent[] = [];
+    const output: number[] = [];
+    const sink = getConsoleSink({
+      console: { ...console, info: (n: number) => output.push(n) },
+      formatter(record) {
+        if (record.timestamp === 0) throw new Error("record fails");
+        return [record.timestamp];
+      },
+      nonBlocking: {
+        bufferSize: 1,
+        onDrop(event) {
+          drops.push(event);
+          sink(info);
+          return fail();
+        },
+        onError(event) {
+          events.push(event);
+          sink(info);
+          return fail();
+        },
+      },
+    }) as Sink & Disposable;
+    for (const timestamp of [8, 9, 0, 1]) sink({ ...info, timestamp });
+    assert.doesNotThrow(() => sink[Symbol.dispose]());
+    await delay(0); // Let rejected callback promises reach the runtime checkpoint.
+    assert.deepStrictEqual(drops, [{ count: 2, reason: "overflow" }]);
+    assert.strictEqual(events.length, 1);
+    assert.deepStrictEqual(output, [1]);
+  });
+}
+
+for (const kind of ["console", "stream"] as const) {
+  test(`${kind} error callback reentry does not block later application records`, async () => {
+    const notified = Promise.withResolvers<void>();
+    const output: string[] = [];
+    const events: SinkErrorEvent[] = [];
+    const failure = new Error("format failed");
+    const formatter = (record: LogRecord): string => {
+      if (record.timestamp === 0) throw failure;
+      return String(record.timestamp);
+    };
+    const onError = (event: SinkErrorEvent): Promise<void> => {
+      events.push(event);
+      sink({ ...info, timestamp: 99 });
+      notified.resolve();
+      return Promise.reject(new Error("diagnostic failed"));
+    };
+    const sink = kind === "console"
+      ? getConsoleSink({
+        console: { ...console, info: (text: string) => output.push(text) },
+        formatter,
+        nonBlocking: { bufferSize: 1, onError },
+      }) as Sink & Disposable
+      : getStreamSink(
+        new WritableStream({
+          write(bytes: Uint8Array) {
+            output.push(new TextDecoder().decode(bytes));
+          },
+        }),
+        { formatter, nonBlocking: { bufferSize: 1, onError } },
+      );
+    try {
+      sink({ ...info, timestamp: 0 });
+      await beforeDeadline(notified.promise, "Error callback not invoked");
+      sink({ ...info, timestamp: 1 });
+    } finally {
+      if (Symbol.dispose in sink) sink[Symbol.dispose]();
+      else await sink[Symbol.asyncDispose]();
+    }
+    await delay(0);
+    assert.deepStrictEqual(output, ["1"]);
+    assert.deepStrictEqual(events, [{
+      error: failure,
+      sink: kind,
+      operation: "format",
+    }]);
+  });
+}
+
+for (const [bufferSize, burstSize] of [[1, 4], [100, 350]]) {
+  for (const withNotifications of [false, true]) {
+    test(`getStreamSink() retains synchronous burst capacity (${bufferSize}, ${withNotifications})`, async () => {
+      const output: number[] = [];
+      const drops: SinkDropEvent[] = [];
+      const stream = new WritableStream({
+        write(bytes: Uint8Array) {
+          output.push(Number(new TextDecoder().decode(bytes)));
+        },
+      });
+      const sink = getStreamSink(stream, {
+        formatter: (record) => String(record.timestamp),
+        nonBlocking: {
+          bufferSize,
+          flushInterval: 5000,
+          ...(withNotifications ? { onDrop: drops.push.bind(drops) } : {}),
+        },
+      });
+      for (let i = 0; i < burstSize; i++) sink({ ...info, timestamp: i });
+      await sink[Symbol.asyncDispose]();
+      // The first batch detaches synchronously; the waiting queue keeps its
+      // last two buffer sizes independently of that active batch.
+      assert.deepStrictEqual(output, [
+        ...Array.from({ length: bufferSize }, (_, i) => i),
+        ...Array.from(
+          { length: bufferSize * 2 },
+          (_, i) => burstSize - bufferSize * 2 + i,
+        ),
+      ]);
+      assert.deepStrictEqual(
+        drops,
+        withNotifications
+          ? [{ count: burstSize - bufferSize * 3, reason: "overflow" }]
+          : [],
+      );
+      assert.strictEqual(stream.locked, false);
+    });
+  }
+}
+
+test("getStreamSink() concurrent disposal waits for final buffered writes", async () => {
+  const started = Promise.withResolvers<void>();
+  const gate = Promise.withResolvers<void>();
+  const output: string[] = [];
+  let closed = 0;
+  const stream = new WritableStream({
+    async write(bytes: Uint8Array) {
+      output.push(new TextDecoder().decode(bytes));
+      if (output.length === 1) {
+        started.resolve();
+        await gate.promise;
+      }
+    },
+    close() {
+      closed++;
+    },
+  });
+  const sink = getStreamSink(stream, {
+    formatter: (record) => String(record.timestamp),
+    nonBlocking: { bufferSize: 100, flushInterval: 5000 },
+  });
+  for (let i = 0; i < 3; i++) sink({ ...info, timestamp: i });
+  const first = sink[Symbol.asyncDispose]();
+  try {
+    await beforeDeadline(started.promise, "Final flush did not start");
+    const second = sink[Symbol.asyncDispose]();
+    assert.strictEqual(second, first);
+    assert.strictEqual(closed, 0);
+    gate.resolve();
+    await Promise.all([first, second]);
+  } finally {
+    gate.resolve();
+    await first;
+  }
+  assert.deepStrictEqual(output, ["0", "1", "2"]);
+  assert.strictEqual(closed, 1);
+  assert.strictEqual(stream.locked, false);
 });
 
 function recordWithLevel(level: LogLevel): LogRecord {
