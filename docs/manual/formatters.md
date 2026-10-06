@@ -301,6 +301,51 @@ const formatter = getTextFormatter({
 });
 ~~~~
 
+Instead of a function, you can pass `"bare"` (since LogTape 2.4.0) to render
+string values as they are, without the quotes and escapes that `inspect()`
+adds.  Any other value is rendered by `inspect()` as before:
+
+~~~~ typescript twoslash
+import { getLogger, getTextFormatter } from "@logtape/logtape";
+const logger = getLogger("my-app");
+// ---cut-before---
+const formatter = getTextFormatter({ value: "bare" });
+
+logger.info("Run {command} to resume.", {
+  command: "swamp workflow resume my-workflow",
+});
+// Without "bare":  [INF] my-app: Run "swamp workflow resume my-workflow" to resume.
+// With "bare":     [INF] my-app: Run swamp workflow resume my-workflow to resume.
+~~~~
+
+A few things to keep in mind when you use it:
+
+ -  Only values that are strings themselves are rendered bare.  Strings nested
+    inside objects or arrays keep their quotes, so the structure of the value
+    stays readable.
+
+ -  Without quotes, an empty string or trailing whitespace in a value is no
+    longer visible in the output.
+
+ -  The string is no longer escaped by `inspect()`, so it is
+    [sanitized](#control-character-sanitization) instead.  SGR sequences are
+    always escaped, even if `sanitize.sgr` is `"preserve"`, because interpolated
+    values usually come from outside your application.  Carriage returns and
+    line feeds are escaped too, unless you explicitly set `sanitize.newlines` to
+    `"preserve"`; a preserved carriage return can overwrite what was printed
+    before it on a terminal, and a preserved line feed can make the rest of the
+    value look like a separate log record.  Setting `sanitize` to `false` turns
+    this off as well.  If you need to log trusted, pre-colored strings, use
+    a function instead; its output is not sanitized.
+
+ -  `"bare"` removes the quotes, but it does not quote anything for a shell.
+    If your application prints commands for users to copy and paste, print
+    them through a dedicated output channel rather than the logger, and quote
+    their arguments yourself.
+
+`getAnsiColorFormatter()` accepts `"bare"` as well, and keeps coloring the
+values that are not strings.
+
 #### `~TextFormatterOptions.format`
 
 How those formatted parts are concatenated.
@@ -697,6 +742,26 @@ Supported options:
  -  `showProxy`: Whether to show Proxy objects with their target and handler
     (Node.js, Deno, and Bun only)
 
+#### `~PrettyFormatterOptions.value`
+
+*This API is available since LogTape 2.4.0.*
+
+How values interpolated into the message are rendered.  It takes the same
+values as [`~TextFormatterOptions.value`](#textformatteroptions-value):
+
+ -  `"bare"`: String values are rendered as they are, without quotes or
+    escapes, and sanitized as described for `getTextFormatter()`.  Any other
+    value is rendered by `inspect()` with `inspectOptions`.  Strings in the
+    properties section shown by the `properties` option keep their quotes.
+ -  A function: Called with each value and an `inspect()` function that
+    applies `inspectOptions` and `colors`, so falling back to it renders the
+    value as by default.
+
+When you print values meant to be copied, consider turning off `wordWrap` as
+well, since wrapping splits long values across lines.
+
+The default renders every value with `inspect()`.
+
 #### `~PrettyFormatterOptions.properties`
 
 *This API is available since LogTape 1.1.0.*
@@ -745,6 +810,11 @@ logger.info("\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok");
 > ~~~~
 >
 > Prefer that form over `logger.info(untrusted)` whenever you can.
+>
+> With the `"bare"` preset of the [`value`](#textformatteroptions-value)
+> option, strings are not escaped by the value renderer.  The formatter
+> sanitizes them instead, and escapes SGR sequences and, unless you explicitly
+> preserve them, newlines in them as well.
 
 ### Adjusting the policy
 

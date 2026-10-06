@@ -87,6 +87,47 @@ const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
 
 const utf8Encoder = new TextEncoder();
 
+/**
+ * Builds the function that renders the values interpolated into a message
+ * from {@link TextFormatterOptions.value}.
+ *
+ * @param value The `value` option.
+ * @param sanitize The `sanitize` option, which also governs how strings are
+ *                 neutralized under the `"bare"` preset.
+ * @param fallback Renders the values that the option leaves to the default,
+ *                 i.e., every value when the option is omitted, and every
+ *                 non-string value under the `"bare"` preset.
+ * @returns The value renderer.
+ * @throws {TypeError} If the option is neither `"bare"` nor a function.
+ */
+function getValueRenderer(
+  value: TextFormatterOptions["value"],
+  sanitize: SanitizationOptions | false | undefined,
+  fallback: (value: unknown) => string,
+): (value: unknown) => string {
+  if (value == null) return fallback;
+  if (typeof value === "function") return (v) => value(v, inspect);
+  if (value !== "bare") {
+    throw new TypeError(
+      `Invalid value option: ${
+        JSON.stringify(value)
+      }. It must be "bare" or a function.`,
+    );
+  }
+  // A bare string loses the escaping that inspect() would have applied, and
+  // interpolated values are usually external input, so SGR sequences are
+  // escaped as in categories, and newlines are escaped unless the caller
+  // explicitly asks to preserve them: a carriage return could overwrite the
+  // line on a terminal, and a line feed could forge a record.
+  const sanitizeBare = sanitize === false ? null : getSanitizer({
+    sgr: "escape",
+    newlines: sanitize?.newlines ?? "escape",
+  });
+  return sanitizeBare == null
+    ? (v) => typeof v === "string" ? v : fallback(v)
+    : (v) => typeof v === "string" ? sanitizeBare(v) : fallback(v);
+}
+
 function renderMessageParts(
   msgParts: readonly unknown[],
   valueRenderer: (value: unknown) => string,
@@ -244,7 +285,18 @@ export interface TextFormatterOptions {
   /**
    * The format of the embedded values.
    *
-   * A function that renders a value to a string.  This function is used to
+   * This can be `"bare"` or a function.  With `"bare"`, a value that is
+   * a string is rendered as is, without the quotes and escapes that
+   * `inspect()` would add, and any other value is rendered by the default
+   * `inspect()` function.  Strings nested inside objects or arrays keep their
+   * quotes.  Since the string is no longer escaped by `inspect()`, it is
+   * sanitized instead: SGR sequences and the other control characters are
+   * always escaped, and carriage returns and line feeds are escaped unless
+   * {@link TextFormatterOptions.sanitize} explicitly sets `newlines` to
+   * `"preserve"`.  Setting `sanitize` to `false` turns this off as well.
+   * The `"bare"` preset is available since LogTape 2.4.0.
+   *
+   * A function renders a value to a string.  This function is used to
    * render the values in the log record.  The default is a cross-runtime
    * `inspect()` function that uses [`util.inspect()`] in Node.js/Bun,
    * [`Deno.inspect()`] in Deno, or falls back to {@link JSON.stringify} in
@@ -275,11 +327,18 @@ export interface TextFormatterOptions {
    *   }
    * })
    * ```
+   *
+   * @example Rendering strings without quotes
+   * ```typescript
+   * getTextFormatter({ value: "bare" })
+   * ```
    */
-  value?: (
-    value: unknown,
-    inspect: (value: unknown, options?: { colors?: boolean }) => string,
-  ) => string;
+  value?:
+    | "bare"
+    | ((
+      value: unknown,
+      inspect: (value: unknown, options?: { colors?: boolean }) => string,
+    ) => string);
 
   /**
    * How those formatted parts are concatenated.
@@ -323,7 +382,10 @@ export interface TextFormatterOptions {
    *
    * Pass an object to tighten or loosen that, or `false` to disable
    * sanitization entirely.  Note that values interpolated into the message are
-   * escaped by the value renderer regardless of this option.
+   * escaped by the value renderer regardless of this option, except for
+   * strings rendered by the `"bare"` preset of
+   * {@link TextFormatterOptions.value}, which are sanitized as described
+   * there.
    *
    * @default `{}`
    * @since 2.0.23
@@ -768,9 +830,11 @@ export function getTextFormatter(
   const sanitizeCategory = getSanitizer(
     options.sanitize === false ? false : { ...options.sanitize, sgr: "escape" },
   );
-  const valueRenderer = options.value
-    ? (v: unknown) => options.value!(v, inspect)
-    : inspect;
+  const valueRenderer = getValueRenderer(
+    options.value,
+    options.sanitize,
+    inspect,
+  );
 
   // Pre-compute level renderer for better performance
   const levelRenderer = (() => {
@@ -1015,6 +1079,17 @@ export function getAnsiColorFormatter(
       return fallbackInspect(value, { colors: true });
     },
     ...options,
+    // Under the "bare" preset, the values other than strings should still be
+    // colored like they are by default.
+    ...(options.value === "bare"
+      ? {
+        value: getValueRenderer(
+          "bare",
+          options.sanitize,
+          (v) => inspect(v, { colors: true }),
+        ),
+      }
+      : {}),
     format({ timestamp, level, category, message, record }): string {
       const levelColor = levelColors[record.level];
       timestamp = timestamp == null
