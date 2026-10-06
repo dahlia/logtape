@@ -187,6 +187,42 @@ export function toFilter(filter: FilterLike): Filter {
  * @returns The filter.
  */
 export function getLevelFilter(level: LogLevel | null): Filter {
+  const filter = createLevelFilter(level);
+  levelFilters.set(filter, level);
+  return filter;
+}
+
+/**
+ * The levels of the filters made by {@link getLevelFilter}, so that they can
+ * be described without being invoked.  It is shared through `globalThis` like
+ * the root logger, so that filters made by another copy of LogTape in the same
+ * process (e.g., the CommonJS build next to the ESM build) are recognized too.
+ */
+const levelFilters: WeakMap<Filter, LogLevel | null> = getLevelFilters();
+
+function getLevelFilters(): WeakMap<Filter, LogLevel | null> {
+  const registry = globalThis as unknown as Record<symbol, unknown>;
+  const key = Symbol.for("logtape.levelFilters");
+  const map = registry[key];
+  if (map instanceof WeakMap) return map as WeakMap<Filter, LogLevel | null>;
+  const newMap = new WeakMap<Filter, LogLevel | null>();
+  registry[key] = newMap;
+  return newMap;
+}
+
+/**
+ * Gets the level of a filter made by {@link getLevelFilter}, without invoking
+ * the filter.
+ * @param filter The filter to look up.
+ * @returns The lowest level the filter accepts, `null` if it rejects all
+ *          records, or `undefined` if the filter was not made by
+ *          {@link getLevelFilter}.
+ */
+export function getFilterLevel(filter: Filter): LogLevel | null | undefined {
+  return levelFilters.get(filter);
+}
+
+function createLevelFilter(level: LogLevel | null): Filter {
   if (level == null) return () => false;
   if (level === "fatal") {
     return (record: LogRecord) => record.level === "fatal";

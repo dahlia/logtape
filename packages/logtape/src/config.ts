@@ -1,5 +1,5 @@
 import type { ContextLocalStorage } from "./context.ts";
-import { type FilterLike, toFilter } from "./filter.ts";
+import { type Filter, type FilterLike, toFilter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
 import {
@@ -139,6 +139,43 @@ const strongRefs: Set<LoggerImpl> = new Set();
  * mutate the configuration object after configuring.
  */
 const installedSinks: Set<Sink> = new Set();
+
+/**
+ * What {@link configure} attached to each configured logger, together with the
+ * sink and filter identifiers it resolved them from.
+ */
+interface ConfiguredLogger {
+  readonly sinks: readonly Sink[];
+  readonly sinkIds: readonly string[];
+  readonly filters: readonly Filter[];
+  readonly filterIds: readonly string[];
+}
+
+/**
+ * The state that {@link inspectLogger} reads.  Like the logger tree, it is
+ * shared through `globalThis`, so that copies of LogTape in the same process
+ * (e.g., the CommonJS build next to the ESM build) describe the configuration
+ * that actually dispatches records, whichever copy applied it.  Copies older
+ * than 2.4.0 do not maintain it.
+ */
+interface InspectionState {
+  configured: boolean;
+  loggers: WeakMap<object, ConfiguredLogger>;
+}
+
+const inspectionStateSymbol = Symbol.for("logtape.inspectionState");
+
+function getInspectionState(): InspectionState {
+  const registry = globalThis as unknown as Record<symbol, unknown>;
+  const state = registry[inspectionStateSymbol] as InspectionState | undefined;
+  if (state != null && state.loggers instanceof WeakMap) return state;
+  const newState: InspectionState = {
+    configured: false,
+    loggers: new WeakMap(),
+  };
+  registry[inspectionStateSymbol] = newState;
+  return newState;
+}
 
 /**
  * Sync filter disposables to dispose when resetting the configuration.
@@ -531,6 +568,7 @@ function configureInternal<
   TFilterId extends string,
 >(config: Config<TSinkId, TFilterId>, allowAsync: boolean): void {
   currentConfig = config;
+  getInspectionState().configured = true;
 
   let metaConfigured = false;
   const configuredCategories = new Set<string>();
@@ -571,6 +609,12 @@ function configureInternal<
       }
       logger.filters.push(toFilter(filter));
     }
+    getInspectionState().loggers.set(logger, {
+      sinks: [...logger.sinks],
+      sinkIds: [...(cfg.sinks ?? [])],
+      filters: [...logger.filters],
+      filterIds: [...(cfg.filters ?? [])],
+    });
     strongRefs.add(logger);
   }
 
@@ -663,7 +707,59 @@ function resetInternal(): void {
   delete rootLogger.contextLocalStorage;
   strongRefs.clear();
   installedSinks.clear();
+  const inspectionState = getInspectionState();
+  inspectionState.configured = false;
+  inspectionState.loggers = new WeakMap();
   currentConfig = null;
+}
+
+/**
+ * Checks whether the process-global configuration is in effect.  Unlike
+ * {@link getConfig}, it also reflects configuring and resetting through
+ * another copy of LogTape in the same process.
+ */
+export function isConfigured(): boolean {
+  return getInspectionState().configured;
+}
+
+/**
+ * The sink and filter identifiers of a logger configured by
+ * {@link configure}.  Each list is `undefined` when the logger's sinks or
+ * filters no longer match what the configuration attached, e.g., because
+ * they were modified directly.
+ */
+export interface ConfiguredLoggerIds {
+  readonly sinkIds: readonly string[] | undefined;
+  readonly filterIds: readonly string[] | undefined;
+}
+
+/**
+ * Gets the sink and filter identifiers that the process-global configuration
+ * attached to the given logger.
+ * @param logger The logger to look up.
+ * @returns The identifiers, or `undefined` if the logger is not configured.
+ */
+export function getConfiguredLoggerIds(
+  logger: LoggerImpl,
+): ConfiguredLoggerIds | undefined {
+  const configured = getInspectionState().loggers.get(logger);
+  if (configured == null) return undefined;
+  return {
+    sinkIds: isSameList(logger.sinks, configured.sinks)
+      ? configured.sinkIds
+      : undefined,
+    filterIds: isSameList(logger.filters, configured.filters)
+      ? configured.filterIds
+      : undefined,
+  };
+}
+
+function isSameList<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 /**

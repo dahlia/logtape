@@ -51,6 +51,18 @@ export {
   type TextFormatter,
   type TextFormatterOptions,
 } from "./formatter.ts";
+export {
+  type FilterInspection,
+  type FilterSetInspection,
+  type InheritanceBoundaryInspection,
+  inspectLogger,
+  type InspectLoggerOptions,
+  type LevelGateInspection,
+  type LoggerInspection,
+  type LoggerInspectionStatus,
+  type LoggerNodeInspection,
+  type SinkPathInspection,
+} from "./inspect.ts";
 export { sanitizeControlSequences } from "./sanitize.ts";
 export {
   compareLogLevel,

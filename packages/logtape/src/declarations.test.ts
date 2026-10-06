@@ -28,6 +28,13 @@ const cases = [
     publicName: "withCategoryPrefix",
     publicDocs: "Runs a callback with the given category prefix prepended",
   },
+  {
+    module: "inspect",
+    internalName: "collectSinkPaths",
+    internalDocs: "Mirrors LoggerImpl.createSinkDispatchPlan()",
+    publicName: "inspectLogger",
+    publicDocs: "The inspection has no side effects.",
+  },
 ] as const;
 
 for (const extension of ["d.ts", "d.cts"]) {
