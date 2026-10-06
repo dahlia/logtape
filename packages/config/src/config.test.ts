@@ -108,6 +108,44 @@ test('configureFromObject() passes through parentSinks "forward"', async () => {
   }
 });
 
+test("configureFromObject() passes through captureSourceLocation", async () => {
+  await setup();
+  try {
+    await configureFromObject({
+      sinks: {
+        spy: {
+          type: `${fixturesModule}#getSpySink()`,
+        },
+      },
+      loggers: [
+        {
+          category: "my-app",
+          sinks: ["spy"],
+          lowestLevel: "info",
+          captureSourceLocation: true,
+        },
+        {
+          category: ["my-app", "quiet"],
+          captureSourceLocation: false,
+        },
+      ],
+    });
+
+    // The independent marker must stay right above the logging call:
+    const marker = new Error().stack!.split("\n")[1];
+    getLogger(["my-app", "db"]).info("a");
+    getLogger(["my-app", "quiet"]).info("b");
+
+    assert.strictEqual(logs.length, 2);
+    const markerLine = Number(/:(\d+):\d+\)?$/.exec(marker)![1]);
+    assert.ok(logs[0].sourceLocation?.file.includes("config.test.ts"));
+    assert.strictEqual(logs[0].sourceLocation?.line, markerLine + 1);
+    assert.ok(!("sourceLocation" in logs[1]));
+  } finally {
+    await teardown();
+  }
+});
+
 test("configureFromObject() with shorthand factory", async () => {
   await setup();
   try {
@@ -230,6 +268,33 @@ test("configureFromObject() warn on invalid config", async () => {
 
     assert.strictEqual(logs.length, 1);
     assert.deepStrictEqual(logs[0].message, ["partial success"]);
+  } finally {
+    await teardown();
+  }
+});
+
+test("configureFromObject() rejects a non-boolean captureSourceLocation", async () => {
+  // E.g., "${LOG_CAPTURE}" expanded from an environment variable:
+  const config = {
+    sinks: { spy: { type: `${fixturesModule}#getSpySink()` } },
+    loggers: [{
+      category: "my-app",
+      sinks: ["spy"],
+      captureSourceLocation: "true" as unknown as boolean,
+    }],
+  };
+  await setup();
+  try {
+    await assert.rejects(() => configureFromObject(config), ConfigError);
+  } finally {
+    await teardown();
+  }
+  await setup();
+  try {
+    await configureFromObject(config, { onInvalidConfig: "warn" });
+    getLogger("my-app").info("logged without a location");
+    assert.strictEqual(logs.length, 1);
+    assert.ok(!("sourceLocation" in logs[0]));
   } finally {
     await teardown();
   }

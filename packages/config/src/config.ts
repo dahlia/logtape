@@ -112,12 +112,31 @@ export async function configureFromObject(
         }
       }
 
+      // Values from JSON, YAML, or environment variables may not be booleans:
+      let captureSourceLocation = loggerConfig.captureSourceLocation;
+      if (
+        captureSourceLocation !== undefined &&
+        typeof captureSourceLocation !== "boolean"
+      ) {
+        const msg = `Logger '${
+          Array.isArray(loggerConfig.category)
+            ? loggerConfig.category.join(".")
+            : loggerConfig.category
+        }' has a non-boolean captureSourceLocation`;
+        if (onInvalidConfig === "throw") {
+          throw new ConfigError(msg);
+        }
+        warnings.push(msg);
+        captureSourceLocation = undefined;
+      }
+
       logTapeConfig.loggers.push({
         category: loggerConfig.category,
         sinks: validSinks.length > 0 ? validSinks : undefined,
         filters: validFilters.length > 0 ? validFilters : undefined,
         lowestLevel: loggerConfig.lowestLevel,
         parentSinks: loggerConfig.parentSinks,
+        captureSourceLocation,
       });
     }
   }

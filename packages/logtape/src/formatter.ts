@@ -1,7 +1,7 @@
 import * as util from "#util";
 import { createCircularReplacer, stringifyWithoutCycles } from "./circular.ts";
 import type { LogLevel } from "./level.ts";
-import type { LogRecord } from "./record.ts";
+import type { LogRecord, SourceLocation } from "./record.ts";
 import {
   getSanitizer,
   type SanitizationOptions,
@@ -187,6 +187,14 @@ export interface FormattedValues {
   message: string;
 
   /**
+   * The formatted source location of the log record.  This key is present
+   * only if the {@link TextFormatterOptions.sourceLocation} option is
+   * enabled; then it is `null` if the record has no source location.
+   * @since 2.4.0
+   */
+  sourceLocation?: string | null;
+
+  /**
    * The unformatted log record.
    */
   record: LogRecord;
@@ -339,6 +347,31 @@ export interface TextFormatterOptions {
       value: unknown,
       inspect: (value: unknown, options?: { colors?: boolean }) => string,
     ) => string);
+
+  /**
+   * Whether and how to show the source location of log records, i.e., where
+   * the logging method was called.  Records have one only if the
+   * `captureSourceLocation` option of their logger's configuration is
+   * enabled.
+   *
+   * - `false` (default): The source location is not shown.
+   * - `true`: The source location is shown as `file:line:column`, after
+   *   the category, e.g.,
+   *   `2023-11-14 22:13:20.000 +00:00 [INF] my-app (file:///app/main.ts:42:7): Hello, world!`.
+   *   Records without a source location are formatted as if this option
+   *   were disabled.
+   * - A function: It renders a source location to a string, which is shown
+   *   in the same place, e.g., to show only the file name.
+   *
+   * Control characters, ANSI escape sequences, and line breaks in the
+   * rendered location are escaped, unless
+   * {@link TextFormatterOptions.sanitize} is `false`.
+   * With a custom {@link TextFormatterOptions.format} function, the rendered
+   * location is available as {@link FormattedValues.sourceLocation}.
+   * @default `false`
+   * @since 2.4.0
+   */
+  sourceLocation?: boolean | ((location: SourceLocation) => string);
 
   /**
    * How those formatted parts are concatenated.
@@ -857,10 +890,22 @@ export function getTextFormatter(
   })();
 
   const lineEnding = getLineEndingValue(options.lineEnding);
+  const sourceLocationRenderer = getSourceLocationRenderer(
+    options.sourceLocation,
+    options.sanitize === false ? null : getSanitizer({
+      ...options.sanitize,
+      sgr: "escape",
+      newlines: "escape",
+    }),
+  );
 
   const formatter: (values: FormattedValues) => string = options.format ??
-    (({ timestamp, level, category, message }: FormattedValues) =>
-      `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}: ${message}`);
+    ((
+      { timestamp, level, category, message, sourceLocation }: FormattedValues,
+    ) =>
+      `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}${
+        sourceLocation == null ? "" : ` (${sourceLocation})`
+      }: ${message}`);
 
   return (record: LogRecord): string => {
     const message: string = renderMessageParts(
@@ -885,8 +930,34 @@ export function getTextFormatter(
       message,
       record,
     };
+    if (sourceLocationRenderer != null) {
+      values.sourceLocation = record.sourceLocation == null
+        ? null
+        : sourceLocationRenderer(record.sourceLocation);
+    }
     return `${formatter(values)}${lineEnding}`;
   };
+}
+
+/**
+ * Builds the function that renders source locations for the
+ * `sourceLocation` option of a formatter.
+ * @param option The `sourceLocation` option.
+ * @param sanitize The function to escape control characters in the rendered
+ *                 location, if any.
+ * @returns The renderer, or `null` if source locations are not shown.
+ */
+function getSourceLocationRenderer(
+  option: boolean | ((location: SourceLocation) => string) | undefined,
+  sanitize: ((text: string) => string) | null,
+): ((location: SourceLocation) => string) | null {
+  if (option == null || option === false) return null;
+  const render = option === true
+    ? (location: SourceLocation): string =>
+      `${location.file}:${location.line}:${location.column}`
+    : option;
+  if (sanitize == null) return render;
+  return (location: SourceLocation): string => sanitize(render(location));
 }
 
 /**
@@ -1090,7 +1161,9 @@ export function getAnsiColorFormatter(
         ),
       }
       : {}),
-    format({ timestamp, level, category, message, record }): string {
+    format(
+      { timestamp, level, category, message, sourceLocation, record },
+    ): string {
       const levelColor = levelColors[record.level];
       timestamp = timestamp == null
         ? null
@@ -1098,17 +1171,28 @@ export function getAnsiColorFormatter(
       level = `${levelStyle == null ? "" : ansiStyles[levelStyle]}${
         levelColor == null ? "" : ansiColors[levelColor]
       }${level}${levelStyle == null && levelColor == null ? "" : RESET}`;
-      return format == null
-        ? `${
+      if (format == null) {
+        return `${
           timestamp == null ? "" : `${timestamp} `
-        }${level} ${categoryPrefix}${category}:${categorySuffix} ${message}`
-        : format({
-          timestamp,
-          level,
-          category: `${categoryPrefix}${category}${categorySuffix}`,
-          message,
-          record,
-        });
+        }${level} ${categoryPrefix}${category}${
+          sourceLocation == null ? "" : ` (${sourceLocation})`
+        }:${categorySuffix} ${message}`;
+      }
+      const values: FormattedValues = {
+        timestamp,
+        level,
+        category: `${categoryPrefix}${category}${categorySuffix}`,
+        message,
+        record,
+      };
+      // Like the category, the source location is styled, and the key is
+      // only passed on when the sourceLocation option is enabled:
+      if (sourceLocation !== undefined) {
+        values.sourceLocation = sourceLocation == null
+          ? null
+          : `${categoryPrefix}${sourceLocation}${categorySuffix}`;
+      }
+      return format(values);
     },
   });
 }
@@ -1643,6 +1727,75 @@ const logLevelStyles: Record<LogLevel, string> = {
 };
 
 /**
+ * Options for the {@link getConsoleFormatter} function.
+ * @since 2.4.0
+ */
+export interface ConsoleFormatterOptions {
+  /**
+   * Whether and how to show the source location of log records, i.e., where
+   * the logging method was called.  Records have one only if the
+   * `captureSourceLocation` option of their logger's configuration is
+   * enabled.
+   *
+   * - `false` (default): The source location is not shown.
+   * - `true`: The source location is shown as `file:line:column`, after
+   *   the category.  Records without a source location are formatted as if
+   *   this option were disabled.
+   * - A function: It renders a source location to a string, which is shown
+   *   in the same place, e.g., to show only the file name.
+   *
+   * Note that the console still links each message to the place in
+   * LogTape's console sink that printed it; the source location is only
+   * shown as text.
+   * @default `false`
+   */
+  readonly sourceLocation?: boolean | ((location: SourceLocation) => string);
+}
+
+/**
+ * Gets a console formatter with the specified options.  Without options, the
+ * returned formatter formats log records the same way as
+ * {@link defaultConsoleFormatter}.
+ *
+ * @example Showing source locations in the browser console
+ * ```typescript
+ * import { configure, getConsoleFormatter, getConsoleSink } from "@logtape/logtape";
+ *
+ * await configure({
+ *   sinks: {
+ *     console: getConsoleSink({
+ *       formatter: getConsoleFormatter({ sourceLocation: true }),
+ *     }),
+ *   },
+ *   loggers: [
+ *     { category: "my-app", sinks: ["console"], captureSourceLocation: true },
+ *   ],
+ * });
+ * ```
+ *
+ * @param options The options for the console formatter.
+ * @returns The console formatter.
+ * @since 2.4.0
+ */
+export function getConsoleFormatter(
+  options: ConsoleFormatterOptions = {},
+): ConsoleFormatter {
+  const renderSourceLocation = getSourceLocationRenderer(
+    options.sourceLocation,
+    (text) =>
+      sanitizeControlSequences(text, { sgr: "escape", newlines: "escape" }),
+  );
+  if (renderSourceLocation == null) return defaultConsoleFormatter;
+  return (record: LogRecord): readonly unknown[] =>
+    formatConsoleRecord(
+      record,
+      record.sourceLocation == null
+        ? undefined
+        : renderSourceLocation(record.sourceLocation),
+    );
+}
+
+/**
  * The default console formatter.
  *
  * @param record The log record to format.
@@ -1650,6 +1803,13 @@ const logLevelStyles: Record<LogLevel, string> = {
  *          {@link console.log}.
  */
 export function defaultConsoleFormatter(record: LogRecord): readonly unknown[] {
+  return formatConsoleRecord(record, undefined);
+}
+
+function formatConsoleRecord(
+  record: LogRecord,
+  sourceLocation: string | undefined,
+): readonly unknown[] {
   let msg = "";
   const values: unknown[] = [];
   for (let i = 0; i < record.message.length; i++) {
@@ -1666,16 +1826,33 @@ export function defaultConsoleFormatter(record: LogRecord): readonly unknown[] {
   }:${date.getUTCSeconds().toString().padStart(2, "0")}.${
     date.getUTCMilliseconds().toString().padStart(3, "0")
   }`;
+  const category = record.category
+    .map((c) => sanitizeControlSequences(c, { sgr: "escape" }))
+    .join("\xb7");
+  if (sourceLocation == null) {
+    return [
+      `%c${time} %c${
+        levelAbbreviations[record.level]
+      }%c %c${category} %c${msg}`,
+      "color: gray;",
+      logLevelStyles[record.level],
+      "background-color: default;",
+      "color: gray;",
+      "color: default;",
+      ...values,
+    ];
+  }
+  // The location is passed as an argument rather than embedded in the format
+  // string, so that a "%" in a path cannot consume the other arguments:
   return [
-    `%c${time} %c${levelAbbreviations[record.level]}%c %c${
-      record.category
-        .map((c) => sanitizeControlSequences(c, { sgr: "escape" }))
-        .join("\xb7")
-    } %c${msg}`,
+    `%c${time} %c${
+      levelAbbreviations[record.level]
+    }%c %c${category} (%s) %c${msg}`,
     "color: gray;",
     logLevelStyles[record.level],
     "background-color: default;",
     "color: gray;",
+    sourceLocation,
     "color: default;",
     ...values,
   ];

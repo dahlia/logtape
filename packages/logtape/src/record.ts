@@ -46,4 +46,47 @@ export interface LogRecord {
    * The extra properties of the log record.
    */
   readonly properties: Record<string, unknown>;
+
+  /**
+   * Where in the source code the logging method that made this log record
+   * was called.
+   *
+   * It is present only if source location capture is enabled for the logger
+   * (see `LoggerConfig.captureSourceLocation`) and the runtime's stack
+   * trace could be parsed; otherwise the property is absent.
+   *
+   * @since 2.4.0
+   */
+  readonly sourceLocation?: SourceLocation;
+}
+
+/**
+ * A location in the source code, as reported by the JavaScript runtime's
+ * stack trace.
+ *
+ * The position is the one of the code that actually runs.  LogTape does not
+ * resolve source maps, so bundled or minified code may report positions in
+ * the generated code, unless the runtime itself applies source maps to
+ * stack traces.
+ *
+ * @since 2.4.0
+ */
+export interface SourceLocation {
+  /**
+   * The file path or URL exactly as the runtime reported it, e.g.,
+   * `"file:///app/src/main.ts"`, `"/app/src/main.ts"`, or
+   * `"http://localhost:5173/src/main.ts?t=1700000000000"`.
+   */
+  readonly file: string;
+
+  /**
+   * The 1-based line number.
+   */
+  readonly line: number;
+
+  /**
+   * The 1-based column number.  Runtimes differ in which part of the call
+   * expression it points to.
+   */
+  readonly column: number;
 }

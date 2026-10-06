@@ -28,6 +28,7 @@ export interface ScopedLoggerConfigLike<
   readonly parentSinks?: "inherit" | "override" | "forward";
   readonly filters?: readonly TFilterId[];
   readonly lowestLevel?: LogLevel | null;
+  readonly captureSourceLocation?: boolean;
 }
 
 export interface CompiledScopedConfig {
@@ -37,6 +38,12 @@ export interface CompiledScopedConfig {
     string,
     readonly ((record: LogRecord) => boolean)[]
   >;
+  /**
+   * Whether any logger in this configuration enables source location
+   * capture.
+   */
+  readonly capturesSourceLocation: boolean;
+  readonly sourceLocationCaptureCache: Map<string, boolean>;
   parent: CompiledScopedConfig | undefined;
   disposed: boolean;
   readonly syncFilters: Set<Disposable>;
@@ -53,6 +60,7 @@ export interface CompiledScopedLogger {
   readonly parentSinks: "inherit" | "override" | "forward";
   readonly sinks: readonly Sink[];
   readonly sinkIds: readonly string[];
+  readonly captureSourceLocation: boolean | undefined;
 }
 
 type ScopedSinkDispatchPlan =
@@ -67,6 +75,7 @@ const defaultScopedLogger: CompiledScopedLogger = {
   parentSinks: "inherit",
   sinks: [],
   sinkIds: [],
+  captureSourceLocation: undefined,
 };
 const noFilters: readonly ((record: LogRecord) => boolean)[] = [];
 
@@ -93,6 +102,7 @@ export function compileScopedConfig<
 
   const nodes = new Map<string, CompiledScopedLogger>();
   const configuredCategories = new Set<string>();
+  let capturesSourceLocation = false;
   for (const logger of config.loggers) {
     if (!isObjectLike(logger)) {
       throw createError("Logger configuration must be an object.");
@@ -126,6 +136,12 @@ export function compileScopedConfig<
       !isLogLevel(loggerConfig.lowestLevel)
     ) {
       throw createError("Logger lowestLevel must be a log level or null.");
+    }
+    if (
+      loggerConfig.captureSourceLocation !== undefined &&
+      typeof loggerConfig.captureSourceLocation !== "boolean"
+    ) {
+      throw createError("Logger captureSourceLocation must be a boolean.");
     }
     const key = categoryKey(category);
     if (configuredCategories.has(key)) {
@@ -173,7 +189,11 @@ export function compileScopedConfig<
       parentSinks: loggerConfig.parentSinks ?? "inherit",
       sinks,
       sinkIds: [...sinkIds],
+      captureSourceLocation: loggerConfig.captureSourceLocation,
     });
+    if (loggerConfig.captureSourceLocation === true) {
+      capturesSourceLocation = true;
+    }
   }
 
   const syncFilters = new Set<Disposable>();
@@ -214,12 +234,14 @@ export function compileScopedConfig<
   return {
     asyncFilters,
     asyncSinks,
+    capturesSourceLocation,
     dispatchCache: new Map(),
     disposed: false,
     filterCache: new Map(),
     nodes,
     parent: undefined,
     sinks,
+    sourceLocationCaptureCache: new Map(),
     syncFilters,
     syncSinks,
   };
@@ -269,6 +291,33 @@ export function scopedConfigHasSink(
 ): boolean {
   return getScopedSinkDispatchPlan(scopedConfig, category, level).kind !==
     "none";
+}
+
+/**
+ * Resolves whether source locations are captured for the given category
+ * under the scoped configuration: the setting of the nearest configured
+ * category, from the category itself up to the root, wins.
+ */
+export function scopedConfigCapturesSourceLocation(
+  scopedConfig: CompiledScopedConfig,
+  category: readonly string[],
+): boolean {
+  if (!scopedConfig.capturesSourceLocation) return false;
+  const key = categoryKey(category);
+  let captures = scopedConfig.sourceLocationCaptureCache.get(key);
+  if (captures == null) {
+    captures = false;
+    for (let length = category.length; length >= 0; length--) {
+      const logger = scopedConfig.nodes.get(
+        categoryKey(category.slice(0, length)),
+      );
+      if (logger?.captureSourceLocation == null) continue;
+      captures = logger.captureSourceLocation;
+      break;
+    }
+    scopedConfig.sourceLocationCaptureCache.set(key, captures);
+  }
+  return captures;
 }
 
 export function emitWithScopedConfig(

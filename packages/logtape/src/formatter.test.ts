@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fc from "fast-check";
 import { fatal, info } from "./fixtures.ts";
+import { format as formatWithDirectives } from "node:util";
 import {
   ansiColorFormatter,
   defaultConsoleFormatter,
   defaultTextFormatter,
   type FormattedValues,
   getAnsiColorFormatter,
+  getConsoleFormatter,
   getJsonLinesFormatter,
   getLogfmtFormatter,
   getTextFormatter,
@@ -1801,4 +1803,177 @@ test('getTextFormatter() with value: "bare" in the browser fallback', async () =
     if (previousDocument == null) delete globals.document;
     else globals.document = previousDocument;
   }
+});
+
+const infoWithSourceLocation: LogRecord = {
+  ...info,
+  sourceLocation: { file: "file:///app/src/main.ts", line: 42, column: 7 },
+};
+
+test("getTextFormatter() shows source locations only when asked", () => {
+  const plain = "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+    "Hello, 123 & 456!\n";
+  assert.strictEqual(getTextFormatter()(infoWithSourceLocation), plain);
+  assert.strictEqual(
+    getTextFormatter({ sourceLocation: false })(infoWithSourceLocation),
+    plain,
+  );
+  assert.strictEqual(
+    getTextFormatter({ sourceLocation: true })(infoWithSourceLocation),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk " +
+      "(file:///app/src/main.ts:42:7): Hello, 123 & 456!\n",
+  );
+  // Records without a source location look the same as without the option:
+  assert.strictEqual(getTextFormatter({ sourceLocation: true })(info), plain);
+  assert.strictEqual(
+    getTextFormatter({
+      sourceLocation: ({ file, line }) =>
+        `${file.slice(file.lastIndexOf("/") + 1)}:${line}`,
+    })(infoWithSourceLocation),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk (main.ts:42): " +
+      "Hello, 123 & 456!\n",
+  );
+});
+
+test("getTextFormatter() passes source locations to format()", () => {
+  const values: FormattedValues[] = [];
+  const format = (v: FormattedValues) => {
+    values.push(v);
+    return v.message;
+  };
+  getTextFormatter({ format })(infoWithSourceLocation);
+  // Without the option, the values keep their usual keys:
+  assert.ok(!("sourceLocation" in values[0]));
+  getTextFormatter({ format, sourceLocation: true })(infoWithSourceLocation);
+  assert.strictEqual(values[1].sourceLocation, "file:///app/src/main.ts:42:7");
+  getTextFormatter({ format, sourceLocation: true })(info);
+  assert.strictEqual(values[2].sourceLocation, null);
+});
+
+test("getTextFormatter() escapes control characters in source locations", () => {
+  const record: LogRecord = {
+    ...info,
+    sourceLocation: { file: "/app/\x1b[31mevil\nfile.ts", line: 1, column: 2 },
+  };
+  const output = getTextFormatter({ sourceLocation: true })(record);
+  assert.ok(!output.includes("\x1b[31m"));
+  assert.strictEqual(output.split("\n").length, 2);
+  assert.strictEqual(
+    getTextFormatter({ sourceLocation: true, sanitize: false })(record),
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk " +
+      "(/app/\x1b[31mevil\nfile.ts:1:2): Hello, 123 & 456!\n",
+  );
+});
+
+test("getAnsiColorFormatter() shows source locations only when asked", () => {
+  assert.strictEqual(
+    getAnsiColorFormatter()(infoWithSourceLocation),
+    ansiColorFormatter(info),
+  );
+  assert.strictEqual(
+    getAnsiColorFormatter({ sourceLocation: true })(infoWithSourceLocation),
+    "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m " +
+      "\x1b[1m\x1b[32mINF\x1b[0m " +
+      "\x1b[2mmy-app·junk (file:///app/src/main.ts:42:7):\x1b[0m " +
+      "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!\n",
+  );
+  assert.strictEqual(
+    getAnsiColorFormatter({ sourceLocation: true })(info),
+    ansiColorFormatter(info),
+  );
+  const values: FormattedValues[] = [];
+  const format = (v: FormattedValues) => {
+    values.push(v);
+    return v.message;
+  };
+  getAnsiColorFormatter({ format })(infoWithSourceLocation);
+  assert.ok(!("sourceLocation" in values[0]));
+  getAnsiColorFormatter({ format, sourceLocation: true })(
+    infoWithSourceLocation,
+  );
+  assert.strictEqual(
+    values[1].sourceLocation,
+    "\x1b[2mfile:///app/src/main.ts:42:7\x1b[0m",
+  );
+  getAnsiColorFormatter({ format, sourceLocation: true })(info);
+  assert.strictEqual(values[2].sourceLocation, null);
+});
+
+test("getConsoleFormatter()", () => {
+  assert.strictEqual(getConsoleFormatter(), defaultConsoleFormatter);
+  assert.deepStrictEqual(
+    getConsoleFormatter({ sourceLocation: false })(infoWithSourceLocation),
+    defaultConsoleFormatter(info),
+  );
+  const formatter = getConsoleFormatter({ sourceLocation: true });
+  assert.deepStrictEqual(formatter(info), defaultConsoleFormatter(info));
+  assert.deepStrictEqual(
+    formatter(infoWithSourceLocation),
+    [
+      "%c22:13:20.000 %cINF%c %cmy-app·junk (%s) %cHello, %o & %o!",
+      "color: gray;",
+      "background-color: white; color: black;",
+      "background-color: default;",
+      "color: gray;",
+      "file:///app/src/main.ts:42:7",
+      "color: default;",
+      123,
+      456,
+    ],
+  );
+  assert.deepStrictEqual(
+    getConsoleFormatter({ sourceLocation: ({ line }) => `line ${line}` })(
+      infoWithSourceLocation,
+    )[5],
+    "line 42",
+  );
+});
+
+test("getConsoleFormatter() keeps format directives in locations inert", () => {
+  const record: LogRecord = {
+    ...info,
+    message: ["Value: ", { a: 1 }, ""],
+    sourceLocation: { file: "/app/%s%c%o.ts", line: 1, column: 2 },
+  };
+  for (
+    const formatter of [
+      getConsoleFormatter({ sourceLocation: true }),
+      getConsoleFormatter({ sourceLocation: () => "%o %s %c" }),
+    ]
+  ) {
+    const output = formatWithDirectives(...formatter(record));
+    const location = formatter(record)[5] as string;
+    // Every style is consumed by its own %c, the location is printed as is,
+    // and the interpolated object is still there:
+    assert.ok(output.includes(`my-app·junk (${location}) Value: `), output);
+    assert.ok(output.includes("a: 1"), output);
+    assert.ok(!output.includes("color:"), output);
+  }
+});
+
+test("Formatters escape control characters from custom location renderers", () => {
+  // A renderer can produce control characters the file did not contain:
+  const sourceLocation = ({ file }: { file: string }) =>
+    decodeURIComponent(new URL(file).pathname);
+  const record: LogRecord = {
+    ...info,
+    sourceLocation: {
+      file: "file:///tmp/%1B%5B2J%0Aforged.js",
+      line: 1,
+      column: 2,
+    },
+  };
+  for (
+    const output of [
+      getTextFormatter({ sourceLocation })(record),
+      getAnsiColorFormatter({ sourceLocation })(record),
+    ]
+  ) {
+    assert.ok(!output.includes("\x1b[2J"), output);
+    assert.strictEqual(output.split("\n").length, 2, output);
+  }
+  const location = getConsoleFormatter({ sourceLocation })(record)[5];
+  assert.strictEqual(typeof location, "string");
+  assert.ok(!(location as string).includes("\x1b"));
+  assert.ok(!(location as string).includes("\n"));
 });

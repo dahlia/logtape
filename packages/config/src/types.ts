@@ -92,6 +92,14 @@ export interface LoggerConfig {
    * without applying their `lowestLevel` thresholds.
    */
   parentSinks?: "inherit" | "override" | "forward";
+
+  /**
+   * Whether to capture where in the source code each logging method of this
+   * logger and its descendants is called.  Meant for development.  If
+   * omitted, the setting is inherited from the parent category.
+   * @since 2.4.0
+   */
+  captureSourceLocation?: boolean;
 }
 
 /**

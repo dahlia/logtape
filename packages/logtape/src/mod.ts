@@ -36,10 +36,12 @@ export {
   type AnsiColorFormatterOptions,
   type AnsiStyle,
   type ConsoleFormatter,
+  type ConsoleFormatterOptions,
   defaultConsoleFormatter,
   defaultTextFormatter,
   type FormattedValues,
   getAnsiColorFormatter,
+  getConsoleFormatter,
   getJsonLinesFormatter,
   getLogfmtFormatter,
   getTextFormatter,
@@ -80,7 +82,7 @@ export {
   type Logger,
   type LogMethod,
 } from "./logger.ts";
-export type { LogRecord } from "./record.ts";
+export type { LogRecord, SourceLocation } from "./record.ts";
 export {
   type AsyncSink,
   type AsyncSinkOptions,

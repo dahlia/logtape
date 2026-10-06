@@ -16,6 +16,7 @@
     "null": "deno run -A null.ts",
     "console": "deno run -A console.ts | grep -v 'Test log message.'",
     "file": "deno run -A --unstable-worker-options file.ts",
-    "json": "deno run -A --unstable-worker-options json.ts"
+    "json": "deno run -A --unstable-worker-options json.ts",
+    "source-location": "deno run -A source-location.ts"
   }
 }

@@ -67,6 +67,13 @@ test("prettyFormatter basic output", () => {
   assert.match(output, /3000/);
 });
 
+test("getPrettyFormatter() does not take the sourceLocation option", () => {
+  // The text formatter option does not apply to the pretty formatter:
+  // @ts-expect-error: sourceLocation is not a pretty formatter option.
+  const options: PrettyFormatterOptions = { sourceLocation: true };
+  assert.strictEqual(typeof getPrettyFormatter(options), "function");
+});
+
 test("getPrettyFormatter() with no colors", () => {
   const formatter = getPrettyFormatter({ colors: false });
   const record = createLogRecord(

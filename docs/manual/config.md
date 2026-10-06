@@ -143,6 +143,12 @@ see [*Configuring severity levels*](./levels.md#configuring-severity-levels).
 > `lowestLevel` thresholds by specifying the `parentSinks: "forward"` option
 > (available since LogTape 2.4.0).
 
+> [!TIP]
+> During development, the `captureSourceLocation: true` option of a logger
+> (available since LogTape 2.4.0) records where each logging call was made,
+> so that formatters can show it.  See [*Showing where log records come
+> from*](./debug.md#showing-where-log-records-come-from).
+
 > [!WARNING]
 > Defining loggers with the same category is disallowed.  If there are
 > duplicate categories, LogTape will throw a `ConfigError` when you call
@@ -817,6 +823,11 @@ Or use a shorthand string:
   ]
 }
 ~~~~
+
+A logger can also have `"parentSinks"` and, for development,
+`"captureSourceLocation": true` (available since LogTape 2.4.0), which work
+the same as the `parentSinks` and `captureSourceLocation` options of
+`configure()`.
 
 ### Complete example
 

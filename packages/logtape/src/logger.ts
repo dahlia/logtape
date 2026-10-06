@@ -5,13 +5,15 @@ import {
 } from "./context.ts";
 import type { Filter } from "./filter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
-import type { LogRecord } from "./record.ts";
+import type { LogRecord, SourceLocation } from "./record.ts";
 import {
   emitWithScopedConfig,
   getCurrentScopedConfig,
+  scopedConfigCapturesSourceLocation,
   scopedConfigHasSink,
 } from "./scoped-config.ts";
 import type { Sink } from "./sink.ts";
+import { parseSourceLocation } from "./source-location.ts";
 
 /**
  * Symbol to identify lazy values.
@@ -25,6 +27,31 @@ const immediateSinkSymbol = Symbol.for(
 );
 const internalStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 const resolvedStringLogRecords: WeakSet<LogRecord> = new WeakSet();
+
+// Whether the global configuration enables source location capture for any
+// category, and how many active scoped configurations do.  Logging methods
+// check these before doing anything else for source locations, so that they
+// cost next to nothing while no configuration enables capture.  They are
+// only changed through the methods of the root logger, so that when two
+// copies of this module are loaded (e.g., ESM and CJS), the copy whose
+// LoggerImpl runs the logging methods is the one that is updated.
+let globalSourceLocationCapture = false;
+let scopedSourceLocationCaptures = 0;
+
+function isSourceLocationCaptureActive(): boolean {
+  return globalSourceLocationCapture || scopedSourceLocationCaptures > 0;
+}
+
+function attachSourceLocation(
+  record: LogRecord,
+  sourceLocation: SourceLocation | undefined,
+): void {
+  // The property is only added when there is a location, so that records
+  // keep their usual shape while capture is disabled.
+  if (sourceLocation == null) return;
+  (record as { sourceLocation?: SourceLocation }).sourceLocation =
+    sourceLocation;
+}
 
 /**
  * A lazy value that is evaluated at logging time.
@@ -129,6 +156,8 @@ interface StringMessageLogger {
     level: LogLevel,
     message: string,
     properties: Record<string, unknown>,
+    bypassSinks?: Set<Sink>,
+    sourceLocation?: SourceLocation,
   ): void;
 }
 
@@ -141,10 +170,11 @@ function logStringMessage(
   level: LogLevel,
   message: string,
   props?: unknown,
+  sourceLocation?: SourceLocation,
 ): void | Promise<void> {
   if (typeof props !== "function") {
     const properties = (props ?? {}) as Record<string, unknown>;
-    logger.log(level, message, properties);
+    logger.log(level, message, properties, undefined, sourceLocation);
     return;
   }
 
@@ -153,11 +183,11 @@ function logStringMessage(
   const result = (props as LazyPropertiesCallback)();
   if (isPromiseObject<Record<string, unknown>>(result)) {
     return Promise.resolve(result).then((resolvedProps) => {
-      logger.log(level, message, resolvedProps);
+      logger.log(level, message, resolvedProps, undefined, sourceLocation);
     });
   }
 
-  logger.log(level, message, result);
+  logger.log(level, message, result, undefined, sourceLocation);
 }
 
 function snapshotLogRecordProperties(record: LogRecord): LogRecord {
@@ -172,7 +202,7 @@ function snapshotLogRecordProperties(record: LogRecord): LogRecord {
   if (internalStringLogRecords.has(record)) {
     // LoggerImpl.log() creates this fixed shape.  Rebuilding it directly keeps
     // lazy message rendering intact without copying property descriptors.
-    return {
+    const snapshot: LogRecord = {
       category: record.category,
       level: record.level,
       get message() {
@@ -182,6 +212,8 @@ function snapshotLogRecordProperties(record: LogRecord): LogRecord {
       timestamp: record.timestamp,
       properties,
     };
+    attachSourceLocation(snapshot, record.sourceLocation);
+    return snapshot;
   }
   const descriptors = Object.getOwnPropertyDescriptors(record) as
     & PropertyDescriptorMap
@@ -1631,6 +1663,11 @@ export class LoggerImpl implements Logger {
   readonly sinks: Sink[];
   readonly filters: Filter[];
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
+  /**
+   * Whether to capture source locations for this logger and its
+   * descendants.  `undefined` inherits the setting from the parent.
+   */
+  sourceLocationCapture: boolean | undefined = undefined;
   #parentSinks: ParentSinksMode = "inherit";
   #lowestLevel: LogLevel | null = "trace";
   #sinkPlanCache: Partial<Record<LogLevel, SinkDispatchPlan>> = {};
@@ -1725,6 +1762,7 @@ export class LoggerImpl implements Logger {
     this.parentSinks = "inherit";
     while (this.filters.length > 0) this.filters.shift();
     this.lowestLevel = "trace";
+    this.sourceLocationCapture = undefined;
   }
 
   /**
@@ -1741,6 +1779,94 @@ export class LoggerImpl implements Logger {
 
   with(properties: Record<string, unknown>): Logger {
     return new LoggerCtx(this, { ...properties });
+  }
+
+  /**
+   * Sets whether the global configuration enables source location capture
+   * for any category.  Call this on the root logger only.
+   */
+  setGlobalSourceLocationCapture(enabled: boolean): void {
+    globalSourceLocationCapture = enabled;
+  }
+
+  /**
+   * Records that a scoped configuration which enables source location
+   * capture for some category became active.  Call this on the root logger
+   * only, and balance it with
+   * {@link LoggerImpl.releaseScopedSourceLocationCapture}.
+   */
+  retainScopedSourceLocationCapture(): void {
+    scopedSourceLocationCaptures++;
+  }
+
+  /**
+   * Records that a scoped configuration retained with
+   * {@link LoggerImpl.retainScopedSourceLocationCapture} ended.  Call this on
+   * the root logger only.
+   */
+  releaseScopedSourceLocationCapture(): void {
+    if (scopedSourceLocationCaptures > 0) scopedSourceLocationCaptures--;
+  }
+
+  /**
+   * Captures where user code called the public logging method that called
+   * this method, if source location capture is enabled for this logger and
+   * a record of the given level could be emitted.
+   *
+   * It must be called directly by the public logging method that user code
+   * called (e.g., {@link LoggerImpl.info} or {@link LoggerCtx.info}), and
+   * not in tail position, because the location is read from the third frame
+   * of a stack trace constructed here: this method, the logging method, and
+   * then its caller.  JavaScriptCore implements proper tail calls, so a call
+   * in tail position would remove the logging method's frame.
+   * @param level The log level of the record to be made.
+   * @returns The source location, or `undefined` if capture is disabled, the
+   *          record would certainly be dropped, or the stack trace could not
+   *          be parsed.
+   */
+  captureSourceLocation(level: LogLevel): SourceLocation | undefined {
+    if (isMetaLoggerCategory(this.category)) return undefined;
+    // This resolves the same way as isCertainlyDropped(), which is checked
+    // first so that dropped records cost as little as possible:
+    const categoryPrefix = getCategoryPrefix();
+    const scopedConfig = getCurrentScopedConfig(
+      LoggerImpl.getLogger().contextLocalStorage,
+    );
+    if (scopedConfig != null) {
+      const category = categoryPrefix.length > 0
+        ? [...categoryPrefix, ...this.category]
+        : this.category;
+      if (
+        !scopedConfigHasSink(scopedConfig, category, level) ||
+        !scopedConfigCapturesSourceLocation(scopedConfig, category)
+      ) {
+        return undefined;
+      }
+    } else {
+      const dispatcher = this.getDispatcher(categoryPrefix);
+      if (
+        dispatcher.isCertainlyDroppedResolved(level) ||
+        !dispatcher.capturesSourceLocation()
+      ) {
+        return undefined;
+      }
+    }
+    try {
+      return parseSourceLocation(new Error().stack, 2);
+    } catch {
+      // For example, Error.prepareStackTrace may throw.  The location is
+      // only a hint, so the log record is made without it.
+      return undefined;
+    }
+  }
+
+  /**
+   * Resolves whether this logger or the nearest ancestor that configures it
+   * captures source locations.
+   */
+  private capturesSourceLocation(): boolean {
+    if (this.sourceLocationCapture != null) return this.sourceLocationCapture;
+    return this.parent?.capturesSourceLocation() ?? false;
   }
 
   filter(record: LogRecord): boolean {
@@ -1963,19 +2089,27 @@ export class LoggerImpl implements Logger {
         level,
       );
     }
-    const dispatcher = this.getDispatcher(categoryPrefix);
+    return this.getDispatcher(categoryPrefix).isCertainlyDroppedResolved(
+      level,
+    );
+  }
+
+  /**
+   * Checks whether a record of the given level dispatched by this logger,
+   * without a scoped configuration, would certainly be dropped.  See
+   * {@link LoggerImpl.isCertainlyDropped}.
+   */
+  private isCertainlyDroppedResolved(level: LogLevel): boolean {
     // emitResolved() checks the dispatcher's own lowestLevel before running
     // any filter:
     if (
-      dispatcher.lowestLevel === null ||
-      compareLogLevel(level, dispatcher.lowestLevel) < 0
+      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
     ) {
       return true;
     }
     // Filters run before sinks are looked up, so a record can be skipped
     // only when there is neither a filter to see it nor a sink to take it:
-    return !dispatcher.isEnabledForResolved(level) &&
-      !dispatcher.hasEffectiveFilters();
+    return !this.isEnabledForResolved(level) && !this.hasEffectiveFilters();
   }
 
   /**
@@ -2187,6 +2321,7 @@ export class LoggerImpl implements Logger {
     rawMessage: string,
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
+    sourceLocation?: SourceLocation,
   ): void {
     if (this.isCertainlyDropped(level)) return;
     const implicitContext = getImplicitContextIfAny();
@@ -2204,6 +2339,7 @@ export class LoggerImpl implements Logger {
         timestamp: Date.now(),
         properties: {},
       };
+      attachSourceLocation(record, sourceLocation);
       resolvedStringLogRecords.add(record);
       this.emit(record, bypassSinks);
       return;
@@ -2254,6 +2390,7 @@ export class LoggerImpl implements Logger {
           return cachedProps;
         },
       };
+    attachSourceLocation(record, sourceLocation);
     internalStringLogRecords.add(record);
     this.emit(record, bypassSinks);
   }
@@ -2262,6 +2399,7 @@ export class LoggerImpl implements Logger {
     level: LogLevel,
     callback: LogCallback,
     properties: Record<string, unknown> = {},
+    sourceLocation?: SourceLocation,
   ): void {
     if (this.isCertainlyDropped(level)) return;
     const implicitContext = getImplicitContextIfAny();
@@ -2277,7 +2415,7 @@ export class LoggerImpl implements Logger {
       }
       return [msg, rawMessage];
     }
-    this.emit({
+    const record: LogRecord = {
       category: this.category,
       level,
       get message() {
@@ -2288,7 +2426,9 @@ export class LoggerImpl implements Logger {
       },
       timestamp: Date.now(),
       properties: { ...(implicitContext ?? {}), ...properties },
-    });
+    };
+    attachSourceLocation(record, sourceLocation);
+    this.emit(record);
   }
 
   logTemplate(
@@ -2296,17 +2436,20 @@ export class LoggerImpl implements Logger {
     messageTemplate: TemplateStringsArray,
     values: unknown[],
     properties: Record<string, unknown> = {},
+    sourceLocation?: SourceLocation,
   ): void {
     if (this.isCertainlyDropped(level)) return;
     const implicitContext = getImplicitContextIfAny();
-    this.emit({
+    const record: LogRecord = {
       category: this.category,
       level,
       message: renderMessage(messageTemplate, values),
       rawMessage: messageTemplate,
       timestamp: Date.now(),
       properties: { ...(implicitContext ?? {}), ...properties },
-    });
+    };
+    attachSourceLocation(record, sourceLocation);
+    this.emit(record);
   }
 
   trace(message: TemplateStringsArray, ...values: readonly unknown[]): void;
@@ -2328,14 +2471,35 @@ export class LoggerImpl implements Logger {
       | Record<string, unknown>,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("trace")
+      : undefined;
     if (typeof message === "string") {
-      return logStringMessage(this, "trace", message, values[0]);
+      return logStringMessage(
+        this,
+        "trace",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("trace", message);
+      this.logLazily("trace", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("trace", "{*}", message as Record<string, unknown>);
+      this.log(
+        "trace",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("trace", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "trace",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 
@@ -2358,14 +2522,35 @@ export class LoggerImpl implements Logger {
       | Record<string, unknown>,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("debug")
+      : undefined;
     if (typeof message === "string") {
-      return logStringMessage(this, "debug", message, values[0]);
+      return logStringMessage(
+        this,
+        "debug",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("debug", message);
+      this.logLazily("debug", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("debug", "{*}", message as Record<string, unknown>);
+      this.log(
+        "debug",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("debug", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "debug",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 
@@ -2388,14 +2573,29 @@ export class LoggerImpl implements Logger {
       | Record<string, unknown>,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("info")
+      : undefined;
     if (typeof message === "string") {
-      return logStringMessage(this, "info", message, values[0]);
+      return logStringMessage(this, "info", message, values[0], sourceLocation);
     } else if (typeof message === "function") {
-      this.logLazily("info", message);
+      this.logLazily("info", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("info", "{*}", message as Record<string, unknown>);
+      this.log(
+        "info",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("info", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "info",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 
@@ -2403,12 +2603,16 @@ export class LoggerImpl implements Logger {
     level: "warning" | "error" | "fatal",
     error: Error,
     props?: unknown,
+    sourceLocation?: SourceLocation,
   ): void | Promise<void> {
     if (typeof props !== "function") {
-      this.log(level, "{error.message}", {
-        ...(props as Record<string, unknown>),
-        error,
-      });
+      this.log(
+        level,
+        "{error.message}",
+        { ...(props as Record<string, unknown>), error },
+        undefined,
+        sourceLocation,
+      );
       return;
     }
 
@@ -2420,11 +2624,23 @@ export class LoggerImpl implements Logger {
 
     if (result instanceof Promise) {
       return result.then((resolved) => {
-        this.log(level, "{error.message}", { ...resolved, error });
+        this.log(
+          level,
+          "{error.message}",
+          { ...resolved, error },
+          undefined,
+          sourceLocation,
+        );
       });
     }
 
-    this.log(level, "{error.message}", { ...result, error });
+    this.log(
+      level,
+      "{error.message}",
+      { ...result, error },
+      undefined,
+      sourceLocation,
+    );
   }
 
   warn(error: Error): void;
@@ -2457,18 +2673,45 @@ export class LoggerImpl implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("warning")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("warning", message, values[0]);
+      return this.logError("warning", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("warning", message, { error: values[0] });
+      this.log(
+        "warning",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "warning", message, values[0]);
+      return logStringMessage(
+        this,
+        "warning",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("warning", message);
+      this.logLazily("warning", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("warning", "{*}", message as Record<string, unknown>);
+      this.log(
+        "warning",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("warning", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "warning",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 
@@ -2502,18 +2745,45 @@ export class LoggerImpl implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("warning")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("warning", message, values[0]);
+      return this.logError("warning", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("warning", message, { error: values[0] });
+      this.log(
+        "warning",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "warning", message, values[0]);
+      return logStringMessage(
+        this,
+        "warning",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("warning", message);
+      this.logLazily("warning", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("warning", "{*}", message as Record<string, unknown>);
+      this.log(
+        "warning",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("warning", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "warning",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 
@@ -2547,18 +2817,45 @@ export class LoggerImpl implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("error")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("error", message, values[0]);
+      return this.logError("error", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("error", message, { error: values[0] });
+      this.log(
+        "error",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "error", message, values[0]);
+      return logStringMessage(
+        this,
+        "error",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("error", message);
+      this.logLazily("error", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("error", "{*}", message as Record<string, unknown>);
+      this.log(
+        "error",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("error", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "error",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 
@@ -2592,18 +2889,45 @@ export class LoggerImpl implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.captureSourceLocation("fatal")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("fatal", message, values[0]);
+      return this.logError("fatal", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("fatal", message, { error: values[0] });
+      this.log(
+        "fatal",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "fatal", message, values[0]);
+      return logStringMessage(
+        this,
+        "fatal",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("fatal", message);
+      this.logLazily("fatal", message, undefined, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("fatal", "{*}", message as Record<string, unknown>);
+      this.log(
+        "fatal",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("fatal", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "fatal",
+        message as TemplateStringsArray,
+        values,
+        undefined,
+        sourceLocation,
+      );
     }
   }
 }
@@ -2645,6 +2969,7 @@ export class LoggerCtx implements Logger {
     message: string,
     properties: Record<string, unknown> | (() => Record<string, unknown>),
     bypassSinks?: Set<Sink>,
+    sourceLocation?: SourceLocation,
   ): void {
     if (this.logger.isCertainlyDropped(level)) return;
     const contextProps = this.properties;
@@ -2659,18 +2984,29 @@ export class LoggerCtx implements Logger {
           })
         : () => resolveProperties({ ...contextProps, ...properties }),
       bypassSinks,
+      sourceLocation,
     );
   }
 
-  logLazily(level: LogLevel, callback: LogCallback): void {
+  logLazily(
+    level: LogLevel,
+    callback: LogCallback,
+    sourceLocation?: SourceLocation,
+  ): void {
     if (this.logger.isCertainlyDropped(level)) return;
-    this.logger.logLazily(level, callback, resolveProperties(this.properties));
+    this.logger.logLazily(
+      level,
+      callback,
+      resolveProperties(this.properties),
+      sourceLocation,
+    );
   }
 
   logTemplate(
     level: LogLevel,
     messageTemplate: TemplateStringsArray,
     values: unknown[],
+    sourceLocation?: SourceLocation,
   ): void {
     if (this.logger.isCertainlyDropped(level)) return;
     this.logger.logTemplate(
@@ -2678,6 +3014,7 @@ export class LoggerCtx implements Logger {
       messageTemplate,
       values,
       resolveProperties(this.properties),
+      sourceLocation,
     );
   }
 
@@ -2715,14 +3052,34 @@ export class LoggerCtx implements Logger {
       | Record<string, unknown>,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("trace")
+      : undefined;
     if (typeof message === "string") {
-      return logStringMessage(this, "trace", message, values[0]);
+      return logStringMessage(
+        this,
+        "trace",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("trace", message);
+      this.logLazily("trace", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("trace", "{*}", message as Record<string, unknown>);
+      this.log(
+        "trace",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("trace", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "trace",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 
@@ -2745,14 +3102,34 @@ export class LoggerCtx implements Logger {
       | Record<string, unknown>,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("debug")
+      : undefined;
     if (typeof message === "string") {
-      return logStringMessage(this, "debug", message, values[0]);
+      return logStringMessage(
+        this,
+        "debug",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("debug", message);
+      this.logLazily("debug", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("debug", "{*}", message as Record<string, unknown>);
+      this.log(
+        "debug",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("debug", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "debug",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 
@@ -2775,14 +3152,28 @@ export class LoggerCtx implements Logger {
       | Record<string, unknown>,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("info")
+      : undefined;
     if (typeof message === "string") {
-      return logStringMessage(this, "info", message, values[0]);
+      return logStringMessage(this, "info", message, values[0], sourceLocation);
     } else if (typeof message === "function") {
-      this.logLazily("info", message);
+      this.logLazily("info", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("info", "{*}", message as Record<string, unknown>);
+      this.log(
+        "info",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("info", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "info",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 
@@ -2790,12 +3181,16 @@ export class LoggerCtx implements Logger {
     level: "warning" | "error" | "fatal",
     error: Error,
     props?: unknown,
+    sourceLocation?: SourceLocation,
   ): void | Promise<void> {
     if (typeof props !== "function") {
-      this.log(level, "{error.message}", {
-        ...(props as Record<string, unknown>),
-        error,
-      });
+      this.log(
+        level,
+        "{error.message}",
+        { ...(props as Record<string, unknown>), error },
+        undefined,
+        sourceLocation,
+      );
       return;
     }
 
@@ -2807,11 +3202,23 @@ export class LoggerCtx implements Logger {
 
     if (result instanceof Promise) {
       return result.then((resolved) => {
-        this.log(level, "{error.message}", { ...resolved, error });
+        this.log(
+          level,
+          "{error.message}",
+          { ...resolved, error },
+          undefined,
+          sourceLocation,
+        );
       });
     }
 
-    this.log(level, "{error.message}", { ...result, error });
+    this.log(
+      level,
+      "{error.message}",
+      { ...result, error },
+      undefined,
+      sourceLocation,
+    );
   }
 
   warn(error: Error): void;
@@ -2844,18 +3251,44 @@ export class LoggerCtx implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("warning")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("warning", message, values[0]);
+      return this.logError("warning", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("warning", message, { error: values[0] });
+      this.log(
+        "warning",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "warning", message, values[0]);
+      return logStringMessage(
+        this,
+        "warning",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("warning", message);
+      this.logLazily("warning", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("warning", "{*}", message as Record<string, unknown>);
+      this.log(
+        "warning",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("warning", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "warning",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 
@@ -2889,18 +3322,44 @@ export class LoggerCtx implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("warning")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("warning", message, values[0]);
+      return this.logError("warning", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("warning", message, { error: values[0] });
+      this.log(
+        "warning",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "warning", message, values[0]);
+      return logStringMessage(
+        this,
+        "warning",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("warning", message);
+      this.logLazily("warning", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("warning", "{*}", message as Record<string, unknown>);
+      this.log(
+        "warning",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("warning", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "warning",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 
@@ -2934,18 +3393,44 @@ export class LoggerCtx implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("error")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("error", message, values[0]);
+      return this.logError("error", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("error", message, { error: values[0] });
+      this.log(
+        "error",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "error", message, values[0]);
+      return logStringMessage(
+        this,
+        "error",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("error", message);
+      this.logLazily("error", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("error", "{*}", message as Record<string, unknown>);
+      this.log(
+        "error",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("error", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "error",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 
@@ -2979,18 +3464,44 @@ export class LoggerCtx implements Logger {
       | Error,
     ...values: unknown[]
   ): void | Promise<void> {
+    const sourceLocation = isSourceLocationCaptureActive()
+      ? this.logger.captureSourceLocation("fatal")
+      : undefined;
     if (message instanceof Error) {
-      return this.logError("fatal", message, values[0]);
+      return this.logError("fatal", message, values[0], sourceLocation);
     } else if (typeof message === "string" && values[0] instanceof Error) {
-      this.log("fatal", message, { error: values[0] });
+      this.log(
+        "fatal",
+        message,
+        { error: values[0] },
+        undefined,
+        sourceLocation,
+      );
     } else if (typeof message === "string") {
-      return logStringMessage(this, "fatal", message, values[0]);
+      return logStringMessage(
+        this,
+        "fatal",
+        message,
+        values[0],
+        sourceLocation,
+      );
     } else if (typeof message === "function") {
-      this.logLazily("fatal", message);
+      this.logLazily("fatal", message, sourceLocation);
     } else if (!Array.isArray(message)) {
-      this.log("fatal", "{*}", message as Record<string, unknown>);
+      this.log(
+        "fatal",
+        "{*}",
+        message as Record<string, unknown>,
+        undefined,
+        sourceLocation,
+      );
     } else {
-      this.logTemplate("fatal", message as TemplateStringsArray, values);
+      this.logTemplate(
+        "fatal",
+        message as TemplateStringsArray,
+        values,
+        sourceLocation,
+      );
     }
   }
 }
