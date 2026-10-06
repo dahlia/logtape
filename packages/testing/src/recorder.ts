@@ -83,6 +83,27 @@ export interface LogRecordMatch {
 }
 
 /**
+ * Options for {@link LogRecorder.waitFor}.
+ *
+ * @since 2.4.0
+ */
+export interface LogRecorderWaitOptions {
+  /**
+   * Maximum wait in milliseconds.  Defaults to 1000, including when a
+   * {@link signal} is provided.  Must be an integer from 0 to 2147483647.
+   * Zero checks only records already collected.  Fake timers must be advanced
+   * for the timeout to elapse.
+   */
+  readonly timeout?: number;
+
+  /**
+   * Cancels the wait with the signal's reason.  An already-aborted signal
+   * takes precedence over a retained match.
+   */
+  readonly signal?: AbortSignal;
+}
+
+/**
  * A test recorder for LogTape records.
  *
  * @since 2.2.0
@@ -99,12 +120,13 @@ export interface LogRecorder {
   readonly records: readonly LogRecord[];
 
   /**
-   * Removes all collected records.
+   * Removes all collected records without cancelling pending waits.
    */
   clear(): void;
 
   /**
-   * Returns collected records and clears the recorder.
+   * Returns collected records and clears the recorder without cancelling
+   * pending waits.
    */
   take(): readonly LogRecord[];
 
@@ -115,6 +137,28 @@ export interface LogRecorder {
    * @returns The first matching record, or `undefined`.
    */
   find(match: LogRecordMatch): LogRecord | undefined;
+
+  /**
+   * Waits for the first matching record, checking collected records first.
+   * Records are not consumed; multiple waiters can receive the same record.
+   * This observes the recorder, not delivery by another sink.
+   *
+   * Matcher predicates should be synchronous and side-effect-free.  Records
+   * emitted synchronously during any waiter matcher evaluation are retained
+   * but are not matched against pending waiters, preventing recursive logging.
+   *
+   * @param match The matcher to apply.  Do not mutate it during the wait.
+   * @param options Timeout and cancellation options.
+   * @returns The first matching record.  Rejects with an error named
+   *          `TimeoutError` on timeout, the signal's reason on cancellation,
+   *          or the original exception if matching throws.  Invalid timeout
+   *          values reject with `RangeError` before checking cancellation.
+   * @since 2.4.0
+   */
+  waitFor(
+    match: LogRecordMatch,
+    options?: LogRecorderWaitOptions,
+  ): Promise<LogRecord>;
 
   /**
    * Finds all collected records matching the given matcher.
@@ -179,8 +223,19 @@ export interface LogRecorder {
  */
 export function createLogRecorder(): LogRecorder {
   const records: LogRecord[] = [];
+  const waiters = new Set<{
+    observe(record: LogRecord): void;
+    check(record: LogRecord): void;
+  }>();
+  let evaluationDepth = 0;
   const sink: Sink = (record: LogRecord): void => {
-    records.push(materializeLogRecord(record));
+    const snapshot = materializeLogRecord(record);
+    records.push(snapshot);
+    if (waiters.size < 1) return;
+    const pending = Array.from(waiters);
+    for (const waiter of pending) waiter.observe(snapshot);
+    if (evaluationDepth > 0) return;
+    for (const waiter of pending) waiter.check(snapshot);
   };
 
   return {
@@ -196,6 +251,87 @@ export function createLogRecorder(): LogRecorder {
     },
     find(match: LogRecordMatch): LogRecord | undefined {
       return records.find((record) => matchesLogRecord(record, match));
+    },
+    waitFor(
+      match: LogRecordMatch,
+      options: LogRecorderWaitOptions = {},
+    ): Promise<LogRecord> {
+      return new Promise<LogRecord>((resolve, reject) => {
+        const timeout = options.timeout === undefined ? 1000 : options.timeout;
+        if (
+          !Number.isInteger(timeout) || timeout < 0 || timeout > 2147483647
+        ) {
+          throw new RangeError(
+            "timeout must be an integer from 0 to 2147483647 milliseconds.",
+          );
+        }
+        const signal = options.signal;
+        if (signal?.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        const retained = records.slice();
+        const observed = retained.slice(0, 3);
+        let count = retained.length;
+        let settled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let listening = false;
+        const settle = (): boolean => {
+          if (settled) return false;
+          settled = true;
+          waiters.delete(waiter);
+          if (timer !== undefined) clearTimeout(timer);
+          if (listening) signal!.removeEventListener("abort", abort);
+          return true;
+        };
+        const abort = (): void => {
+          if (settle()) reject(signal!.reason);
+        };
+        const expire = (): void => {
+          if (settle()) {
+            reject(formatWaitTimeout(match, timeout, count, observed));
+          }
+        };
+        const waiter = {
+          observe(record: LogRecord): void {
+            if (settled) return;
+            count++;
+            if (observed.length < 3) observed.push(record);
+          },
+          check(record: LogRecord): void {
+            if (settled) return;
+            evaluationDepth++;
+            try {
+              const matches = matchesLogRecord(record, match);
+              if (signal?.aborted) abort();
+              else if (matches && settle()) resolve(record);
+            } catch (error) {
+              if (signal?.aborted) abort();
+              else if (settle()) reject(error);
+            } finally {
+              evaluationDepth--;
+            }
+          },
+        };
+        if (timeout > 0) {
+          try {
+            if (signal != null) {
+              signal.addEventListener("abort", abort, { once: true });
+              listening = true;
+            }
+            timer = setTimeout(expire, timeout);
+          } catch (error) {
+            if (settle()) reject(error);
+            return;
+          }
+          waiters.add(waiter);
+        }
+        for (const record of retained) {
+          waiter.check(record);
+          if (settled) break;
+        }
+        if (timeout === 0) expire();
+      });
     },
     filter(match: LogRecordMatch): readonly LogRecord[] {
       return records.filter((record) => matchesLogRecord(record, match));
@@ -230,6 +366,38 @@ export function createLogRecorder(): LogRecorder {
       );
     },
   };
+}
+
+function formatWaitTimeout(
+  match: LogRecordMatch,
+  timeout: number,
+  count: number,
+  records: readonly LogRecord[],
+): Error {
+  const lines = records.map((record) =>
+    boundedDiagnostic(() => formatRecord(record), 500)
+  );
+  if (count > records.length) {
+    lines.push(`  ... ${count - records.length} more`);
+  }
+  const error = new Error([
+    `Timed out after ${timeout} ms waiting for a LogTape record matching:`,
+    boundedDiagnostic(() => formatMatcher(match), 1000),
+    "",
+    `Observed ${formatCount(count, "record")}:`,
+    lines.length > 0 ? lines.join("\n") : "  <none>",
+  ].join("\n"));
+  error.name = "TimeoutError";
+  return error;
+}
+
+function boundedDiagnostic(format: () => string, limit: number): string {
+  try {
+    const text = format();
+    return text.length <= limit ? text : `${text.slice(0, limit - 3)}...`;
+  } catch {
+    return "  <unavailable>";
+  }
 }
 
 function matchesLogRecord(record: LogRecord, match: LogRecordMatch): boolean {

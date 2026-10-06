@@ -146,6 +146,60 @@ sinks, still call `await dispose()` or `await reset()` as usual.
 
 [*@logtape/testing*]: https://jsr.io/@logtape/testing
 
+### Waiting for a background log
+
+*This API is available since LogTape 2.4.0.*
+
+Use `~LogRecorder.waitFor()` when a background task has no completion handle.
+It returns the first matching retained record, or waits for the first matching
+new record, without consuming it.  Multiple waiters can observe the same
+record.  Start the work before awaiting the match; retained records let the
+recorder observe a job that finishes immediately too:
+
+~~~~ typescript
+import { getLogger } from "@logtape/logtape";
+import { createLogRecorder } from "@logtape/testing/recorder";
+
+const recorder = createLogRecorder();
+// Configure recorder.sink for the job's logger, as above.
+const jobId = "job-123";
+const controller = new AbortController();
+
+queueMicrotask(() => {
+  getLogger(["my-lib"]).info("Job completed", { jobId });
+});
+
+const record = await recorder.waitFor(
+  { properties: { jobId }, message: "Job completed" },
+  { timeout: 1000, signal: controller.signal },
+);
+~~~~
+
+The `LogRecorderWaitOptions.timeout` is in milliseconds and defaults to 1000,
+even when a signal is provided.  It must be an integer from 0 to 2147483647;
+invalid values reject with `RangeError`.  Zero checks only retained records
+and rejects immediately if none match.  Tests using fake timers must advance
+those timers for a positive timeout to elapse.
+
+A timeout rejects with an error named `TimeoutError`, describing the matcher
+and a bounded summary of up to three observed records.  Cancellation rejects
+with the signal's reason.  An already-aborted signal wins over a retained
+match, after timeout validation.  If matching throws, only that waiter's promise
+rejects with the original exception; the recorder sink continues normally.
+Timers and abort listeners are removed when a wait settles.
+
+`clear()` and `take()` remove retained records without cancelling pending
+waiters or erasing their timeout observations.  Records in an initial scan
+remain eligible even if a predicate clears the recorder during that scan.
+Use synchronous, side-effect-free predicates.  Records emitted synchronously
+during any waiter matcher evaluation are retained and included in timeout
+observations, but are not matched against pending waiters.  This prevents
+recursive logging from keeping the sink busy indefinitely.  Do not mutate a
+matcher during its wait.
+
+`waitFor()` establishes that the recorder observed a record.  Delivery by an
+asynchronous or remote sink still requires that sink's completion mechanism.
+
 
 Failure log reporter
 --------------------
