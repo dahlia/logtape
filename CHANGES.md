@@ -139,6 +139,15 @@ To be released.
     values are rendered, and receives an `inspect()` function that applies
     the `inspectOptions` and `colors` options.  [[#236], [#237]]
 
+### @logtape/testing
+
+ -  Added `LogRecorder.waitFor()` and `LogRecorderWaitOptions` to wait for
+    the first matching record with a timeout and optional cancellation through
+    an `AbortSignal`.  [[#244], [#252]]
+
+[#244]: https://github.com/dahlia/logtape/issues/244
+[#252]: https://github.com/dahlia/logtape/pull/252
+
 
 Version 2.3.11
 --------------

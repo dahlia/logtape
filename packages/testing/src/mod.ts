@@ -1,6 +1,7 @@
 export {
   createLogRecorder,
   type LogRecorder,
+  type LogRecorderWaitOptions,
   type LogRecordMatch,
   type PropertyMatcher,
 } from "./recorder.ts";

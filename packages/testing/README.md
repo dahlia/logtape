@@ -72,11 +72,16 @@ try {
 The recorder snapshots lazy callback messages when its sink receives them, so
 assertions see the same message a normal sink would observe at emit time.  The
 `records` property returns a snapshot, and the recorder also provides
-`clear()`, `take()`, `find()`, `filter()`, and `assertNotLogged()` for tests
-that need lower-level access.  Most property values are compared with
+`clear()`, `take()`, `find()`, `filter()`, `waitFor()`, and `assertNotLogged()`
+for tests that need lower-level access.  Most property values are compared with
 `Object.is()`, `Date` values are compared by timestamp, and regular expression
 matcher values match string property values.  Rendered message matching uses
 the same value rendering as LogTape's default text formatter.
+
+Since 2.4.0, `await recorder.waitFor(match, { timeout: 1000, signal })` returns
+the first matching retained or future record without consuming it.  Its
+timeout defaults to 1000 milliseconds; an `AbortSignal` can cancel the wait.
+See the [testing manual] for timeout, cancellation, and predicate behavior.
 
 Use `createFailureLogReporter()` when logs are useful only after a test fails:
 
@@ -98,6 +103,8 @@ compatibility, but new code can import `@logtape/testing/recorder` or
 Use `getFailureLogReporterOptionsFromEnv()` when an integration needs to parse
 `LOGTAPE_TEST_MODE` and `LOGTAPE_TEST_LOWEST_LEVEL` from a runtime-supplied
 environment variable getter.
+
+[testing manual]: https://logtape.org/manual/testing#waiting-for-a-background-log
 
 
 Docs
