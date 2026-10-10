@@ -8,6 +8,18 @@ Version 2.0.28
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed `configureSync()` rejecting synchronous disposable sinks in browsers
+    without `Symbol.dispose` or `Symbol.asyncDispose`, including Safari.
+    Sinks and filters now retain their distinct cleanup hooks, preventing
+    duplicate cleanup and asynchronous cleanup during `resetSync()`.
+    Sink wrappers preserve these hooks, and disposable sinks also work with
+    transpiled `using` and `await using`.  [[#255], [#257]]
+
+[#255]: https://github.com/dahlia/logtape/issues/255
+[#257]: https://github.com/dahlia/logtape/pull/257
+
 
 Version 2.0.27
 --------------
