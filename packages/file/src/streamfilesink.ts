@@ -4,6 +4,7 @@ import {
   type Sink,
   type TextFormatter,
 } from "@logtape/logtape";
+import { asyncDisposeSymbol } from "./disposable.ts";
 import { createWriteStream } from "node:fs";
 import { PassThrough } from "node:stream";
 
@@ -126,7 +127,7 @@ export function getStreamFileSink(
   };
 
   // Asynchronous disposal with sequential stream closure
-  sink[Symbol.asyncDispose] = async () => {
+  sink[asyncDisposeSymbol] = async () => {
     if (disposed) return;
     disposed = true;
 
