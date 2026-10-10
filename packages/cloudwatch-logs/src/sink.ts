@@ -12,6 +12,10 @@ import {
 import { stringifyWithoutCycles } from "./circular.ts";
 import type { CloudWatchLogsSinkOptions } from "./types.ts";
 
+// Match transpiled resource management without changing the global Symbol.
+const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
+  Symbol.for("Symbol.asyncDispose");
+
 // AWS CloudWatch Logs PutLogEvents API limits
 // See: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
 const MAX_BATCH_SIZE_EVENTS = 10000; // Maximum 10,000 events per batch
@@ -156,7 +160,7 @@ export function getCloudWatchLogsSink(
     }
   };
 
-  sink[Symbol.asyncDispose] = async () => {
+  sink[asyncDisposeSymbol] = async () => {
     if (flushTimer !== null) {
       clearTimeout(flushTimer);
       flushTimer = null;

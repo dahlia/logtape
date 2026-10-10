@@ -1,4 +1,5 @@
 import type { ContextLocalStorage } from "./context.ts";
+import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import { type Filter, type FilterLike, toFilter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
@@ -685,7 +686,7 @@ function configureInternal<
 
   for (const sink of Object.values<Sink>(config.sinks)) {
     installedSinks.add(sink);
-    if (Symbol.asyncDispose in sink) {
+    if (asyncDisposeSymbol in sink) {
       if (allowAsync) asyncSinkDisposables.add(sink as AsyncDisposable);
       else {
         throw new ConfigError(
@@ -693,12 +694,12 @@ function configureInternal<
         );
       }
     }
-    if (Symbol.dispose in sink) sinkDisposables.add(sink as Disposable);
+    if (disposeSymbol in sink) sinkDisposables.add(sink as Disposable);
   }
 
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
     if (filter == null || typeof filter === "string") continue;
-    if (Symbol.asyncDispose in filter) {
+    if (asyncDisposeSymbol in filter) {
       if (allowAsync) asyncFilterDisposables.add(filter as AsyncDisposable);
       else {
         throw new ConfigError(
@@ -707,7 +708,7 @@ function configureInternal<
       }
       asyncSinkDisposables.delete(filter as AsyncDisposable);
     }
-    if (Symbol.dispose in filter) {
+    if (disposeSymbol in filter) {
       filterDisposables.add(filter as Disposable);
       sinkDisposables.delete(filter as Disposable);
     }
@@ -1038,7 +1039,7 @@ function disposeSyncDisposables(disposables: Set<Disposable>): void {
   try {
     for (const disposable of disposables) {
       try {
-        disposable[Symbol.dispose]();
+        disposable[disposeSymbol]();
       } catch (error) {
         errors.push(error);
       } finally {
@@ -1066,7 +1067,7 @@ async function disposeAsyncDisposables(
   try {
     for (const disposable of disposables) {
       try {
-        promises.push(Promise.resolve(disposable[Symbol.asyncDispose]()));
+        promises.push(Promise.resolve(disposable[asyncDisposeSymbol]()));
       } catch (error) {
         promises.push(Promise.reject(error));
       } finally {

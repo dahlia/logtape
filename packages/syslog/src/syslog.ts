@@ -6,6 +6,9 @@ import process from "node:process";
 import * as tls from "node:tls";
 import { stringifyWithoutCycles } from "./circular.ts";
 
+const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
+  Symbol.for("Symbol.asyncDispose");
+
 /**
  * Syslog protocol type.
  * @since 0.12.0
@@ -907,7 +910,7 @@ export function getSyslogSink(
       });
   };
 
-  sink[Symbol.asyncDispose] = async () => {
+  sink[asyncDisposeSymbol] = async () => {
     await lastPromise.catch(() => {}); // Wait for any pending operations
     connection.close();
     isConnected = false;
