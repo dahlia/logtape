@@ -28,6 +28,13 @@ To be released.
     preserve distinct synchronous and asynchronous cleanup hooks.
     [[#255], [#257]]
 
+### @logtape/otel
+
+ -  Fixed OpenTelemetry sinks losing their asynchronous cleanup hooks in
+    browsers without `Symbol.asyncDispose`, including Safari.  `reset()` now
+    waits for provider shutdown, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
 
 Version 2.0.27
 --------------
