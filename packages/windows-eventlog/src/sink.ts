@@ -10,6 +10,10 @@ import {
   type WindowsEventLogSinkOptions,
 } from "./types.ts";
 
+// Match transpiled resource management without changing the global Symbol.
+const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ??
+  Symbol.for("Symbol.dispose");
+
 /**
  * Helper function to remove any trailing newline that the formatter may add
  * to the string. When writing to the event log, we don't want newlines at the
@@ -100,7 +104,7 @@ export function getWindowsEventLogSinkForFFI(
   };
 
   // Implement Disposable for cleanup
-  sink[Symbol.dispose] = () => {
+  sink[disposeSymbol] = () => {
     ffi.dispose();
   };
 

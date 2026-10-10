@@ -57,6 +57,13 @@ To be released.
     messages before closing the connection, and `configureSync()` correctly
     rejects these asynchronous sinks.  [[#255], [#257]]
 
+### @logtape/windows-eventlog
+
+ -  Fixed Windows Event Log sinks losing their synchronous cleanup hooks when
+    `Symbol.dispose` is unavailable.  `configureSync()` now accepts these
+    sinks, and `reset()` and `resetSync()` release their Event Log resources.
+    [[#255], [#257]]
+
 
 Version 2.0.27
 --------------
