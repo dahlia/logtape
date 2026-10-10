@@ -5,6 +5,7 @@ import {
   type Sink,
   type StreamSinkOptions,
 } from "@logtape/logtape";
+import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import { markSinkAsImmediate } from "./snapshot.ts";
 
 function isMetaLoggerRecord(record: LogRecord): boolean {
@@ -483,7 +484,7 @@ export function getBaseFileSink<TFile>(
         }
       }
     };
-    sink[Symbol.dispose] = () => {
+    sink[disposeSymbol] = () => {
       if (fd !== null) {
         flushBuffer();
         options.closeSync(fd);
@@ -630,7 +631,7 @@ export function getBaseFileSink<TFile>(
     }
   };
 
-  nonBlockingSink[Symbol.asyncDispose] = async () => {
+  nonBlockingSink[asyncDisposeSymbol] = async () => {
     disposed = true;
     if (flushTimer !== null) {
       clearInterval(flushTimer);
@@ -842,7 +843,7 @@ export function getBaseRotatingFileSink<TFile>(
         flushBuffer();
       }
     };
-    sink[Symbol.dispose] = () => {
+    sink[disposeSymbol] = () => {
       flushBuffer();
       options.closeSync(fd);
     };
@@ -919,7 +920,7 @@ export function getBaseRotatingFileSink<TFile>(
     }
   };
 
-  nonBlockingSink[Symbol.asyncDispose] = async () => {
+  nonBlockingSink[asyncDisposeSymbol] = async () => {
     disposed = true;
     if (flushTimer !== null) {
       clearInterval(flushTimer);

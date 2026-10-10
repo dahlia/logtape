@@ -3,6 +3,7 @@ import {
   type LogRecord,
   type Sink,
 } from "@logtape/logtape";
+import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import type {
   AsyncFileSinkDriver,
   FileSinkDriver,
@@ -395,7 +396,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
       }
     };
 
-    sink[Symbol.dispose] = () => {
+    sink[disposeSymbol] = () => {
       flushBuffer();
       options.closeSync(fd);
     };
@@ -460,7 +461,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
     }
   };
 
-  nonBlockingSink[Symbol.asyncDispose] = async () => {
+  nonBlockingSink[asyncDisposeSymbol] = async () => {
     disposed = true;
     if (flushTimer !== null) {
       clearInterval(flushTimer);

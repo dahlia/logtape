@@ -6,6 +6,7 @@ import {
 } from "@logtape/logtape";
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
+import { asyncDisposeSymbol } from "./disposable.ts";
 import { markSinkAsImmediate } from "./snapshot.ts";
 
 /**
@@ -124,7 +125,7 @@ export function getStreamFileSink(
     writeStream.write(formatter(record));
   };
 
-  sink[Symbol.asyncDispose] = async () => {
+  sink[asyncDisposeSymbol] = async () => {
     if (disposed) return;
     disposed = true;
 
