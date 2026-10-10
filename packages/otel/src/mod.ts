@@ -26,6 +26,10 @@ import {
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 import metadata from "../deno.json" with { type: "json" };
 
+// Match transpiled resource management without changing the global Symbol.
+const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
+  Symbol.for("Symbol.asyncDispose");
+
 /**
  * Gets an environment variable value across different JavaScript runtimes.
  * @param name The environment variable name.
@@ -488,7 +492,7 @@ export function getOpenTelemetrySink(
       },
       {
         ready: Promise.resolve(),
-        async [Symbol.asyncDispose](): Promise<void> {
+        async [asyncDisposeSymbol](): Promise<void> {
           if (shutdown != null) await shutdown();
         },
       },
@@ -553,7 +557,7 @@ export function getOpenTelemetrySink(
       get ready(): Promise<void> {
         return initPromise ?? Promise.resolve();
       },
-      async [Symbol.asyncDispose](): Promise<void> {
+      async [asyncDisposeSymbol](): Promise<void> {
         // Wait for initialization to complete if in progress
         if (initPromise != null) {
           try {

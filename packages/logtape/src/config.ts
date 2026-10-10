@@ -1,4 +1,5 @@
 import type { ContextLocalStorage } from "./context.ts";
+import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
 import type { LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
@@ -333,7 +334,7 @@ function configureInternal<
   LoggerImpl.getLogger().contextLocalStorage = config.contextLocalStorage;
 
   for (const sink of Object.values<Sink>(config.sinks)) {
-    if (Symbol.asyncDispose in sink) {
+    if (asyncDisposeSymbol in sink) {
       if (allowAsync) asyncDisposables.add(sink as AsyncDisposable);
       else {
         throw new ConfigError(
@@ -341,12 +342,12 @@ function configureInternal<
         );
       }
     }
-    if (Symbol.dispose in sink) disposables.add(sink as Disposable);
+    if (disposeSymbol in sink) disposables.add(sink as Disposable);
   }
 
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
     if (filter == null || typeof filter === "string") continue;
-    if (Symbol.asyncDispose in filter) {
+    if (asyncDisposeSymbol in filter) {
       if (allowAsync) asyncDisposables.add(filter as AsyncDisposable);
       else {
         throw new ConfigError(
@@ -354,7 +355,7 @@ function configureInternal<
         );
       }
     }
-    if (Symbol.dispose in filter) disposables.add(filter as Disposable);
+    if (disposeSymbol in filter) disposables.add(filter as Disposable);
   }
 
   registerDisposeHook(allowAsync);
@@ -419,7 +420,7 @@ export async function dispose(): Promise<void> {
   disposeSync();
   const promises: PromiseLike<void>[] = [];
   for (const disposable of asyncDisposables) {
-    promises.push(disposable[Symbol.asyncDispose]());
+    promises.push(disposable[asyncDisposeSymbol]());
     asyncDisposables.delete(disposable);
   }
   await Promise.all(promises);
@@ -431,7 +432,7 @@ export async function dispose(): Promise<void> {
  * @since 0.9.0
  */
 export function disposeSync(): void {
-  for (const disposable of disposables) disposable[Symbol.dispose]();
+  for (const disposable of disposables) disposable[disposeSymbol]();
   disposables.clear();
 }
 
