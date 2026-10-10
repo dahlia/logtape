@@ -1,5 +1,11 @@
 import { getLogger, type LogRecord, type Sink } from "@logtape/logtape";
 
+// Match transpiled resource management without changing the global Symbol.
+const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ??
+  Symbol.for("Symbol.dispose");
+const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
+  Symbol.for("Symbol.asyncDispose");
+
 /**
  * The type for a field pattern used in redaction.  A string or a regular
  * expression that matches field names.
@@ -203,9 +209,9 @@ export function redactByField(
       properties: redactedProperties,
     });
   };
-  if (Symbol.dispose in sink) wrapped[Symbol.dispose] = sink[Symbol.dispose];
-  if (Symbol.asyncDispose in sink) {
-    wrapped[Symbol.asyncDispose] = sink[Symbol.asyncDispose];
+  if (disposeSymbol in sink) wrapped[disposeSymbol] = sink[disposeSymbol];
+  if (asyncDisposeSymbol in sink) {
+    wrapped[asyncDisposeSymbol] = sink[asyncDisposeSymbol];
   }
   return wrapped;
 }

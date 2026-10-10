@@ -1,3 +1,4 @@
+import { disposeSymbol } from "./disposable.ts";
 import type { LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
 
@@ -307,7 +308,7 @@ export function getThrottlingFilter(
     return filterSlidingWindow(key, bucket, record, now);
   }) as Filter & Disposable;
 
-  filter[Symbol.dispose] = () => {
+  filter[disposeSymbol] = () => {
     for (const [key, bucket] of buckets) {
       const endTime = timeSource === "record"
         ? bucket.lastTime
