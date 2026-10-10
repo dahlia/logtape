@@ -56,7 +56,9 @@ run = "deno task test:bun"
 
 [tasks.test]
 description = "Run the test suite across all environments"
-depends = ["check", "test:*"]
+depends = ["check"]
+# Node.js and Bun both rebuild the same dist directories before testing.
+run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
 
 [tasks.coverage]
 description = "Run tests with coverage and generate HTML report"

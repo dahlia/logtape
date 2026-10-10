@@ -1,4 +1,5 @@
 import { stringifyKeyWithoutCycles } from "./circular.ts";
+import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
 import {
   type ConsoleFormatter,
@@ -225,11 +226,11 @@ export function withFilter(sink: Sink, filter: FilterLike): Sink {
     if (filterFunc(record)) sink(record);
   };
   const disposableSink = sink as Sink & Partial<Disposable & AsyncDisposable>;
-  if (Symbol.dispose in disposableSink) {
-    filtered[Symbol.dispose] = disposableSink[Symbol.dispose]?.bind(sink);
+  if (disposeSymbol in disposableSink) {
+    filtered[disposeSymbol] = disposableSink[disposeSymbol]?.bind(sink);
   }
-  if (Symbol.asyncDispose in disposableSink) {
-    filtered[Symbol.asyncDispose] = disposableSink[Symbol.asyncDispose]?.bind(
+  if (asyncDisposeSymbol in disposableSink) {
+    filtered[asyncDisposeSymbol] = disposableSink[asyncDisposeSymbol]?.bind(
       sink,
     );
   }
@@ -370,7 +371,7 @@ export function getStreamSink(
         .then(() => writer.ready)
         .then(() => writer.write(bytes));
     };
-    sink[Symbol.asyncDispose] = async () => {
+    sink[asyncDisposeSymbol] = async () => {
       try {
         await lastPromise;
         if (closeStream) await writer.close();
@@ -529,7 +530,7 @@ export function getStreamSink(
     }
   };
 
-  nonBlockingSink[Symbol.asyncDispose] = () => {
+  nonBlockingSink[asyncDisposeSymbol] = () => {
     if (disposePromise != null) return disposePromise;
     // Publish completion before any callbacks can dispose this sink again.
     let complete!: (result: Promise<void>) => void;
@@ -787,7 +788,7 @@ export function getConsoleSink(
     }
   };
 
-  nonBlockingSink[Symbol.dispose] = () => {
+  nonBlockingSink[disposeSymbol] = () => {
     if (disposed) return;
     disposed = true;
     if (flushTimer !== null) {
@@ -1137,7 +1138,7 @@ export function fromAsyncSink(
       invokeCallback("waitUntil", () => waitUntil(promise), diagnostic);
     }
   };
-  sink[Symbol.asyncDispose] = async () => {
+  sink[asyncDisposeSymbol] = async () => {
     // Drain the promise chain until it settles – failure reports and drop
     // notifications may enqueue additional async work (e.g., meta-logger
     // writes).  Drops that were not reported because they happened inside
@@ -1623,17 +1624,17 @@ export function fingersCrossed(
     const disposableWrapped = wrapped as
       & TSink
       & Partial<Disposable & AsyncDisposable & Drainable>;
-    const disposeSink = disposableSink[Symbol.dispose];
-    const asyncDisposeSink = disposableSink[Symbol.asyncDispose];
+    const disposeSink = disposableSink[disposeSymbol];
+    const asyncDisposeSink = disposableSink[asyncDisposeSymbol];
 
     if (disposeSelf != null || disposeSink != null) {
-      disposableWrapped[Symbol.dispose] = () => {
+      disposableWrapped[disposeSymbol] = () => {
         disposeSelf?.();
         disposeSink?.call(sink);
       };
     }
     if (asyncDisposeSink != null) {
-      disposableWrapped[Symbol.asyncDispose] = async () => {
+      disposableWrapped[asyncDisposeSymbol] = async () => {
         disposeSelf?.();
         await asyncDisposeSink.call(sink);
       };

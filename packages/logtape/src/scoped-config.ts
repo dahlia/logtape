@@ -1,4 +1,5 @@
 import type { ContextLocalStorage } from "./context.ts";
+import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import { type FilterLike, toFilter } from "./filter.ts";
 import { compareLogLevel, isLogLevel, type LogLevel } from "./level.ts";
 import type { LogRecord } from "./record.ts";
@@ -205,19 +206,19 @@ export function compileScopedConfig<
   for (const sink of Object.values<Sink>(config.sinks)) {
     if (!isObjectLike(sink)) continue;
     sinks.add(sink);
-    if (Symbol.asyncDispose in sink) {
+    if (asyncDisposeSymbol in sink) {
       if (!allowAsync) {
         throw createError(
           "Async disposables cannot be used with withConfigSync().",
         );
       }
       asyncSinks.add(sink as AsyncDisposable);
-    } else if (Symbol.dispose in sink) syncSinks.add(sink as Disposable);
+    } else if (disposeSymbol in sink) syncSinks.add(sink as Disposable);
   }
 
   for (const filter of Object.values<FilterLike>(config.filters ?? {})) {
     if (!isObjectLike(filter)) continue;
-    if (Symbol.asyncDispose in filter) {
+    if (asyncDisposeSymbol in filter) {
       if (!allowAsync) {
         throw createError(
           "Async disposables cannot be used with withConfigSync().",
@@ -225,7 +226,7 @@ export function compileScopedConfig<
       }
       asyncFilters.add(filter as AsyncDisposable);
       asyncSinks.delete(filter as AsyncDisposable);
-    } else if (Symbol.dispose in filter) {
+    } else if (disposeSymbol in filter) {
       syncFilters.add(filter as Disposable);
       syncSinks.delete(filter as Disposable);
     }
@@ -617,7 +618,7 @@ function disposeSyncDisposables(
   try {
     for (const disposable of disposableList) {
       try {
-        disposable[Symbol.dispose]();
+        disposable[disposeSymbol]();
       } catch (error) {
         errors.push(error);
       }
@@ -640,7 +641,7 @@ async function disposeAsyncDisposables(
   try {
     const results = await Promise.allSettled(
       disposableList.map((disposable) =>
-        Promise.resolve().then(() => disposable[Symbol.asyncDispose]())
+        Promise.resolve().then(() => disposable[asyncDisposeSymbol]())
       ),
     );
     throwDisposeErrors(
