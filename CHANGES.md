@@ -50,6 +50,13 @@ To be released.
     flushing buffered records for non-blocking and stream file sinks.
     [[#255], [#257]]
 
+### @logtape/syslog
+
+ -  Fixed Syslog sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for pending
+    messages before closing the connection, and `configureSync()` correctly
+    rejects these asynchronous sinks.  [[#255], [#257]]
+
 
 Version 2.0.27
 --------------
