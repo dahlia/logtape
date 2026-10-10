@@ -35,6 +35,13 @@ To be released.
     waits for provider shutdown, and `configureSync()` correctly rejects these
     asynchronous sinks.  [[#255], [#257]]
 
+### @logtape/cloudwatch-logs
+
+ -  Fixed CloudWatch Logs sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for buffered
+    records to be flushed, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
 
 Version 2.0.27
 --------------
