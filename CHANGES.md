@@ -8,6 +8,74 @@ Version 2.3.12
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed `configureSync()` rejecting synchronous disposable sinks and filters
+    in browsers without `Symbol.dispose` or `Symbol.asyncDispose`, including
+    Safari. Sinks and filters now retain their distinct cleanup hooks,
+    preventing duplicate cleanup and asynchronous cleanup during `resetSync()`.
+    Sink wrappers preserve these hooks, and disposable sinks also work with
+    `using` and `await using` transpiled with registry-symbol fallbacks
+    (`Symbol.for("Symbol.dispose")` and `Symbol.for("Symbol.asyncDispose")`).
+    Scoped configurations now also preserve cleanup hooks and correctly
+    distinguish synchronous and asynchronous resources in `withConfig()`
+    and `withConfigSync()`.  [[#255], [#257]]
+
+[#255]: https://github.com/dahlia/logtape/issues/255
+[#257]: https://github.com/dahlia/logtape/pull/257
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed CloudWatch Logs sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for buffered
+    records to be flushed, and `configureSync()` correctly rejects these
+    asynchronous sinks.
+    [[#255], [#257]]
+
+### @logtape/file
+
+ -  Fixed file sinks losing their cleanup hooks when `Symbol.dispose` or
+    `Symbol.asyncDispose` is unavailable.  Synchronous file sinks now work with
+    `configureSync()`, and `reset()` invokes and awaits asynchronous cleanup,
+    flushing buffered records for non-blocking and stream file sinks.
+    [[#255], [#257]]
+
+### @logtape/otel
+
+ -  Fixed OpenTelemetry sinks losing their asynchronous cleanup hooks in
+    browsers without `Symbol.asyncDispose`, including Safari.  `reset()` now
+    waits for provider shutdown, and `configureSync()` correctly rejects these
+    asynchronous sinks.
+    [[#255], [#257]]
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` dropping sink cleanup hooks in browsers without
+    `Symbol.dispose` or `Symbol.asyncDispose`, including Safari, preventing
+    `reset()` from flushing or closing wrapped sinks.  Wrapped sinks now
+    preserve distinct synchronous and asynchronous cleanup hooks.
+    [[#255], [#257]]
+ -  Fixed `redactByFieldAsync()` losing its asynchronous cleanup hook when
+    disposal symbols are unavailable.  `reset()` now waits for pending
+    redaction and wrapped sink cleanup, and `configureSync()` rejects these
+    asynchronous wrappers.
+    [[#255], [#257]]
+
+### @logtape/syslog
+
+ -  Fixed Syslog sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for pending
+    messages before closing the connection, and `configureSync()` correctly
+    rejects these asynchronous sinks.
+    [[#255], [#257]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed Windows Event Log sinks losing their synchronous cleanup hooks when
+    `Symbol.dispose` is unavailable.  `configureSync()` now accepts these
+    sinks, and `reset()` and `resetSync()` release their Event Log resources.
+    [[#255], [#257]]
+
 
 Version 2.3.11
 --------------
@@ -545,6 +613,72 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.15
+--------------
+
+Released on October 10, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `configureSync()` rejecting synchronous disposable sinks and filters
+    in browsers without `Symbol.dispose` or `Symbol.asyncDispose`, including
+    Safari. Sinks and filters now retain their distinct cleanup hooks,
+    preventing duplicate cleanup and asynchronous cleanup during `resetSync()`.
+    Sink wrappers preserve these hooks, and disposable sinks also work with
+    `using` and `await using` transpiled with registry-symbol fallbacks
+    (`Symbol.for("Symbol.dispose")` and `Symbol.for("Symbol.asyncDispose")`).
+    [[#255], [#257]]
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` dropping sink cleanup hooks in browsers without
+    `Symbol.dispose` or `Symbol.asyncDispose`, including Safari, preventing
+    `reset()` from flushing or closing wrapped sinks.  Wrapped sinks now
+    preserve distinct synchronous and asynchronous cleanup hooks.
+    [[#255], [#257]]
+
+ -  Fixed `redactByFieldAsync()` losing its asynchronous cleanup hook when
+    disposal symbols are unavailable.  `reset()` now waits for pending
+    redaction and wrapped sink cleanup, and `configureSync()` rejects these
+    asynchronous wrappers.  [[#255], [#257]]
+
+### @logtape/otel
+
+ -  Fixed OpenTelemetry sinks losing their asynchronous cleanup hooks in
+    browsers without `Symbol.asyncDispose`, including Safari.  `reset()` now
+    waits for provider shutdown, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed CloudWatch Logs sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for buffered
+    records to be flushed, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/file
+
+ -  Fixed file sinks losing their cleanup hooks when `Symbol.dispose` or
+    `Symbol.asyncDispose` is unavailable.  Synchronous file sinks now work with
+    `configureSync()`, and `reset()` invokes and awaits asynchronous cleanup,
+    flushing buffered records for non-blocking and stream file sinks.
+    [[#255], [#257]]
+
+### @logtape/syslog
+
+ -  Fixed Syslog sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for pending
+    messages before closing the connection, and `configureSync()` correctly
+    rejects these asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed Windows Event Log sinks losing their synchronous cleanup hooks when
+    `Symbol.dispose` is unavailable.  `configureSync()` now accepts these
+    sinks, and `reset()` and `resetSync()` release their Event Log resources.
+    [[#255], [#257]]
 
 
 Version 2.2.14
@@ -1110,6 +1244,68 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.19
+--------------
+
+Released on October 10, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `configureSync()` rejecting synchronous disposable sinks and filters
+    in browsers
+    without `Symbol.dispose` or `Symbol.asyncDispose`, including Safari.
+    Sinks and filters now retain their distinct cleanup hooks, preventing
+    duplicate cleanup and asynchronous cleanup during `resetSync()`.
+    Sink wrappers preserve these hooks, and disposable sinks also work with
+    `using` and `await using` transpiled with registry-symbol fallbacks
+    (`Symbol.for("Symbol.dispose")` and `Symbol.for("Symbol.asyncDispose")`).
+    [[#255], [#257]]
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` dropping sink cleanup hooks in browsers without
+    `Symbol.dispose` or `Symbol.asyncDispose`, including Safari, preventing
+    `reset()` from flushing or closing wrapped sinks.  Wrapped sinks now
+    preserve distinct synchronous and asynchronous cleanup hooks.
+    [[#255], [#257]]
+
+### @logtape/otel
+
+ -  Fixed OpenTelemetry sinks losing their asynchronous cleanup hooks in
+    browsers without `Symbol.asyncDispose`, including Safari.  `reset()` now
+    waits for provider shutdown, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed CloudWatch Logs sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for buffered
+    records to be flushed, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/file
+
+ -  Fixed file sinks losing their cleanup hooks when `Symbol.dispose` or
+    `Symbol.asyncDispose` is unavailable.  Synchronous file sinks now work with
+    `configureSync()`, and `reset()` invokes and awaits asynchronous cleanup,
+    flushing buffered records for non-blocking and stream file sinks.
+    [[#255], [#257]]
+
+### @logtape/syslog
+
+ -  Fixed Syslog sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for pending
+    messages before closing the connection, and `configureSync()` correctly
+    rejects these asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed Windows Event Log sinks losing their synchronous cleanup hooks when
+    `Symbol.dispose` is unavailable.  `configureSync()` now accepts these
+    sinks, and `reset()` and `resetSync()` release their Event Log resources.
+    [[#255], [#257]]
+
+
 Version 2.1.18
 --------------
 
@@ -1605,6 +1801,67 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.28
+--------------
+
+Released on October 10, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `configureSync()` rejecting synchronous disposable sinks in browsers
+    without `Symbol.dispose` or `Symbol.asyncDispose`, including Safari.
+    Sinks and filters now retain their distinct cleanup hooks, preventing
+    duplicate cleanup and asynchronous cleanup during `resetSync()`.
+    Sink wrappers preserve these hooks, and disposable sinks also work with
+    `using` and `await using` transpiled with registry-symbol fallbacks
+    (`Symbol.for("Symbol.dispose")` and `Symbol.for("Symbol.asyncDispose")`).
+    [[#255], [#257]]
+
+### @logtape/redaction
+
+ -  Fixed `redactByField()` dropping sink cleanup hooks in browsers without
+    `Symbol.dispose` or `Symbol.asyncDispose`, including Safari, preventing
+    `reset()` from flushing or closing wrapped sinks.  Wrapped sinks now
+    preserve distinct synchronous and asynchronous cleanup hooks.
+    [[#255], [#257]]
+
+### @logtape/otel
+
+ -  Fixed OpenTelemetry sinks losing their asynchronous cleanup hooks in
+    browsers without `Symbol.asyncDispose`, including Safari.  `reset()` now
+    waits for provider shutdown, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/cloudwatch-logs
+
+ -  Fixed CloudWatch Logs sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for buffered
+    records to be flushed, and `configureSync()` correctly rejects these
+    asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/file
+
+ -  Fixed file sinks losing their cleanup hooks when `Symbol.dispose` or
+    `Symbol.asyncDispose` is unavailable.  Synchronous file sinks now work with
+    `configureSync()`, and `reset()` invokes and awaits asynchronous cleanup,
+    flushing buffered records for non-blocking and stream file sinks.
+    [[#255], [#257]]
+
+### @logtape/syslog
+
+ -  Fixed Syslog sinks losing their asynchronous cleanup hooks when
+    `Symbol.asyncDispose` is unavailable.  `reset()` now waits for pending
+    messages before closing the connection, and `configureSync()` correctly
+    rejects these asynchronous sinks.  [[#255], [#257]]
+
+### @logtape/windows-eventlog
+
+ -  Fixed Windows Event Log sinks losing their synchronous cleanup hooks when
+    `Symbol.dispose` is unavailable.  `configureSync()` now accepts these
+    sinks, and `reset()` and `resetSync()` release their Event Log resources.
+    [[#255], [#257]]
 
 
 Version 2.0.27

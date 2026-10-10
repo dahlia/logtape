@@ -8,6 +8,12 @@ import {
   redactionTruncatedValue,
 } from "./traversal.ts";
 
+// Match transpiled resource management without changing the global Symbol.
+const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ??
+  Symbol.for("Symbol.dispose");
+const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
+  Symbol.for("Symbol.asyncDispose");
+
 /**
  * The type for a field pattern used in redaction.  A string or a regular
  * expression that matches field names.
@@ -252,9 +258,9 @@ export function redactByField(
       properties: redactedProperties,
     });
   };
-  if (Symbol.dispose in sink) wrapped[Symbol.dispose] = sink[Symbol.dispose];
-  if (Symbol.asyncDispose in sink) {
-    wrapped[Symbol.asyncDispose] = sink[Symbol.asyncDispose];
+  if (disposeSymbol in sink) wrapped[disposeSymbol] = sink[disposeSymbol];
+  if (asyncDisposeSymbol in sink) {
+    wrapped[asyncDisposeSymbol] = sink[asyncDisposeSymbol];
   }
   return wrapped;
 }
@@ -316,16 +322,16 @@ export function redactByFieldAsync(
       }
     });
   };
-  wrapped[Symbol.asyncDispose] = async () => {
+  wrapped[asyncDisposeSymbol] = async () => {
     closed = true;
     await lastPromise;
 
     let disposeError: unknown;
     try {
-      if (Symbol.asyncDispose in sink) {
-        await sink[Symbol.asyncDispose]();
-      } else if (Symbol.dispose in sink) {
-        sink[Symbol.dispose]();
+      if (asyncDisposeSymbol in sink) {
+        await sink[asyncDisposeSymbol]();
+      } else if (disposeSymbol in sink) {
+        sink[disposeSymbol]();
       }
     } catch (error) {
       disposeError = error;
