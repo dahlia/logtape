@@ -73,7 +73,7 @@ function isDangerous(charCode: number, escapeNewlines: boolean): boolean {
  * Matches an SGR sequence anchored at the current position: CSI, its
  * parameter bytes, then the final byte `m`.
  */
-// deno-lint-ignore no-control-regex
+/* oxlint-disable-next-line eslint/no-control-regex */ // deno-lint-ignore no-control-regex
 const sgrPattern = /^\x1b\[([0-9;:]*)m/;
 
 /**

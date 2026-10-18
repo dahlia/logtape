@@ -261,12 +261,12 @@ function registerDisposeHook(allowAsync: boolean): void {
   const handler = allowAsync ? disposeInternal : disposeSyncInternal;
 
   if (
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     typeof (globalThis as any).EdgeRuntime !== "string" &&
     "process" in globalThis &&
     !("Deno" in globalThis)
   ) {
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const proc = (globalThis as any).process;
     // Use bracket notation to avoid static analysis detection in Edge Runtime.
     const onMethod = proc?.["on"];
@@ -284,10 +284,10 @@ function registerDisposeHook(allowAsync: boolean): void {
 
   // Some edge runtimes expose neither process.on() nor addEventListener().
   // In those environments users can still call dispose()/disposeSync() manually.
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   const addEventListenerMethod = (globalThis as any).addEventListener;
   if (typeof addEventListenerMethod !== "function") return;
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   const removeEventListenerMethod = (globalThis as any).removeEventListener;
 
   if ("Deno" in globalThis) {

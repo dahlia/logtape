@@ -26,9 +26,21 @@ postinstall = [
 ]
 
 [tasks.check]
-description = "Check formatting, linting, types, and the changelog"
-depends = ["check-versions"]
-run = "deno check && deno lint && pnpm exec oxfmt --check && hongdown --check && sacho check && mise fmt --check"
+description = "Check Node.js and Deno quality gates"
+run = ["mise run check:node", "mise run check:deno"]
+
+[tasks."check:node"]
+description = "Check formatting, linting, types, and the changelog using Node.js"
+depends = ["check-versions", "build", "test:tools"]
+run = "node scripts/check-types.ts && pnpm exec oxlint --deny-warnings --report-unused-disable-directives && pnpm exec oxfmt --check && hongdown --check && sacho check && mise fmt --check"
+
+[tasks."check:deno"]
+description = "Check Deno source types and the complete Deno lint rule set"
+run = "deno check && deno lint"
+
+[tasks."test:tools"]
+description = "Test source type-resolution helpers"
+run = "node --test scripts/module-resolution.test.ts"
 
 [tasks.check-versions]
 description = "Check that all subpackages have matching versions"
@@ -75,7 +87,7 @@ run = [
 
 [tasks.build]
 description = "Build all packages for npm publishing"
-run = 'pnpm run -r --filter "./packages/*" build'
+run = "node scripts/build.ts"
 
 [tasks.publish]
 description = "Publish packages to JSR"

@@ -32,7 +32,7 @@ function lintTypeScript(code: string): Linter.LintMessage[] {
       },
       rules: { [qualifiedName]: "error" },
       languageOptions: {
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         parser: tsParser as any,
         parserOptions: { ecmaVersion: 2022, sourceType: "module" },
       },
@@ -52,7 +52,7 @@ function lintTypeScriptWithTypeInformation(code: string): Linter.LintMessage[] {
         },
         rules: { [qualifiedName]: "error" },
         languageOptions: {
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           parser: tsParser as any,
           parserOptions: {
             projectService: { allowDefaultProject: ["typed-rule-test.ts"] },

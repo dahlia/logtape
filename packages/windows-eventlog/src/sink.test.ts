@@ -30,7 +30,7 @@ if (skipWindowsTests) {
 // Helper function to create test log records
 function createLogRecord(
   level: LogLevel = "info",
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   message: any[] = ["Test message"],
   properties: Record<string, unknown> = {},
 ): LogRecord {

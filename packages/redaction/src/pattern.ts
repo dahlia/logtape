@@ -35,7 +35,7 @@ export interface RedactionPattern {
    */
   readonly replacement:
     | string
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     | ((match: string, ...rest: readonly any[]) => string);
 }
 

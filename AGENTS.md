@@ -360,8 +360,10 @@ mise run check
 
 This runs:
 
- -  `deno check`: Type checking across all workspace members
- -  `deno lint`: Linting
+ -  `mise run check:node`: Fresh builds, TypeScript checks of source and tests,
+    and Oxlint checks
+ -  `mise run check:deno`: Deno type checking and the complete Deno lint rule
+    set
  -  `oxfmt --check`, `hongdown --check`, and `mise fmt --check`: Format
     checking
  -  `sacho check`: Changelog fragment and materialization checking

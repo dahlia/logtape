@@ -34,6 +34,7 @@
  * @module
  */
 
+/* oxlint-disable typescript/no-explicit-any */
 // deno-lint-ignore-file no-explicit-any
 
 import {

@@ -9,7 +9,7 @@ import {
   unwrapTypeAssertion,
 } from "./core/ast.ts";
 
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 type AnyNode = any;
 
 /**
@@ -112,9 +112,9 @@ export function createLogtapeScope(context: Rule.RuleContext): {
 
     // Use ESLint's scope manager to resolve variable bindings at the call site.
     const scope =
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       (context as any).sourceCode?.getScope?.(callNode) ??
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       (context as any).getScope?.();
 
     return isLoggerExpression(callee.object, scope);
@@ -127,9 +127,9 @@ export function createLogtapeScope(context: Rule.RuleContext): {
   function effectiveLazyNames(callNode: AnyNode): Set<string> {
     if (lazyNames.size === 0) return lazyNames;
     const scope =
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       (context as any).sourceCode?.getScope?.(callNode) ??
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       (context as any).getScope?.();
     const result = new Set<string>();
     for (const name of lazyNames) {
@@ -144,9 +144,9 @@ export function createLogtapeScope(context: Rule.RuleContext): {
 
   function scopeAt(node: AnyNode): AnyNode {
     return (
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       (context as any).sourceCode?.getScope?.(node) ??
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       (context as any).getScope?.()
     );
   }
@@ -246,7 +246,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
   function resolvedFirstParameterKind(callNode: AnyNode): LogArgumentKind {
     // Parser services are optional.  ESLint with @typescript-eslint/parser can
     // supply them, while Oxlint and ordinary ESLint parsing currently cannot.
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const services = (getSourceCode(context) as any)?.parserServices;
     const program = services?.program;
     const nodeMap = services?.esTreeNodeToTSNodeMap;
@@ -370,6 +370,6 @@ function isCheckedErrorType(type: AnyNode, seen: Set<AnyNode>): boolean {
 export function getSourceCode(
   context: Rule.RuleContext,
 ): Rule.RuleContext["sourceCode"] {
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   return (context as any).sourceCode ?? context.getSourceCode?.();
 }

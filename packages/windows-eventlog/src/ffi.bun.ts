@@ -9,7 +9,7 @@ import type { EventType } from "./types.ts";
  */
 export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
   private eventSource: number | null = null;
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   private lib: any = null;
   private sourceName: string = ""; // immediately overwritten in initialize
   private initialized = false;

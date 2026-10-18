@@ -49,19 +49,19 @@ export const noUnawaitedLog: Rule.RuleModule = {
     // variable form (`const props = async () => ({ ... })` or
     // `const props = () => fetchData().then(...)`) and the function-declaration
     // form (`async function props() {}` or `function props() { return p.then(...) }`).
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     function resolvesToPromiseCallback(idNode: any, callNode: any): boolean {
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       let cur: any =
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         (context as any).sourceCode?.getScope?.(callNode) ??
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         (context as any).getScope?.();
       while (cur) {
         const variable = cur.set?.get(idNode.name);
         if (variable) {
           return (
-            // deno-lint-ignore no-explicit-any
+            /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
             variable.defs?.some((d: any) => {
               if (d.type === "Variable") {
                 return (

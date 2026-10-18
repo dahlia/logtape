@@ -18,7 +18,7 @@ test("plugin: exports all six rules", () => {
 });
 
 test("plugin: recommended config includes plugin reference", () => {
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   assert.ok((recommended as any).plugins?.logtape === plugin);
 });
 

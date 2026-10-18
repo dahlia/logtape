@@ -17,6 +17,7 @@
 
 // The lint AST is untyped and differs across hosts, so these helpers operate
 // on `any` nodes by design.
+/* oxlint-disable typescript/no-explicit-any */
 // deno-lint-ignore-file no-explicit-any
 
 import { getUnreferencedKeys } from "./message-template.ts";

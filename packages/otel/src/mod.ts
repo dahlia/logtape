@@ -138,7 +138,7 @@ function detectOtlpProtocol(): OtlpProtocol {
 // - Vite/Rollup: a variable specifier defeats static analysis; /* @vite-ignore
 //   */ suppresses the resulting "cannot be analyzed" warning.
 // - Webpack: /* webpackIgnore: true */ disables bundling of this import.
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 const _importModule = (specifier: string): Promise<any> =>
   import(/* @vite-ignore */ /* webpackIgnore: true */ specifier);
 
@@ -150,7 +150,7 @@ const _importModule = (specifier: string): Promise<any> =>
  */
 async function createOtlpExporter(
   config?: OTLPExporterNodeConfigBase,
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 ): Promise<any> {
   const protocol = detectOtlpProtocol();
 

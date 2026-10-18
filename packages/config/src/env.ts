@@ -17,10 +17,10 @@ export function expandEnvVars<T extends object>(
   function replace(value: string): string {
     return value.replace(pattern, (_, key, defaultValue) => {
       let val: string | undefined;
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       if (typeof (globalThis as any).process?.env === "object") {
         // Node.js / Bun
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         val = (globalThis as any).process.env[key];
       } else if (typeof Deno !== "undefined") {
         // Deno

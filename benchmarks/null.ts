@@ -28,11 +28,11 @@ summary(() => {
 
   bench("winston", function* () {
     class NullTransport extends WinstonTransport {
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       constructor(opts: any) {
         super(opts);
       }
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       override log(_info: any, callback: () => void) {
         callback();
       }
@@ -106,11 +106,11 @@ summary(() => {
           [key: string | number]: AttributeValue;
         }
       | AttributeValue[]
-      // deno-lint-ignore ban-types
+      /* oxlint-disable-next-line typescript/ban-types */ // deno-lint-ignore ban-types
       | Object
       | null
       | undefined
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       | any;
     type Attributes =
       | AttributeValue[]

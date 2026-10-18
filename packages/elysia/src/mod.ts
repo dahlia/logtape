@@ -1257,7 +1257,7 @@ function wrapLocalLifecycleHooks(
  * @returns Elysia plugin instance.
  * @since 2.0.0
  */
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const category = normalizeCategory(options.category ?? ["elysia"]);
   const logger = getLogger(category);
@@ -1325,7 +1325,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     applyRequestContextToSet(set, requestContext);
   };
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   let plugin: Elysia<any> = new Elysia({
     name: "@logtape/elysia",
     seed: options,
@@ -1514,6 +1514,6 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   // Apply the native scope while keeping the public v1/v2 API identical.
   if (scope !== "local") compatibility.as(scope);
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   return plugin as unknown as Elysia<any>;
 }

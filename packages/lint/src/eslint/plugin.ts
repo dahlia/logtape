@@ -60,7 +60,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 };
 
 // Declare plugin before recommended to allow the circular reference.
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 export const plugin: any = {
   meta: { name: "@logtape/lint" },
   rules,

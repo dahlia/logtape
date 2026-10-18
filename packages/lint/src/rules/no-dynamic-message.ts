@@ -9,7 +9,7 @@ import {
 } from "../core/ast.ts";
 import { createLogtapeScope } from "../utils.ts";
 
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 type AnyNode = any;
 
 /**

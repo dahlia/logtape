@@ -405,7 +405,7 @@ export function getBaseTimeRotatingFileSink<TFile>(
 
   if (!options.nonBlocking) {
     // Blocking mode implementation
-    // deno-lint-ignore no-inner-declarations
+    /* oxlint-disable-next-line eslint/no-inner-declarations */ // deno-lint-ignore no-inner-declarations
     function flushBuffer(): void {
       if (buffer.length > 0) {
         if (shouldRotate()) {

@@ -1726,7 +1726,7 @@ test("Logger error-first overload callbacks [warn/warning/error/fatal]", async (
       assertLastLog(level, err, `${method}-logger-promise`, false);
 
       let loggerAsyncCalls = 0;
-      // deno-lint-ignore require-await
+      /* oxlint-disable-next-line eslint/require-await */ // deno-lint-ignore require-await
       await loggerMethod(err, async () => {
         loggerAsyncCalls++;
         return { extra: `${method}-logger-async` };
@@ -1751,7 +1751,7 @@ test("Logger error-first overload callbacks [warn/warning/error/fatal]", async (
       assertLastLog(level, err, `${method}-ctx-promise`, true);
 
       let ctxAsyncCalls = 0;
-      // deno-lint-ignore require-await
+      /* oxlint-disable-next-line eslint/require-await */ // deno-lint-ignore require-await
       await ctxMethod(err, async () => {
         ctxAsyncCalls++;
         return { extra: `${method}-ctx-async` };
@@ -2763,7 +2763,7 @@ for (const method of [
       // Test LoggerImpl with async callback
       const result = logger[method](
         "Async message with {value}.",
-        // deno-lint-ignore require-await
+        /* oxlint-disable-next-line eslint/require-await */ // deno-lint-ignore require-await
         async () => ({ value: 42 }),
       );
       assert.ok(result instanceof Promise, "Should return a Promise");
@@ -2778,7 +2778,7 @@ for (const method of [
       logs.length = 0;
       const ctxResult = ctx[method](
         "Async ctx message with {value}.",
-        // deno-lint-ignore require-await
+        /* oxlint-disable-next-line eslint/require-await */ // deno-lint-ignore require-await
         async () => ({ value: 123 }),
       );
       assert.ok(ctxResult instanceof Promise, "Should return a Promise");
@@ -2914,7 +2914,7 @@ for (const method of [
       let callbackCalled = false;
       const result = logger[method](
         "Async message with {value}.",
-        // deno-lint-ignore require-await
+        /* oxlint-disable-next-line eslint/require-await */ // deno-lint-ignore require-await
         async () => {
           callbackCalled = true;
           return { value: 42 };
@@ -2946,7 +2946,7 @@ for (const method of [
       logs.length = 0;
       const ctxResult = ctx[method](
         "Async ctx message with {value}.",
-        // deno-lint-ignore require-await
+        /* oxlint-disable-next-line eslint/require-await */ // deno-lint-ignore require-await
         async () => {
           callbackCalled = true;
           return { value: 123 };

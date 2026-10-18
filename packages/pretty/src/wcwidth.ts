@@ -10,7 +10,7 @@
  */
 
 // Pre-compiled regex for ANSI escape sequences
-// deno-lint-ignore no-control-regex
+/* oxlint-disable-next-line eslint/no-control-regex */ // deno-lint-ignore no-control-regex
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 
 /**

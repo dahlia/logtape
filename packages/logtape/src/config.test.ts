@@ -32,7 +32,7 @@ import {
 
 const hasAddEventListener = typeof globalThis.addEventListener === "function";
 const hasProcessExitListeners = (() => {
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   const proc = (globalThis as any).process;
   return (
     !("Deno" in globalThis) &&
@@ -644,7 +644,7 @@ test("withConfig() rejects an invalid parentSinks value", async () => {
             loggers: [
               {
                 category: "invalid",
-                // deno-lint-ignore no-explicit-any
+                /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
                 parentSinks: "bogus" as any,
               },
             ],
@@ -756,7 +756,7 @@ test("withConfig() rejects invalid scoped configuration", async () => {
       () =>
         withConfig(
           {
-            // deno-lint-ignore no-explicit-any
+            /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
             sinks: {} as any,
             loggers: [{ category: "app", sinks: ["missing"] }],
           },
@@ -769,7 +769,7 @@ test("withConfig() rejects invalid scoped configuration", async () => {
         withConfig(
           {
             sinks: {},
-            // deno-lint-ignore no-explicit-any
+            /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
             filters: {} as any,
             loggers: [{ category: "app", filters: ["missing"] }],
           },
@@ -2002,7 +2002,7 @@ test("configure()", async () => {
     await assert.rejects(
       () =>
         configure({
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           sinks: {} as any,
           loggers: [
             {
@@ -2020,7 +2020,7 @@ test("configure()", async () => {
       () =>
         configure({
           sinks: {},
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           filters: {} as any,
           loggers: [
             {
@@ -2149,7 +2149,7 @@ test(
   async () => {
     if (!hasProcessExitListeners) return;
 
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const proc = (globalThis as any).process;
     const before = proc.listeners("exit");
 
@@ -2172,7 +2172,7 @@ test(
   () => {
     if (!hasProcessExitListeners) return;
 
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const proc = (globalThis as any).process;
     const before = proc.listeners("exit");
 
@@ -2355,7 +2355,7 @@ test("configureSync()", async () => {
     assert.throws(
       () =>
         configureSync({
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           sinks: {} as any,
           loggers: [
             {
@@ -2373,7 +2373,7 @@ test("configureSync()", async () => {
       () =>
         configureSync({
           sinks: {},
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           filters: {} as any,
           loggers: [
             {
@@ -2979,6 +2979,7 @@ test("drain() captures a failing drain getter as a rejection", async () => {
     get() {
       getterReads++;
       return function (this: unknown): Promise<void> {
+        // oxlint-disable-next-line typescript/no-this-alias -- Assert the receiver.
         receiver = this;
         later.drains++;
         return Promise.resolve();

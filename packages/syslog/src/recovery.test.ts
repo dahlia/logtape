@@ -358,6 +358,7 @@ test(
     const originalConnect = NodeTcpSyslogConnection.prototype.connect;
     let connection: NodeTcpSyslogConnection | undefined;
     NodeTcpSyslogConnection.prototype.connect = function () {
+      // oxlint-disable-next-line typescript/no-this-alias -- Assert the receiver.
       connection = this;
       return originalConnect.call(this);
     };

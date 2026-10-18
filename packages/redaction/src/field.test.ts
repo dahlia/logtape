@@ -199,7 +199,7 @@ test("redactProperties()", () => {
       fieldPatterns: ["password", "token"],
     });
 
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const configs = result.configs as any;
     assert.strictEqual(configs.length, 2);
     assert.deepStrictEqual(configs[0], { username: "user1" });
@@ -216,7 +216,7 @@ test("redactProperties()", () => {
       fieldPatterns: ["password", "token"],
     });
 
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const data = result.data as any;
     assert.strictEqual(data.length, 4);
     assert.deepStrictEqual(data[0], {});
@@ -245,11 +245,11 @@ test("redactProperties()", () => {
       fieldPatterns: ["password", "token", "key"],
     });
 
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const items = result.items as any;
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const first = items[0] as any;
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const nestedArray = first.config.nestedArray as any;
     assert.strictEqual(items.length, 1);
     assert.strictEqual(first.config.password, undefined);
@@ -272,7 +272,7 @@ test("redactProperties()", () => {
       action: () => "[REDACTED]",
     });
 
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const users = result.users as any;
     assert.strictEqual(users.length, 2);
     assert.deepStrictEqual(users[0], {
@@ -678,7 +678,7 @@ test("redactByField()", async () => {
     wrappedSink(record);
 
     assert.strictEqual(records.length, 1);
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     const configs = records[0].properties.configs as any;
     assert.deepStrictEqual(configs[0], { username: "user" });
   }

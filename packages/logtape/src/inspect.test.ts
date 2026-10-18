@@ -1211,7 +1211,7 @@ test(
     if (skipBuilds) return;
     const { cjs } = await loadBuilds();
     const weakRef = Object.getOwnPropertyDescriptor(globalThis, "WeakRef");
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     delete (globalThis as any).WeakRef;
     try {
       // Without WeakRef, child loggers are stored directly, as instances of

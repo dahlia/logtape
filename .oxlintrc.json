@@ -1,0 +1,130 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "react"
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": "allow-with-description",
+        "ts-expect-error": "allow-with-description",
+        "minimumDescriptionLength": 3
+      }
+    ],
+    "typescript/ban-types": "error",
+    "eslint/constructor-super": "error",
+    "eslint/for-direction": "error",
+    "eslint/getter-return": "error",
+    "react/jsx-boolean-value": "error",
+    "react/button-has-type": "error",
+    "react/jsx-curly-brace-presence": "error",
+    "react/jsx-key": "error",
+    "react/no-children-prop": "error",
+    "react/jsx-no-comment-textnodes": "error",
+    "react/jsx-no-duplicate-props": "error",
+    "react/no-unescaped-entities": "error",
+    "react/jsx-no-useless-fragment": "error",
+    "react/jsx-props-no-spread-multi": "error",
+    "react/void-dom-elements-no-children": "error",
+    "eslint/no-array-constructor": "error",
+    "eslint/no-async-promise-executor": "error",
+    "eslint/no-case-declarations": "error",
+    "eslint/no-class-assign": "error",
+    "eslint/no-compare-neg-zero": "error",
+    "eslint/no-cond-assign": "error",
+    "eslint/no-const-assign": "error",
+    "eslint/no-constant-condition": [
+      "error",
+      {
+        "checkLoops": false
+      }
+    ],
+    "eslint/no-control-regex": "error",
+    "eslint/no-debugger": "error",
+    "eslint/no-delete-var": "error",
+    "eslint/no-dupe-class-members": "error",
+    "eslint/no-dupe-else-if": "error",
+    "eslint/no-dupe-keys": "error",
+    "eslint/no-duplicate-case": "error",
+    "eslint/no-empty": [
+      "error",
+      {
+        "allowEmptyCatch": true
+      }
+    ],
+    "eslint/no-empty-character-class": "error",
+    "typescript/no-empty-interface": [
+      "error",
+      {
+        "allowSingleExtends": true
+      }
+    ],
+    "eslint/no-empty-pattern": "error",
+    "eslint/no-ex-assign": "error",
+    "typescript/no-explicit-any": "error",
+    "eslint/no-extra-boolean-cast": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "eslint/no-fallthrough": "error",
+    "eslint/no-func-assign": "error",
+    "eslint/no-global-assign": "error",
+    "eslint/no-import-assign": "error",
+    "eslint/no-inner-declarations": "error",
+    "eslint/no-invalid-regexp": "error",
+    "eslint/no-irregular-whitespace": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "eslint/no-obj-calls": "error",
+    "eslint/no-prototype-builtins": "error",
+    "eslint/no-redeclare": "error",
+    "eslint/no-regex-spaces": "error",
+    "eslint/no-self-assign": "error",
+    "eslint/no-setter-return": "error",
+    "eslint/no-shadow-restricted-names": "error",
+    "typescript/no-this-alias": "error",
+    "eslint/no-this-before-super": "error",
+    "eslint/no-unreachable": "error",
+    "eslint/no-unsafe-finally": "error",
+    "eslint/no-unsafe-negation": "error",
+    "eslint/no-unused-labels": "error",
+    "eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "eslint/no-var": "error",
+    "eslint/no-with": "error",
+    "typescript/prefer-as-const": "error",
+    "eslint/prefer-const": "error",
+    "typescript/prefer-namespace-keyword": "error",
+    "eslint/require-await": "error",
+    "eslint/require-yield": "error",
+    "eslint/use-isnan": "error",
+    "eslint/valid-typeof": "error"
+  },
+  "ignorePatterns": [
+    "**/.test-report.xml",
+    ".agents/",
+    ".claude/",
+    ".cov/",
+    ".enricomi-publish-action-pip/",
+    ".github/",
+    ".test-report.xml",
+    "coverage/",
+    "docs/",
+    "screenshots/",
+    "packages/*/dist/",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ]
+}
