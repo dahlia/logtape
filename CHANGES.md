@@ -10,13 +10,19 @@ To be released.
 
 ### @logtape/syslog
 
+ -  Added the `dropQueuedOnError` option to `getSyslogSink()` to discard queued
+    records after a connection or send failure.  The default is `false`,
+    preserving queued records.  Failed records are not retried.
+    [[#259], [#264]]
  -  Added the `maxBufferedBytes` option to `getSyslogSink()` to limit pending
     Syslog message bytes.  Messages that exceed the limit are dropped, with a
     warning through the meta logger.  The default remains unlimited.
     [[#260], [#263]]
 
+[#259]: https://github.com/dahlia/logtape/issues/259
 [#260]: https://github.com/dahlia/logtape/issues/260
 [#263]: https://github.com/dahlia/logtape/pull/263
+[#264]: https://github.com/dahlia/logtape/pull/264
 
 
 Version 2.4.2
@@ -42,7 +48,6 @@ Released on October 19, 2026.
     order, and reports failures through the meta logger.
     [[#259], [#262]]
 
-[#259]: https://github.com/dahlia/logtape/issues/259
 [#262]: https://github.com/dahlia/logtape/pull/262
 
 

@@ -186,12 +186,13 @@ export interface SyslogSinkOptions {
   /**
    * The maximum total UTF-8 size of buffered Syslog messages, including the
    * message currently connecting or being sent.  Messages are counted from
-   * acceptance until their send settles, even if it fails.  A new message
+   * acceptance until their send settles or they are discarded by
+   * `dropQueuedOnError`.  A new message
    * that would exceed the limit is dropped without removing older messages.
    *
    * The first drop produces a warning through the
    * `["logtape", "meta", "syslog"]` logger.  Further drops are not reported
-   * until all pending messages have settled.
+   * until all pending messages have settled or been discarded.
    *
    * This counts serialized RFC 5424 messages, including headers and structured
    * data, but excludes TCP newline framing, encoded copies, per-record
@@ -202,6 +203,21 @@ export interface SyslogSinkOptions {
    * @since 2.5.0
    */
   readonly maxBufferedBytes?: number;
+
+  /**
+   * Whether to discard accepted messages still waiting when the sink observes
+   * a connection or send failure.  This includes messages accepted while the
+   * failed operation was in progress, but not messages accepted after the
+   * failure is observed.  The failed message itself is never retried.
+   *
+   * Applies to all connection and send errors with UDP, TCP, and TLS.
+   * Discarded messages release their `maxBufferedBytes` reservations immediately
+   * and are not reported individually.  A failed meta record also triggers
+   * discarding, but does not produce an error report to avoid recursion.
+   * @default `false`
+   * @since 2.5.0
+   */
+  readonly dropQueuedOnError?: boolean;
 
   /**
    * Whether to include structured data in syslog messages.
@@ -787,7 +803,7 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
  * Creates a syslog sink that sends log messages to a syslog server using the
  * RFC 5424 syslog protocol format.
  *
- * This sink supports both UDP and TCP protocols for reliable log transmission
+ * This sink supports both UDP and TCP protocols for log transmission
  * to centralized logging systems. It automatically formats log records according
  * to RFC 5424 specification, including structured data support for log properties.
  *
@@ -795,7 +811,7 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
  *
  * - **RFC 5424 Compliance**: Full implementation of the RFC 5424 syslog protocol
  * - **Cross-Runtime Support**: Works with Deno, Node.js, Bun, and browsers
- * - **Multiple Protocols**: Supports both UDP (fire-and-forget) and TCP (reliable) delivery
+ * - **Multiple Protocols**: Supports both UDP (fire-and-forget) and TCP (connection-based) delivery
  * - **Structured Data**: Automatically includes log record properties as RFC 5424 structured data
  * - **Facility Support**: All standard syslog facilities (kern, user, mail, daemon, local0-7, etc.)
  * - **Automatic Escaping**: Proper escaping of control characters in the message
@@ -806,8 +822,9 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
  *
  * - **UDP**: Fast, connectionless delivery suitable for high-throughput logging.
  *   Messages may be lost during network issues but has minimal performance impact.
- * - **TCP**: Reliable, connection-based delivery that ensures message delivery.
- *   Higher overhead but guarantees that log messages reach the server.
+ * - **TCP**: Connection-based transport with reconnection after observed
+ *   failures.  Failed records are not retried, and a successful local send
+ *   does not guarantee that the server received the message.
  *
  * @param options Configuration options for the syslog sink
  * @returns A sink function that sends log records to the syslog server, implementing AsyncDisposable for proper cleanup
@@ -901,6 +918,7 @@ export function getSyslogSink(
   const syslogHostname = options.syslogHostname ?? getSystemHostname();
   const processId = options.processId ?? getProcessId();
   const timeout = options.timeout ?? 5000;
+  const dropQueuedOnError = options.dropQueuedOnError ?? false;
   const includeStructuredData = options.includeStructuredData ?? false;
   const structuredDataId = options.structuredDataId ?? "logtape@32473";
 
@@ -944,6 +962,7 @@ export function getSyslogSink(
   let lastPromise = Promise.resolve();
   let bufferedBytes = 0;
   let overflowReported = false;
+  let generation = {};
   // Keep delivery failures observable to tests without rejecting the queue.
   let queue = Promise.resolve();
 
@@ -971,24 +990,43 @@ export function getSyslogSink(
       return;
     }
     bufferedBytes += messageBytes;
+    const acceptedGeneration = generation;
+    let started = false;
 
     lastPromise = queue.then(async () => {
-      if (!isConnected) {
-        await connection.connect();
-        isConnected = true;
+      if (acceptedGeneration !== generation) return;
+      started = true;
+      try {
+        if (!isConnected) {
+          await connection.connect();
+          isConnected = true;
+        }
+        await connection.send(syslogMessage);
+      } catch (error) {
+        if (dropQueuedOnError) {
+          // Observe the failure before finalizers or meta reporting.  Only
+          // this message is active; all other reservations belong to waiting
+          // messages, whose callbacks will now skip without releasing twice.
+          generation = {};
+          if (maxBufferedBytes !== Infinity) {
+            const waitingBytes = bufferedBytes - messageBytes;
+            bufferedBytes -= waitingBytes;
+          }
+        }
+        throw error;
       }
-      await connection.send(syslogMessage);
     });
     if (maxBufferedBytes !== Infinity) {
       // Release the reservation before reporting a failed delivery, since
       // the meta logger may enqueue another record through this sink.
       lastPromise = lastPromise.finally(() => {
+        if (!started) return;
         bufferedBytes -= messageBytes;
         if (bufferedBytes === 0) overflowReported = false;
       });
     }
     queue = lastPromise.catch((error) => {
-      // Reconnect for the next record, including records already queued.
+      // Reconnect for the next eligible record.
       isConnected = false;
       connection.close();
       // A meta logger may use this sink too. Never report a report's failure.

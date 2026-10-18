@@ -96,8 +96,8 @@ const sink = getSyslogSink({
 ~~~~
 
 The limit counts complete serialized RFC 5424 messages, including headers and
-structured data.  A message counts from acceptance until its send settles,
-whether by success, failure, or timeout.  Messages waiting to connect and the
+structured data.  A message counts from acceptance until its send settles
+or it is discarded by `dropQueuedOnError`.  Messages waiting to connect and the
 message currently being sent count toward the limit.  TCP newline framing,
 encoded copies, per-message bookkeeping, and socket buffers do not count, so
 this is not a cap on total memory use.  The option applies to UDP, TCP, and TLS.
@@ -106,7 +106,8 @@ When a new message would exceed the limit, the sink drops that message and
 keeps the messages already pending.  A message that exactly fits is accepted;
 a message larger than the entire limit is dropped even when nothing is pending.
 The first drop produces a warning through the `["logtape", "meta", "syslog"]`
-logger.  Further drops are not reported until all pending messages have settled.
+logger.  Further drops are not reported until all pending messages have settled
+or been discarded.
 If the server stops accepting data and a send never settles, new messages keep
 being dropped without further warnings.
 
@@ -120,6 +121,56 @@ message.
 > Enabling this limit allows message loss with any protocol, including TCP.
 > Choose a limit that accommodates normal bursts and route meta warnings to
 > another sink if you need to observe drops while the Syslog server is stalled.
+
+
+Recovering from failures
+------------------------
+
+After a connection or send failure, the sink reports the failed record through
+`["logtape", "meta"]` and attempts the next record, reconnecting as needed.
+Records already queued are kept in order.  The failed record itself is not
+retried, and neither TCP nor a successful local send guarantees that the server
+received the record.
+
+*The `dropQueuedOnError` option is available since LogTape 2.5.0.*
+
+During an outage, attempting each queued record can delay newer messages by
+one connection timeout per attempt.  Set `dropQueuedOnError` to discard those
+waiting records after a failure:
+
+~~~~ typescript twoslash
+import { getSyslogSink } from "@logtape/syslog";
+
+const sink = getSyslogSink({
+  protocol: "tcp",
+  dropQueuedOnError: true,
+  maxBufferedBytes: 1024 * 1024,
+});
+~~~~
+
+The default is `false`, preserving queued records.  When enabled, the option
+discards records accepted before the sink observes a connection or send failure
+but whose processing has not started.  This includes records accepted while the
+failed operation was in progress.  For example, if A fails while B and C are
+waiting, B and C are discarded.  A record D accepted after the failure is
+observed can be sent normally, subject to the byte limit and later failures.
+The failed record is not retried in either mode.
+
+The option applies to every connection and send error with UDP, TCP, and TLS,
+including errors specific to one UDP message.  A serialization exception or a
+message rejected by `maxBufferedBytes` does not trigger this discard policy.
+Discarded messages release their byte reservations immediately, so new messages
+can use that capacity.  This does not guarantee immediate memory reclamation
+or bound total memory or disposal time.
+It takes effect only after an operation fails, so it cannot clear messages
+behind a send that never settles.
+
+Discarded records are not reported individually.  A failed meta record also
+triggers discarding, but suppresses its own error report to avoid recursion.
+Route meta logs to another sink to observe failures independently of the Syslog
+server.  Retrying failed records would need a separate opt-in policy because
+an apparently failed send may already have reached the server and a retry could
+produce duplicates.
 
 
 Structured data
@@ -218,8 +269,8 @@ UDP (default)
     logging where occasional message loss is acceptable.
 
 TCP
-:   Reliable delivery with connection management, suitable for critical
-    log messages that must not be lost.
+:   Connection-based transport with reconnection after observed failures.
+    A failed record is not retried, and server receipt is not guaranteed.
 
 For more details, see the `getSyslogSink()` function and `SyslogSinkOptions`
 interface in the API reference.
