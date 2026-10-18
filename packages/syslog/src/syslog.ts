@@ -1,4 +1,10 @@
-import type { LogLevel, LogRecord, Sink } from "@logtape/logtape";
+import {
+  getLogger,
+  type LogLevel,
+  type LogRecord,
+  type Sink,
+} from "@logtape/logtape";
+import { Buffer } from "node:buffer";
 import { createSocket } from "node:dgram";
 import { Socket } from "node:net";
 import { hostname } from "node:os";
@@ -176,6 +182,26 @@ export interface SyslogSinkOptions {
    * @default 5000
    */
   readonly timeout?: number;
+
+  /**
+   * The maximum total UTF-8 size of buffered Syslog messages, including the
+   * message currently connecting or being sent.  Messages are counted from
+   * acceptance until their send settles, even if it fails.  A new message
+   * that would exceed the limit is dropped without removing older messages.
+   *
+   * The first drop produces a warning through the
+   * `["logtape", "meta", "syslog"]` logger.  Further drops are not reported
+   * until all pending messages have settled.
+   *
+   * This counts serialized RFC 5424 messages, including headers and structured
+   * data, but excludes TCP newline framing, encoded copies, per-record
+   * bookkeeping, and socket buffers.  It is not a limit on total memory use.
+   * Applies to UDP, TCP, and TLS.  Must be a positive safe integer or
+   * `Infinity`.
+   * @default `Infinity`
+   * @since 2.5.0
+   */
+  readonly maxBufferedBytes?: number;
 
   /**
    * Whether to include structured data in syslog messages.
@@ -833,6 +859,8 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
  * // Results in: <134>1 2024-01-01T12:00:00.000Z hostname myapp 1234 - [myapp@12345 userId="123" action="login"] User action completed
  * ```
  *
+ * @throws {RangeError} If `maxBufferedBytes` is not a positive safe integer
+ *                     or `Infinity`.
  * @since 0.12.0
  * @see {@link https://tools.ietf.org/html/rfc5424} RFC 5424 - The Syslog Protocol
  * @see {@link SyslogSinkOptions} for detailed configuration options
@@ -840,6 +868,16 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
 export function getSyslogSink(
   options: SyslogSinkOptions = {},
 ): Sink & AsyncDisposable {
+  const maxBufferedBytes = options.maxBufferedBytes ?? Infinity;
+  if (
+    maxBufferedBytes !== Infinity &&
+    !(Number.isSafeInteger(maxBufferedBytes) && maxBufferedBytes > 0)
+  ) {
+    throw new RangeError(
+      "The maxBufferedBytes option must be a positive safe integer or " +
+        `Infinity, but got ${String(maxBufferedBytes)}.`,
+    );
+  }
   const hostname = options.hostname ?? "localhost";
   const port = options.port ?? 514;
   const protocol = options.protocol ?? "udp";
@@ -891,9 +929,33 @@ export function getSyslogSink(
 
   let isConnected = false;
   let lastPromise = Promise.resolve();
+  let bufferedBytes = 0;
+  let overflowReported = false;
 
   const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     const syslogMessage = formatSyslogMessage(record, formatOptions);
+    const messageBytes = maxBufferedBytes === Infinity
+      ? 0
+      : Buffer.byteLength(syslogMessage, "utf8");
+    if (messageBytes > maxBufferedBytes - bufferedBytes) {
+      // Mark before reporting: the meta logger may route back to this sink.
+      if (!overflowReported) {
+        overflowReported = true;
+        try {
+          getLogger(["logtape", "meta", "syslog"]).warn(
+            "Dropped a {messageBytes}-byte Syslog message because " +
+              "{bufferedBytes} bytes are pending and maxBufferedBytes is " +
+              "{maxBufferedBytes}. Further drops will not be reported " +
+              "until pending messages have settled.",
+            { messageBytes, bufferedBytes, maxBufferedBytes },
+          );
+        } catch {
+          // A failing meta-logger filter must not interrupt the logging call.
+        }
+      }
+      return;
+    }
+    bufferedBytes += messageBytes;
 
     lastPromise = lastPromise
       .then(async () => {
@@ -908,6 +970,14 @@ export function getSyslogSink(
         isConnected = false;
         throw error;
       });
+    if (maxBufferedBytes !== Infinity) {
+      // Keep cleanup in the chain so failed or skipped sends also release
+      // their reservation without creating a detached rejected promise.
+      lastPromise = lastPromise.finally(() => {
+        bufferedBytes -= messageBytes;
+        if (bufferedBytes === 0) overflowReported = false;
+      });
+    }
   };
 
   sink[asyncDisposeSymbol] = async () => {

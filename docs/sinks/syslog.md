@@ -78,6 +78,50 @@ await configure({
 [RFC 5424]: https://tools.ietf.org/html/rfc5424
 
 
+Limiting pending messages
+-------------------------
+
+*This API is available since LogTape 2.5.0.*
+
+If messages arrive faster than the server accepts them, pending messages can
+accumulate in memory.  Set `maxBufferedBytes` to limit their total UTF-8 size:
+
+~~~~ typescript twoslash
+import { getSyslogSink } from "@logtape/syslog";
+
+const sink = getSyslogSink({
+  protocol: "tcp",
+  maxBufferedBytes: 1024 * 1024,  // 1 MiB of pending message data
+});
+~~~~
+
+The limit counts complete serialized RFC 5424 messages, including headers and
+structured data.  A message counts from acceptance until its send settles,
+whether by success, failure, or timeout.  Messages waiting to connect and the
+message currently being sent count toward the limit.  TCP newline framing,
+encoded copies, per-message bookkeeping, and socket buffers do not count, so
+this is not a cap on total memory use.  The option applies to UDP, TCP, and TLS.
+
+When a new message would exceed the limit, the sink drops that message and
+keeps the messages already pending.  A message that exactly fits is accepted;
+a message larger than the entire limit is dropped even when nothing is pending.
+The first drop produces a warning through the `["logtape", "meta", "syslog"]`
+logger.  Further drops are not reported until all pending messages have settled.
+If the server stops accepting data and a send never settles, new messages keep
+being dropped without further warnings.
+
+The value must be a positive safe integer or `Infinity`; otherwise
+`getSyslogSink()` throws a `RangeError`.  The default is `Infinity`, preserving
+unlimited buffering.  Unlike the record-count limit `maxQueueSize` on
+`fromAsyncSink()`, this option measures bytes and includes the in-flight
+message.
+
+> [!WARNING]
+> Enabling this limit allows message loss with any protocol, including TCP.
+> Choose a limit that accommodates normal bursts and route meta warnings to
+> another sink if you need to observe drops while the Syslog server is stalled.
+
+
 Structured data
 ---------------
 
