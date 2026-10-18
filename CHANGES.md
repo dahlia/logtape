@@ -8,6 +8,26 @@ Version 2.2.16
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed `jsonLinesFormatter` and `getJsonLinesFormatter()` throwing on
+    `bigint` values in structured properties and interpolated messages.
+    Bigints are now serialized as decimal strings without losing precision.
+    [[#258], [#261]]
+
+[#258]: https://github.com/dahlia/logtape/issues/258
+[#261]: https://github.com/dahlia/logtape/pull/261
+
+### @logtape/syslog
+
+ -  Fixed `getSyslogSink()` permanently stopping after a connection or send
+    failure and causing unhandled promise rejections for later records.  The
+    sink now reconnects for subsequent records, preserves queued records in
+    order, and reports failures through the meta logger.  [[#259], [#262]]
+
+[#259]: https://github.com/dahlia/logtape/issues/259
+[#262]: https://github.com/dahlia/logtape/pull/262
+
 
 Version 2.2.15
 --------------
@@ -678,6 +698,26 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.20
+--------------
+
+Released on October 18, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `jsonLinesFormatter` and `getJsonLinesFormatter()` throwing on
+    `bigint` values in structured properties and interpolated messages.
+    Bigints are now serialized as decimal strings without losing precision.
+    [[#258], [#261]]
+
+### @logtape/syslog
+
+ -  Fixed `getSyslogSink()` permanently stopping after a connection or send
+    failure and causing unhandled promise rejections for later records.  The
+    sink now reconnects for subsequent records, preserves queued records in
+    order, and reports failures through the meta logger.  [[#259], [#262]]
+
+
 Version 2.1.19
 --------------
 
@@ -1235,6 +1275,26 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.29
+--------------
+
+Released on October 18, 2026.
+
+### @logtape/logtape
+
+ -  Fixed `jsonLinesFormatter` and `getJsonLinesFormatter()` throwing on
+    `bigint` values in structured properties and interpolated messages.
+    Bigints are now serialized as decimal strings without losing precision.
+    [[#258], [#261]]
+
+### @logtape/syslog
+
+ -  Fixed `getSyslogSink()` permanently stopping after a connection or send
+    failure and causing unhandled promise rejections for later records.  The
+    sink now reconnects for subsequent records, preserves queued records in
+    order, and reports failures through the meta logger.  [[#259], [#262]]
 
 
 Version 2.0.28

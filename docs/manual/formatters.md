@@ -62,6 +62,10 @@ When an `Error` (or `AggregateError`) object is present in structured
 properties, it is serialized as a plain object so that error details (like
 `message` and `stack`) are reliably preserved in JSON output.
 
+`bigint` values in structured properties and interpolated messages are
+serialized as decimal strings, preserving precision.  For example,
+`9007199254740993n` becomes `"9007199254740993"` rather than a JSON number.
+
 It formats log records like this:
 
 ~~~~
