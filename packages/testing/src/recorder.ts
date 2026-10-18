@@ -258,9 +258,7 @@ export function createLogRecorder(): LogRecorder {
     ): Promise<LogRecord> {
       return new Promise<LogRecord>((resolve, reject) => {
         const timeout = options.timeout === undefined ? 1000 : options.timeout;
-        if (
-          !Number.isInteger(timeout) || timeout < 0 || timeout > 2147483647
-        ) {
+        if (!Number.isInteger(timeout) || timeout < 0 || timeout > 2147483647) {
           throw new RangeError(
             "timeout must be an integer from 0 to 2147483647 milliseconds.",
           );
@@ -351,7 +349,7 @@ export function createLogRecorder(): LogRecorder {
     },
     assertNotLogged(match: LogRecordMatch): void {
       const matching = records.filter((record) =>
-        matchesLogRecord(record, match)
+        matchesLogRecord(record, match),
       );
       if (matching.length < 1) return;
 
@@ -375,18 +373,20 @@ function formatWaitTimeout(
   records: readonly LogRecord[],
 ): Error {
   const lines = records.map((record) =>
-    boundedDiagnostic(() => formatRecord(record), 500)
+    boundedDiagnostic(() => formatRecord(record), 500),
   );
   if (count > records.length) {
     lines.push(`  ... ${count - records.length} more`);
   }
-  const error = new Error([
-    `Timed out after ${timeout} ms waiting for a LogTape record matching:`,
-    boundedDiagnostic(() => formatMatcher(match), 1000),
-    "",
-    `Observed ${formatCount(count, "record")}:`,
-    lines.length > 0 ? lines.join("\n") : "  <none>",
-  ].join("\n"));
+  const error = new Error(
+    [
+      `Timed out after ${timeout} ms waiting for a LogTape record matching:`,
+      boundedDiagnostic(() => formatMatcher(match), 1000),
+      "",
+      `Observed ${formatCount(count, "record")}:`,
+      lines.length > 0 ? lines.join("\n") : "  <none>",
+    ].join("\n"),
+  );
   error.name = "TimeoutError";
   return error;
 }
@@ -414,10 +414,7 @@ function matchesLogRecord(record: LogRecord, match: LogRecordMatch): boolean {
     return false;
   }
   if (match.level != null && record.level !== match.level) return false;
-  if (
-    match.message != null &&
-    !matchesMessage(record, match.message)
-  ) {
+  if (match.message != null && !matchesMessage(record, match.message)) {
     return false;
   }
   if (
@@ -448,8 +445,10 @@ function matchesCategory(
     return joinedCategory === expected;
   }
   const expectedCategory = parseCategory(expected);
-  return category.length === expectedCategory.length &&
-    category.every((part, index) => part === expectedCategory[index]);
+  return (
+    category.length === expectedCategory.length &&
+    category.every((part, index) => part === expectedCategory[index])
+  );
 }
 
 function matchesCategoryPrefix(
@@ -457,8 +456,10 @@ function matchesCategoryPrefix(
   prefix: string | readonly string[],
 ): boolean {
   const expectedPrefix = parseCategory(prefix);
-  return expectedPrefix.length <= category.length &&
-    expectedPrefix.every((part, index) => part === category[index]);
+  return (
+    expectedPrefix.length <= category.length &&
+    expectedPrefix.every((part, index) => part === category[index])
+  );
 }
 
 function parseCategory(
@@ -529,9 +530,9 @@ function formatMatcher(match: LogRecordMatch): string {
   }
   if (match.categoryPrefix != null) {
     lines.push(
-      `  categoryPrefix: ${
-        formatCategoryValue(parseCategory(match.categoryPrefix))
-      }`,
+      `  categoryPrefix: ${formatCategoryValue(
+        parseCategory(match.categoryPrefix),
+      )}`,
     );
   }
   if (match.level != null) lines.push(`  level: ${formatValue(match.level)}`);
@@ -554,8 +555,8 @@ function formatCategoryMatcher(
   return category instanceof RegExp
     ? String(category)
     : typeof category === "string"
-    ? formatValue(category)
-    : formatCategoryValue(category);
+      ? formatValue(category)
+      : formatCategoryValue(category);
 }
 
 function formatCategoryValue(category: readonly string[]): string {
@@ -565,9 +566,9 @@ function formatCategoryValue(category: readonly string[]): string {
 function formatMessageMatcher(
   matcher: string | RegExp | ((record: LogRecord) => boolean),
 ): string {
-  return typeof matcher === "function" ? "<predicate>" : formatTextMatcher(
-    matcher,
-  );
+  return typeof matcher === "function"
+    ? "<predicate>"
+    : formatTextMatcher(matcher);
 }
 
 function formatTextMatcher(matcher: string | RegExp): string {
@@ -578,8 +579,8 @@ function formatPropertiesMatcher(
   matcher: Readonly<Record<string, unknown>> | PropertyMatcher,
 ): string[] {
   if (typeof matcher === "function") return ["  properties: <predicate>"];
-  const lines = Object.keys(matcher).map((key) =>
-    `  properties.${key}: ${formatPropertyValue(matcher, key)}`
+  const lines = Object.keys(matcher).map(
+    (key) => `  properties.${key}: ${formatPropertyValue(matcher, key)}`,
   );
   return lines.length < 1 ? ["  properties: {}"] : lines;
 }
@@ -595,9 +596,9 @@ function formatRecords(records: readonly LogRecord[]): string {
 
 function formatRecord(record: LogRecord): string {
   const category = formatCategory(record.category);
-  return `  [${record.level}] ${category}: ${formatMessage(record)}${
-    formatProperties(record.properties)
-  }`;
+  return `  [${record.level}] ${category}: ${formatMessage(record)}${formatProperties(
+    record.properties,
+  )}`;
 }
 
 function formatMessage(record: LogRecord): string {
@@ -618,9 +619,9 @@ function formatProperties(
   const props: Readonly<Record<string, unknown>> = properties ?? {};
   const entries = Object.keys(props);
   if (entries.length < 1) return "";
-  const summary = entries.slice(0, 3).map((key) =>
-    `${key}: ${formatPropertyValue(props, key)}`
-  );
+  const summary = entries
+    .slice(0, 3)
+    .map((key) => `${key}: ${formatPropertyValue(props, key)}`);
   if (entries.length > 3) summary.push(`... ${entries.length - 3} more`);
   return ` {${summary.join(", ")}}`;
 }
@@ -688,28 +689,27 @@ function formatSet(value: ReadonlySet<unknown>): string {
 
 function safeJsonStringify(value: unknown): string | undefined {
   const ancestors: object[] = [];
-  return JSON.stringify(value, function (
-    this: unknown,
-    _key: string,
-    item: unknown,
-  ): unknown {
-    if (typeof item === "bigint") return `${item}n`;
-    if (item instanceof RegExp) return String(item);
-    if (item instanceof Error) return `${item.name}: ${item.message}`;
-    if (typeof item === "object" && item != null) {
-      while (
-        ancestors.length > 0 &&
-        ancestors[ancestors.length - 1] !== this
-      ) {
-        ancestors.pop();
+  return JSON.stringify(
+    value,
+    function (this: unknown, _key: string, item: unknown): unknown {
+      if (typeof item === "bigint") return `${item}n`;
+      if (item instanceof RegExp) return String(item);
+      if (item instanceof Error) return `${item.name}: ${item.message}`;
+      if (typeof item === "object" && item != null) {
+        while (
+          ancestors.length > 0 &&
+          ancestors[ancestors.length - 1] !== this
+        ) {
+          ancestors.pop();
+        }
+        if (ancestors.includes(item)) return "[Circular]";
+        ancestors.push(item);
+        if (item instanceof Map) return formatMapContents(item);
+        if (item instanceof Set) return Array.from(item);
       }
-      if (ancestors.includes(item)) return "[Circular]";
-      ancestors.push(item);
-      if (item instanceof Map) return formatMapContents(item);
-      if (item instanceof Set) return Array.from(item);
-    }
-    return item;
-  });
+      return item;
+    },
+  );
 }
 
 function formatMapContents(

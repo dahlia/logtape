@@ -91,17 +91,16 @@ globalThis.Symbol = legacySymbol;
 
 // Package-local Deno tasks do not grant filesystem permissions.  Root tests
 // grant read access and exercise the worker cases; Node and Bun always do.
-const skip = typeof Deno !== "undefined" &&
+const skip =
+  typeof Deno !== "undefined" &&
   Deno.permissions.querySync({ name: "read" }).state !== "granted";
 
-for (
-  const missing of [
-    ["dispose", "asyncDispose"],
-    ["dispose"],
-    ["asyncDispose"],
-    [],
-  ]
-) {
+for (const missing of [
+  ["dispose", "asyncDispose"],
+  ["dispose"],
+  ["asyncDispose"],
+  [],
+]) {
   test(
     `Syslog disposal hooks with missing symbols: ${
       missing.join(", ") || "none"

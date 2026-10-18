@@ -166,21 +166,18 @@ function f(logger) {
   assert.strictEqual(messages.length, 0);
 });
 
-test(
-  "no-message-interpolation: still flags outer logger used inside function that shadows getLogger",
-  () => {
-    const messages = lint(
-      `import { getLogger } from "@logtape/logtape";
+test("no-message-interpolation: still flags outer logger used inside function that shadows getLogger", () => {
+  const messages = lint(
+    `import { getLogger } from "@logtape/logtape";
 const logger = getLogger(["test"]);
 function handler(getLogger) {
   logger.info(\`User \${userId} logged in.\`);
 }`,
-    );
-    // logger was initialized from the real import in the outer scope; the
-    // parameter shadow of getLogger inside handler must not hide that.
-    assert.strictEqual(messages.length, 1);
-  },
-);
+  );
+  // logger was initialized from the real import in the outer scope; the
+  // parameter shadow of getLogger inside handler must not hide that.
+  assert.strictEqual(messages.length, 1);
+});
 
 test("no-message-interpolation: flags contextual logger from .with()", () => {
   const messages = lint(

@@ -86,8 +86,8 @@ function getNodeDriver(): TimeRotatingFileSinkDriver<number> {
 
 function getDriver(): TimeRotatingFileSinkDriver<Deno.FsFile | number> {
   return isDeno
-    ? getDenoDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>
-    : getNodeDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>;
+    ? (getDenoDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>)
+    : (getNodeDriver() as TimeRotatingFileSinkDriver<Deno.FsFile | number>);
 }
 
 function getDenoAsyncDriver(): AsyncTimeRotatingFileSinkDriver<Deno.FsFile> {
@@ -114,12 +114,12 @@ function getAsyncDriver(): AsyncTimeRotatingFileSinkDriver<
   Deno.FsFile | number
 > {
   return isDeno
-    ? getDenoAsyncDriver() as AsyncTimeRotatingFileSinkDriver<
-      Deno.FsFile | number
-    >
-    : getNodeAsyncDriver() as AsyncTimeRotatingFileSinkDriver<
-      Deno.FsFile | number
-    >;
+    ? (getDenoAsyncDriver() as AsyncTimeRotatingFileSinkDriver<
+        Deno.FsFile | number
+      >)
+    : (getNodeAsyncDriver() as AsyncTimeRotatingFileSinkDriver<
+        Deno.FsFile | number
+      >);
 }
 
 test("getISOWeek()", () => {
@@ -181,9 +181,9 @@ test("getDefaultFilename() formats generated daily filenames", () => {
 
       assert.strictEqual(
         filename,
-        `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${
-          pad2(date.getDate())
-        }.log`,
+        `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
+          date.getDate(),
+        )}.log`,
       );
     }),
   );
@@ -202,9 +202,9 @@ test("getDefaultFilename() formats generated hourly filenames", () => {
 
       assert.strictEqual(
         filename,
-        `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${
-          pad2(date.getDate())
-        }-${pad2(date.getHours())}.log`,
+        `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
+          date.getDate(),
+        )}-${pad2(date.getHours())}.log`,
       );
     }),
   );
@@ -449,9 +449,9 @@ test("getBaseTimeRotatingFileSink() cleans up with parseFilename", () => {
       ...driver,
       directory,
       filename: (date) =>
-        `app-${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${
-          pad2(date.getDate())
-        }.txt`,
+        `app-${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
+          date.getDate(),
+        )}.txt`,
       parseFilename: (file) => {
         const match = file.match(/^app-(\d{4})-(\d{2})-(\d{2})\.txt$/);
         if (match === null) return null;

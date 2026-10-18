@@ -106,38 +106,39 @@ export function getPinoSink<
   const categoryOptions = !options.category
     ? undefined
     : typeof options.category === "object"
-    ? options.category
-    : {};
+      ? options.category
+      : {};
   const category: Required<CategoryOptions> | undefined =
-    categoryOptions == null ? undefined : {
-      separator: categoryOptions.separator ?? "·",
-      position: categoryOptions.position ?? "start",
-      decorator: categoryOptions.decorator ?? ":",
-    };
+    categoryOptions == null
+      ? undefined
+      : {
+          separator: categoryOptions.separator ?? "·",
+          position: categoryOptions.position ?? "start",
+          decorator: categoryOptions.decorator ?? ":",
+        };
   return (record: LogRecord) => {
     let message = "";
     const interpolationValues: unknown[] = [];
     if (category?.position === "start" && record.category.length > 0) {
-      message += category.decorator === "[]"
-        ? "[%s] "
-        : category.decorator === "()"
-        ? "(%s) "
-        : category.decorator === "<>"
-        ? "<%s> "
-        : category.decorator === "{}"
-        ? "{%s} "
-        : category.decorator === ":"
-        ? "%s: "
-        : category.decorator === "-"
-        ? "%s - "
-        : category.decorator === "|"
-        ? "%s | "
-        : category.decorator === "/"
-        ? "%s / "
-        : "%s ";
-      interpolationValues.push(
-        record.category.join(category.separator),
-      );
+      message +=
+        category.decorator === "[]"
+          ? "[%s] "
+          : category.decorator === "()"
+            ? "(%s) "
+            : category.decorator === "<>"
+              ? "<%s> "
+              : category.decorator === "{}"
+                ? "{%s} "
+                : category.decorator === ":"
+                  ? "%s: "
+                  : category.decorator === "-"
+                    ? "%s - "
+                    : category.decorator === "|"
+                      ? "%s | "
+                      : category.decorator === "/"
+                        ? "%s / "
+                        : "%s ";
+      interpolationValues.push(record.category.join(category.separator));
     }
     for (let i = 0; i < record.message.length; i += 2) {
       message += record.message[i];
@@ -147,26 +148,25 @@ export function getPinoSink<
       }
     }
     if (category?.position === "end" && record.category.length > 0) {
-      message += category.decorator === "[]"
-        ? " [%s]"
-        : category.decorator === "()"
-        ? " (%s)"
-        : category.decorator === "<>"
-        ? " <%s>"
-        : category.decorator === "{}"
-        ? " {%s}"
-        : category.decorator === ":"
-        ? ": %s"
-        : category.decorator === "-"
-        ? " - %s"
-        : category.decorator === "|"
-        ? " | %s"
-        : category.decorator === "/"
-        ? " / %s"
-        : " %s";
-      interpolationValues.push(
-        record.category.join(category.separator),
-      );
+      message +=
+        category.decorator === "[]"
+          ? " [%s]"
+          : category.decorator === "()"
+            ? " (%s)"
+            : category.decorator === "<>"
+              ? " <%s>"
+              : category.decorator === "{}"
+                ? " {%s}"
+                : category.decorator === ":"
+                  ? ": %s"
+                  : category.decorator === "-"
+                    ? " - %s"
+                    : category.decorator === "|"
+                      ? " | %s"
+                      : category.decorator === "/"
+                        ? " / %s"
+                        : " %s";
+      interpolationValues.push(record.category.join(category.separator));
     }
     switch (record.level) {
       case "trace":

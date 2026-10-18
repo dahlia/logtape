@@ -11,9 +11,7 @@ import { compareLogLevel, type LogLevel } from "./level.ts";
 import { LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
-const immediateSinkSymbol = Symbol.for(
-  "LogTape.sinkSnapshotPolicy.immediate",
-);
+const immediateSinkSymbol = Symbol.for("LogTape.sinkSnapshotPolicy.immediate");
 
 function markSinkAsImmediate<T extends Sink>(sink: T): T {
   Object.defineProperty(sink, immediateSinkSymbol, {
@@ -230,9 +228,8 @@ export function withFilter(sink: Sink, filter: FilterLike): Sink {
     filtered[disposeSymbol] = disposableSink[disposeSymbol]?.bind(sink);
   }
   if (asyncDisposeSymbol in disposableSink) {
-    filtered[asyncDisposeSymbol] = disposableSink[asyncDisposeSymbol]?.bind(
-      sink,
-    );
+    filtered[asyncDisposeSymbol] =
+      disposableSink[asyncDisposeSymbol]?.bind(sink);
   }
   if (isDrainable(sink)) filtered.drain = sink.drain.bind(sink);
   return filtered;
@@ -286,39 +283,41 @@ export interface StreamSinkOptions {
    * @default `false`
    * @since 1.0.0
    */
-  nonBlocking?: boolean | {
-    /**
-     * Maximum number of records to buffer before flushing.
-     * @default `100`
-     */
-    bufferSize?: number;
+  nonBlocking?:
+    | boolean
+    | {
+        /**
+         * Maximum number of records to buffer before flushing.
+         * @default `100`
+         */
+        bufferSize?: number;
 
-    /**
-     * Interval in milliseconds between automatic flushes.
-     * @default `100`
-     */
-    flushInterval?: number;
+        /**
+         * Interval in milliseconds between automatic flushes.
+         * @default `100`
+         */
+        flushInterval?: number;
 
-    /**
-     * Reports overflow counts aggregated over `flushInterval` milliseconds,
-     * independently of output progress, and any remaining count on disposal.
-     * No record payloads are passed.  Handler failures are suppressed.
-     * Calls reaching this sink synchronously from its callback are ignored
-     * and are not counted.  Use a separate diagnostic path for delayed logs.
-     * Returned promises are not awaited.
-     * @since 2.4.0
-     */
-    onDrop?: (event: SinkDropEvent) => void;
+        /**
+         * Reports overflow counts aggregated over `flushInterval` milliseconds,
+         * independently of output progress, and any remaining count on disposal.
+         * No record payloads are passed.  Handler failures are suppressed.
+         * Calls reaching this sink synchronously from its callback are ignored
+         * and are not counted.  Use a separate diagnostic path for delayed logs.
+         * Returned promises are not awaited.
+         * @since 2.4.0
+         */
+        onDrop?: (event: SinkDropEvent) => void;
 
-    /**
-     * Reports failed background output operations, including formatter errors.
-     * Handler failures are suppressed.  Calls reaching this sink synchronously
-     * from its callback are ignored; delayed logs need a separate diagnostic
-     * path.  Returned promises do not extend output completion.
-     * @since 2.4.0
-     */
-    onError?: (event: SinkErrorEvent) => void;
-  };
+        /**
+         * Reports failed background output operations, including formatter errors.
+         * Handler failures are suppressed.  Calls reaching this sink synchronously
+         * from its callback are ignored; delayed logs need a separate diagnostic
+         * path.  Returned promises do not extend output completion.
+         * @since 2.4.0
+         */
+        onError?: (event: SinkErrorEvent) => void;
+      };
 }
 
 /**
@@ -386,9 +385,8 @@ export function getStreamSink(
   }
 
   // Non-blocking mode implementation
-  const nonBlockingConfig = options.nonBlocking === true
-    ? {}
-    : options.nonBlocking;
+  const nonBlockingConfig =
+    options.nonBlocking === true ? {} : options.nonBlocking;
   const bufferSize = nonBlockingConfig.bufferSize ?? 100;
   const flushInterval = nonBlockingConfig.flushInterval ?? 100;
   const notifications = createSinkNotifications(
@@ -436,7 +434,8 @@ export function getStreamSink(
     const settledSeq = getSettledSeq();
     let count = 0;
     while (
-      count < drainWaiters.length && drainWaiters[count].target <= settledSeq
+      count < drainWaiters.length &&
+      drainWaiters[count].target <= settledSeq
     ) {
       count++;
     }
@@ -543,25 +542,27 @@ export function getStreamSink(
       flushTimer = null;
     }
     notifications.dispose();
-    complete((async () => {
-      try {
-        // A disposal requested by a formatter at the start of a flush runs
-        // before that flush is published as activeFlush, so read it only
-        // after a tick instead of closing the writer in the middle of it.
-        await Promise.resolve();
-        await activeFlush;
-        await flush();
-        if (closeStream) {
-          try {
-            await writer.close();
-          } catch (error) {
-            notifications.error(error, "close");
+    complete(
+      (async () => {
+        try {
+          // A disposal requested by a formatter at the start of a flush runs
+          // before that flush is published as activeFlush, so read it only
+          // after a tick instead of closing the writer in the middle of it.
+          await Promise.resolve();
+          await activeFlush;
+          await flush();
+          if (closeStream) {
+            try {
+              await writer.close();
+            } catch (error) {
+              notifications.error(error, "close");
+            }
           }
+        } finally {
+          writer.releaseLock();
         }
-      } finally {
-        writer.releaseLock();
-      }
-    })());
+      })(),
+    );
     return disposePromise;
   };
 
@@ -634,39 +635,41 @@ export interface ConsoleSinkOptions {
    * @default `false`
    * @since 1.0.0
    */
-  nonBlocking?: boolean | {
-    /**
-     * Maximum number of records to buffer before flushing.
-     * @default `100`
-     */
-    bufferSize?: number;
+  nonBlocking?:
+    | boolean
+    | {
+        /**
+         * Maximum number of records to buffer before flushing.
+         * @default `100`
+         */
+        bufferSize?: number;
 
-    /**
-     * Interval in milliseconds between automatic flushes.
-     * @default `100`
-     */
-    flushInterval?: number;
+        /**
+         * Interval in milliseconds between automatic flushes.
+         * @default `100`
+         */
+        flushInterval?: number;
 
-    /**
-     * Reports overflow counts aggregated over `flushInterval` milliseconds,
-     * independently of output progress, and any remaining count on disposal.
-     * No record payloads are passed.  Handler failures are suppressed.
-     * Calls reaching this sink synchronously from its callback are ignored
-     * and are not counted.  Use a separate diagnostic path for delayed logs.
-     * Returned promises are not awaited.
-     * @since 2.4.0
-     */
-    onDrop?: (event: SinkDropEvent) => void;
+        /**
+         * Reports overflow counts aggregated over `flushInterval` milliseconds,
+         * independently of output progress, and any remaining count on disposal.
+         * No record payloads are passed.  Handler failures are suppressed.
+         * Calls reaching this sink synchronously from its callback are ignored
+         * and are not counted.  Use a separate diagnostic path for delayed logs.
+         * Returned promises are not awaited.
+         * @since 2.4.0
+         */
+        onDrop?: (event: SinkDropEvent) => void;
 
-    /**
-     * Reports failed background output operations, including formatter errors.
-     * Handler failures are suppressed.  Calls reaching this sink synchronously
-     * from its callback are ignored; delayed logs need a separate diagnostic
-     * path.  Returned promises do not extend output completion.
-     * @since 2.4.0
-     */
-    onError?: (event: SinkErrorEvent) => void;
-  };
+        /**
+         * Reports failed background output operations, including formatter errors.
+         * Handler failures are suppressed.  Calls reaching this sink synchronously
+         * from its callback are ignored; delayed logs need a separate diagnostic
+         * path.  Returned promises do not extend output completion.
+         * @since 2.4.0
+         */
+        onError?: (event: SinkErrorEvent) => void;
+      };
 }
 
 /**
@@ -716,9 +719,8 @@ export function getConsoleSink(
   }
 
   // Non-blocking mode implementation
-  const nonBlockingConfig = options.nonBlocking === true
-    ? {}
-    : options.nonBlocking;
+  const nonBlockingConfig =
+    options.nonBlocking === true ? {} : options.nonBlocking;
   const bufferSize = nonBlockingConfig.bufferSize ?? 100;
   const flushInterval = nonBlockingConfig.flushInterval ?? 100;
   const notifications = createSinkNotifications(
@@ -1394,9 +1396,9 @@ export interface FingersCrossedOptions {
     | "ancestor"
     | "both"
     | ((
-      triggerCategory: readonly string[],
-      bufferedCategory: readonly string[],
-    ) => boolean);
+        triggerCategory: readonly string[],
+        bufferedCategory: readonly string[],
+      ) => boolean);
 
   /**
    * Enable context-based buffer isolation.
@@ -1599,9 +1601,8 @@ export function fingersCrossed(
   options: FingersCrossedOptions = {},
 ): FingersCrossedSink & Partial<Disposable & AsyncDisposable & Drainable> {
   const triggerLevel = options.triggerLevel ?? "error";
-  const afterTrigger = options.afterTrigger === undefined
-    ? "passthrough"
-    : options.afterTrigger;
+  const afterTrigger =
+    options.afterTrigger === undefined ? "passthrough" : options.afterTrigger;
   const bufferLevel = options.bufferLevel;
   const maxBufferSize = Math.max(0, options.maxBufferSize ?? 1000);
   const isolateByCategory = options.isolateByCategory;
@@ -1618,12 +1619,9 @@ export function fingersCrossed(
     wrapped: TSink,
     disposeSelf?: () => void,
   ): TSink & Partial<Disposable & AsyncDisposable & Drainable> {
-    const disposableSink = sink as
-      & Sink
-      & Partial<Disposable & AsyncDisposable>;
-    const disposableWrapped = wrapped as
-      & TSink
-      & Partial<Disposable & AsyncDisposable & Drainable>;
+    const disposableSink = sink as Sink & Partial<Disposable & AsyncDisposable>;
+    const disposableWrapped = wrapped as TSink &
+      Partial<Disposable & AsyncDisposable & Drainable>;
     const disposeSink = disposableSink[disposeSymbol];
     const asyncDisposeSink = disposableSink[asyncDisposeSymbol];
 
@@ -1734,9 +1732,9 @@ export function fingersCrossed(
   // Determine matcher function based on isolation mode
   let shouldFlushBuffer:
     | ((
-      triggerCategory: readonly string[],
-      bufferedCategory: readonly string[],
-    ) => boolean)
+        triggerCategory: readonly string[],
+        bufferedCategory: readonly string[],
+      ) => boolean)
     | null = null;
 
   if (isolateByCategory) {
@@ -1850,8 +1848,9 @@ export function fingersCrossed(
     if (toEvict <= 0) return;
 
     // Sort by lastAccess timestamp (oldest first)
-    const sortedEntries = Array.from(buffers.entries())
-      .sort(([, a], [, b]) => a.lastAccess - b.lastAccess);
+    const sortedEntries = Array.from(buffers.entries()).sort(
+      ([, a], [, b]) => a.lastAccess - b.lastAccess,
+    );
 
     // Remove the oldest buffers
     for (let i = 0; i < toEvict; i++) {
@@ -1876,18 +1875,14 @@ export function fingersCrossed(
       }
     };
 
-    const flush = (
-      selector?: FingersCrossedBufferSelector,
-    ): void => {
+    const flush = (selector?: FingersCrossedBufferSelector): void => {
       validateGlobalSelector(selector);
       const bufferedRecords = buffer.splice(0);
       triggered = false;
       for (const bufferedRecord of bufferedRecords) sink(bufferedRecord);
     };
 
-    const discard = (
-      selector?: FingersCrossedBufferSelector,
-    ): void => {
+    const discard = (selector?: FingersCrossedBufferSelector): void => {
       validateGlobalSelector(selector);
       buffer.length = 0;
       triggered = false;
@@ -1960,9 +1955,7 @@ export function fingersCrossed(
       readonly context?: string;
     }
 
-    const getRecordSelection = (
-      identity: BufferIdentity,
-    ): BufferSelection => {
+    const getRecordSelection = (identity: BufferIdentity): BufferSelection => {
       return {
         category: isolateByCategory ? identity.category : undefined,
         context: isolateByContext ? identity.context : undefined,
@@ -1975,9 +1968,7 @@ export function fingersCrossed(
       let context: string | undefined;
       if (selector?.context != null) {
         if (!isolateByContext) {
-          throw new TypeError(
-            "A context selector requires isolateByContext.",
-          );
+          throw new TypeError("A context selector requires isolateByContext.");
         }
         const missingKeys = isolateByContext.keys.filter(
           (key) => !(key in selector.context!),
@@ -1996,15 +1987,12 @@ export function fingersCrossed(
       identity: BufferIdentity,
       selection: BufferSelection,
     ): boolean => {
-      if (
-        selection.context != null && selection.context !== identity.context
-      ) {
+      if (selection.context != null && selection.context !== identity.context) {
         return false;
       }
       if (selection.category == null) return true;
       if (
-        getCategoryKey(selection.category) ===
-          getCategoryKey(identity.category)
+        getCategoryKey(selection.category) === getCategoryKey(identity.category)
       ) {
         return true;
       }
@@ -2016,7 +2004,9 @@ export function fingersCrossed(
       }
     };
 
-    const takeBufferedRecords = (selection: BufferSelection): {
+    const takeBufferedRecords = (
+      selection: BufferSelection,
+    ): {
       readonly selectedBuffers: readonly {
         readonly key: string;
         readonly identity: BufferIdentity;
@@ -2162,12 +2152,14 @@ export function fingersCrossed(
 
     return wrapSink(
       fingersCrossedSink,
-      cleanupTimer === null ? undefined : () => {
-        if (cleanupTimer !== null) {
-          clearInterval(cleanupTimer);
-          cleanupTimer = null;
-        }
-      },
+      cleanupTimer === null
+        ? undefined
+        : () => {
+            if (cleanupTimer !== null) {
+              clearInterval(cleanupTimer);
+              cleanupTimer = null;
+            }
+          },
     );
   }
 }

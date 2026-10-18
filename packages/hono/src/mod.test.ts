@@ -38,10 +38,12 @@ function createTestSink(options: { includeMeta?: boolean } = {}): {
 }
 
 // Setup helper
-async function setupLogtape(options: {
-  contextLocalStorage?: boolean;
-  includeMeta?: boolean;
-} = {}): Promise<{
+async function setupLogtape(
+  options: {
+    contextLocalStorage?: boolean;
+    includeMeta?: boolean;
+  } = {},
+): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
@@ -219,12 +221,14 @@ test("honoLogger(): combined format logs structured properties", async () => {
     app.use(honoLogger({ format: "combined" }));
     app.get("/test", (c) => c.text("Hello"));
 
-    await drain(app.request("/test", {
-      headers: {
-        "User-Agent": "test-agent/1.0",
-        "Referer": "http://example.com",
-      },
-    }));
+    await drain(
+      app.request("/test", {
+        headers: {
+          "User-Agent": "test-agent/1.0",
+          "Referer": "http://example.com",
+        },
+      }),
+    );
 
     assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
@@ -240,40 +244,42 @@ test("honoLogger(): combined format logs structured properties", async () => {
   }
 });
 
-test(
-  "honoLogger(): structured-combined format logs structured properties",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const app = new Hono();
-      app.use(honoLogger({ format: "structured-combined" }));
-      app.get("/test", () =>
+test("honoLogger(): structured-combined format logs structured properties", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Hono();
+    app.use(honoLogger({ format: "structured-combined" }));
+    app.get(
+      "/test",
+      () =>
         new Response("Hello", {
           headers: { "content-length": "5" },
-        }));
+        }),
+    );
 
-      await drain(app.request("/test", {
+    await drain(
+      app.request("/test", {
         headers: {
           "User-Agent": "test-agent/1.0",
           "Referer": "http://example.com",
         },
-      }));
+      }),
+    );
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.ok((props.url as string).includes("/test"));
-      assert.strictEqual(props.path, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.notStrictEqual(props.responseTime, null);
-      assert.strictEqual(props.contentLength, "5");
-      assert.strictEqual(props.userAgent, "test-agent/1.0");
-      assert.strictEqual(props.referrer, "http://example.com");
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.ok((props.url as string).includes("/test"));
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.contentLength, "5");
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Common
@@ -286,12 +292,14 @@ test("honoLogger(): common format excludes referrer and userAgent", async () => 
     app.use(honoLogger({ format: "common" }));
     app.get("/test", (c) => c.text("Hello"));
 
-    await drain(app.request("/test", {
-      headers: {
-        "User-Agent": "test-agent/1.0",
-        "Referer": "http://example.com",
-      },
-    }));
+    await drain(
+      app.request("/test", {
+        headers: {
+          "User-Agent": "test-agent/1.0",
+          "Referer": "http://example.com",
+        },
+      }),
+    );
 
     assert.strictEqual(logs.length, 1);
     const props = logs[0].properties;
@@ -305,34 +313,33 @@ test("honoLogger(): common format excludes referrer and userAgent", async () => 
   }
 });
 
-test(
-  "honoLogger(): structured-common format excludes referrer and userAgent",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const app = new Hono();
-      app.use(honoLogger({ format: "structured-common" }));
-      app.get("/test", (c) => c.text("Hello"));
+test("honoLogger(): structured-common format excludes referrer and userAgent", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Hono();
+    app.use(honoLogger({ format: "structured-common" }));
+    app.get("/test", (c) => c.text("Hello"));
 
-      await drain(app.request("/test", {
+    await drain(
+      app.request("/test", {
         headers: {
           "User-Agent": "test-agent/1.0",
           "Referer": "http://example.com",
         },
-      }));
+      }),
+    );
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.strictEqual(props.path, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.strictEqual(props.referrer, undefined);
-      assert.strictEqual(props.userAgent, undefined);
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Morgan
@@ -344,20 +351,25 @@ test("honoLogger(): morgan-combined format returns access log", async () => {
   try {
     const app = new Hono();
     app.use(honoLogger({ format: "morgan-combined" }));
-    app.get("/test", () =>
-      new Response("Created", {
-        status: 201,
-        headers: { "content-length": "42" },
-      }));
+    app.get(
+      "/test",
+      () =>
+        new Response("Created", {
+          status: 201,
+          headers: { "content-length": "42" },
+        }),
+    );
 
-    await drain(app.request("http://localhost/test?name=alice", {
-      headers: {
-        "Authorization": "Basic ZnJhbms6c2VjcmV0",
-        "User-Agent": 'test-agent "quoted"',
-        "Referer": "http://example.com/start",
-        "X-Forwarded-For": "203.0.113.7, 198.51.100.9",
-      },
-    }));
+    await drain(
+      app.request("http://localhost/test?name=alice", {
+        headers: {
+          "Authorization": "Basic ZnJhbms6c2VjcmV0",
+          "User-Agent": 'test-agent "quoted"',
+          "Referer": "http://example.com/start",
+          "X-Forwarded-For": "203.0.113.7, 198.51.100.9",
+        },
+      }),
+    );
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -480,9 +492,11 @@ test("honoLogger(): custom format returning string", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      format: (c, _responseTime) => `Custom: ${c.req.method} ${c.res.status}`,
-    }));
+    app.use(
+      honoLogger({
+        format: (c, _responseTime) => `Custom: ${c.req.method} ${c.res.status}`,
+      }),
+    );
     app.delete("/test", (c) => {
       c.status(204);
       return c.body(null);
@@ -501,13 +515,15 @@ test("honoLogger(): custom format returning object", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      format: (c, responseTime) => ({
-        customMethod: c.req.method,
-        customStatus: c.res.status,
-        customDuration: responseTime,
+    app.use(
+      honoLogger({
+        format: (c, responseTime) => ({
+          customMethod: c.req.method,
+          customStatus: c.res.status,
+          customDuration: responseTime,
+        }),
       }),
-    }));
+    );
     app.patch("/test", (c) => {
       c.status(202);
       return c.text("Accepted");
@@ -532,9 +548,11 @@ test("honoLogger(): skip function prevents logging when returns true", async () 
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      skip: () => true,
-    }));
+    app.use(
+      honoLogger({
+        skip: () => true,
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
     await drain(app.request("/test"));
@@ -549,9 +567,11 @@ test("honoLogger(): skip function allows logging when returns false", async () =
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      skip: () => false,
-    }));
+    app.use(
+      honoLogger({
+        skip: () => false,
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
     await drain(app.request("/test"));
@@ -566,9 +586,11 @@ test("honoLogger(): skip function receives context", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      skip: (c) => c.req.path === "/health",
-    }));
+    app.use(
+      honoLogger({
+        skip: (c) => c.req.path === "/health",
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
     app.get("/health", (c) => c.text("OK"));
 
@@ -641,12 +663,14 @@ test("honoLogger(): context true uses incoming request ID", async () => {
       return c.text("Hello");
     });
 
-    const res = await drain(app.request("/test", {
-      headers: {
-        "x-request-id": "request-123",
-        "user-agent": "test-agent/1.0",
-      },
-    }));
+    const res = await drain(
+      app.request("/test", {
+        headers: {
+          "x-request-id": "request-123",
+          "user-agent": "test-agent/1.0",
+        },
+      }),
+    );
 
     assert.strictEqual(res.headers.get("x-request-id"), "request-123");
     assert.strictEqual(logs.length, 2);
@@ -664,9 +688,11 @@ test("honoLogger(): context true generates missing request ID", async () => {
   });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "generated-123" } },
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "generated-123" } },
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
     const res = await drain(app.request("/test"));
@@ -685,9 +711,11 @@ test("honoLogger(): context propagates request ID to raw Response", async () => 
   });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "raw-response-123" } },
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "raw-response-123" } },
+      }),
+    );
     app.get("/test", () => new Response("Hello"));
 
     const res = await drain(app.request("/test"));
@@ -706,9 +734,11 @@ test("honoLogger(): context sets request ID before immutable final response", as
   });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "pre-response-123" } },
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "pre-response-123" } },
+      }),
+    );
     app.use(async (c, next) => {
       await next();
       (c as { header: typeof c.header }).header = () => {
@@ -733,9 +763,11 @@ test("honoLogger(): context ignores immutable response header errors", async () 
   });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "immutable-response-123" } },
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "immutable-response-123" } },
+      }),
+    );
     app.get("/test", async () => {
       const response = await fetch("data:text/plain,Hello");
       await response.text();
@@ -763,26 +795,30 @@ test("honoLogger(): context supports custom options", async () => {
   });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      context: {
-        requestId: {
-          property: "correlationId",
-          headerNames: ["x-correlation-id", "x-request-id"],
-          responseHeader: "x-correlation-id",
-          normalize: (value) => value.trim().toUpperCase(),
+    app.use(
+      honoLogger({
+        context: {
+          requestId: {
+            property: "correlationId",
+            headerNames: ["x-correlation-id", "x-request-id"],
+            responseHeader: "x-correlation-id",
+            normalize: (value) => value.trim().toUpperCase(),
+          },
+          include: ["requestId", "method", "path", "userAgent"],
+          enrich: (c) => ({ route: c.req.path }),
         },
-        include: ["requestId", "method", "path", "userAgent"],
-        enrich: (c) => ({ route: c.req.path }),
-      },
-    }));
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
-    const res = await drain(app.request("/test", {
-      headers: {
-        "x-correlation-id": " custom-123 ",
-        "user-agent": "test-agent/1.0",
-      },
-    }));
+    const res = await drain(
+      app.request("/test", {
+        headers: {
+          "x-correlation-id": " custom-123 ",
+          "user-agent": "test-agent/1.0",
+        },
+      }),
+    );
 
     assert.strictEqual(res.headers.get("x-correlation-id"), "CUSTOM-123");
     assert.strictEqual(logs.length, 1);
@@ -803,10 +839,12 @@ test("honoLogger(): context keeps implicit context when skipped", async () => {
   try {
     const appLogger = getLogger(["app"]);
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "skip-123" } },
-      skip: () => true,
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "skip-123" } },
+        skip: () => true,
+      }),
+    );
     app.get("/test", (c) => {
       appLogger.info("Handled skipped request");
       return c.text("Hello");
@@ -828,10 +866,12 @@ test("honoLogger(): context works with logRequest", async () => {
   });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "immediate-123" } },
-      logRequest: true,
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "immediate-123" } },
+        logRequest: true,
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
     const res = await app.request("/test");
@@ -849,9 +889,11 @@ test("honoLogger(): missing context storage still logs request ID", async () => 
   try {
     const appLogger = getLogger(["app"]);
     const app = new Hono();
-    app.use(honoLogger({
-      context: { requestId: { generate: () => "no-storage-123" } },
-    }));
+    app.use(
+      honoLogger({
+        context: { requestId: { generate: () => "no-storage-123" } },
+      }),
+    );
     app.get("/test", (c) => {
       appLogger.info("Handled request");
       return c.text("Hello");
@@ -861,9 +903,11 @@ test("honoLogger(): missing context storage still logs request ID", async () => 
 
     const appLog = logs.find((record) => record.category[0] === "app");
     const requestLog = logs.find((record) => record.category[0] === "hono");
-    const metaLog = logs.find((record) =>
-      record.category[0] === "logtape" && record.category[1] === "meta" &&
-      record.level === "warning"
+    const metaLog = logs.find(
+      (record) =>
+        record.category[0] === "logtape" &&
+        record.category[1] === "meta" &&
+        record.level === "warning",
     );
     assert.ok(appLog);
     assert.ok(requestLog);
@@ -980,9 +1024,11 @@ test("honoLogger(): logs user agent", async () => {
     app.use(honoLogger());
     app.get("/test", (c) => c.text("Hello"));
 
-    await drain(app.request("/test", {
-      headers: { "User-Agent": "TestClient/1.0" },
-    }));
+    await drain(
+      app.request("/test", {
+        headers: { "User-Agent": "TestClient/1.0" },
+      }),
+    );
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(logs[0].properties.userAgent, "TestClient/1.0");
@@ -998,9 +1044,11 @@ test("honoLogger(): logs referrer", async () => {
     app.use(honoLogger());
     app.get("/test", (c) => c.text("Hello"));
 
-    await drain(app.request("/test", {
-      headers: { "Referer": "https://example.com/page" },
-    }));
+    await drain(
+      app.request("/test", {
+        headers: { "Referer": "https://example.com/page" },
+      }),
+    );
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(logs[0].properties.referrer, "https://example.com/page");
@@ -1101,17 +1149,20 @@ test("honoLogger(): defers logging until a streamed body is consumed", async () 
     const encoder = new TextEncoder();
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          async start(controller) {
-            controller.enqueue(encoder.encode("first\n"));
-            await gate;
-            controller.enqueue(encoder.encode("last\n"));
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            async start(controller) {
+              controller.enqueue(encoder.encode("first\n"));
+              await gate;
+              controller.enqueue(encoder.encode("last\n"));
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     const reader = res.body!.getReader();
@@ -1151,7 +1202,8 @@ test("honoLogger(): streamText response reports full transfer time", async () =>
         await stream.writeln("first");
         await stream.sleep(30);
         await stream.writeln("last");
-      }));
+      }),
+    );
 
     const res = await app.request("/stream");
     assert.strictEqual(logs.length, 0);
@@ -1178,7 +1230,8 @@ test("honoLogger(): preserves implicit context for deferred logging", async () =
         await stream.writeln("first");
         await stream.sleep(10);
         await stream.writeln("last");
-      }));
+      }),
+    );
 
     const res = await app.request("/stream");
     assert.strictEqual(logs.length, 0);
@@ -1218,16 +1271,19 @@ test("honoLogger(): preserves byte-stream (BYOB) responses", async () => {
     const payload = new TextEncoder().encode("byte-stream-body");
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          type: "bytes",
-          start(controller) {
-            controller.enqueue(payload);
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            type: "bytes",
+            start(controller) {
+              controller.enqueue(payload);
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader({ mode: "byob" });
@@ -1324,15 +1380,18 @@ test("honoLogger(): resolves reader.closed once the source drains", async () => 
   try {
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode("only"));
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("only"));
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     const reader = res.body!.getReader();
@@ -1355,16 +1414,19 @@ test("honoLogger(): resolves byte-stream reader.closed once drained", async () =
   try {
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          start(controller: ReadableByteStreamController) {
-            controller.enqueue(new TextEncoder().encode("only"));
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            start(controller: ReadableByteStreamController) {
+              controller.enqueue(new TextEncoder().encode("only"));
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader();
@@ -1388,16 +1450,19 @@ test("honoLogger(): propagates byte-stream errors on the first read", async () =
     const failure = new Error("early byte failure");
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          async start(controller: ReadableByteStreamController) {
-            await delay(10);
-            controller.error(failure);
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            async start(controller: ReadableByteStreamController) {
+              await delay(10);
+              controller.error(failure);
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader();
@@ -1421,16 +1486,19 @@ test("honoLogger(): resolves byte reader.closed for an empty source", async () =
   try {
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          async start(controller: ReadableByteStreamController) {
-            await delay(10);
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            async start(controller: ReadableByteStreamController) {
+              await delay(10);
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader();
@@ -1453,14 +1521,17 @@ test("honoLogger(): rejects reader.closed when the source errors", async () => {
     let source!: ReadableStreamDefaultController<Uint8Array>;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            source = controller;
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              source = controller;
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     const reader = res.body!.getReader();
@@ -1487,15 +1558,18 @@ test("honoLogger(): rejects byte reader.closed when the source errors", async ()
     let source!: ReadableByteStreamController;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          start(controller: ReadableByteStreamController) {
-            source = controller;
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            start(controller: ReadableByteStreamController) {
+              source = controller;
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader();
@@ -1632,101 +1706,95 @@ test("honoLogger(): accepts streams that ignore the BYOB reader mode", async () 
 
 for (const byteStream of [false, true]) {
   for (const cancellationFails of [false, true]) {
-    test(
-      `honoLogger(): finalizes a ${
-        byteStream ? "byte" : "default"
-      } stream when forwarding fails${
-        cancellationFails ? " and cancellation rejects" : ""
-      }`,
-      async () => {
-        const { logs, cleanup } = await setupLogtape({ includeMeta: true });
-        try {
-          const failure = new Error("cannot forward chunk");
-          const cancellationFailure = new Error("cannot cancel source");
-          const cancellationReasons: unknown[] = [];
-          const cancel = (reason: unknown): void => {
-            cancellationReasons.push(reason);
-            if (cancellationFails) throw cancellationFailure;
-          };
-          let resolveSourceClosed!: () => void;
-          const sourceClosed = new Promise<void>((resolve) => {
-            resolveSourceClosed = resolve;
-          });
-          const bytes = new TextEncoder().encode("only");
-          const source = byteStream
-            ? new ReadableStream({
+    test(`honoLogger(): finalizes a ${
+      byteStream ? "byte" : "default"
+    } stream when forwarding fails${
+      cancellationFails ? " and cancellation rejects" : ""
+    }`, async () => {
+      const { logs, cleanup } = await setupLogtape({ includeMeta: true });
+      try {
+        const failure = new Error("cannot forward chunk");
+        const cancellationFailure = new Error("cannot cancel source");
+        const cancellationReasons: unknown[] = [];
+        const cancel = (reason: unknown): void => {
+          cancellationReasons.push(reason);
+          if (cancellationFails) throw cancellationFailure;
+        };
+        let resolveSourceClosed!: () => void;
+        const sourceClosed = new Promise<void>((resolve) => {
+          resolveSourceClosed = resolve;
+        });
+        const bytes = new TextEncoder().encode("only");
+        const source = byteStream
+          ? new ReadableStream({
               type: "bytes",
               start(controller: ReadableByteStreamController) {
                 controller.enqueue(bytes);
               },
               cancel,
             })
-            : new ReadableStream<Uint8Array>({
+          : new ReadableStream<Uint8Array>({
               start(controller) {
                 controller.enqueue(bytes);
               },
               cancel,
             });
-          const getReader = source.getReader.bind(source);
-          Object.defineProperty(source, "getReader", {
-            value: (options?: ReadableStreamGetReaderOptions) => {
-              if (options?.mode === "byob") return getReader({ mode: "byob" });
-              const reader = getReader();
-              // Yoga signals closure after forwarding has failed, rather than
-              // before the read settles as a native stream commonly does.
-              Object.defineProperty(reader, "closed", { value: sourceClosed });
-              const read = reader.read.bind(reader);
-              reader.read = async () => {
-                const result = await read();
-                if (result.done) return result;
-                if (byteStream) {
-                  // Exercise a byte-controller enqueue failure while the
-                  // source is still open, independently of BYOB detection.
-                  return { done: false, value: new Uint8Array(0) };
-                }
-                return {
-                  done: false,
-                  get value(): Uint8Array {
-                    throw failure;
-                  },
-                };
+        const getReader = source.getReader.bind(source);
+        Object.defineProperty(source, "getReader", {
+          value: (options?: ReadableStreamGetReaderOptions) => {
+            if (options?.mode === "byob") return getReader({ mode: "byob" });
+            const reader = getReader();
+            // Yoga signals closure after forwarding has failed, rather than
+            // before the read settles as a native stream commonly does.
+            Object.defineProperty(reader, "closed", { value: sourceClosed });
+            const read = reader.read.bind(reader);
+            reader.read = async () => {
+              const result = await read();
+              if (result.done) return result;
+              if (byteStream) {
+                // Exercise a byte-controller enqueue failure while the
+                // source is still open, independently of BYOB detection.
+                return { done: false, value: new Uint8Array(0) };
+              }
+              return {
+                done: false,
+                get value(): Uint8Array {
+                  throw failure;
+                },
               };
-              return reader;
-            },
-          });
-          const app = new Hono();
-          app.use(honoLogger());
-          app.get("/failure", () => new Response(source));
+            };
+            return reader;
+          },
+        });
+        const app = new Hono();
+        app.use(honoLogger());
+        app.get("/failure", () => new Response(source));
 
-          const res = await app.request("/failure");
-          const reader = res.body!.getReader();
-          const matchesFailure = (error: unknown): boolean =>
-            byteStream ? error instanceof TypeError : error === failure;
-          await assert.rejects(reader.read(), matchesFailure);
-          await assert.rejects(reader.closed, matchesFailure);
-          // Late source closure must not try to close the errored wrapper.
-          // The test runner detects an unhandled rejection from that callback.
-          resolveSourceClosed();
-          await delay(0);
-          assert.strictEqual(cancellationReasons.length, 1);
-          assert.ok(matchesFailure(cancellationReasons[0]));
-          assert.strictEqual(source.locked, false);
-          assert.strictEqual(
-            logs.filter((log) => log.category[0] === "hono").length,
-            1,
-          );
-          const cancellationLogs = logs.filter((log) =>
-            log.properties.error === cancellationFailure
-          );
-          assert.strictEqual(
-            cancellationLogs.length,
-            cancellationFails ? 1 : 0,
-          );
-        } finally {
-          await cleanup();
-        }
-      },
-    );
+        const res = await app.request("/failure");
+        const reader = res.body!.getReader();
+        const matchesFailure = (error: unknown): boolean =>
+          byteStream ? error instanceof TypeError : error === failure;
+        await assert.rejects(reader.read(), matchesFailure);
+        await assert.rejects(reader.closed, matchesFailure);
+        // Late source closure must not try to close the errored wrapper.
+        // The test runner detects an unhandled rejection from that callback.
+        resolveSourceClosed();
+        await delay(0);
+        assert.strictEqual(cancellationReasons.length, 1);
+        assert.ok(matchesFailure(cancellationReasons[0]));
+        assert.strictEqual(source.locked, false);
+        assert.strictEqual(
+          logs.filter((log) => log.category[0] === "hono").length,
+          1,
+        );
+        const cancellationLogs = logs.filter(
+          (log) => log.properties.error === cancellationFailure,
+        );
+        assert.strictEqual(cancellationLogs.length, cancellationFails ? 1 : 0);
+      } finally {
+        await cleanup();
+      }
+    });
   }
 }
 
@@ -1756,15 +1824,18 @@ test("honoLogger(): logs HEAD requests without consuming the body", async () => 
   try {
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          pull(controller) {
-            controller.enqueue(new Uint8Array([1]));
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              controller.enqueue(new Uint8Array([1]));
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     // No drain: the log must appear immediately because Hono discards the
     // body of a HEAD response after the middleware chain completes.
@@ -1784,17 +1855,20 @@ test("honoLogger(): logs when a stream is cancelled before reading", async () =>
     let sourceCancelReason: unknown;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          pull() {
-            return new Promise<void>(() => {});
-          },
-          cancel(reason) {
-            sourceCancelReason = reason;
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull() {
+              return new Promise<void>(() => {});
+            },
+            cancel(reason) {
+              sourceCancelReason = reason;
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     await res.body!.cancel("client-gone");
@@ -1813,17 +1887,20 @@ test("honoLogger(): logs when a stream is cancelled during a read", async () => 
     let sourceCancelReason: unknown;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          pull() {
-            return new Promise<void>(() => {});
-          },
-          cancel(reason) {
-            sourceCancelReason = reason;
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull() {
+              return new Promise<void>(() => {});
+            },
+            cancel(reason) {
+              sourceCancelReason = reason;
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     const reader = res.body!.getReader();
@@ -1846,14 +1923,17 @@ test("honoLogger(): preserves source read errors", async () => {
     const failure = new Error("source failure");
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.error(failure);
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.error(failure);
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     await assert.rejects(res.text(), (error) => error === failure);
@@ -1870,19 +1950,22 @@ test("honoLogger(): forwards chunks before a later source error", async () => {
     let sent = false;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          pull(controller) {
-            if (sent) {
-              controller.error(failure);
-              return;
-            }
-            sent = true;
-            controller.enqueue(new TextEncoder().encode("chunk"));
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              if (sent) {
+                controller.error(failure);
+                return;
+              }
+              sent = true;
+              controller.enqueue(new TextEncoder().encode("chunk"));
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     const reader = res.body!.getReader();
@@ -1903,26 +1986,32 @@ test("honoLogger(): forwards byte chunks before a later source error", async () 
     let sent = false;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          autoAllocateChunkSize: 16,
-          pull(controller: ReadableByteStreamController) {
-            const request = controller.byobRequest;
-            const view = request?.view;
-            if (request == null || view == null) return;
-            if (sent) {
-              controller.error(failure);
-              return;
-            }
-            sent = true;
-            new Uint8Array(view.buffer, view.byteOffset, payload.byteLength)
-              .set(payload);
-            request.respond(payload.byteLength);
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            autoAllocateChunkSize: 16,
+            pull(controller: ReadableByteStreamController) {
+              const request = controller.byobRequest;
+              const view = request?.view;
+              if (request == null || view == null) return;
+              if (sent) {
+                controller.error(failure);
+                return;
+              }
+              sent = true;
+              new Uint8Array(
+                view.buffer,
+                view.byteOffset,
+                payload.byteLength,
+              ).set(payload);
+              request.respond(payload.byteLength);
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader();
@@ -1941,15 +2030,18 @@ test("honoLogger(): preserves byte-stream source read errors", async () => {
     const failure = new Error("byte source failure");
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          pull(controller: ReadableByteStreamController) {
-            controller.error(failure);
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            pull(controller: ReadableByteStreamController) {
+              controller.error(failure);
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader({ mode: "byob" });
@@ -1969,18 +2061,21 @@ test("honoLogger(): cancels a byte stream before it is read", async () => {
     let sourceCancelReason: unknown;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          pull() {
-            return new Promise<void>(() => {});
-          },
-          cancel(reason) {
-            sourceCancelReason = reason;
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            pull() {
+              return new Promise<void>(() => {});
+            },
+            cancel(reason) {
+              sourceCancelReason = reason;
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     await res.body!.cancel("byte-gone");
@@ -1998,18 +2093,21 @@ test("honoLogger(): cancels a byte stream during a BYOB read", async () => {
     let sourceCancelReason: unknown;
     const app = new Hono();
     app.use(honoLogger());
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          pull() {
-            return new Promise<void>(() => {});
-          },
-          cancel(reason) {
-            sourceCancelReason = reason;
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            pull() {
+              return new Promise<void>(() => {});
+            },
+            cancel(reason) {
+              sourceCancelReason = reason;
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader({ mode: "byob" });
@@ -2110,11 +2208,12 @@ test("honoLogger(): skip does not wrap or lock the response body", async () => {
 // ============================================
 
 function findMetaError(logs: LogRecord[]): LogRecord | undefined {
-  return logs.find((record) =>
-    record.category.length === 2 &&
-    record.category[0] === "logtape" &&
-    record.category[1] === "meta" &&
-    record.level === "error"
+  return logs.find(
+    (record) =>
+      record.category.length === 2 &&
+      record.category[0] === "logtape" &&
+      record.category[1] === "meta" &&
+      record.level === "error",
   );
 }
 
@@ -2122,11 +2221,13 @@ test("honoLogger(): reports formatter errors to the meta logger", async () => {
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      format: () => {
-        throw new Error("format boom");
-      },
-    }));
+    app.use(
+      honoLogger({
+        format: () => {
+          throw new Error("format boom");
+        },
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
     const res = await drain(app.request("/test"));
@@ -2147,19 +2248,24 @@ test("honoLogger(): reports formatter errors on cancellation", async () => {
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      format: () => {
-        throw new Error("format boom");
-      },
-    }));
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          pull() {
-            return new Promise<void>(() => {});
-          },
-        }),
-      ));
+    app.use(
+      honoLogger({
+        format: () => {
+          throw new Error("format boom");
+        },
+      }),
+    );
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull() {
+              return new Promise<void>(() => {});
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     await res.body!.cancel("client-gone");
@@ -2174,11 +2280,13 @@ test("honoLogger(): reports formatter errors on null-body responses", async () =
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      format: () => {
-        throw new Error("format boom");
-      },
-    }));
+    app.use(
+      honoLogger({
+        format: () => {
+          throw new Error("format boom");
+        },
+      }),
+    );
     app.get("/no-content", (c) => c.body(null, 204));
 
     const res = await app.request("/no-content");
@@ -2194,12 +2302,14 @@ test("honoLogger(): reports formatter errors in logRequest mode", async () => {
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      logRequest: true,
-      format: () => {
-        throw new Error("format boom");
-      },
-    }));
+    app.use(
+      honoLogger({
+        logRequest: true,
+        format: () => {
+          throw new Error("format boom");
+        },
+      }),
+    );
     app.get("/test", (c) => c.text("Hello"));
 
     const res = await drain(app.request("/test"));
@@ -2217,9 +2327,9 @@ test("honoLogger(): reports formatter errors in logRequest mode", async () => {
 
 // Creates a completion level callback that records its arguments.
 function recordCompletions(
-  choose: (completion: RequestCompletion) => ReturnType<
-    CompletionLevelFunction
-  > = () => "info",
+  choose: (
+    completion: RequestCompletion,
+  ) => ReturnType<CompletionLevelFunction> = () => "info",
 ): {
   completionLevel: CompletionLevelFunction;
   calls: [HonoContext, RequestCompletion][];
@@ -2238,20 +2348,25 @@ test("honoLogger(): completionLevel chooses the level from the status", async ()
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      completionLevel: (_c, { status }) => status >= 500 ? "error" : "info",
-    }));
+    app.use(
+      honoLogger({
+        completionLevel: (_c, { status }) => (status >= 500 ? "error" : "info"),
+      }),
+    );
     app.get("/ok", (c) => c.text("ok"));
     app.get("/fail", (c) => c.text("fail", 503));
 
     await drain(app.request("/ok"));
     await drain(app.request("/fail"));
 
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
-    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
-      200,
-      503,
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
+    assert.deepStrictEqual(
+      logs.map((log) => log.properties.status),
+      [200, 503],
+    );
     assert.strictEqual(
       logs[1].rawMessage,
       "{method} {url} {status} - {responseTime} ms",
@@ -2266,7 +2381,7 @@ test("honoLogger(): completionLevel receives the request outcome", async () => {
   let restoreDateNow = useFixedDateNow(10_000);
   try {
     const { completionLevel, calls } = recordCompletions((completion) =>
-      completion.responseTime > 1000 ? "warning" : "info"
+      completion.responseTime > 1000 ? "warning" : "info",
     );
     let handlerContext: unknown;
     const app = new Hono();
@@ -2302,7 +2417,7 @@ test("honoLogger(): completionLevel receives errors from Hono's error handler", 
   try {
     const failure = new Error("handler failure");
     const { completionLevel, calls } = recordCompletions((completion) =>
-      completion.error == null ? "info" : "error"
+      completion.error == null ? "info" : "error",
     );
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
@@ -2405,10 +2520,10 @@ test("honoLogger(): completionLevel covers immediately logged responses", async 
         },
       ],
     );
-    assert.deepStrictEqual(logs.map((log) => log.level), [
-      "warning",
-      "warning",
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["warning", "warning"],
+    );
   } finally {
     await cleanup();
   }
@@ -2421,24 +2536,30 @@ test("honoLogger(): completionLevel receives source stream errors", async () => 
     const { completionLevel, calls } = recordCompletions(() => "error");
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
-    app.get("/default", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.error(failure);
-          },
-        }),
-      ));
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          async start(controller: ReadableByteStreamController) {
-            await delay(10);
-            controller.error(failure);
-          },
-        }),
-      ));
+    app.get(
+      "/default",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.error(failure);
+            },
+          }),
+        ),
+    );
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            async start(controller: ReadableByteStreamController) {
+              await delay(10);
+              controller.error(failure);
+            },
+          }),
+        ),
+    );
 
     for (const path of ["/default", "/bytes"]) {
       const res = await app.request(path);
@@ -2450,7 +2571,10 @@ test("honoLogger(): completionLevel receives source stream errors", async () => 
       assert.strictEqual(completion.error, failure);
       assert.strictEqual(completion.aborted, false);
     }
-    assert.deepStrictEqual(logs.map((log) => log.level), ["error", "error"]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["error", "error"],
+    );
   } finally {
     await cleanup();
   }
@@ -2465,23 +2589,29 @@ test("honoLogger(): completionLevel receives idle and pending stream errors", as
     const { completionLevel, calls } = recordCompletions();
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
-    app.get("/idle", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            idleSource = controller;
-          },
-        }),
-      ));
-    app.get("/pending", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode("chunk"));
-            controller.error(pendingFailure);
-          },
-        }),
-      ));
+    app.get(
+      "/idle",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              idleSource = controller;
+            },
+          }),
+        ),
+    );
+    app.get(
+      "/pending",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("chunk"));
+              controller.error(pendingFailure);
+            },
+          }),
+        ),
+    );
 
     const idle = await app.request("/idle");
     const idleReader = idle.body!.getReader();
@@ -2496,7 +2626,10 @@ test("honoLogger(): completionLevel receives idle and pending stream errors", as
 
     assert.deepStrictEqual(
       calls.map(([, completion]) => [completion.error, completion.aborted]),
-      [[idleFailure, false], [pendingFailure, false]],
+      [
+        [idleFailure, false],
+        [pendingFailure, false],
+      ],
     );
   } finally {
     await cleanup();
@@ -2536,27 +2669,33 @@ test("honoLogger(): completionLevel reports cancelled streams as aborted", async
   const { logs, cleanup } = await setupLogtape();
   try {
     const { completionLevel, calls } = recordCompletions((completion) =>
-      completion.aborted ? "warning" : "info"
+      completion.aborted ? "warning" : "info",
     );
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
-    app.get("/default", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          pull() {
-            return new Promise<void>(() => {});
-          },
-        }),
-      ));
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          pull() {
-            return new Promise<void>(() => {});
-          },
-        }),
-      ));
+    app.get(
+      "/default",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull() {
+              return new Promise<void>(() => {});
+            },
+          }),
+        ),
+    );
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            pull() {
+              return new Promise<void>(() => {});
+            },
+          }),
+        ),
+    );
 
     await (await app.request("/default")).body!.cancel("gone");
     const reading = (await app.request("/default")).body!.getReader();
@@ -2578,12 +2717,10 @@ test("honoLogger(): completionLevel reports cancelled streams as aborted", async
       assert.strictEqual(completion.aborted, true);
       assert.strictEqual(completion.error, undefined);
     }
-    assert.deepStrictEqual(logs.map((log) => log.level), [
-      "warning",
-      "warning",
-      "warning",
-      "warning",
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["warning", "warning", "warning", "warning"],
+    );
   } finally {
     await cleanup();
   }
@@ -2601,18 +2738,21 @@ test("honoLogger(): completionLevel keeps the first stream outcome", async () =>
     const { completionLevel, calls } = recordCompletions();
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
-    app.get("/stream", () =>
-      new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            source = controller;
-          },
-          pull() {
-            signalPull();
-            return new Promise<void>(() => {});
-          },
-        }),
-      ));
+    app.get(
+      "/stream",
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              source = controller;
+            },
+            pull() {
+              signalPull();
+              return new Promise<void>(() => {});
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/stream");
     const reader = res.body!.getReader();
@@ -2637,20 +2777,23 @@ test("honoLogger(): completionLevel receives errors from closing the body", asyn
   const { logs, cleanup } = await setupLogtape();
   try {
     const { completionLevel, calls } = recordCompletions((completion) =>
-      completion.error == null ? "info" : "error"
+      completion.error == null ? "info" : "error",
     );
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
-    app.get("/bytes", () =>
-      new Response(
-        new ReadableStream({
-          type: "bytes",
-          start(controller: ReadableByteStreamController) {
-            controller.enqueue(new Uint8Array([1]));
-            controller.close();
-          },
-        }),
-      ));
+    app.get(
+      "/bytes",
+      () =>
+        new Response(
+          new ReadableStream({
+            type: "bytes",
+            start(controller: ReadableByteStreamController) {
+              controller.enqueue(new Uint8Array([1]));
+              controller.close();
+            },
+          }),
+        ),
+    );
 
     const res = await app.request("/bytes");
     const reader = res.body!.getReader({ mode: "byob" });
@@ -2678,10 +2821,15 @@ test("honoLogger(): completionLevel does not see streamText callback errors", as
     const app = new Hono();
     app.use(honoLogger({ completionLevel }));
     app.get("/stream", (c) =>
-      streamText(c, async (stream) => {
-        await stream.write("partial");
-        throw new Error("producer failure");
-      }, async () => {}));
+      streamText(
+        c,
+        async (stream) => {
+          await stream.write("partial");
+          throw new Error("producer failure");
+        },
+        async () => {},
+      ),
+    );
 
     const res = await app.request("/stream");
     assert.strictEqual(await res.text(), "partial");
@@ -2698,12 +2846,14 @@ test("honoLogger(): completionLevel failures keep Hono responses", async () => {
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {
     const app = new Hono();
-    app.use(honoLogger({
-      level: "debug",
-      completionLevel: () => {
-        throw new Error("level failure");
-      },
-    }));
+    app.use(
+      honoLogger({
+        level: "debug",
+        completionLevel: () => {
+          throw new Error("level failure");
+        },
+      }),
+    );
     app.get("/test", (c) => c.text("created", 201));
 
     const res = await app.request("/test");
@@ -2725,10 +2875,12 @@ async function runCompletionLevel(
   completionLevel: () => unknown,
 ): Promise<void> {
   const app = new Hono();
-  app.use(honoLogger({
-    level: "debug",
-    completionLevel: completionLevel as CompletionLevelFunction,
-  }));
+  app.use(
+    honoLogger({
+      level: "debug",
+      completionLevel: completionLevel as CompletionLevelFunction,
+    }),
+  );
   app.get("/test", (c) => c.text("ok"));
   await drain(app.request("/test"));
 }
@@ -2738,11 +2890,12 @@ async function runCompletionLevel(
 // ============================================
 
 function findMetaErrors(logs: LogRecord[]): LogRecord[] {
-  return logs.filter((record) =>
-    record.category.length === 2 &&
-    record.category[0] === "logtape" &&
-    record.category[1] === "meta" &&
-    record.level === "error"
+  return logs.filter(
+    (record) =>
+      record.category.length === 2 &&
+      record.category[0] === "logtape" &&
+      record.category[1] === "meta" &&
+      record.level === "error",
   );
 }
 
@@ -2781,7 +2934,7 @@ function assertFallback(
   assert.strictEqual(requestLogs[0].level, "debug");
   assert.ok(
     findMetaErrors(logs).some((record) =>
-      matchesMetaError(record.properties.error)
+      matchesMetaError(record.properties.error),
     ),
     "expected the failure to be reported to the meta logger",
   );
@@ -2818,7 +2971,7 @@ test("honoLogger(): completionLevel reports rejected promises", async () => {
   try {
     const failure = new Error("async level failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => Promise.reject(failure))
+      runCompletionLevel(() => Promise.reject(failure)),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -2843,9 +2996,9 @@ test("honoLogger(): completionLevel bypasses overridden promise then", async () 
     }
     const failure = new Error("subclass failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() =>
-        new OverridingPromise((_, reject) => reject(failure))
-      )
+      runCompletionLevel(
+        () => new OverridingPromise((_, reject) => reject(failure)),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(overriddenThenCalled, false);
@@ -2866,7 +3019,7 @@ test("honoLogger(): completionLevel does not adopt promise results", async () =>
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -2886,7 +3039,7 @@ test("honoLogger(): completionLevel falls back on unobservable promises", async 
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -2906,7 +3059,7 @@ test("honoLogger(): completionLevel never invokes custom thenables", async () =>
       },
     };
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => thenable)
+      runCompletionLevel(() => thenable),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(thenCalled, false);
@@ -2921,15 +3074,17 @@ test("honoLogger(): completionLevel reports cross-realm rejections", async () =>
   try {
     const reasons = await collectUnhandledRejections(() =>
       runCompletionLevel(() =>
-        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
-      )
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))'),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(
       logs,
       (error) =>
-        error != null && typeof error === "object" &&
-        "message" in error && error.message === "foreign failure",
+        error != null &&
+        typeof error === "object" &&
+        "message" in error &&
+        error.message === "foreign failure",
     );
   } finally {
     await cleanup();

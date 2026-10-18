@@ -13,8 +13,8 @@ import { stringifyWithoutCycles } from "./circular.ts";
 import type { CloudWatchLogsSinkOptions } from "./types.ts";
 
 // Match transpiled resource management without changing the global Symbol.
-const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
-  Symbol.for("Symbol.asyncDispose");
+const asyncDisposeSymbol: typeof Symbol.asyncDispose =
+  Symbol.asyncDispose ?? Symbol.for("Symbol.asyncDispose");
 
 // AWS CloudWatch Logs PutLogEvents API limits
 // See: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
@@ -33,7 +33,8 @@ export function getCloudWatchLogsSink(
   options: CloudWatchLogsSinkOptions,
 ): Sink & AsyncDisposable {
   const ownClient = options.client == null;
-  const client = options.client ??
+  const client =
+    options.client ??
     new CloudWatchLogsClient({
       region: options.region ?? "us-east-1",
       credentials: options.credentials,

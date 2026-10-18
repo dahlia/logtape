@@ -95,7 +95,7 @@ export class DrizzleLogger implements Logger {
    */
   logQuery(query: string, params: unknown[]): void {
     const stringifiedParams = params.map((param) =>
-      serialize(param, this.#dialect)
+      serialize(param, this.#dialect),
     );
     let formattedQuery: string;
     switch (this.#dialect) {
@@ -163,9 +163,9 @@ export function serialize(
       case "sqlite":
         return stringLiteral(JSON.stringify(value), dialect);
       case "pg":
-        return `ARRAY[${
-          value.map((item) => serialize(item, dialect)).join(", ")
-        }]`;
+        return `ARRAY[${value
+          .map((item) => serialize(item, dialect))
+          .join(", ")}]`;
       default:
         throw new Error(`${dialect satisfies never} is not supported`);
     }

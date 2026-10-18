@@ -91,7 +91,7 @@ const scenarios: readonly Scenario[] = [
 function measure(scenario: Scenario): number {
   const started = performance.now();
   scenario.run(iterations);
-  return (performance.now() - started) * 1e6 / iterations;
+  return ((performance.now() - started) * 1e6) / iterations;
 }
 
 function median(values: readonly number[]): number {
@@ -120,9 +120,9 @@ for (const scenario of all) {
   if (over) failed = true;
   console.log(
     `${scenario.name.padEnd(34)} ${time.toFixed(1).padStart(8)} ` +
-      `${ratio.toFixed(2).padStart(6)} ${
-        scenario.limit.toFixed(2).padStart(6)
-      }` +
+      `${ratio.toFixed(2).padStart(6)} ${scenario.limit
+        .toFixed(2)
+        .padStart(6)}` +
       (over ? "  FAILED" : ""),
   );
 }

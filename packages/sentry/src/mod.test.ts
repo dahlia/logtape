@@ -137,9 +137,11 @@ test("sink handles circular references in properties", () => {
   circular.self = circular;
 
   // Should not throw
-  sink(createMockLogRecord({
-    properties: { data: circular },
-  }));
+  sink(
+    createMockLogRecord({
+      properties: { data: circular },
+    }),
+  );
 });
 
 test("sink handles circular references in interpolated message values", () => {
@@ -160,12 +162,14 @@ test("sink handles circular references in interpolated message values", () => {
   const circular: Record<string, unknown> = { body: "ok" };
   circular.self = circular;
 
-  sink(createMockLogRecord({
-    level: "error",
-    message: ["Saw error: ", circular, ""],
-    rawMessage: "Saw error: {error}",
-    properties: { error: circular },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      message: ["Saw error: ", circular, ""],
+      rawMessage: "Saw error: {error}",
+      properties: { error: circular },
+    }),
+  );
 
   assert.strictEqual(capturedMessages.length, 1);
   assert.ok(capturedMessages[0].startsWith("Saw error: "));
@@ -187,10 +191,12 @@ test("sink with Error at error level triggers exception path", () => {
     },
   });
 
-  sink(createMockLogRecord({
-    level: "error",
-    properties: { error: new Error("Test") },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      properties: { error: new Error("Test") },
+    }),
+  );
 
   assert.strictEqual(sawError, true);
 });
@@ -208,10 +214,12 @@ test("sink uses err property as exception fallback", () => {
     },
   });
 
-  sink(createMockLogRecord({
-    level: "error",
-    properties: { error: "not an Error", err: error, requestId: "request-1" },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      properties: { error: "not an Error", err: error, requestId: "request-1" },
+    }),
+  );
 
   const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
   assert.strictEqual(capturedException, error);
@@ -234,10 +242,12 @@ test("sink prefers error property over err property", () => {
     },
   });
 
-  sink(createMockLogRecord({
-    level: "error",
-    properties: { error, err },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      properties: { error, err },
+    }),
+  );
 
   const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
   assert.strictEqual(capturedException, error);
@@ -261,10 +271,12 @@ test("sink uses configured error property names", () => {
     }),
   });
 
-  sink(createMockLogRecord({
-    level: "error",
-    properties: { error, exception, requestId: "request-1" },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      properties: { error, exception, requestId: "request-1" },
+    }),
+  );
 
   const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
   assert.strictEqual(capturedException, exception);
@@ -289,10 +301,12 @@ test("sink uses configured error property order", () => {
     }),
   });
 
-  sink(createMockLogRecord({
-    level: "error",
-    properties: { error, exception },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      properties: { error, exception },
+    }),
+  );
 
   const extra = (capturedHint as { extra: Record<string, unknown> }).extra;
   assert.strictEqual(capturedException, exception);
@@ -309,10 +323,12 @@ test("sink without Error at error level does not trigger exception path", () => 
     },
   });
 
-  sink(createMockLogRecord({
-    level: "error",
-    message: ["Error without Error instance"],
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      message: ["Error without Error instance"],
+    }),
+  );
 
   assert.strictEqual(sawError, false);
 });
@@ -342,9 +358,11 @@ test("sink handles template messages correctly", () => {
     },
   });
 
-  sink(createMockLogRecord({
-    message: ["User ", { id: 123 }, " logged in"],
-  }));
+  sink(
+    createMockLogRecord({
+      message: ["User ", { id: 123 }, " logged in"],
+    }),
+  );
 
   assert.strictEqual(capturedMessage!.length, 3);
   assert.strictEqual(capturedMessage![0], "User ");
@@ -488,10 +506,12 @@ test("sink uses configured Sentry namespace for error messages", () => {
   });
   const sink = getSentrySink({ sentry });
 
-  sink(createMockLogRecord({
-    level: "error",
-    message: ["Error from ", "namespace"],
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      message: ["Error from ", "namespace"],
+    }),
+  );
 
   assert.deepStrictEqual(capturedMessages, [
     `Error from ${inspect("namespace")}`,
@@ -509,10 +529,12 @@ test("sink uses configured Sentry namespace for exceptions", () => {
   });
   const sink = getSentrySink({ sentry });
 
-  sink(createMockLogRecord({
-    level: "error",
-    properties: { error },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      properties: { error },
+    }),
+  );
 
   assert.deepStrictEqual(capturedExceptions, [error]);
 });
@@ -606,16 +628,20 @@ test("sink ignores logs from logtape.meta.sentry category", () => {
   });
 
   // This should be ignored (meta logger category)
-  sink(createMockLogRecord({
-    category: ["logtape", "meta", "sentry"],
-    message: ["Meta log message"],
-  }));
+  sink(
+    createMockLogRecord({
+      category: ["logtape", "meta", "sentry"],
+      message: ["Meta log message"],
+    }),
+  );
 
   // This should be processed
-  sink(createMockLogRecord({
-    category: ["app", "module"],
-    message: ["Normal log message"],
-  }));
+  sink(
+    createMockLogRecord({
+      category: ["app", "module"],
+      message: ["Normal log message"],
+    }),
+  );
 
   assert.strictEqual(processedCount, 1);
 });
@@ -647,9 +673,11 @@ test("sink ignores logtape.meta.sentry with child categories", () => {
   });
 
   // Child categories of logtape.meta.sentry should also be ignored
-  sink(createMockLogRecord({
-    category: ["logtape", "meta", "sentry", "child"],
-  }));
+  sink(
+    createMockLogRecord({
+      category: ["logtape", "meta", "sentry", "child"],
+    }),
+  );
 
   assert.strictEqual(processedCount, 0);
 });
@@ -663,13 +691,14 @@ const sdkMajorVersion = Number.parseInt(SentryCore.SDK_VERSION, 10);
 // SDK 10.13.0+ exports the structured logger as `logger` from `@sentry/core`;
 // SDK 9.x exports its internal debug logger under the same name instead, and
 // SDK 10.0.0 through 10.12.x export neither.
-const hasStructuredLogger = typeof (
-  SentryCore as { logger?: { fmt?: unknown } }
-).logger?.fmt === "function";
+const hasStructuredLogger =
+  typeof (SentryCore as { logger?: { fmt?: unknown } }).logger?.fmt ===
+  "function";
 
 // SDK 9.x and 10.x provide the Logs API through _INTERNAL_captureLog() even
 // without the structured logger; SDK 8.x has no Logs API.
-const hasLogsApi = hasStructuredLogger ||
+const hasLogsApi =
+  hasStructuredLogger ||
   typeof (SentryCore as Record<string, unknown>)._INTERNAL_captureLog ===
     "function";
 
@@ -711,9 +740,9 @@ function installSentryTestClient(
   const items: EnvelopeItem[] = [];
   const createTransport = core.createTransport as (
     options: unknown,
-    makeRequest: (
-      request: { body: string | Uint8Array },
-    ) => PromiseLike<{ statusCode: number }>,
+    makeRequest: (request: {
+      body: string | Uint8Array;
+    }) => PromiseLike<{ statusCode: number }>,
   ) => unknown;
   // initAndBind() is what Sentry.init() uses; unlike setCurrentClient(), it
   // also turns on the SDK's debug logger when the debug option is set.
@@ -727,9 +756,10 @@ function installSentryTestClient(
     stackParser: () => [],
     transport: (transportOptions: unknown) =>
       createTransport(transportOptions, (request) => {
-        const body = typeof request.body === "string"
-          ? request.body
-          : new TextDecoder().decode(request.body);
+        const body =
+          typeof request.body === "string"
+            ? request.body
+            : new TextDecoder().decode(request.body);
         // An envelope is a header line followed by item header/payload pairs.
         const lines = body.split("\n").filter((line) => line !== "");
         for (let i = 1; i + 1 < lines.length; i += 2) {
@@ -786,11 +816,13 @@ test(
     );
     try {
       const sink = getSentrySink();
-      sink(createMockLogRecord({
-        level: "warning",
-        message: ["Hello, world!"],
-        properties: { foo: "bar" },
-      }));
+      sink(
+        createMockLogRecord({
+          level: "warning",
+          message: ["Hello, world!"],
+          properties: { foo: "bar" },
+        }),
+      );
       await client.flush();
       const logs = getLogs(client.items);
       assert.deepStrictEqual(
@@ -800,12 +832,14 @@ test(
           foo: log.attributes.foo?.value,
           category: log.attributes.category?.value,
         })),
-        [{
-          body: "Hello, world!",
-          level: "warn",
-          foo: "bar",
-          category: "test.category",
-        }],
+        [
+          {
+            body: "Hello, world!",
+            level: "warn",
+            foo: "bar",
+            category: "test.category",
+          },
+        ],
       );
     } finally {
       client.close();
@@ -817,7 +851,7 @@ test("@sentry/core provides a Logs API on SDK 9.41.0 or later", () => {
   // Guards the feature-detected tests above: if a future SDK drops both
   // entry points, they would be skipped instead of failing.
   const [major, minor] = SentryCore.SDK_VERSION.split(".").map(Number);
-  if (major > 9 || major === 9 && minor >= 41) {
+  if (major > 9 || (major === 9 && minor >= 41)) {
     assert.ok(hasLogsApi, `No Logs API found in SDK ${SentryCore.SDK_VERSION}`);
   }
 });
@@ -863,12 +897,12 @@ test(
       const sink = getSentrySink();
       sink(createMockLogRecord({ message: ["Hello, world!"] }));
     } finally {
-      methods.forEach((method, i) => console[method] = originals[i]);
+      methods.forEach((method, i) => (console[method] = originals[i]));
       client.close();
     }
     assert.deepStrictEqual(
       printed.filter((args) =>
-        args.some((arg) => `${arg}` === "Hello, world!")
+        args.some((arg) => `${arg}` === "Hello, world!"),
       ),
       [],
     );

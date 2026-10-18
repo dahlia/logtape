@@ -4,14 +4,15 @@ import test from "node:test";
 import fc from "fast-check";
 import { expandEnvVars } from "./env.ts";
 
-const envNameArb: fc.Arbitrary<string> = fc.stringMatching(/^[A-Z0-9_]*$/)
+const envNameArb: fc.Arbitrary<string> = fc
+  .stringMatching(/^[A-Z0-9_]*$/)
   .map((name) => `LOGTAPE_PBT_${name}`);
-const envValueArb: fc.Arbitrary<string> = fc.string().map((value) =>
-  value.replaceAll("\0", "")
-);
-const defaultValueArb: fc.Arbitrary<string> = fc.string().map((value) =>
-  `default${value.replace(/[}\0]/g, "")}`
-);
+const envValueArb: fc.Arbitrary<string> = fc
+  .string()
+  .map((value) => value.replaceAll("\0", ""));
+const defaultValueArb: fc.Arbitrary<string> = fc
+  .string()
+  .map((value) => `default${value.replace(/[}\0]/g, "")}`);
 
 test("expandEnvVars()", () => {
   process.env["TEST_VAR"] = "value";

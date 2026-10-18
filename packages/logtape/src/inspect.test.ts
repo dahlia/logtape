@@ -366,7 +366,10 @@ test("inspectLogger() describes level filters without invoking them", () => {
     assert.deepStrictEqual(strict.filters.category, ["app", "strict"]);
     assert.deepStrictEqual(
       strict.filters.filters.map((f) => [f.id, f.lowestLevel]),
-      [["warning", "warning"], ["error", "error"]],
+      [
+        ["warning", "warning"],
+        ["error", "error"],
+      ],
     );
     assert.strictEqual(strict.sinkPaths[0].lowestLevel, "error");
     assert.strictEqual(strict.status, "disabled");
@@ -470,7 +473,10 @@ test("inspectLogger() has no side effects", () => {
       inspectLogger(logger, { level });
       inspectLogger(["side-effects", "never", "created"], { level });
     }
-    assert.deepStrictEqual(getLoggers().map((l) => l.category), before);
+    assert.deepStrictEqual(
+      getLoggers().map((l) => l.category),
+      before,
+    );
     assert.strictEqual(sinkCalls, 0);
     assert.strictEqual(filterCalls, 0);
     assert.strictEqual(disposeCalls, 0);
@@ -495,9 +501,7 @@ test("inspectLogger() returns a fresh report", () => {
     (first.loggers[1].category as string[])[0] = "bogus";
     (first.effectiveCategory as string[]).push("bogus");
     const second = inspectLogger("fresh");
-    assert.deepStrictEqual(pathSummary(second), [
-      ["a", ["fresh"], "enabled"],
-    ]);
+    assert.deepStrictEqual(pathSummary(second), [["a", ["fresh"], "enabled"]]);
     assert.deepStrictEqual(second.loggers[1].sinkIds, ["a"]);
     assert.deepStrictEqual(second.effectiveCategory, ["fresh"]);
     getLogger("fresh").info("hello");
@@ -520,7 +524,10 @@ test("inspectLogger() distinguishes a single segment from a child category", () 
     ]);
     assert.deepStrictEqual(
       mistaken.loggers.map((logger) => [logger.category, logger.configured]),
-      [[[], false], [["activitypub-mcp:http"], false]],
+      [
+        [[], false],
+        [["activitypub-mcp:http"], false],
+      ],
     );
     assert.deepStrictEqual(mistaken.sinkPaths, []);
     assert.strictEqual(mistaken.status, "disabled");
@@ -547,7 +554,10 @@ test("inspectLogger() attributes sink identifiers", () => {
     const meta = inspectLogger(["logtape", "meta"]);
     assert.deepStrictEqual(meta.loggers[2].sinkIds, [undefined]);
     assert.strictEqual(meta.loggers[2].configured, false);
-    assert.deepStrictEqual(meta.sinkPaths.map((path) => path.id), [undefined]);
+    assert.deepStrictEqual(
+      meta.sinkPaths.map((path) => path.id),
+      [undefined],
+    );
 
     assert.deepStrictEqual(
       inspectLogger("ids").sinkPaths.map((path) => path.id),
@@ -600,9 +610,7 @@ test("inspectLogger() attributes sink identifiers", () => {
       loggers: [{ category: ["ids"], sinks: ["third"] }, quietMeta],
       reset: true,
     });
-    assert.deepStrictEqual(inspectLogger("ids").loggers[1].sinkIds, [
-      "third",
-    ]);
+    assert.deepStrictEqual(inspectLogger("ids").loggers[1].sinkIds, ["third"]);
   } finally {
     resetSync();
   }
@@ -672,50 +680,57 @@ test("inspectLogger() reports scoped configurations", async () => {
   let detached!: Promise<LoggerInspection[]>;
   try {
     assert.strictEqual(inspectLogger("app").source, "global");
-    await withConfig({
-      sinks: { outer: outerSink },
-      filters: { custom: () => true },
-      loggers: [{ category: "app", sinks: ["outer"], filters: ["custom"] }],
-    }, async () => {
-      const outer = inspectLogger(["app", "child"]);
-      assert.strictEqual(outer.source, "scoped");
-      assert.deepStrictEqual(pathSummary(outer), [
-        ["outer", ["app"], "conditional"],
-      ]);
-      assert.deepStrictEqual(outer.filters.category, ["app"]);
-      assert.deepStrictEqual(outer.filters.filters.map((f) => f.id), [
-        "custom",
-      ]);
-      assert.deepStrictEqual(
-        outer.loggers.map((logger) => logger.configured),
-        [false, true, false],
-      );
-
-      await withConfig({
-        sinks: { inner: innerSink },
-        loggers: [{ category: [], sinks: ["inner"], lowestLevel: "error" }],
-      }, () => {
-        const inner = inspectLogger(["app", "child"], { level: "info" });
-        assert.strictEqual(inner.source, "scoped");
-        assert.deepStrictEqual(pathSummary(inner), [
-          ["inner", [], "disabled"],
+    await withConfig(
+      {
+        sinks: { outer: outerSink },
+        filters: { custom: () => true },
+        loggers: [{ category: "app", sinks: ["outer"], filters: ["custom"] }],
+      },
+      async () => {
+        const outer = inspectLogger(["app", "child"]);
+        assert.strictEqual(outer.source, "scoped");
+        assert.deepStrictEqual(pathSummary(outer), [
+          ["outer", ["app"], "conditional"],
         ]);
-        assert.deepStrictEqual(inner.sinkPaths[0].sink, innerSink);
-        detached = (async () => {
-          await gate;
-          return [inspectLogger(["app", "child"])];
-        })();
-      });
+        assert.deepStrictEqual(outer.filters.category, ["app"]);
+        assert.deepStrictEqual(
+          outer.filters.filters.map((f) => f.id),
+          ["custom"],
+        );
+        assert.deepStrictEqual(
+          outer.loggers.map((logger) => logger.configured),
+          [false, true, false],
+        );
 
-      // The inner scope is disposed, so detached work falls back to the
-      // outer scope:
-      release();
-      const [fallback] = await detached;
-      assert.strictEqual(fallback.source, "scoped");
-      assert.deepStrictEqual(pathSummary(fallback), [
-        ["outer", ["app"], "conditional"],
-      ]);
-    });
+        await withConfig(
+          {
+            sinks: { inner: innerSink },
+            loggers: [{ category: [], sinks: ["inner"], lowestLevel: "error" }],
+          },
+          () => {
+            const inner = inspectLogger(["app", "child"], { level: "info" });
+            assert.strictEqual(inner.source, "scoped");
+            assert.deepStrictEqual(pathSummary(inner), [
+              ["inner", [], "disabled"],
+            ]);
+            assert.deepStrictEqual(inner.sinkPaths[0].sink, innerSink);
+            detached = (async () => {
+              await gate;
+              return [inspectLogger(["app", "child"])];
+            })();
+          },
+        );
+
+        // The inner scope is disposed, so detached work falls back to the
+        // outer scope:
+        release();
+        const [fallback] = await detached;
+        assert.strictEqual(fallback.source, "scoped");
+        assert.deepStrictEqual(pathSummary(fallback), [
+          ["outer", ["app"], "conditional"],
+        ]);
+      },
+    );
     await delay(0);
     assert.strictEqual(inspectLogger("app").source, "global");
   } finally {
@@ -765,12 +780,17 @@ test("inspectLogger() tolerates scoped configurations without identifiers", () =
     // process has no sink or filter identifiers:
     const sink: Sink = () => {};
     const filter: Filter = () => true;
-    const nodes = new Map([[JSON.stringify(["old"]), {
-      filters: [filter],
-      lowestLevel: "trace",
-      parentSinks: "inherit",
-      sinks: [sink],
-    }]]);
+    const nodes = new Map([
+      [
+        JSON.stringify(["old"]),
+        {
+          filters: [filter],
+          lowestLevel: "trace",
+          parentSinks: "inherit",
+          sinks: [sink],
+        },
+      ],
+    ]);
     const scopedConfig = {
       nodes,
       dispatchCache: new Map(),
@@ -814,42 +834,50 @@ test("inspectLogger() does not touch scoped dispatch caches", () => {
     reset: true,
   });
   try {
-    withConfigSync({
-      sinks: { a: () => {} },
-      filters: { custom: () => true },
-      loggers: [{ category: "cache", sinks: ["a"], filters: ["custom"] }],
-    }, () => {
-      getLogger("cache").info("warm up");
-      const store = LoggerImpl.getLogger().contextLocalStorage!.getStore()!;
-      const scoped = Object.getOwnPropertySymbols(store)
-        .map((symbol) => (store as Record<symbol, unknown>)[symbol])
-        .find((value) =>
-          value != null && typeof value === "object" && "dispatchCache" in value
-        ) as {
+    withConfigSync(
+      {
+        sinks: { a: () => {} },
+        filters: { custom: () => true },
+        loggers: [{ category: "cache", sinks: ["a"], filters: ["custom"] }],
+      },
+      () => {
+        getLogger("cache").info("warm up");
+        const store = LoggerImpl.getLogger().contextLocalStorage!.getStore()!;
+        const scoped = Object.getOwnPropertySymbols(store)
+          .map((symbol) => (store as Record<symbol, unknown>)[symbol])
+          .find(
+            (value) =>
+              value != null &&
+              typeof value === "object" &&
+              "dispatchCache" in value,
+          ) as {
           dispatchCache: Map<string, unknown>;
           filterCache: Map<string, unknown>;
         };
-      const dispatchEntries = [...scoped.dispatchCache.entries()];
-      const filterEntries = [...scoped.filterCache.entries()];
-      assert.ok(dispatchEntries.length > 0);
-      assert.ok(filterEntries.length > 0);
-      for (const level of getLogLevels()) {
-        inspectLogger(["cache"], { level });
-        inspectLogger(["cache", "child"], { level });
-      }
-      assert.deepStrictEqual([...scoped.dispatchCache.entries()], [
-        ...dispatchEntries,
-      ]);
-      assert.deepStrictEqual([...scoped.filterCache.entries()], [
-        ...filterEntries,
-      ]);
-      for (const [key, value] of dispatchEntries) {
-        assert.strictEqual(scoped.dispatchCache.get(key), value);
-      }
-      for (const [key, value] of filterEntries) {
-        assert.strictEqual(scoped.filterCache.get(key), value);
-      }
-    });
+        const dispatchEntries = [...scoped.dispatchCache.entries()];
+        const filterEntries = [...scoped.filterCache.entries()];
+        assert.ok(dispatchEntries.length > 0);
+        assert.ok(filterEntries.length > 0);
+        for (const level of getLogLevels()) {
+          inspectLogger(["cache"], { level });
+          inspectLogger(["cache", "child"], { level });
+        }
+        assert.deepStrictEqual(
+          [...scoped.dispatchCache.entries()],
+          [...dispatchEntries],
+        );
+        assert.deepStrictEqual(
+          [...scoped.filterCache.entries()],
+          [...filterEntries],
+        );
+        for (const [key, value] of dispatchEntries) {
+          assert.strictEqual(scoped.dispatchCache.get(key), value);
+        }
+        for (const [key, value] of filterEntries) {
+          assert.strictEqual(scoped.filterCache.get(key), value);
+        }
+      },
+    );
   } finally {
     resetSync();
   }
@@ -876,10 +904,7 @@ test("inspectLogger() handles categories named like object properties", () => {
 });
 
 test("inspectLogger() rejects invalid arguments", () => {
-  assert.throws(
-    () => inspectLogger([1] as unknown as string[]),
-    TypeError,
-  );
+  assert.throws(() => inspectLogger([1] as unknown as string[]), TypeError);
   assert.throws(() => inspectLogger(123 as unknown as string), TypeError);
   assert.throws(
     () => inspectLogger("app", { level: "verbose" as LogLevel }),
@@ -921,25 +946,30 @@ const generatedTreeArb = fc.tuple(
   fc.integer({ min: 0, max: 4 }),
 );
 
-const generatedCategories = [[], ["o"], ["o", "a"], ["o", "a", "b"], [
-  "o",
-  "a",
-  "b",
-  "c",
-]];
+const generatedCategories = [
+  [],
+  ["o"],
+  ["o", "a"],
+  ["o", "a", "b"],
+  ["o", "a", "b", "c"],
+];
 
 function toLoggerConfigs(loggers: readonly (GeneratedLogger | null)[]) {
   return loggers.flatMap((logger, i) =>
-    logger == null ? [] : [{
-      category: generatedCategories[i],
-      ...(logger.lowestLevel === undefined
-        ? {}
-        : { lowestLevel: logger.lowestLevel }),
-      ...(logger.parentSinks === undefined
-        ? {}
-        : { parentSinks: logger.parentSinks }),
-      sinks: [...logger.sinks],
-    }]
+    logger == null
+      ? []
+      : [
+          {
+            category: generatedCategories[i],
+            ...(logger.lowestLevel === undefined
+              ? {}
+              : { lowestLevel: logger.lowestLevel }),
+            ...(logger.parentSinks === undefined
+              ? {}
+              : { parentSinks: logger.parentSinks }),
+            sinks: [...logger.sinks],
+          },
+        ],
   );
 }
 
@@ -1090,101 +1120,111 @@ async function loadBuilds(): Promise<{ esm: LogTape; cjs: LogTape }> {
   return { esm, cjs };
 }
 
-test("inspectLogger() describes a configuration applied by another copy", {
-  skip: skipBuilds,
-}, async () => {
-  // Bun needs an early return as well as the skip option.
-  if (skipBuilds) return;
-  const { esm, cjs } = await loadBuilds();
-  const sink: Sink = () => {};
-  esm.configureSync({
-    sinks: { a: sink },
-    filters: {
-      off: cjs.getLevelFilter(null),
-      error: esm.getLevelFilter("error"),
-    },
-    loggers: [
-      { category: "dual", sinks: ["a"] },
-      { category: ["dual", "off"], filters: ["off"] },
-      { category: ["dual", "error"], filters: ["error"] },
-      quietMeta,
-    ],
-    reset: true,
-  });
-  try {
-    for (const inspect of [cjs.inspectLogger, inspectLogger]) {
-      const dual = inspect("dual");
-      assert.strictEqual(dual.source, "global");
-      assert.deepStrictEqual(dual.loggers[1].configured, true);
-      assert.deepStrictEqual(dual.loggers[1].sinkIds, ["a"]);
-      assert.deepStrictEqual(pathSummary(dual), [["a", ["dual"], "enabled"]]);
+test(
+  "inspectLogger() describes a configuration applied by another copy",
+  {
+    skip: skipBuilds,
+  },
+  async () => {
+    // Bun needs an early return as well as the skip option.
+    if (skipBuilds) return;
+    const { esm, cjs } = await loadBuilds();
+    const sink: Sink = () => {};
+    esm.configureSync({
+      sinks: { a: sink },
+      filters: {
+        off: cjs.getLevelFilter(null),
+        error: esm.getLevelFilter("error"),
+      },
+      loggers: [
+        { category: "dual", sinks: ["a"] },
+        { category: ["dual", "off"], filters: ["off"] },
+        { category: ["dual", "error"], filters: ["error"] },
+        quietMeta,
+      ],
+      reset: true,
+    });
+    try {
+      for (const inspect of [cjs.inspectLogger, inspectLogger]) {
+        const dual = inspect("dual");
+        assert.strictEqual(dual.source, "global");
+        assert.deepStrictEqual(dual.loggers[1].configured, true);
+        assert.deepStrictEqual(dual.loggers[1].sinkIds, ["a"]);
+        assert.deepStrictEqual(pathSummary(dual), [["a", ["dual"], "enabled"]]);
 
-      const off = inspect(["dual", "off"]);
-      assert.deepStrictEqual(
-        off.filters.filters.map((f) => [f.id, f.lowestLevel]),
-        [
-          ["off", null],
-        ],
-      );
-      assert.strictEqual(off.sinkPaths[0].lowestLevel, null);
-      assert.strictEqual(off.status, "disabled");
+        const off = inspect(["dual", "off"]);
+        assert.deepStrictEqual(
+          off.filters.filters.map((f) => [f.id, f.lowestLevel]),
+          [["off", null]],
+        );
+        assert.strictEqual(off.sinkPaths[0].lowestLevel, null);
+        assert.strictEqual(off.status, "disabled");
 
-      const error = inspect(["dual", "error"]);
-      assert.strictEqual(error.sinkPaths[0].lowestLevel, "error");
-      assert.strictEqual(error.status, "enabled");
+        const error = inspect(["dual", "error"]);
+        assert.strictEqual(error.sinkPaths[0].lowestLevel, "error");
+        assert.strictEqual(error.status, "enabled");
+      }
+    } finally {
+      esm.resetSync();
     }
-  } finally {
-    esm.resetSync();
-  }
-  assert.strictEqual(cjs.inspectLogger("dual").source, "unconfigured");
-  assert.strictEqual(inspectLogger("dual").source, "unconfigured");
-});
+    assert.strictEqual(cjs.inspectLogger("dual").source, "unconfigured");
+    assert.strictEqual(inspectLogger("dual").source, "unconfigured");
+  },
+);
 
-test("inspectLogger() reflects a reset through another copy", {
-  skip: skipBuilds,
-}, async () => {
-  // Bun needs an early return as well as the skip option.
-  if (skipBuilds) return;
-  const { esm, cjs } = await loadBuilds();
-  esm.configureSync({
-    sinks: { a: () => {} },
-    loggers: [{ category: "dual-reset", sinks: ["a"] }, quietMeta],
-    reset: true,
-  });
-  try {
-    assert.strictEqual(esm.inspectLogger("dual-reset").source, "global");
-    cjs.resetSync();
-    for (const inspect of [esm.inspectLogger, cjs.inspectLogger]) {
-      const inspection = inspect("dual-reset");
-      assert.strictEqual(inspection.source, "unconfigured");
-      assert.strictEqual(inspection.loggers[1].configured, false);
-      assert.deepStrictEqual(inspection.sinkPaths, []);
+test(
+  "inspectLogger() reflects a reset through another copy",
+  {
+    skip: skipBuilds,
+  },
+  async () => {
+    // Bun needs an early return as well as the skip option.
+    if (skipBuilds) return;
+    const { esm, cjs } = await loadBuilds();
+    esm.configureSync({
+      sinks: { a: () => {} },
+      loggers: [{ category: "dual-reset", sinks: ["a"] }, quietMeta],
+      reset: true,
+    });
+    try {
+      assert.strictEqual(esm.inspectLogger("dual-reset").source, "global");
+      cjs.resetSync();
+      for (const inspect of [esm.inspectLogger, cjs.inspectLogger]) {
+        const inspection = inspect("dual-reset");
+        assert.strictEqual(inspection.source, "unconfigured");
+        assert.strictEqual(inspection.loggers[1].configured, false);
+        assert.deepStrictEqual(inspection.sinkPaths, []);
+      }
+    } finally {
+      esm.resetSync();
     }
-  } finally {
-    esm.resetSync();
-  }
-});
+  },
+);
 
-test("inspectLogger() finds loggers another copy created without WeakRef", {
-  skip: skipBuilds,
-}, async () => {
-  // Bun needs an early return as well as the skip option.
-  if (skipBuilds) return;
-  const { cjs } = await loadBuilds();
-  const weakRef = Object.getOwnPropertyDescriptor(globalThis, "WeakRef");
-  // deno-lint-ignore no-explicit-any
-  delete (globalThis as any).WeakRef;
-  try {
-    // Without WeakRef, child loggers are stored directly, as instances of
-    // the copy that created the logger tree:
-    getLogger(["no-weak-ref", "child"]);
-  } finally {
-    Object.defineProperty(globalThis, "WeakRef", weakRef!);
-  }
-  const inspection = cjs.inspectLogger(["no-weak-ref", "child"]);
-  assert.deepStrictEqual(inspection.effectiveCategory, [
-    "no-weak-ref",
-    "child",
-  ]);
-  assert.deepStrictEqual(inspection.sinkPaths, []);
-});
+test(
+  "inspectLogger() finds loggers another copy created without WeakRef",
+  {
+    skip: skipBuilds,
+  },
+  async () => {
+    // Bun needs an early return as well as the skip option.
+    if (skipBuilds) return;
+    const { cjs } = await loadBuilds();
+    const weakRef = Object.getOwnPropertyDescriptor(globalThis, "WeakRef");
+    // deno-lint-ignore no-explicit-any
+    delete (globalThis as any).WeakRef;
+    try {
+      // Without WeakRef, child loggers are stored directly, as instances of
+      // the copy that created the logger tree:
+      getLogger(["no-weak-ref", "child"]);
+    } finally {
+      Object.defineProperty(globalThis, "WeakRef", weakRef!);
+    }
+    const inspection = cjs.inspectLogger(["no-weak-ref", "child"]);
+    assert.deepStrictEqual(inspection.effectiveCategory, [
+      "no-weak-ref",
+      "child",
+    ]);
+    assert.deepStrictEqual(inspection.sinkPaths, []);
+  },
+);

@@ -34,7 +34,8 @@ export const requireMetaSink: Rule.RuleModule = {
     },
     schema: [],
     messages: {
-      requireMeta: "Add a dedicated sink for the meta logger " +
+      requireMeta:
+        "Add a dedicated sink for the meta logger " +
         '(category: ["logtape"] or ["logtape", "meta"]) ' +
         "to handle LogTape's own diagnostic messages.",
     },
@@ -69,8 +70,9 @@ export const requireMetaSink: Rule.RuleModule = {
 
         // Verify the callee resolves to the actual import, not a shadow
         // (e.g. a function parameter also named configure).
-        // deno-lint-ignore no-explicit-any
-        const scope = (context as any).sourceCode?.getScope?.(node) ??
+        const scope =
+          // deno-lint-ignore no-explicit-any
+          (context as any).sourceCode?.getScope?.(node) ??
           // deno-lint-ignore no-explicit-any
           (context as any).getScope?.();
         if (scope) {
@@ -89,7 +91,8 @@ export const requireMetaSink: Rule.RuleModule = {
           if (
             // deno-lint-ignore no-explicit-any
             !calleeVar?.defs?.some((d: any) => d.type === "ImportBinding")
-          ) return;
+          )
+            return;
         }
 
         // Unwrap a TypeScript type assertion (e.g. `configure({ ... } as const)`).

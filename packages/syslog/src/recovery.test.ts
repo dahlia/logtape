@@ -21,9 +21,10 @@ import {
   type SyslogSinkOptions,
 } from "./syslog.ts";
 
-type TestSink = Sink & AsyncDisposable & {
-  readonly _internal_lastPromise: Promise<void>;
-};
+type TestSink = Sink &
+  AsyncDisposable & {
+    readonly _internal_lastPromise: Promise<void>;
+  };
 
 function record(message: string): LogRecord {
   return {
@@ -43,9 +44,10 @@ async function withConnection(
   options: SyslogSinkOptions = {},
 ): Promise<void> {
   const udp = options.protocol === "udp";
-  const prototype = typeof Deno === "undefined"
-    ? (udp ? NodeUdpSyslogConnection : NodeTcpSyslogConnection).prototype
-    : (udp ? DenoUdpSyslogConnection : DenoTcpSyslogConnection).prototype;
+  const prototype =
+    typeof Deno === "undefined"
+      ? (udp ? NodeUdpSyslogConnection : NodeTcpSyslogConnection).prototype
+      : (udp ? DenoUdpSyslogConnection : DenoTcpSyslogConnection).prototype;
   const original = {
     connect: prototype.connect,
     send: prototype.send,
@@ -60,11 +62,13 @@ async function withConnection(
       capture: (r) => errors.push(r),
       shared: (r) => sink(r),
     },
-    loggers: [{
-      category: ["logtape", "meta"],
-      lowestLevel: "error",
-      sinks: shared ? ["capture", "shared"] : ["capture"],
-    }],
+    loggers: [
+      {
+        category: ["logtape", "meta"],
+        lowestLevel: "error",
+        sinks: shared ? ["capture", "shared"] : ["capture"],
+      },
+    ],
   });
   try {
     await run(sink, errors);
@@ -84,122 +88,131 @@ test("getSyslogSink() preserves queued records after a connection failure", asyn
   let connects = 0;
   let closes = 0;
   const messages: string[] = [];
-  await withConnection({
-    async connect() {
-      connects++;
-      if (connects === 1) {
-        await gate.promise;
-        throw failure;
-      }
+  await withConnection(
+    {
+      async connect() {
+        connects++;
+        if (connects === 1) {
+          await gate.promise;
+          throw failure;
+        }
+      },
+      send(message) {
+        messages.push(message);
+        return Promise.resolve();
+      },
+      close() {
+        closes++;
+      },
     },
-    send(message) {
-      messages.push(message);
-      return Promise.resolve();
+    async (sink, errors) => {
+      sink(record("failed"));
+      sink(record("second"));
+      sink(record("third"));
+      gate.resolve();
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(connects, 2);
+      assert.strictEqual(closes, 2);
+      assert.deepStrictEqual(
+        messages.map((m) => m.split(" ").at(-1)),
+        ["second", "third"],
+      );
+      assert.strictEqual(errors.length, 1);
+      assert.strictEqual(errors[0].properties.error, failure);
     },
-    close() {
-      closes++;
-    },
-  }, async (sink, errors) => {
-    sink(record("failed"));
-    sink(record("second"));
-    sink(record("third"));
-    gate.resolve();
-    await sink[Symbol.asyncDispose]();
-    assert.strictEqual(connects, 2);
-    assert.strictEqual(closes, 2);
-    assert.deepStrictEqual(messages.map((m) => m.split(" ").at(-1)), [
-      "second",
-      "third",
-    ]);
-    assert.strictEqual(errors.length, 1);
-    assert.strictEqual(errors[0].properties.error, failure);
-  });
+  );
 });
 
 test("getSyslogSink() does not retry a failed send and reconnects for the next record", async () => {
   let connects = 0;
   const messages: string[] = [];
-  await withConnection({
-    connect() {
-      connects++;
+  await withConnection(
+    {
+      connect() {
+        connects++;
+      },
+      send(message) {
+        const text = message.split(" ").at(-1)!;
+        messages.push(text);
+        return text === "failed"
+          ? Promise.reject(new Error("send failed"))
+          : Promise.resolve();
+      },
+      close() {},
     },
-    send(message) {
-      const text = message.split(" ").at(-1)!;
-      messages.push(text);
-      return text === "failed"
-        ? Promise.reject(new Error("send failed"))
-        : Promise.resolve();
+    async (sink, errors) => {
+      for (const message of ["first", "failed", "third", "fourth"]) {
+        sink(record(message));
+      }
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(connects, 2);
+      assert.deepStrictEqual(messages, ["first", "failed", "third", "fourth"]);
+      assert.strictEqual(errors.length, 1);
     },
-    close() {},
-  }, async (sink, errors) => {
-    for (const message of ["first", "failed", "third", "fourth"]) {
-      sink(record(message));
-    }
-    await sink[Symbol.asyncDispose]();
-    assert.strictEqual(connects, 2);
-    assert.deepStrictEqual(messages, ["first", "failed", "third", "fourth"]);
-    assert.strictEqual(errors.length, 1);
-  });
+  );
 });
 
 test("getSyslogSink() reports failed records without unhandled rejections", async () => {
   let failing = true;
-  await withConnection({
-    connect() {
-      if (failing) throw new Error("unreachable");
+  await withConnection(
+    {
+      connect() {
+        if (failing) throw new Error("unreachable");
+      },
+      send() {
+        return failing
+          ? Promise.reject(new Error("unreachable"))
+          : Promise.resolve();
+      },
+      close() {},
     },
-    send() {
-      return failing
-        ? Promise.reject(new Error("unreachable"))
-        : Promise.resolve();
+    async (sink, errors) => {
+      withCategoryPrefix(["request"], () => sink(record("first failure")));
+      // No consumer handles the internal promise: the sink must do so itself.
+      await setImmediate();
+      assert.strictEqual(errors.length, 1);
+      assert.deepStrictEqual(errors[0].category, ["logtape", "meta"]);
+      sink(record("second failure"));
+      await assert.rejects(sink._internal_lastPromise, /unreachable/);
+      assert.strictEqual(errors.length, 2);
+      failing = false;
+      sink(record("recovered"));
+      await sink._internal_lastPromise;
+      failing = true;
+      sink(record("new failure"));
+      await assert.rejects(sink._internal_lastPromise, /unreachable/);
+      assert.strictEqual(errors.length, 3);
+      assert.deepStrictEqual(
+        errors.map((r) => (r.properties.record as LogRecord).rawMessage),
+        ["first failure", "second failure", "new failure"],
+      );
     },
-    close() {},
-  }, async (sink, errors) => {
-    withCategoryPrefix(["request"], () => sink(record("first failure")));
-    // No consumer handles the internal promise: the sink must do so itself.
-    await setImmediate();
-    assert.strictEqual(errors.length, 1);
-    assert.deepStrictEqual(errors[0].category, ["logtape", "meta"]);
-    sink(record("second failure"));
-    await assert.rejects(sink._internal_lastPromise, /unreachable/);
-    assert.strictEqual(errors.length, 2);
-    failing = false;
-    sink(record("recovered"));
-    await sink._internal_lastPromise;
-    failing = true;
-    sink(record("new failure"));
-    await assert.rejects(sink._internal_lastPromise, /unreachable/);
-    assert.strictEqual(errors.length, 3);
-    assert.deepStrictEqual(
-      errors.map((r) => (r.properties.record as LogRecord).rawMessage),
-      [
-        "first failure",
-        "second failure",
-        "new failure",
-      ],
-    );
-  });
+  );
 });
 
 test("getSyslogSink() drains failures reported through the same meta sink", async () => {
   let connects = 0;
-  await withConnection({
-    connect() {
-      connects++;
-      throw new Error("unreachable");
+  await withConnection(
+    {
+      connect() {
+        connects++;
+        throw new Error("unreachable");
+      },
+      send() {
+        return Promise.resolve();
+      },
+      close() {},
     },
-    send() {
-      return Promise.resolve();
+    async (sink, errors) => {
+      withCategoryPrefix(["request"], () => sink(record("failed")));
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(errors.length, 1);
+      assert.strictEqual(connects, 2);
+      await setImmediate();
+      assert.strictEqual(connects, 2);
     },
-    close() {},
-  }, async (sink, errors) => {
-    withCategoryPrefix(["request"], () => sink(record("failed")));
-    await sink[Symbol.asyncDispose]();
-    assert.strictEqual(errors.length, 1);
-    assert.strictEqual(connects, 2);
-    await setImmediate();
-    assert.strictEqual(connects, 2);
-  }, true);
+    true,
+  );
 });
 
 test("getSyslogSink() reconnects when a TCP server becomes reachable", async () => {
@@ -208,7 +221,7 @@ test("getSyslogSink() reconnects when a TCP server becomes reachable", async () 
   await once(server, "listening");
   const port = (server.address() as { port: number }).port;
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
+    server.close((error) => (error ? reject(error) : resolve()));
   });
   const sink = getSyslogSink({
     hostname: "127.0.0.1",
@@ -296,104 +309,113 @@ test("NodeTcpSyslogConnection forgets a closed socket and reconnects", async () 
 test("getSyslogSink() recovers even when meta error reporting throws", async () => {
   let connects = 0;
   const messages: string[] = [];
-  await withConnection({
-    connect() {
-      if (++connects === 1) throw new Error("unreachable");
-    },
-    send(message) {
-      messages.push(message);
-      return Promise.resolve();
-    },
-    close() {},
-  }, async (sink) => {
-    configureSync({
-      reset: true,
-      sinks: {},
-      filters: {
-        broken: () => {
-          throw new Error("meta filter failed");
-        },
+  await withConnection(
+    {
+      connect() {
+        if (++connects === 1) throw new Error("unreachable");
       },
-      loggers: [{
-        category: ["logtape", "meta"],
-        lowestLevel: "error",
-        filters: ["broken"],
-      }],
-    });
-    sink(record("failed"));
-    sink(record("delivered"));
-    await sink[Symbol.asyncDispose]();
-    assert.strictEqual(connects, 2);
-    assert.strictEqual(messages.length, 1);
-    assert.ok(messages[0].endsWith("delivered"));
-  });
+      send(message) {
+        messages.push(message);
+        return Promise.resolve();
+      },
+      close() {},
+    },
+    async (sink) => {
+      configureSync({
+        reset: true,
+        sinks: {},
+        filters: {
+          broken: () => {
+            throw new Error("meta filter failed");
+          },
+        },
+        loggers: [
+          {
+            category: ["logtape", "meta"],
+            lowestLevel: "error",
+            filters: ["broken"],
+          },
+        ],
+      });
+      sink(record("failed"));
+      sink(record("delivered"));
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(connects, 2);
+      assert.strictEqual(messages.length, 1);
+      assert.ok(messages[0].endsWith("delivered"));
+    },
+  );
 });
 
 const skipNodeRecovery = typeof Deno !== "undefined";
-test("getSyslogSink() reconnects before sending after an idle peer close", {
-  skip: skipNodeRecovery,
-}, async () => {
-  if (skipNodeRecovery) return;
-  const originalConnect = NodeTcpSyslogConnection.prototype.connect;
-  let connection: NodeTcpSyslogConnection | undefined;
-  NodeTcpSyslogConnection.prototype.connect = function () {
-    connection = this;
-    return originalConnect.call(this);
-  };
-  const server = createServer();
-  const sockets = new Set<Socket>();
-  const received: string[] = [];
-  const first = Promise.withResolvers<Socket>();
-  const second = Promise.withResolvers<void>();
-  server.on("connection", (socket: Socket) => {
-    sockets.add(socket);
-    let pending = "";
-    socket.on("data", (data) => {
-      pending += data;
-      while (pending.includes("\n")) {
-        const end = pending.indexOf("\n");
-        received.push(pending.slice(0, end));
-        pending = pending.slice(end + 1);
-        if (received.length === 1) first.resolve(socket);
-        if (received.length === 2) second.resolve();
-      }
+test(
+  "getSyslogSink() reconnects before sending after an idle peer close",
+  {
+    skip: skipNodeRecovery,
+  },
+  async () => {
+    if (skipNodeRecovery) return;
+    const originalConnect = NodeTcpSyslogConnection.prototype.connect;
+    let connection: NodeTcpSyslogConnection | undefined;
+    NodeTcpSyslogConnection.prototype.connect = function () {
+      connection = this;
+      return originalConnect.call(this);
+    };
+    const server = createServer();
+    const sockets = new Set<Socket>();
+    const received: string[] = [];
+    const first = Promise.withResolvers<Socket>();
+    const second = Promise.withResolvers<void>();
+    server.on("connection", (socket: Socket) => {
+      sockets.add(socket);
+      let pending = "";
+      socket.on("data", (data) => {
+        pending += data;
+        while (pending.includes("\n")) {
+          const end = pending.indexOf("\n");
+          received.push(pending.slice(0, end));
+          pending = pending.slice(end + 1);
+          if (received.length === 1) first.resolve(socket);
+          if (received.length === 2) second.resolve();
+        }
+      });
     });
-  });
-  let sink: TestSink | undefined;
-  try {
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
-    const port = (server.address() as { port: number }).port;
-    sink = getSyslogSink({
-      hostname: "127.0.0.1",
-      port,
-      protocol: "tcp",
-    }) as TestSink;
-    sink(record("first"));
-    await sink._internal_lastPromise;
-    const peer = await within(first.promise);
-    const socket = Reflect.get(connection!, "connection") as Socket;
-    const closed = once(socket, "close");
-    peer.destroy();
-    await within(closed);
-    sink(record("second"));
-    await sink._internal_lastPromise;
-    await within(second.promise);
-    assert.deepStrictEqual(received.map((m) => m.split(" ").at(-1)), [
-      "first",
-      "second",
-    ]);
-    assert.strictEqual(sockets.size, 2);
-  } finally {
+    let sink: TestSink | undefined;
     try {
-      await sink?.[Symbol.asyncDispose]();
-      for (const socket of sockets) socket.destroy();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const port = (server.address() as { port: number }).port;
+      sink = getSyslogSink({
+        hostname: "127.0.0.1",
+        port,
+        protocol: "tcp",
+      }) as TestSink;
+      sink(record("first"));
+      await sink._internal_lastPromise;
+      const peer = await within(first.promise);
+      const socket = Reflect.get(connection!, "connection") as Socket;
+      const closed = once(socket, "close");
+      peer.destroy();
+      await within(closed);
+      sink(record("second"));
+      await sink._internal_lastPromise;
+      await within(second.promise);
+      assert.deepStrictEqual(
+        received.map((m) => m.split(" ").at(-1)),
+        ["first", "second"],
+      );
+      assert.strictEqual(sockets.size, 2);
     } finally {
-      NodeTcpSyslogConnection.prototype.connect = originalConnect;
+      try {
+        await sink?.[Symbol.asyncDispose]();
+        for (const socket of sockets) socket.destroy();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      } finally {
+        NodeTcpSyslogConnection.prototype.connect = originalConnect;
+      }
     }
-  }
-});
+  },
+);
 
 for (const transport of ["tcp", "tls", "udp"] as const) {
   for (const failure of ["connect", "send"] as const) {
@@ -581,11 +603,13 @@ test("getSyslogSink() recovers from throwing meta filters after discarding", asy
             throw new Error("meta filter failed");
           },
         },
-        loggers: [{
-          category: ["logtape", "meta"],
-          lowestLevel: "error",
-          filters: ["broken"],
-        }],
+        loggers: [
+          {
+            category: ["logtape", "meta"],
+            lowestLevel: "error",
+            filters: ["broken"],
+          },
+        ],
       });
       sink(record("failed"));
       sink(record("discarded"));

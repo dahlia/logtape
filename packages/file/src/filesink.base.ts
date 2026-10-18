@@ -9,9 +9,11 @@ import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
 import { markSinkAsImmediate } from "./snapshot.ts";
 
 function isMetaLoggerRecord(record: LogRecord): boolean {
-  return record.category.length === 2 &&
+  return (
+    record.category.length === 2 &&
     record.category[0] === "logtape" &&
-    record.category[1] === "meta";
+    record.category[1] === "meta"
+  );
 }
 
 /**
@@ -63,8 +65,10 @@ class AdaptiveFlushStrategy {
     const adaptiveThreshold = this.calculateAdaptiveThreshold();
     const adaptiveInterval = this.calculateAdaptiveInterval();
 
-    return currentSize >= adaptiveThreshold ||
-      (adaptiveInterval > 0 && timeSinceLastFlush >= adaptiveInterval);
+    return (
+      currentSize >= adaptiveThreshold ||
+      (adaptiveInterval > 0 && timeSinceLastFlush >= adaptiveInterval)
+    );
   }
 
   private updateAverages(): void {
@@ -164,7 +168,8 @@ class BufferPool {
   release(buffer: Uint8Array): void {
     // Don't pool if we're at capacity or buffer is too large
     if (
-      this.pool.length >= this.maxPoolSize || buffer.length > this.maxBufferSize
+      this.pool.length >= this.maxPoolSize ||
+      buffer.length > this.maxBufferSize
     ) {
       return;
     }
@@ -393,9 +398,8 @@ export function getBaseFileSink<TFile>(
 ): Sink & AsyncDisposable;
 export function getBaseFileSink<TFile>(
   path: string,
-  options:
-    & FileSinkOptions
-    & (FileSinkDriver<TFile> | AsyncFileSinkDriver<TFile>),
+  options: FileSinkOptions &
+    (FileSinkDriver<TFile> | AsyncFileSinkDriver<TFile>),
 ): Sink & (Disposable | AsyncDisposable) {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
@@ -723,8 +727,9 @@ export interface RotatingFileSinkDriver<TFile> extends FileSinkDriver<TFile> {
  * A platform-specific async rotating file sink driver.
  * @since 1.0.0
  */
-export interface AsyncRotatingFileSinkDriver<TFile>
-  extends AsyncFileSinkDriver<TFile> {
+export interface AsyncRotatingFileSinkDriver<
+  TFile,
+> extends AsyncFileSinkDriver<TFile> {
   /**
    * Get the size of the file.
    * @param path A path to the file.
@@ -778,9 +783,8 @@ export function getBaseRotatingFileSink<TFile>(
 ): Sink & AsyncDisposable;
 export function getBaseRotatingFileSink<TFile>(
   path: string,
-  options:
-    & RotatingFileSinkOptions
-    & (RotatingFileSinkDriver<TFile> | AsyncRotatingFileSinkDriver<TFile>),
+  options: RotatingFileSinkOptions &
+    (RotatingFileSinkDriver<TFile> | AsyncRotatingFileSinkDriver<TFile>),
 ): Sink & (Disposable | AsyncDisposable) {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
@@ -795,23 +799,27 @@ export function getBaseRotatingFileSink<TFile>(
     throw new TypeError("maxFiles <= 0 requires unlinkSync support.");
   }
   // Finish all user callback calls before acquiring a file handle.
-  const rotation = maxFiles <= 0 ? null : (() => {
-    const rotatedFilePath = options.rotatedFilePath ??
-      ((path: string, index: number): string => `${path}.${index}`);
-    const paths = new Map<number, string>();
-    function getPath(index: number): string {
-      const cached = paths.get(index);
-      if (cached !== undefined) return cached;
-      const result = rotatedFilePath(path, index);
-      paths.set(index, result);
-      return result;
-    }
-    const backupTuples: [string, string][] = [];
-    for (let i = maxFiles - 1; i > 0; i--) {
-      backupTuples.push([getPath(i), getPath(i + 1)]);
-    }
-    return { backupTuples, activeDestination: getPath(1) };
-  })();
+  const rotation =
+    maxFiles <= 0
+      ? null
+      : (() => {
+          const rotatedFilePath =
+            options.rotatedFilePath ??
+            ((path: string, index: number): string => `${path}.${index}`);
+          const paths = new Map<number, string>();
+          function getPath(index: number): string {
+            const cached = paths.get(index);
+            if (cached !== undefined) return cached;
+            const result = rotatedFilePath(path, index);
+            paths.set(index, result);
+            return result;
+          }
+          const backupTuples: [string, string][] = [];
+          for (let i = maxFiles - 1; i > 0; i--) {
+            backupTuples.push([getPath(i), getPath(i + 1)]);
+          }
+          return { backupTuples, activeDestination: getPath(1) };
+        })();
   let offset: number = 0;
   try {
     const stat = options.statSync(path);
@@ -883,8 +891,9 @@ export function getBaseRotatingFileSink<TFile>(
       buffer += formatter(record);
 
       const shouldFlushBySize = buffer.length >= bufferSize;
-      const shouldFlushByTime = flushInterval > 0 &&
-        (record.timestamp - lastFlushTimestamp) >= flushInterval;
+      const shouldFlushByTime =
+        flushInterval > 0 &&
+        record.timestamp - lastFlushTimestamp >= flushInterval;
 
       if (shouldFlushBySize || shouldFlushByTime) {
         flushBuffer();
@@ -957,8 +966,9 @@ export function getBaseRotatingFileSink<TFile>(
     bufferedNonMetaRecord ||= !isMetaLoggerRecord(record);
 
     const shouldFlushBySize = buffer.length >= bufferSize;
-    const shouldFlushByTime = flushInterval > 0 &&
-      (record.timestamp - lastFlushTimestamp) >= flushInterval;
+    const shouldFlushByTime =
+      flushInterval > 0 &&
+      record.timestamp - lastFlushTimestamp >= flushInterval;
 
     if (shouldFlushBySize || shouldFlushByTime) {
       scheduleFlush();

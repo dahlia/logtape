@@ -5,8 +5,8 @@ import { getDisplayWidth, stripAnsi, wcwidth } from "./wcwidth.ts";
 
 test("wcwidth() basic functionality", () => {
   // Control characters should return -1
-  assert.strictEqual(wcwidth(0x0A), -1); // newline
-  assert.strictEqual(wcwidth(0x1B), -1); // escape
+  assert.strictEqual(wcwidth(0x0a), -1); // newline
+  assert.strictEqual(wcwidth(0x1b), -1); // escape
 
   // Regular ASCII characters should return 1
   assert.strictEqual(wcwidth(0x41), 1); // 'A'
@@ -14,12 +14,12 @@ test("wcwidth() basic functionality", () => {
 
   // Wide characters should return 2
   assert.strictEqual(wcwidth(0x2728), 2); // ✨ sparkles
-  assert.strictEqual(wcwidth(0x274C), 2); // ❌ cross mark
-  assert.strictEqual(wcwidth(0x4E00), 2); // CJK ideograph
+  assert.strictEqual(wcwidth(0x274c), 2); // ❌ cross mark
+  assert.strictEqual(wcwidth(0x4e00), 2); // CJK ideograph
 
   // Zero-width characters should return 0
   assert.strictEqual(wcwidth(0x0300), 0); // combining grave accent
-  assert.strictEqual(wcwidth(0xFE0F), 0); // variation selector
+  assert.strictEqual(wcwidth(0xfe0f), 0); // variation selector
 });
 
 test("getDisplayWidth() with regular text", () => {

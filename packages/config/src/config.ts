@@ -26,10 +26,7 @@ export async function configureFromObject(
   config: LogTapeConfig,
   options?: ConfigureOptions,
 ): Promise<void> {
-  const shorthands = mergeShorthands(
-    DEFAULT_SHORTHANDS,
-    options?.shorthands,
-  );
+  const shorthands = mergeShorthands(DEFAULT_SHORTHANDS, options?.shorthands);
   const onInvalidConfig = options?.onInvalidConfig ?? "throw";
   const warnings: string[] = [];
 

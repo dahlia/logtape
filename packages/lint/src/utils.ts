@@ -48,9 +48,9 @@ export function createLogtapeScope(context: Rule.RuleContext): {
   function resolvesToImportedGetter(name: string, scope: AnyNode): boolean {
     if (!getterNames.has(name)) return false;
     const calleeVar = resolveVariable(scope, name);
-    return calleeVar?.defs?.some(
-      (d: AnyNode) => d.type === "ImportBinding",
-    ) ?? false;
+    return (
+      calleeVar?.defs?.some((d: AnyNode) => d.type === "ImportBinding") ?? false
+    );
   }
 
   // Is `node` an expression that evaluates to a LogTape logger?  Handles
@@ -92,14 +92,16 @@ export function createLogtapeScope(context: Rule.RuleContext): {
       // initializer in the variable's declaration scope (variable.scope) so a
       // logger declared in an outer scope is still recognised when a closer
       // scope shadows getLogger.
-      return variable.defs?.some((def: AnyNode) => {
-        if (def.type !== "Variable") return false;
-        return isLoggerExpression(
-          def.node?.init,
-          variable.scope ?? scope,
-          depth + 1,
-        );
-      }) ?? false;
+      return (
+        variable.defs?.some((def: AnyNode) => {
+          if (def.type !== "Variable") return false;
+          return isLoggerExpression(
+            def.node?.init,
+            variable.scope ?? scope,
+            depth + 1,
+          );
+        }) ?? false
+      );
     }
 
     return false;
@@ -112,8 +114,8 @@ export function createLogtapeScope(context: Rule.RuleContext): {
     const scope =
       // deno-lint-ignore no-explicit-any
       (context as any).sourceCode?.getScope?.(callNode) ??
-        // deno-lint-ignore no-explicit-any
-        (context as any).getScope?.();
+      // deno-lint-ignore no-explicit-any
+      (context as any).getScope?.();
 
     return isLoggerExpression(callee.object, scope);
   }
@@ -127,36 +129,33 @@ export function createLogtapeScope(context: Rule.RuleContext): {
     const scope =
       // deno-lint-ignore no-explicit-any
       (context as any).sourceCode?.getScope?.(callNode) ??
-        // deno-lint-ignore no-explicit-any
-        (context as any).getScope?.();
+      // deno-lint-ignore no-explicit-any
+      (context as any).getScope?.();
     const result = new Set<string>();
     for (const name of lazyNames) {
       const variable = resolveVariable(scope, name);
-      const isImport = variable?.defs?.some(
-        (d: AnyNode) => d.type === "ImportBinding",
-      ) ?? false;
+      const isImport =
+        variable?.defs?.some((d: AnyNode) => d.type === "ImportBinding") ??
+        false;
       if (isImport) result.add(name);
     }
     return result;
   }
 
   function scopeAt(node: AnyNode): AnyNode {
-    // deno-lint-ignore no-explicit-any
-    return (context as any).sourceCode?.getScope?.(node) ??
+    return (
       // deno-lint-ignore no-explicit-any
-      (context as any).getScope?.();
+      (context as any).sourceCode?.getScope?.(node) ??
+      // deno-lint-ignore no-explicit-any
+      (context as any).getScope?.()
+    );
   }
 
   function classifyLogArgument(
     argument: AnyNode,
     callNode: AnyNode,
   ): LogArgumentKind {
-    return classifyArgumentInScope(
-      argument,
-      scopeAt(callNode),
-      new Set(),
-      0,
-    );
+    return classifyArgumentInScope(argument, scopeAt(callNode), new Set(), 0);
   }
 
   function classifyArgumentInScope(
@@ -168,7 +167,8 @@ export function createLogtapeScope(context: Rule.RuleContext): {
     if (!node || depth > 16) return "unknown";
     const context = classificationContext(scope);
     if (
-      node.type === "TSAsExpression" || node.type === "TSTypeAssertion" ||
+      node.type === "TSAsExpression" ||
+      node.type === "TSTypeAssertion" ||
       node.type === "TSSatisfiesExpression"
     ) {
       const expression = classifyArgumentInScope(
@@ -182,12 +182,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
         : classifyTypeAnnotation(node.typeAnnotation, context);
     }
     if (node.type === "TSNonNullExpression") {
-      return classifyArgumentInScope(
-        node.expression,
-        scope,
-        seen,
-        depth + 1,
-      );
+      return classifyArgumentInScope(node.expression, scope, seen, depth + 1);
     }
     const direct = classifyLogArgumentSyntax(node, context);
     if (direct !== "unknown") return direct;
@@ -201,9 +196,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
       if (def.type === "FunctionName") return "callback";
 
       const binding = def.name ?? def.node?.id ?? def.node;
-      const declarationContext = classificationContext(
-        variable.scope ?? scope,
-      );
+      const declarationContext = classificationContext(variable.scope ?? scope);
       const annotated = classifyTypeAnnotation(
         binding?.typeAnnotation,
         declarationContext,
@@ -213,11 +206,11 @@ export function createLogtapeScope(context: Rule.RuleContext): {
           const initialized = isMutableArrayLiteral(def.node?.init)
             ? "dynamic-message"
             : classifyArgumentInScope(
-              def.node?.init,
-              variable.scope ?? scope,
-              seen,
-              depth + 1,
-            );
+                def.node?.init,
+                variable.scope ?? scope,
+                seen,
+                depth + 1,
+              );
           if (initialized !== "unknown") return initialized;
         }
         return annotated;
@@ -245,9 +238,8 @@ export function createLogtapeScope(context: Rule.RuleContext): {
   ): boolean {
     const variable = resolveVariable(scope, name);
     if (!variable || (variable.defs?.length ?? 0) === 0) return true;
-    const namespaceFlag = namespace === "type"
-      ? variable.isTypeVariable
-      : variable.isValueVariable;
+    const namespaceFlag =
+      namespace === "type" ? variable.isTypeVariable : variable.isValueVariable;
     return typeof namespaceFlag === "boolean" ? !namespaceFlag : false;
   }
 
@@ -267,11 +259,7 @@ export function createLogtapeScope(context: Rule.RuleContext): {
       const argument = tsNode.arguments?.[0];
       if (!argument) return "unknown";
       const argumentType = checker.getTypeAtLocation(argument);
-      argumentKind = classifyCheckedType(
-        argumentType,
-        checker,
-        new Set(),
-      );
+      argumentKind = classifyCheckedType(argumentType, checker, new Set());
       if (argumentKind === "unknown") return "unknown";
       // An exact literal argument is stronger evidence than the widened
       // string parameter of the overload selected for it.
@@ -329,9 +317,7 @@ function classifyCheckedType(
   const intrinsicName = type.intrinsicName;
   if (intrinsicName === "any" || intrinsicName === "unknown") return "unknown";
   if (type.isStringLiteral?.() === true) return "static-message";
-  if (
-    checker.isTypeAssignableTo?.(type, checker.getStringType?.()) === true
-  ) {
+  if (checker.isTypeAssignableTo?.(type, checker.getStringType?.()) === true) {
     return "dynamic-message";
   }
   if (checker.isArrayLikeType?.(type) === true) return "dynamic-message";
@@ -341,7 +327,7 @@ function classifyCheckedType(
   if (type.isIntersection?.()) {
     const kinds = new Set<LogArgumentKind>(
       (type.types ?? []).map((part: AnyNode) =>
-        classifyCheckedType(part, checker, seen)
+        classifyCheckedType(part, checker, seen),
       ),
     );
     if (kinds.has("error")) return "error";
@@ -351,7 +337,7 @@ function classifyCheckedType(
   if (type.isUnion?.()) {
     const kinds = new Set<LogArgumentKind>(
       (type.types ?? []).map((part: AnyNode) =>
-        classifyCheckedType(part, checker, seen)
+        classifyCheckedType(part, checker, seen),
       ),
     );
     return kinds.size === 1 ? [...kinds][0]! : "unknown";
@@ -374,7 +360,7 @@ function isCheckedErrorType(type: AnyNode, seen: Set<AnyNode>): boolean {
   const symbol = type.getSymbol?.() ?? type.symbol;
   if (symbol?.getName?.() === "Error") return true;
   return (type.getBaseTypes?.() ?? []).some((base: AnyNode) =>
-    isCheckedErrorType(base, seen)
+    isCheckedErrorType(base, seen),
   );
 }
 

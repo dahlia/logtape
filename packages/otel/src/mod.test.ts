@@ -266,10 +266,11 @@ test("sink includes category in attributes", () => {
   sink(record);
 
   assert.strictEqual(emittedRecords.length, 1);
-  assert.deepStrictEqual(
-    emittedRecords[0].attributes["category"],
-    ["app", "module", "component"],
-  );
+  assert.deepStrictEqual(emittedRecords[0].attributes["category"], [
+    "app",
+    "module",
+    "component",
+  ]);
 });
 
 test("sink converts properties to attributes", () => {
@@ -292,10 +293,9 @@ test("sink converts properties to attributes", () => {
   assert.strictEqual(emittedRecords[0].attributes["userId"], 123);
   assert.strictEqual(emittedRecords[0].attributes["action"], "login");
   // Nested objects are now preserved as Record<string, AnyValue>
-  assert.deepStrictEqual(
-    emittedRecords[0].attributes["details"],
-    { ip: "127.0.0.1" },
-  );
+  assert.deepStrictEqual(emittedRecords[0].attributes["details"], {
+    ip: "127.0.0.1",
+  });
 });
 
 test("sink correctly converts timestamp", () => {
@@ -366,9 +366,7 @@ test("sink ignores logs from logtape.meta.otel with children", () => {
 
   // Child categories of logtape.meta.otel are also ignored
   // because the filter checks category[0], [1], [2] only
-  sink(
-    createMockLogRecord({ category: ["logtape", "meta", "otel", "child"] }),
-  );
+  sink(createMockLogRecord({ category: ["logtape", "meta", "otel", "child"] }));
 
   assert.strictEqual(emittedRecords.length, 0);
 });
@@ -428,14 +426,8 @@ test("sink handles null/undefined values in properties", () => {
 
   assert.strictEqual(emittedRecords.length, 1);
   // null and undefined should be skipped
-  assert.strictEqual(
-    emittedRecords[0].attributes["nullValue"],
-    undefined,
-  );
-  assert.strictEqual(
-    emittedRecords[0].attributes["undefinedValue"],
-    undefined,
-  );
+  assert.strictEqual(emittedRecords[0].attributes["nullValue"], undefined);
+  assert.strictEqual(emittedRecords[0].attributes["undefinedValue"], undefined);
   assert.strictEqual(emittedRecords[0].attributes["validValue"], "test");
 });
 
@@ -455,10 +447,7 @@ test("sink handles array values in properties", () => {
   sink(record);
 
   assert.strictEqual(emittedRecords.length, 1);
-  assert.deepStrictEqual(
-    emittedRecords[0].attributes["tags"],
-    ["a", "b", "c"],
-  );
+  assert.deepStrictEqual(emittedRecords[0].attributes["tags"], ["a", "b", "c"]);
   // Mixed arrays: implementation converts to strings when types differ
   // but the actual behavior is that it keeps original values after detecting mixed types
   assert.deepStrictEqual(emittedRecords[0].attributes["mixedArray"], [
@@ -483,12 +472,14 @@ test("sink handles circular references in interpolated message values", () => {
   const circular: Record<string, unknown> = { body: "ok" };
   circular.self = circular;
 
-  sink(createMockLogRecord({
-    level: "error",
-    message: ["Saw error: ", circular, ""],
-    rawMessage: "Saw error: {error}",
-    properties: { error: circular },
-  }));
+  sink(
+    createMockLogRecord({
+      level: "error",
+      message: ["Saw error: ", circular, ""],
+      rawMessage: "Saw error: {error}",
+      properties: { error: circular },
+    }),
+  );
 
   assert.strictEqual(emittedRecords.length, 1);
 
@@ -646,9 +637,11 @@ test("sink processes multiple log records in order", () => {
   });
 
   for (let i = 0; i < 5; i++) {
-    sink(createMockLogRecord({
-      message: [`Message ${i}`],
-    }));
+    sink(
+      createMockLogRecord({
+        message: [`Message ${i}`],
+      }),
+    );
   }
 
   assert.strictEqual(emittedRecords.length, 5);
@@ -904,14 +897,8 @@ test("sink serializes AggregateError with errors array (raw mode)", () => {
     exceptionAttributes: "raw",
   });
 
-  const errors = [
-    new Error("Error 1"),
-    new Error("Error 2"),
-  ];
-  const aggregateError = new AggregateError(
-    errors,
-    "Multiple errors occurred",
-  );
+  const errors = [new Error("Error 1"), new Error("Error 2")];
+  const aggregateError = new AggregateError(errors, "Multiple errors occurred");
 
   const record = createMockLogRecord({
     properties: {

@@ -88,17 +88,13 @@ export interface ThrottlingFilterSummaryOptions {
    * The summary log level.
    * @default `"warning"`
    */
-  readonly level?:
-    | LogLevel
-    | ((summary: ThrottlingFilterSummary) => LogLevel);
+  readonly level?: LogLevel | ((summary: ThrottlingFilterSummary) => LogLevel);
 
   /**
    * The summary message.
    * @default `"Last log message was suppressed {suppressed} times."`
    */
-  readonly message?:
-    | string
-    | ((summary: ThrottlingFilterSummary) => string);
+  readonly message?: string | ((summary: ThrottlingFilterSummary) => string);
 }
 
 /**
@@ -315,9 +311,10 @@ export function getThrottlingFilter(
     const key = getKey(record);
     let bucket = buckets.get(key);
     const observedTime = timeSource === "record" ? record.timestamp : clock();
-    const now = bucket == null || timeSource === "record"
-      ? observedTime
-      : Math.max(observedTime, bucket.lastTime);
+    const now =
+      bucket == null || timeSource === "record"
+        ? observedTime
+        : Math.max(observedTime, bucket.lastTime);
 
     if (bucket == null) {
       evictKeysIfNeeded(now);
@@ -346,9 +343,10 @@ export function getThrottlingFilter(
 
   filter[disposeSymbol] = () => {
     for (const [key, bucket] of buckets) {
-      const endTime = timeSource === "record"
-        ? bucket.lastTime
-        : Math.max(clock(), bucket.lastTime);
+      const endTime =
+        timeSource === "record"
+          ? bucket.lastTime
+          : Math.max(clock(), bucket.lastTime);
       emitSummary(key, bucket, "dispose", endTime);
     }
     buckets.clear();
@@ -412,10 +410,7 @@ export function getThrottlingFilter(
     return allowed;
   }
 
-  function pruneExpiredAcceptedAt(
-    bucket: ThrottlingBucket,
-    now: number,
-  ): void {
+  function pruneExpiredAcceptedAt(bucket: ThrottlingBucket, now: number): void {
     let acceptedAtCount = 0;
     for (let i = 0; i < bucket.acceptedAt.length; i++) {
       const acceptedAt: number = bucket.acceptedAt[i];
@@ -445,9 +440,10 @@ export function getThrottlingFilter(
       if (keyToEvict === undefined) return;
       const bucket = buckets.get(keyToEvict);
       if (bucket != null) {
-        const endTime = timeSource === "record"
-          ? bucket.lastTime
-          : Math.max(now, bucket.lastTime);
+        const endTime =
+          timeSource === "record"
+            ? bucket.lastTime
+            : Math.max(now, bucket.lastTime);
         emitSummary(keyToEvict, bucket, "eviction", endTime);
         buckets.delete(keyToEvict);
       }
@@ -473,13 +469,15 @@ export function getThrottlingFilter(
       firstRecord: bucket.firstRecord,
       lastRecord: bucket.lastRecord,
     };
-    const level = typeof summaryOptions.level === "function"
-      ? summaryOptions.level(summary)
-      : summaryOptions.level ?? "warning";
-    const message = typeof summaryOptions.message === "function"
-      ? summaryOptions.message(summary)
-      : summaryOptions.message ??
-        "Last log message was suppressed {suppressed} times.";
+    const level =
+      typeof summaryOptions.level === "function"
+        ? summaryOptions.level(summary)
+        : (summaryOptions.level ?? "warning");
+    const message =
+      typeof summaryOptions.message === "function"
+        ? summaryOptions.message(summary)
+        : (summaryOptions.message ??
+          "Last log message was suppressed {suppressed} times.");
     const log = summaryOptions.logger[level];
     if (typeof log !== "function") return;
     const properties = {
@@ -504,10 +502,12 @@ export function getThrottlingFilter(
 
   function isSummaryRecord(record: LogRecord): boolean {
     const properties = record.properties;
-    return properties != null &&
+    return (
+      properties != null &&
       typeof properties === "object" &&
       (properties as Record<typeof summaryRecord, unknown>)[summaryRecord] ===
-        true;
+        true
+    );
   }
 }
 
@@ -526,9 +526,10 @@ function validatePositiveNumber(name: string, value: number): void {
 function getDefaultThrottlingKey(record: LogRecord): string {
   const categoryKey = encodeKeyParts(record.category);
   const rawMessage = getRawMessageTemplate(record.rawMessage);
-  const rawMessageKey = typeof rawMessage === "string"
-    ? `s${encodeKeyPart(rawMessage)}`
-    : `t${encodeKeyParts(rawMessage)}`;
+  const rawMessageKey =
+    typeof rawMessage === "string"
+      ? `s${encodeKeyPart(rawMessage)}`
+      : `t${encodeKeyParts(rawMessage)}`;
   return `c${categoryKey}l${encodeKeyPart(record.level)}r${rawMessageKey}`;
 }
 

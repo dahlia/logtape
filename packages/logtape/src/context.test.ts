@@ -11,7 +11,8 @@ import type { Sink } from "./sink.ts";
 test("withContext()", async () => {
   const buffer: LogRecord[] = [];
 
-  { // set up
+  {
+    // set up
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),
@@ -131,7 +132,8 @@ test("withContext()", async () => {
 
   const metaBuffer: LogRecord[] = [];
 
-  { // set up
+  {
+    // set up
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),
@@ -149,7 +151,8 @@ test("withContext()", async () => {
     });
   }
 
-  try { // without settings
+  try {
+    // without settings
     while (buffer.length > 0) buffer.pop();
     const rv = withContext({ foo: 1 }, () => {
       getLogger("my-app").debug("hello", { bar: 2 });
@@ -172,10 +175,11 @@ test("withContext()", async () => {
         level: "warning",
         message: [
           "Context-local storage is not configured.  " +
-          "Specify contextLocalStorage option in the configure() function.",
+            "Specify contextLocalStorage option in the configure() function.",
         ],
         properties: {},
-        rawMessage: "Context-local storage is not configured.  " +
+        rawMessage:
+          "Context-local storage is not configured.  " +
           "Specify contextLocalStorage option in the configure() function.",
         timestamp: metaBuffer[0].timestamp,
       },
@@ -188,7 +192,8 @@ test("withContext()", async () => {
 test("withCategoryPrefix()", async () => {
   const buffer: LogRecord[] = [];
 
-  { // set up
+  {
+    // set up
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),
@@ -303,7 +308,8 @@ test("withCategoryPrefix()", async () => {
   // without contextLocalStorage configured
   const metaBuffer: LogRecord[] = [];
 
-  { // set up
+  {
+    // set up
     await configure({
       sinks: {
         buffer: buffer.push.bind(buffer),

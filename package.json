@@ -5,6 +5,7 @@
   "devDependencies": {
     "@types/cross-spawn": "6.0.6",
     "cross-spawn": "7.0.6",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "oxfmt": "0.73.0"
   }
 }

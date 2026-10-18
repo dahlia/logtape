@@ -28,7 +28,7 @@ postinstall = [
 [tasks.check]
 description = "Check formatting, linting, types, and the changelog"
 depends = ["check-versions"]
-run = "deno check && deno lint && deno fmt --check && hongdown --check && sacho check && mise fmt --check"
+run = "deno check && deno lint && pnpm exec oxfmt --check && hongdown --check && sacho check && mise fmt --check"
 
 [tasks.check-versions]
 description = "Check that all subpackages have matching versions"
@@ -40,7 +40,7 @@ run = "node scripts/update_versions.ts"
 
 [tasks.fmt]
 description = "Format code, documentation, and the changelog"
-run = "deno fmt && hongdown --write && sacho fmt && mise fmt"
+run = "pnpm exec oxfmt && hongdown --write && sacho fmt && mise fmt"
 
 [tasks."test:deno"]
 description = "Run the test suite using Deno"

@@ -125,13 +125,17 @@ function parseLocation(location: string): ParsedLocation {
   const column = Number(match[3]);
   if (
     // Native code (V8, Bun, Safari):
-    file === "native" || file === "<anonymous>" || file === "[native code]" ||
+    file === "native" ||
+    file === "<anonymous>" ||
+    file === "[native code]" ||
     // Hermes reports bytecode offsets rather than source positions:
     file.includes("address at ") ||
     // eval() and new Function() (V8, SpiderMonkey):
-    file.includes("eval at ") || file.includes(" > eval") ||
+    file.includes("eval at ") ||
+    file.includes(" > eval") ||
     file.includes(" > Function") ||
-    line < 1 || column < 1
+    line < 1 ||
+    column < 1
   ) {
     return rejected;
   }

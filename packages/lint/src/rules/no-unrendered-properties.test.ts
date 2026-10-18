@@ -9,19 +9,21 @@ const preamble =
   'import { getLogger } from "@logtape/logtape"; const logger = getLogger("test");\n';
 
 function lint(source: string, typescript = false): Linter.LintMessage[] {
-  return new Linter().verify(source, [{
-    plugins: {
-      logtape: {
-        rules: { "no-unrendered-properties": noUnrenderedProperties },
+  return new Linter().verify(source, [
+    {
+      plugins: {
+        logtape: {
+          rules: { "no-unrendered-properties": noUnrenderedProperties },
+        },
+      },
+      rules: { [ruleName]: "warn" },
+      languageOptions: {
+        ecmaVersion: 2022,
+        sourceType: "module",
+        ...(typescript ? { parser: tsParser } : {}),
       },
     },
-    rules: { [ruleName]: "warn" },
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: "module",
-      ...(typescript ? { parser: tsParser } : {}),
-    },
-  }]);
+  ]);
 }
 
 test("no-unrendered-properties: reports each omitted key at warning severity", () => {
@@ -54,9 +56,11 @@ const cases: readonly [string, string, readonly string[]][] = [
   ["sync arrow", 'logger.info("{a}", () => ({ a, b }));', ["b"]],
   ["async arrow", 'logger.info("{a}", async () => ({ a, b }));', ["b"]],
   ["no fields", 'logger.info("Ready", {});', []],
-  ["literal asterisk", 'logger.info("{*}", { "*": undefined, error });', [
-    "error",
-  ]],
+  [
+    "literal asterisk",
+    'logger.info("{*}", { "*": undefined, error });',
+    ["error"],
+  ],
   [
     "numeric keys",
     'logger.info("{1000} {16}", { 1e3: a, 0x10: b, 1.50: c });',
@@ -84,9 +88,11 @@ const cases: readonly [string, string, readonly string[]][] = [
     'logger.info("Ready", { ["__proto__"]: null });',
     ["__proto__"],
   ],
-  ["shorthand proto property", 'logger.info("Ready", { __proto__ });', [
-    "__proto__",
-  ]],
+  [
+    "shorthand proto property",
+    'logger.info("Ready", { __proto__ });',
+    ["__proto__"],
+  ],
   [
     "proto accessor",
     'logger.info("Ready", { get __proto__() { return null; } });',
@@ -139,8 +145,9 @@ for (const [name, source, keys] of cases) {
     );
     assert.deepStrictEqual(
       messages.map((m) => m.message),
-      keys.map((key) =>
-        `Property '${key}' is not referenced by the message template and may be omitted by sinks that output only the message.`
+      keys.map(
+        (key) =>
+          `Property '${key}' is not referenced by the message template and may be omitted by sinks that output only the message.`,
       ),
     );
   });
@@ -155,17 +162,15 @@ test("no-unrendered-properties: reports the last duplicate key location", () => 
 });
 
 test("no-unrendered-properties: supports every log level and computed method", () => {
-  for (
-    const method of [
-      "trace",
-      "debug",
-      "info",
-      "warn",
-      "warning",
-      "error",
-      "fatal",
-    ]
-  ) {
+  for (const method of [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "warning",
+    "error",
+    "fatal",
+  ]) {
     assert.strictEqual(
       lint(preamble + `logger.${method}("Ready", { a });`).length,
       1,
@@ -178,13 +183,11 @@ test("no-unrendered-properties: supports every log level and computed method", (
 });
 
 test("no-unrendered-properties: recognizes aliased and versioned imports", () => {
-  for (
-    const specifier of [
-      "@logtape/logtape",
-      "jsr:@logtape/logtape@^2.0.0",
-      "npm:@logtape/logtape@^2.0.0",
-    ]
-  ) {
+  for (const specifier of [
+    "@logtape/logtape",
+    "jsr:@logtape/logtape@^2.0.0",
+    "npm:@logtape/logtape@^2.0.0",
+  ]) {
     const messages = lint(
       `import { getLogger as get } from "${specifier}"; const log = get("x"); log.info("Ready", { a });`,
     );
@@ -207,13 +210,11 @@ test("no-unrendered-properties: ignores custom factories and shadowed imports", 
 });
 
 test("no-unrendered-properties: unwraps TypeScript message, bag and arrow assertions", () => {
-  for (
-    const properties of [
-      "({ a } as const)",
-      "(() => ({ a } satisfies Record<string, unknown>))!",
-      "async () => (({ a }) as const)",
-    ]
-  ) {
+  for (const properties of [
+    "({ a } as const)",
+    "(() => ({ a } satisfies Record<string, unknown>))!",
+    "async () => (({ a }) as const)",
+  ]) {
     const messages = lint(
       preamble + `logger.info(("Ready" as const)!, ${properties});`,
       true,

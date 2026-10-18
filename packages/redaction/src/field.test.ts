@@ -13,22 +13,24 @@ import {
   shouldFieldRedacted,
 } from "./field.ts";
 
-const fieldNameArb: fc.Arbitrary<string> = fc.stringMatching(
-  /^[A-Za-z0-9_]*$/,
-).map((name) => `field${name}`);
-const publicFieldNameArb: fc.Arbitrary<string> = fc.stringMatching(
-  /^[A-Za-z0-9_]*$/,
-).map((name) => `public${name}`);
+const fieldNameArb: fc.Arbitrary<string> = fc
+  .stringMatching(/^[A-Za-z0-9_]*$/)
+  .map((name) => `field${name}`);
+const publicFieldNameArb: fc.Arbitrary<string> = fc
+  .stringMatching(/^[A-Za-z0-9_]*$/)
+  .map((name) => `public${name}`);
 
 test("shouldFieldRedacted()", () => {
-  { // matches string pattern
+  {
+    // matches string pattern
     const fieldPatterns: FieldPatterns = ["password", "secret"];
     assert.strictEqual(shouldFieldRedacted("password", fieldPatterns), true);
     assert.strictEqual(shouldFieldRedacted("secret", fieldPatterns), true);
     assert.strictEqual(shouldFieldRedacted("username", fieldPatterns), false);
   }
 
-  { // matches regex pattern
+  {
+    // matches regex pattern
     const fieldPatterns: FieldPatterns = [/pass/i, /secret/i];
     assert.strictEqual(shouldFieldRedacted("password", fieldPatterns), true);
     assert.strictEqual(shouldFieldRedacted("secretKey", fieldPatterns), true);
@@ -36,7 +38,8 @@ test("shouldFieldRedacted()", () => {
     assert.strictEqual(shouldFieldRedacted("username", fieldPatterns), false);
   }
 
-  { // case sensitivity in regex
+  {
+    // case sensitivity in regex
     const caseSensitivePatterns: FieldPatterns = [/pass/, /secret/];
     const caseInsensitivePatterns: FieldPatterns = [/pass/i, /secret/i];
 
@@ -50,13 +53,15 @@ test("shouldFieldRedacted()", () => {
     );
   }
 
-  { // immutable RegExp
+  {
+    // immutable RegExp
     const pattern = /password/;
     Object.freeze(pattern);
     assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
   }
 
-  { // immutable stateful RegExp
+  {
+    // immutable stateful RegExp
     const pattern = /password/g;
     Object.freeze(pattern);
     assert.strictEqual(shouldFieldRedacted("password", [pattern]), true);
@@ -102,7 +107,8 @@ test("shouldFieldRedacted() matches generated exact field names", () => {
 });
 
 test("redactProperties()", () => {
-  { // delete action (default)
+  {
+    // delete action (default)
     const properties = {
       username: "user123",
       password: "secret123",
@@ -143,7 +149,8 @@ test("redactProperties()", () => {
     assert.ok(!("passphrase" in (result2.nested as Record<string, unknown>)));
   }
 
-  { // custom action function
+  {
+    // custom action function
     const properties = {
       username: "user123",
       password: "secret123",
@@ -162,7 +169,8 @@ test("redactProperties()", () => {
     assert.strictEqual(result.message, "Hello world");
   }
 
-  { // preserves other properties
+  {
+    // preserves other properties
     const properties = {
       username: "user123",
       data: { nested: "value" },
@@ -178,7 +186,8 @@ test("redactProperties()", () => {
     assert.ok(!("sensitive" in result));
   }
 
-  { // redacts fields in objects within arrays
+  {
+    // redacts fields in objects within arrays
     const properties = {
       configs: [
         { password: "secret", username: "user1" },
@@ -197,14 +206,10 @@ test("redactProperties()", () => {
     assert.deepStrictEqual(configs[1], { email: "user2@example.com" });
   }
 
-  { // preserves non-object items in arrays
+  {
+    // preserves non-object items in arrays
     const properties = {
-      data: [
-        { password: "secret" },
-        "plain string",
-        42,
-        { token: "abc" },
-      ],
+      data: [{ password: "secret" }, "plain string", 42, { token: "abc" }],
     };
 
     const result = redactProperties(properties, {
@@ -220,7 +225,8 @@ test("redactProperties()", () => {
     assert.deepStrictEqual(data[3], {});
   }
 
-  { // redacts nested arrays within objects in arrays
+  {
+    // redacts nested arrays within objects in arrays
     const properties = {
       items: [
         {
@@ -252,7 +258,8 @@ test("redactProperties()", () => {
     assert.deepStrictEqual(nestedArray[1], { value: 2 });
   }
 
-  { // uses custom action in arrays
+  {
+    // uses custom action in arrays
     const properties = {
       users: [
         { password: "secret1", name: "user1" },
@@ -278,7 +285,8 @@ test("redactProperties()", () => {
     });
   }
 
-  { // handles circular references to prevent stack overflow
+  {
+    // handles circular references to prevent stack overflow
     const obj: Record<string, unknown> = {
       a: 1,
       password: "some-password",
@@ -295,29 +303,37 @@ test("redactProperties()", () => {
     assert.ok(result.self === result, "Circular reference should be preserved");
   }
 
-  { // handles circular arrays to prevent stack overflow
+  {
+    // handles circular arrays to prevent stack overflow
     const array: unknown[] = [{ password: "some-password" }];
     array.push(array);
 
-    const result = redactProperties({ array }, {
-      fieldPatterns: ["password"],
-      action: () => "REDACTED",
-    });
+    const result = redactProperties(
+      { array },
+      {
+        fieldPatterns: ["password"],
+        action: () => "REDACTED",
+      },
+    );
 
     const redactedArray = result.array as unknown[];
     assert.deepStrictEqual(redactedArray[0], { password: "REDACTED" });
     assert.strictEqual(redactedArray[1], redactedArray);
   }
 
-  { // preserves holes in sparse arrays
+  {
+    // preserves holes in sparse arrays
     const array: unknown[] = [];
     array.length = 3;
     array[1] = { password: "some-password" };
 
-    const result = redactProperties({ array }, {
-      fieldPatterns: ["password"],
-      action: () => "REDACTED",
-    });
+    const result = redactProperties(
+      { array },
+      {
+        fieldPatterns: ["password"],
+        action: () => "REDACTED",
+      },
+    );
 
     const redactedArray = result.array as unknown[];
     assert.strictEqual(redactedArray.length, 3);
@@ -326,9 +342,13 @@ test("redactProperties()", () => {
     assert.ok(!Object.hasOwn(redactedArray, 2));
   }
 
-  { // redacts fields in class instances
+  {
+    // redacts fields in class instances
     class User {
-      constructor(public name: string, public password: string) {}
+      constructor(
+        public name: string,
+        public password: string,
+      ) {}
     }
 
     const properties = {
@@ -345,7 +365,8 @@ test("redactProperties()", () => {
     assert.strictEqual(redactedUser.password, "REDACTED");
   }
 
-  { // preserves Error objects without modification
+  {
+    // preserves Error objects without modification
     const err = new Error("test error");
     const properties = {
       err,
@@ -366,7 +387,8 @@ test("redactProperties()", () => {
     );
   }
 
-  { // preserves Date objects without modification
+  {
+    // preserves Date objects without modification
     const date = new Date("2024-01-01T00:00:00Z");
     const properties = {
       createdAt: date,
@@ -386,7 +408,8 @@ test("redactProperties()", () => {
     assert.ok(result.createdAt === date, "Date should be the same instance");
   }
 
-  { // preserves RegExp objects without modification
+  {
+    // preserves RegExp objects without modification
     const regex = /test/gi;
     const properties = {
       pattern: regex,
@@ -403,7 +426,8 @@ test("redactProperties()", () => {
     assert.ok(result.pattern === regex, "RegExp should be the same instance");
   }
 
-  { // preserves built-in objects in arrays
+  {
+    // preserves built-in objects in arrays
     const err = new Error("array error");
     const date = new Date();
     const properties = {
@@ -426,7 +450,8 @@ test("redactProperties()", () => {
     );
   }
 
-  { // preserves __proto__ as an own property
+  {
+    // preserves __proto__ as an own property
     const properties = Object.create(null) as Record<string, unknown>;
     properties["__proto__"] = "public";
     properties["password"] = "secret";
@@ -437,13 +462,11 @@ test("redactProperties()", () => {
 
     assert.ok(Object.hasOwn(result, "__proto__"));
     assert.strictEqual(result["__proto__"], "public");
-    assert.strictEqual(
-      Object.getPrototypeOf(result),
-      Object.prototype,
-    );
+    assert.strictEqual(Object.getPrototypeOf(result), Object.prototype);
   }
 
-  { // truncates nested objects beyond the configured maximum depth
+  {
+    // truncates nested objects beyond the configured maximum depth
     const properties = {
       user: {
         profile: {
@@ -466,7 +489,8 @@ test("redactProperties()", () => {
     });
   }
 
-  { // omits object properties beyond the configured maximum property count
+  {
+    // omits object properties beyond the configured maximum property count
     const properties = {
       first: "visible",
       second: "also visible",
@@ -512,26 +536,28 @@ test("redactProperties() deletes generated matching fields", () => {
 
 test("redactProperties() applies generated replacement actions", () => {
   fc.assert(
-    fc.property(fieldNameArb, fc.jsonValue(), fc.string(), (
-      sensitiveField,
-      sensitiveValue,
-      replacement,
-    ) => {
-      const result = redactProperties(
-        { [sensitiveField]: sensitiveValue },
-        {
-          fieldPatterns: [sensitiveField],
-          action: () => replacement,
-        },
-      );
+    fc.property(
+      fieldNameArb,
+      fc.jsonValue(),
+      fc.string(),
+      (sensitiveField, sensitiveValue, replacement) => {
+        const result = redactProperties(
+          { [sensitiveField]: sensitiveValue },
+          {
+            fieldPatterns: [sensitiveField],
+            action: () => replacement,
+          },
+        );
 
-      assert.deepStrictEqual(result, { [sensitiveField]: replacement });
-    }),
+        assert.deepStrictEqual(result, { [sensitiveField]: replacement });
+      },
+    ),
   );
 });
 
 test("redactByField()", async () => {
-  { // wraps sink and redacts properties
+  {
+    // wraps sink and redacts properties
     const records: LogRecord[] = [];
     const originalSink: Sink = (record) => records.push(record);
 
@@ -560,7 +586,8 @@ test("redactByField()", async () => {
     assert.ok(!("token" in records[0].properties));
   }
 
-  { // uses default field patterns when not specified
+  {
+    // uses default field patterns when not specified
     const records: LogRecord[] = [];
     const originalSink: Sink = (record) => records.push(record);
 
@@ -589,7 +616,8 @@ test("redactByField()", async () => {
     assert.ok(!("apiKey" in records[0].properties));
   }
 
-  { // preserves Disposable behavior
+  {
+    // preserves Disposable behavior
     let disposed = false;
     const originalSink: Sink & Disposable = Object.assign(
       (_record: LogRecord) => {},
@@ -607,7 +635,8 @@ test("redactByField()", async () => {
     assert.ok(disposed);
   }
 
-  { // preserves AsyncDisposable behavior
+  {
+    // preserves AsyncDisposable behavior
     let disposed = false;
     const originalSink: Sink & AsyncDisposable = Object.assign(
       (_record: LogRecord) => {},
@@ -626,7 +655,8 @@ test("redactByField()", async () => {
     assert.ok(disposed);
   }
 
-  { // redacts fields in arrays from issue #94
+  {
+    // redacts fields in arrays from issue #94
     const records: LogRecord[] = [];
     const originalSink: Sink = (record) => records.push(record);
 
@@ -653,7 +683,8 @@ test("redactByField()", async () => {
     assert.deepStrictEqual(configs[0], { username: "user" });
   }
 
-  { // redacts values in message array (string template)
+  {
+    // redacts values in message array (string template)
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -677,7 +708,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].properties.password, "[REDACTED]");
   }
 
-  { // redacts multiple sensitive fields in message
+  {
+    // redacts multiple sensitive fields in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password", "email"],
@@ -697,7 +729,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[3], "[REDACTED]");
   }
 
-  { // redacts nested property path in message
+  {
+    // redacts nested property path in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -716,7 +749,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
-  { // preserves non-sensitive nested message placeholders
+  {
+    // preserves non-sensitive nested message placeholders
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -741,7 +775,8 @@ test("redactByField()", async () => {
     });
   }
 
-  { // quoted path placeholders use redacted properties
+  {
+    // quoted path placeholders use redacted properties
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -764,7 +799,8 @@ test("redactByField()", async () => {
     });
   }
 
-  { // quoted path placeholders allow whitespace inside brackets
+  {
+    // quoted path placeholders allow whitespace inside brackets
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -787,7 +823,8 @@ test("redactByField()", async () => {
     });
   }
 
-  { // delete action uses empty string in message
+  {
+    // delete action uses empty string in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -806,7 +843,8 @@ test("redactByField()", async () => {
     assert.ok(!("password" in records[0].properties));
   }
 
-  { // non-sensitive field in message is not redacted
+  {
+    // non-sensitive field in message is not redacted
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -825,7 +863,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "johndoe");
   }
 
-  { // truncates message placeholders omitted by traversal limits
+  {
+    // truncates message placeholders omitted by traversal limits
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -850,7 +889,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "[truncated]");
   }
 
-  { // wildcard {*} in message uses redacted properties
+  {
+    // wildcard {*} in message uses redacted properties
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -875,7 +915,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].properties.password, "[REDACTED]");
   }
 
-  { // escaped braces are not treated as placeholders
+  {
+    // escaped braces are not treated as placeholders
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -895,7 +936,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
-  { // tagged template literal - redacts by comparing values
+  {
+    // tagged template literal - redacts by comparing values
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -919,7 +961,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].properties.password, "[REDACTED]");
   }
 
-  { // tagged template ignores inherited property values
+  {
+    // tagged template ignores inherited property values
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -946,7 +989,8 @@ test("redactByField()", async () => {
     assert.deepStrictEqual(records[0].properties, { name: "Alice" });
   }
 
-  { // array access path in message
+  {
+    // array access path in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -965,7 +1009,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
-  { // regex pattern matches in message placeholder
+  {
+    // regex pattern matches in message placeholder
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: [/pass/i],
@@ -984,7 +1029,8 @@ test("redactByField()", async () => {
     assert.strictEqual(records[0].message[1], "[REDACTED]");
   }
 
-  { // array containing objects with sensitive fields - wildcard {*}
+  {
+    // array containing objects with sensitive fields - wildcard {*}
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: [/email/i],
@@ -1007,7 +1053,8 @@ test("redactByField()", async () => {
     assert.strictEqual(propsObj.args[0].email, "[REDACTED]");
   }
 
-  { // array containing objects with sensitive fields - named placeholder
+  {
+    // array containing objects with sensitive fields - named placeholder
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: [/email/i],
@@ -1028,7 +1075,8 @@ test("redactByField()", async () => {
     assert.strictEqual(propsObj.args[0].email, "[REDACTED]");
   }
 
-  { // nested arrays with objects
+  {
+    // nested arrays with objects
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -1061,7 +1109,8 @@ test("redactByField()", async () => {
     assert.strictEqual(props.users[1].name, "Bob");
   }
 
-  { // named placeholder with array containing sensitive fields in message
+  {
+    // named placeholder with array containing sensitive fields in message
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: [/email/i],
@@ -1092,7 +1141,8 @@ test("redactByField()", async () => {
     assert.strictEqual(messageArr[0].name, "John");
   }
 
-  { // non-sensitive placeholder still uses redacted properties
+  {
+    // non-sensitive placeholder still uses redacted properties
     const records: LogRecord[] = [];
     const wrappedSink = redactByField((r) => records.push(r), {
       fieldPatterns: ["secret"],
@@ -1119,7 +1169,8 @@ test("redactByField()", async () => {
 });
 
 test("createHmacPseudonymizer()", async () => {
-  { // uses HMAC-SHA-256 and base64url output by default
+  {
+    // uses HMAC-SHA-256 and base64url output by default
     const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
 
     const result = await pseudonymize("user@example.com");
@@ -1130,7 +1181,8 @@ test("createHmacPseudonymizer()", async () => {
     );
   }
 
-  { // supports hex output and custom prefix
+  {
+    // supports hex output and custom prefix
     const pseudonymize = await createHmacPseudonymizer({
       key: "secret",
       encoding: "hex",
@@ -1145,7 +1197,8 @@ test("createHmacPseudonymizer()", async () => {
     );
   }
 
-  { // allows disabling the prefix
+  {
+    // allows disabling the prefix
     const pseudonymize = await createHmacPseudonymizer({
       key: "secret",
       prefix: "",
@@ -1153,22 +1206,18 @@ test("createHmacPseudonymizer()", async () => {
 
     const result = await pseudonymize("user@example.com");
 
-    assert.strictEqual(
-      result,
-      "_rymVrH6IjQINijRdPJQ3YVyglkBeJCRbLb_wHEjQN4",
-    );
+    assert.strictEqual(result, "_rymVrH6IjQINijRdPJQ3YVyglkBeJCRbLb_wHEjQN4");
   }
 
-  { // encodes non-string values using String(value)
+  {
+    // encodes non-string values using String(value)
     const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
 
-    assert.strictEqual(
-      await pseudonymize(123),
-      await pseudonymize("123"),
-    );
+    assert.strictEqual(await pseudonymize(123), await pseudonymize("123"));
   }
 
-  { // is deterministic but distinguishes different values
+  {
+    // is deterministic but distinguishes different values
     const pseudonymize = await createHmacPseudonymizer({ key: "secret" });
 
     const first = await pseudonymize("alice@example.com");
@@ -1181,7 +1230,8 @@ test("createHmacPseudonymizer()", async () => {
     assert.ok(!first.includes("alice@example.com"));
   }
 
-  { // reports a clear error when the Web Crypto API is unavailable
+  {
+    // reports a clear error when the Web Crypto API is unavailable
     const originalCrypto = Object.getOwnPropertyDescriptor(
       globalThis,
       "crypto",
@@ -1205,7 +1255,8 @@ test("createHmacPseudonymizer()", async () => {
     }
   }
 
-  { // derives the default prefix from a supplied CryptoKey
+  {
+    // derives the default prefix from a supplied CryptoKey
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode("secret"),
@@ -1220,7 +1271,8 @@ test("createHmacPseudonymizer()", async () => {
     assert.match(result, /^hmac-sha512:/u);
   }
 
-  { // recognizes CryptoKey values across constructor boundaries
+  {
+    // recognizes CryptoKey values across constructor boundaries
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode("secret"),
@@ -1251,7 +1303,8 @@ test("createHmacPseudonymizer()", async () => {
     }
   }
 
-  { // rejects a CryptoKey whose HMAC hash does not match the option
+  {
+    // rejects a CryptoKey whose HMAC hash does not match the option
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode("secret"),
@@ -1268,7 +1321,8 @@ test("createHmacPseudonymizer()", async () => {
     );
   }
 
-  { // rejects a CryptoKey that cannot sign HMAC values
+  {
+    // rejects a CryptoKey that cannot sign HMAC values
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode("secret"),
@@ -1285,7 +1339,8 @@ test("createHmacPseudonymizer()", async () => {
 });
 
 test("redactByFieldAsync()", async () => {
-  { // starts async property redactions concurrently
+  {
+    // starts async property redactions concurrently
     const started: string[] = [];
     let releaseFirst = () => {};
     const firstRedaction = new Promise<string>((resolve) => {
@@ -1313,7 +1368,8 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
-  { // only own properties are redacted
+  {
+    // only own properties are redacted
     const properties = Object.create({ password: "inherited" }) as Record<
       string,
       unknown
@@ -1328,7 +1384,8 @@ test("redactByFieldAsync()", async () => {
     assert.deepStrictEqual(result, { name: "Alice" });
   }
 
-  { // truncates nested objects beyond the configured maximum depth
+  {
+    // truncates nested objects beyond the configured maximum depth
     const result = await redactPropertiesAsync(
       {
         user: {
@@ -1352,7 +1409,8 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
-  { // omits object properties beyond the configured maximum property count
+  {
+    // omits object properties beyond the configured maximum property count
     const result = await redactPropertiesAsync(
       {
         first: "visible",
@@ -1372,7 +1430,8 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
-  { // applies async action to properties and string-template messages
+  {
+    // applies async action to properties and string-template messages
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["email"],
@@ -1395,7 +1454,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(typeof records[0].message[1], "string");
   }
 
-  { // starts string-template message redactions concurrently
+  {
+    // starts string-template message redactions concurrently
     const records: LogRecord[] = [];
     const started: string[] = [];
     let releaseFirstMessage = () => {};
@@ -1442,7 +1502,8 @@ test("redactByFieldAsync()", async () => {
     ]);
   }
 
-  { // redacts nested values and wildcard placeholders
+  {
+    // redacts nested values and wildcard placeholders
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: [/email/i],
@@ -1468,7 +1529,8 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
-  { // truncates message placeholders omitted by traversal limits
+  {
+    // truncates message placeholders omitted by traversal limits
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -1494,7 +1556,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(records[0].message[1], "[truncated]");
   }
 
-  { // preserves non-sensitive nested message placeholders
+  {
+    // preserves non-sensitive nested message placeholders
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -1520,7 +1583,8 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
-  { // quoted path placeholders use redacted properties
+  {
+    // quoted path placeholders use redacted properties
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -1544,7 +1608,8 @@ test("redactByFieldAsync()", async () => {
     });
   }
 
-  { // preserves circular arrays instead of dropping the record
+  {
+    // preserves circular arrays instead of dropping the record
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -1570,7 +1635,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(records[0].message[1], redactedArray);
   }
 
-  { // preserves sparse arrays
+  {
+    // preserves sparse arrays
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["password"],
@@ -1598,7 +1664,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(records[0].message[1], redactedArray);
   }
 
-  { // redacts tagged-template message values by comparison
+  {
+    // redacts tagged-template message values by comparison
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["email"],
@@ -1621,7 +1688,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(records[0].properties.email, "[PSEUDONYMIZED]");
   }
 
-  { // starts redaction for later records before earlier records are emitted
+  {
+    // starts redaction for later records before earlier records are emitted
     const records: LogRecord[] = [];
     const started: string[] = [];
     let releaseFirst = () => {};
@@ -1651,7 +1719,8 @@ test("redactByFieldAsync()", async () => {
     );
   }
 
-  { // preserves record order even when actions resolve out of order
+  {
+    // preserves record order even when actions resolve out of order
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["id"],
@@ -1671,7 +1740,8 @@ test("redactByFieldAsync()", async () => {
     );
   }
 
-  { // disposes the wrapped sink after pending redaction work
+  {
+    // disposes the wrapped sink after pending redaction work
     const records: LogRecord[] = [];
     let disposedAfterRecords = false;
     const sink: Sink & AsyncDisposable = (record) => records.push(record);
@@ -1690,7 +1760,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(disposedAfterRecords, true);
   }
 
-  { // ignores records queued after async disposal starts
+  {
+    // ignores records queued after async disposal starts
     const records: string[] = [];
     let disposed = false;
     let releaseFirst = () => {};
@@ -1723,7 +1794,8 @@ test("redactByFieldAsync()", async () => {
     assert.strictEqual(disposed, true);
   }
 
-  { // surfaces wrapped sink failures during disposal
+  {
+    // surfaces wrapped sink failures during disposal
     const records: LogRecord[] = [];
     const sinkError = new Error("sink failed");
     const sink: Sink = (record) => {
@@ -1748,7 +1820,8 @@ test("redactByFieldAsync()", async () => {
     );
   }
 
-  { // surfaces wrapped async sink rejections during disposal
+  {
+    // surfaces wrapped async sink rejections during disposal
     const records: LogRecord[] = [];
     const sinkError = new Error("async sink failed");
     const sink = ((record: LogRecord) => {
@@ -1776,7 +1849,8 @@ test("redactByFieldAsync()", async () => {
     );
   }
 
-  { // rejected actions drop only the failed record
+  {
+    // rejected actions drop only the failed record
     const records: LogRecord[] = [];
     const wrappedSink = redactByFieldAsync((r) => records.push(r), {
       fieldPatterns: ["id"],
@@ -1796,7 +1870,8 @@ test("redactByFieldAsync()", async () => {
     );
   }
 
-  { // reports redaction failures to the meta logger
+  {
+    // reports redaction failures to the meta logger
     const records: LogRecord[] = [];
     const metaRecords: LogRecord[] = [];
     const redactionError = new Error("redaction failed");
@@ -1833,7 +1908,8 @@ test("redactByFieldAsync()", async () => {
     }
   }
 
-  { // reports traversal limit warnings to the meta logger
+  {
+    // reports traversal limit warnings to the meta logger
     const metaRecords: LogRecord[] = [];
 
     await configure({

@@ -269,37 +269,40 @@ export function getWinstonSink(
   const categoryOptions = !options.category
     ? undefined
     : typeof options.category === "object"
-    ? options.category
-    : {};
+      ? options.category
+      : {};
   const category: Required<CategoryOptions> | undefined =
-    categoryOptions == null ? undefined : {
-      separator: categoryOptions.separator ?? "·",
-      position: categoryOptions.position ?? "start",
-      decorator: categoryOptions.decorator ?? ":",
-    };
+    categoryOptions == null
+      ? undefined
+      : {
+          separator: categoryOptions.separator ?? "·",
+          position: categoryOptions.position ?? "start",
+          decorator: categoryOptions.decorator ?? ":",
+        };
 
   return (record: LogRecord) => {
     const level = levelsMap[record.level];
     let message = "";
     if (category?.position === "start" && record.category.length > 0) {
       const joinedCategory = record.category.join(category.separator);
-      message += category.decorator === "[]"
-        ? `[${joinedCategory}] `
-        : category.decorator === "()"
-        ? `(${joinedCategory}) `
-        : category.decorator === "<>"
-        ? `<${joinedCategory}> `
-        : category.decorator === "{}"
-        ? `{${joinedCategory}} `
-        : category.decorator === ":"
-        ? `${joinedCategory}: `
-        : category.decorator === "-"
-        ? `${joinedCategory} - `
-        : category.decorator === "|"
-        ? `${joinedCategory} | `
-        : category.decorator === "/"
-        ? `${joinedCategory} / `
-        : `${joinedCategory} `;
+      message +=
+        category.decorator === "[]"
+          ? `[${joinedCategory}] `
+          : category.decorator === "()"
+            ? `(${joinedCategory}) `
+            : category.decorator === "<>"
+              ? `<${joinedCategory}> `
+              : category.decorator === "{}"
+                ? `{${joinedCategory}} `
+                : category.decorator === ":"
+                  ? `${joinedCategory}: `
+                  : category.decorator === "-"
+                    ? `${joinedCategory} - `
+                    : category.decorator === "|"
+                      ? `${joinedCategory} | `
+                      : category.decorator === "/"
+                        ? `${joinedCategory} / `
+                        : `${joinedCategory} `;
     }
     for (let i = 0; i < record.message.length; i += 2) {
       message += record.message[i];
@@ -309,23 +312,24 @@ export function getWinstonSink(
     }
     if (category?.position === "end" && record.category.length > 0) {
       const joinedCategory = record.category.join(category.separator);
-      message += category.decorator === "[]"
-        ? ` [${joinedCategory}]`
-        : category.decorator === "()"
-        ? ` (${joinedCategory})`
-        : category.decorator === "<>"
-        ? ` <${joinedCategory}>`
-        : category.decorator === "{}"
-        ? ` {${joinedCategory}}`
-        : category.decorator === ":"
-        ? `: ${joinedCategory}`
-        : category.decorator === "-"
-        ? ` - ${joinedCategory}`
-        : category.decorator === "|"
-        ? ` | ${joinedCategory}`
-        : category.decorator === "/"
-        ? ` / ${joinedCategory}`
-        : ` ${joinedCategory}`;
+      message +=
+        category.decorator === "[]"
+          ? ` [${joinedCategory}]`
+          : category.decorator === "()"
+            ? ` (${joinedCategory})`
+            : category.decorator === "<>"
+              ? ` <${joinedCategory}>`
+              : category.decorator === "{}"
+                ? ` {${joinedCategory}}`
+                : category.decorator === ":"
+                  ? `: ${joinedCategory}`
+                  : category.decorator === "-"
+                    ? ` - ${joinedCategory}`
+                    : category.decorator === "|"
+                      ? ` | ${joinedCategory}`
+                      : category.decorator === "/"
+                        ? ` / ${joinedCategory}`
+                        : ` ${joinedCategory}`;
     }
     logger[level](message, record.properties);
   };
@@ -407,10 +411,7 @@ export function getWinstonSink(
  *
  * @since 1.0.0
  */
-export function install(
-  logger: Logger,
-  options?: WinstonSinkOptions,
-): void;
+export function install(logger: Logger, options?: WinstonSinkOptions): void;
 
 /**
  * Configures LogTape to route all logs to winston's default logger.
@@ -418,9 +419,7 @@ export function install(
  * @param options Optional configuration for the winston sink behavior.
  * @since 1.0.0
  */
-export function install(
-  options?: WinstonSinkOptions,
-): void;
+export function install(options?: WinstonSinkOptions): void;
 
 export function install(
   loggerOrOptions?: Logger | WinstonSinkOptions,
@@ -431,7 +430,8 @@ export function install(
 
   // Handle overloaded parameters
   if (
-    loggerOrOptions && ("error" in loggerOrOptions || "info" in loggerOrOptions)
+    loggerOrOptions &&
+    ("error" in loggerOrOptions || "info" in loggerOrOptions)
   ) {
     // First parameter is a Logger
     logger = loggerOrOptions as Logger;

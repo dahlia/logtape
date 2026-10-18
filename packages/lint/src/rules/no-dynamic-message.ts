@@ -65,7 +65,8 @@ export const noDynamicMessage: Rule.RuleModule = {
         const messageReceiver = ERROR_LOG_METHODS.has(methodName)
           ? messageAccessReceiver(firstArg)
           : null;
-        const passError = messageReceiver != null &&
+        const passError =
+          messageReceiver != null &&
           scope.classifyLogArgument(messageReceiver, node) === "error";
 
         const parameterKind = scope.resolvedFirstParameterKind(node);
@@ -81,9 +82,13 @@ export const noDynamicMessage: Rule.RuleModule = {
 };
 
 function isAllowedArgument(kind: LogArgumentKind, methodName: string): boolean {
-  return kind === "static-message" || kind === "properties" ||
-    kind === "callback" || kind === "non-message" ||
-    (kind === "error" && ERROR_LOG_METHODS.has(methodName));
+  return (
+    kind === "static-message" ||
+    kind === "properties" ||
+    kind === "callback" ||
+    kind === "non-message" ||
+    (kind === "error" && ERROR_LOG_METHODS.has(methodName))
+  );
 }
 
 function report(

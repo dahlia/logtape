@@ -172,10 +172,10 @@ test("logQuery(): formats query with multiple parameters", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
-    logger.logQuery(
-      "SELECT * FROM users WHERE name = $1 AND age > $2",
-      ["Alice", 25],
-    );
+    logger.logQuery("SELECT * FROM users WHERE name = $1 AND age > $2", [
+      "Alice",
+      25,
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -262,10 +262,10 @@ test("logQuery({ dialect: 'sqlite' }): formats query with multiple parameters", 
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger({ dialect: "sqlite" });
-    logger.logQuery(
-      "SELECT * FROM users WHERE name = ? AND age > ?",
-      ["Alice", 25],
-    );
+    logger.logQuery("SELECT * FROM users WHERE name = ? AND age > ?", [
+      "Alice",
+      25,
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -327,10 +327,10 @@ test("logQuery({ dialect: 'sqlite' }): handles boolean parameters", async () => 
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger({ dialect: "sqlite" });
-    logger.logQuery(
-      "SELECT * FROM users WHERE active = ? AND verified = ?",
-      [true, false],
-    );
+    logger.logQuery("SELECT * FROM users WHERE active = ? AND verified = ?", [
+      true,
+      false,
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -346,10 +346,7 @@ test("logQuery({ dialect: 'sqlite' }): handles array parameter as JSON", async (
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger({ dialect: "sqlite" });
-    logger.logQuery(
-      "SELECT * FROM users WHERE ids = ?",
-      [[1, 2, 3]],
-    );
+    logger.logQuery("SELECT * FROM users WHERE ids = ?", [[1, 2, 3]]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -430,7 +427,10 @@ test("serialize(): handles arrays", () => {
 
 test("serialize(): handles nested arrays", () => {
   assert.strictEqual(
-    serialize([[1, 2], [3, 4]]),
+    serialize([
+      [1, 2],
+      [3, 4],
+    ]),
     "ARRAY[ARRAY[1, 2], ARRAY[3, 4]]",
   );
 });
@@ -483,7 +483,13 @@ test("serialize({ dialect: 'sqlite' }): handles arrays as JSON", () => {
 
 test("serialize({ dialect: 'sqlite' }): handles nested arrays as JSON", () => {
   assert.strictEqual(
-    serialize([[1, 2], [3, 4]], "sqlite"),
+    serialize(
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      "sqlite",
+    ),
     "'[[1,2],[3,4]]'",
   );
 });
@@ -496,10 +502,7 @@ test("serialize({ dialect: 'sqlite' }): handles objects as JSON", () => {
 });
 
 test("serialize({ dialect: 'sqlite' }): handles mixed arrays as JSON", () => {
-  assert.strictEqual(
-    serialize([1, "two", true], "sqlite"),
-    `'[1,"two",true]'`,
-  );
+  assert.strictEqual(serialize([1, "two", true], "sqlite"), `'[1,"two",true]'`);
 });
 
 test("serialize({ dialect: 'sqlite' }): handles array with null", () => {
@@ -618,10 +621,10 @@ test("logQuery(): handles UPDATE with JSON data", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
-    logger.logQuery(
-      "UPDATE users SET metadata = $1 WHERE id = $2",
-      [{ role: "admin", permissions: ["read", "write"] }, 1],
-    );
+    logger.logQuery("UPDATE users SET metadata = $1 WHERE id = $2", [
+      { role: "admin", permissions: ["read", "write"] },
+      1,
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -637,10 +640,9 @@ test("logQuery(): handles DELETE query", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
-    logger.logQuery(
-      "DELETE FROM sessions WHERE expires_at < $1",
-      [new Date("2024-01-01T00:00:00.000Z")],
-    );
+    logger.logQuery("DELETE FROM sessions WHERE expires_at < $1", [
+      new Date("2024-01-01T00:00:00.000Z"),
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -656,10 +658,7 @@ test("logQuery(): handles array parameter for IN clause", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
-    logger.logQuery(
-      "SELECT * FROM users WHERE id = ANY($1)",
-      [[1, 2, 3]],
-    );
+    logger.logQuery("SELECT * FROM users WHERE id = ANY($1)", [[1, 2, 3]]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -675,10 +674,10 @@ test("logQuery(): handles null parameter", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
-    logger.logQuery(
-      "UPDATE users SET deleted_at = $1 WHERE id = $2",
-      [null, 1],
-    );
+    logger.logQuery("UPDATE users SET deleted_at = $1 WHERE id = $2", [
+      null,
+      1,
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -694,10 +693,10 @@ test("logQuery(): handles boolean parameters", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
     const logger = getLogger();
-    logger.logQuery(
-      "SELECT * FROM users WHERE active = $1 AND verified = $2",
-      [true, false],
-    );
+    logger.logQuery("SELECT * FROM users WHERE active = $1 AND verified = $2", [
+      true,
+      false,
+    ]);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(
@@ -773,10 +772,7 @@ test("logQuery(): handles high placeholder numbers", async () => {
     params[0] = "a"; // $1
     params[9] = "j"; // $10
     params[99] = "hundred"; // $100
-    logger.logQuery(
-      "SELECT * FROM t WHERE a=$1 AND b=$10 AND c=$100",
-      params,
-    );
+    logger.logQuery("SELECT * FROM t WHERE a=$1 AND b=$10 AND c=$100", params);
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(

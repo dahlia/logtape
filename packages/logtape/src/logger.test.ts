@@ -30,8 +30,9 @@ function templateLiteral(tpl: TemplateStringsArray, ..._: unknown[]) {
   return tpl;
 }
 
-class TestContextLocalStorage
-  implements ContextLocalStorage<Record<string, unknown>> {
+class TestContextLocalStorage implements ContextLocalStorage<
+  Record<string, unknown>
+> {
   #store: Record<string, unknown> | undefined;
 
   run<R>(store: Record<string, unknown>, callback: () => R): R {
@@ -190,27 +191,24 @@ test("LoggerImpl.getSinks()", () => {
     assert.deepStrictEqual([...foo.getSinks("debug")], [sinkA]);
     assert.deepStrictEqual([...fooBar.getSinks("debug")], [sinkA, sinkB]);
     assert.deepStrictEqual([...fooBaz.getSinks("debug")], [sinkA, sinkC]);
-    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [
-      sinkA,
-      sinkB,
-      sinkD,
-    ]);
+    assert.deepStrictEqual(
+      [...fooBarQux.getSinks("debug")],
+      [sinkA, sinkB, sinkD],
+    );
     fooBarQux.parentSinks = "override";
     assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [sinkD]);
     fooBarQux.parentSinks = "forward";
-    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [
-      sinkA,
-      sinkB,
-      sinkD,
-    ]);
+    assert.deepStrictEqual(
+      [...fooBarQux.getSinks("debug")],
+      [sinkA, sinkB, sinkD],
+    );
     // Ancestors' lowestLevel does not gate forwarded sinks, while it keeps
     // gating inherited sinks:
     foo.lowestLevel = "warning";
-    assert.deepStrictEqual([...fooBarQux.getSinks("debug")], [
-      sinkA,
-      sinkB,
-      sinkD,
-    ]);
+    assert.deepStrictEqual(
+      [...fooBarQux.getSinks("debug")],
+      [sinkA, sinkB, sinkD],
+    );
     assert.deepStrictEqual([...fooBar.getSinks("debug")], [sinkB]);
   } finally {
     root.resetDescendants();
@@ -428,11 +426,7 @@ test('LoggerImpl chained parentSinks "forward"', () => {
     child.sinks.push(sinkC);
 
     // A forward descendant ignores every ancestor threshold:
-    assert.deepStrictEqual([...child.getSinks("debug")], [
-      sinkR,
-      sinkP,
-      sinkC,
-    ]);
+    assert.deepStrictEqual([...child.getSinks("debug")], [sinkR, sinkP, sinkC]);
     // The forward parent's own threshold still applies to itself and to its
     // inherit consumers:
     assert.deepStrictEqual([...parent.getSinks("debug")], []);
@@ -542,8 +536,7 @@ test("LoggerImpl forward plan cache observes ancestor parentSinks flips", () => 
 });
 
 test(
-  'LoggerImpl parentSinks "forward" follows category prefix ' +
-    "dispatchers",
+  'LoggerImpl parentSinks "forward" follows category prefix ' + "dispatchers",
   () => {
     const root = LoggerImpl.getLogger([]);
     const tenant = LoggerImpl.getLogger(["tenant2"]);
@@ -1174,45 +1167,32 @@ for (const method of methods) {
       logger.lowestLevel = null;
 
       let callbackCalled = 0;
-      const loggerResult = logger[method](
-        "Hello, {foo}!",
-        () => {
-          callbackCalled++;
-          return { foo: 123 };
-        },
-      );
-      const ctxResult = ctx[method](
-        "Hello, {a} {b} {c}!",
-        () => {
-          callbackCalled++;
-          return { c: 3 };
-        },
-      );
+      const loggerResult = logger[method]("Hello, {foo}!", () => {
+        callbackCalled++;
+        return { foo: 123 };
+      });
+      const ctxResult = ctx[method]("Hello, {a} {b} {c}!", () => {
+        callbackCalled++;
+        return { c: 3 };
+      });
       await loggerResult;
       await ctxResult;
       assert.strictEqual(callbackCalled, 0);
 
-      const promiseLoggerResult = logger[method](
-        "Hello, {foo}!",
-        () => {
-          callbackCalled++;
-          return Promise.resolve({ foo: 123 });
-        },
-      );
-      const promiseCtxResult = ctx[method](
-        "Hello, {a} {b} {c}!",
-        () => {
-          callbackCalled++;
-          return Promise.resolve({ c: 3 });
-        },
-      );
+      const promiseLoggerResult = logger[method]("Hello, {foo}!", () => {
+        callbackCalled++;
+        return Promise.resolve({ foo: 123 });
+      });
+      const promiseCtxResult = ctx[method]("Hello, {a} {b} {c}!", () => {
+        callbackCalled++;
+        return Promise.resolve({ c: 3 });
+      });
       assert.ok(
         promiseLoggerResult != null &&
           typeof promiseLoggerResult.then === "function",
       );
       assert.ok(
-        promiseCtxResult != null &&
-          typeof promiseCtxResult.then === "function",
+        promiseCtxResult != null && typeof promiseCtxResult.then === "function",
       );
       await promiseLoggerResult;
       await promiseCtxResult;
@@ -1788,18 +1768,18 @@ test("parseMessageTemplate()", () => {
   assert.deepStrictEqual(parseMessageTemplate("Hello, world!", {}), [
     "Hello, world!",
   ]);
-  assert.deepStrictEqual(
-    parseMessageTemplate("Hello, world!", { foo: 123 }),
-    ["Hello, world!"],
-  );
+  assert.deepStrictEqual(parseMessageTemplate("Hello, world!", { foo: 123 }), [
+    "Hello, world!",
+  ]);
   assert.deepStrictEqual(
     parseMessageTemplate("Hello, {{world}}!", { foo: 123 }),
     ["Hello, {world}!"],
   );
-  assert.deepStrictEqual(
-    parseMessageTemplate("Hello, {foo}!", { foo: 123 }),
-    ["Hello, ", 123, "!"],
-  );
+  assert.deepStrictEqual(parseMessageTemplate("Hello, {foo}!", { foo: 123 }), [
+    "Hello, ",
+    123,
+    "!",
+  ]);
   assert.deepStrictEqual(
     parseMessageTemplate("Hello, { foo\t}!", { " foo\t": 123, foo: 456 }),
     ["Hello, ", 123, "!"],
@@ -1816,10 +1796,11 @@ test("parseMessageTemplate()", () => {
     parseMessageTemplate("Hello, {{foo}}!", { foo: 123 }),
     ["Hello, {foo}!"],
   );
-  assert.deepStrictEqual(
-    parseMessageTemplate("Hello, {bar}!", { foo: 123 }),
-    ["Hello, ", undefined, "!"],
-  );
+  assert.deepStrictEqual(parseMessageTemplate("Hello, {bar}!", { foo: 123 }), [
+    "Hello, ",
+    undefined,
+    "!",
+  ]);
   assert.deepStrictEqual(
     parseMessageTemplate("Hello, {bar}!", { foo: 123, bar: 456 }),
     ["Hello, ", 456, "!"],
@@ -2071,19 +2052,21 @@ test("parseMessageTemplate()", () => {
 
   // Boundary conditions
   assert.deepStrictEqual(parseMessageTemplate("", {}), [""]);
-  assert.deepStrictEqual(
-    parseMessageTemplate("no placeholders", {}),
-    ["no placeholders"],
-  );
+  assert.deepStrictEqual(parseMessageTemplate("no placeholders", {}), [
+    "no placeholders",
+  ]);
   assert.deepStrictEqual(parseMessageTemplate("{value}", { value: 1 }), [
     "",
     1,
     "",
   ]);
-  assert.deepStrictEqual(
-    parseMessageTemplate("A {x}{y} B", { x: 1, y: 2 }),
-    ["A ", 1, "", 2, " B"],
-  );
+  assert.deepStrictEqual(parseMessageTemplate("A {x}{y} B", { x: 1, y: 2 }), [
+    "A ",
+    1,
+    "",
+    2,
+    " B",
+  ]);
   assert.deepStrictEqual(
     parseMessageTemplate("Deep: {a.b.c.d.e}", {
       a: { b: { c: { d: { e: 5 } } } },
@@ -2091,15 +2074,19 @@ test("parseMessageTemplate()", () => {
     ["Deep: ", 5, ""],
   );
   assert.deepStrictEqual(
-    parseMessageTemplate("2D: {m[1][0]}", { m: [[0, 1], [2, 3]] }),
+    parseMessageTemplate("2D: {m[1][0]}", {
+      m: [
+        [0, 1],
+        [2, 3],
+      ],
+    }),
     ["2D: ", 2, ""],
   );
 
   // Parsing error cases
-  assert.deepStrictEqual(
-    parseMessageTemplate("Missing: {user", { user: 1 }),
-    ["Missing: {user"],
-  );
+  assert.deepStrictEqual(parseMessageTemplate("Missing: {user", { user: 1 }), [
+    "Missing: {user",
+  ]);
   assert.deepStrictEqual(parseMessageTemplate("Extra: user}", {}), [
     "Extra: user}",
   ]);
@@ -2182,11 +2169,7 @@ test("parseMessageTemplate()", () => {
   const testRegex = /x/;
   assert.deepStrictEqual(
     parseMessageTemplate("RegExp: {r}", { r: testRegex }),
-    [
-      "RegExp: ",
-      testRegex,
-      "",
-    ],
+    ["RegExp: ", testRegex, ""],
   );
   assert.deepStrictEqual(
     parseMessageTemplate("Nested arr: {a[1][0]}", { a: [[0], [1, 2]] }),
@@ -2200,15 +2183,7 @@ test("parseMessageTemplate()", () => {
   );
   assert.deepStrictEqual(
     parseMessageTemplate("{a}{b}{c}", { a: 1, b: 2, c: 3 }),
-    [
-      "",
-      1,
-      "",
-      2,
-      "",
-      3,
-      "",
-    ],
+    ["", 1, "", 2, "", 3, ""],
   );
   assert.deepStrictEqual(
     parseMessageTemplate("Mix: {users?.[0].profile['full-name']}", {
@@ -2768,17 +2743,15 @@ type LogMethodName =
   | "error"
   | "fatal";
 
-for (
-  const method of [
-    "trace",
-    "debug",
-    "info",
-    "warn",
-    "warning",
-    "error",
-    "fatal",
-  ] as LogMethodName[]
-) {
+for (const method of [
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "warning",
+  "error",
+  "fatal",
+] as LogMethodName[]) {
   test(`Logger.${method}() [async callback]`, async () => {
     const logger = LoggerImpl.getLogger("async-callback");
     const ctx = new LoggerCtx(logger, { ctx: "value" });
@@ -3587,9 +3560,7 @@ test("Logger direct lazy values are resolved once for all sinks", () => {
 });
 
 test("Logger does not resolve lazy values when level disables record", () => {
-  const logger: LoggerImpl = LoggerImpl.getLogger([
-    "lazy-disabled-level-test",
-  ]);
+  const logger: LoggerImpl = LoggerImpl.getLogger(["lazy-disabled-level-test"]);
   logger.parentSinks = "override";
   logger.lowestLevel = "warning";
   logger.sinks.push(() => assert.fail("sink should not be called"));
@@ -3635,9 +3606,7 @@ test("Logger does not resolve lazy values when filters reject record", () => {
 });
 
 test("Logger filters see resolved direct lazy properties", () => {
-  const logger: LoggerImpl = LoggerImpl.getLogger([
-    "lazy-direct-filter-test",
-  ]);
+  const logger: LoggerImpl = LoggerImpl.getLogger(["lazy-direct-filter-test"]);
   const records: LogRecord[] = [];
   logger.parentSinks = "override";
   logger.filters.push((record) => record.properties.user === "alice");
@@ -3857,8 +3826,8 @@ test("Logger.isEnabledFor() agrees with LoggerImpl.getSinks()", () => {
   const lowestLevels: readonly (LogLevel | null)[] = [null, "trace", "warning"];
   const settings = modes.flatMap((parentSinks) =>
     lowestLevels.flatMap((lowestLevel) =>
-      [false, true].map((hasSink) => ({ parentSinks, lowestLevel, hasSink }))
-    )
+      [false, true].map((hasSink) => ({ parentSinks, lowestLevel, hasSink })),
+    ),
   );
 
   try {
@@ -4200,20 +4169,25 @@ function configureSourceLocationTest(
 test("Logger does not capture source locations by default", () => {
   const records: LogRecord[] = [];
   const error = new Error("boom");
-  const cases: [
-    string,
-    Parameters<typeof configureSourceLocationTest>[1],
-  ][] = [
+  const cases: [string, Parameters<typeof configureSourceLocationTest>[1]][] = [
     ["default", [{ category: "source-location", sinks: ["buffer"] }]],
-    ["explicitly disabled", [{
-      category: "source-location",
-      sinks: ["buffer"],
-      captureSourceLocation: false,
-    }]],
-    ["enabled for another category", [
-      { category: "source-location", sinks: ["buffer"] },
-      { category: "source-location-other", captureSourceLocation: true },
-    ]],
+    [
+      "explicitly disabled",
+      [
+        {
+          category: "source-location",
+          sinks: ["buffer"],
+          captureSourceLocation: false,
+        },
+      ],
+    ],
+    [
+      "enabled for another category",
+      [
+        { category: "source-location", sinks: ["buffer"] },
+        { category: "source-location-other", captureSourceLocation: true },
+      ],
+    ],
   ];
   for (const [name, loggers] of cases) {
     records.length = 0;
@@ -4240,11 +4214,13 @@ test("Logger does not capture source locations by default", () => {
     }
   }
   // A positive control that shows the probe works:
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     assert.ok(countErrorConstructions(() => logger.info("Hello.")) > 0);
@@ -4255,12 +4231,14 @@ test("Logger does not capture source locations by default", () => {
 
 test("Logger does not capture source locations for dropped levels", () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    lowestLevel: "info",
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      lowestLevel: "info",
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     const ctx = logger.with({ requestId: 1 });
@@ -4285,12 +4263,14 @@ test("Logger does not capture source locations for dropped levels", () => {
 
 test("Logger captures source locations of every logging method", () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    lowestLevel: "trace",
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      lowestLevel: "trace",
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     const ctx = logger.with({ requestId: 1 });
@@ -4318,12 +4298,14 @@ test("Logger captures source locations of every logging method", () => {
 
 test("Logger captures source locations of every overload", async () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    lowestLevel: "trace",
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      lowestLevel: "trace",
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     const error = new Error("boom");
@@ -4399,12 +4381,14 @@ test("Logger captures source locations of every overload", async () => {
 
 test("Logger captures source locations with error property callbacks", async () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    lowestLevel: "error",
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      lowestLevel: "error",
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     const error = new Error("boom");
@@ -4447,11 +4431,13 @@ test("Logger captures source locations with error property callbacks", async () 
 
 test("Logger reports async callers of bound logging methods", async () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     await Promise.resolve("Called by the microtask queue.").then(
@@ -4473,11 +4459,13 @@ test("Logger reports async callers of bound logging methods", async () => {
 
 test("Logger.with() and getChild() report the logging call", () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     const ctx = logger.with({ requestId: 1 });
@@ -4550,7 +4538,10 @@ test("Logger source location capture follows category prefixes", () => {
     withCategoryPrefix("sdk", () => logger.info("with prefix"));
     assert.deepStrictEqual(
       records.map((r) => [r.category, r.sourceLocation != null]),
-      [[["app"], false], [["sdk", "app"], true]],
+      [
+        [["app"], false],
+        [["sdk", "app"], true],
+      ],
     );
   } finally {
     resetSync();
@@ -4559,11 +4550,13 @@ test("Logger source location capture follows category prefixes", () => {
 
 test("Logger.emit() does not capture source locations", () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      captureSourceLocation: true,
+    },
+  ]);
   try {
     const logger = getLogger("source-location");
     const record = {
@@ -4585,9 +4578,12 @@ test("Logger.emit() does not capture source locations", () => {
 
 test("Logger captures source locations before records are buffered", () => {
   const records: LogRecord[] = [];
-  const sink = fingersCrossed((record: LogRecord) => {
-    records.push(record);
-  }, { triggerLevel: "error" });
+  const sink = fingersCrossed(
+    (record: LogRecord) => {
+      records.push(record);
+    },
+    { triggerLevel: "error" },
+  );
   configureSync({
     sinks: { buffered: sink },
     loggers: [
@@ -4614,11 +4610,13 @@ test("Logger captures source locations before records are buffered", () => {
 
 test("Logger leaves source locations absent if stacks are unavailable", () => {
   const records: LogRecord[] = [];
-  configureSourceLocationTest(records, [{
-    category: "source-location",
-    sinks: ["buffer"],
-    captureSourceLocation: true,
-  }]);
+  configureSourceLocationTest(records, [
+    {
+      category: "source-location",
+      sinks: ["buffer"],
+      captureSourceLocation: true,
+    },
+  ]);
   const errorConstructor = Error as ErrorConstructor & {
     prepareStackTrace?: unknown;
     stackTraceLimit?: number;
@@ -4672,11 +4670,13 @@ test("Logger leaves source locations absent if stacks are unavailable", () => {
 
 test("Logger source location capture follows reconfiguration", () => {
   const records: LogRecord[] = [];
-  const loggers = (captureSourceLocation: boolean) => [{
-    category: "source-location",
-    sinks: ["buffer" as const],
-    captureSourceLocation,
-  }];
+  const loggers = (captureSourceLocation: boolean) => [
+    {
+      category: "source-location",
+      sinks: ["buffer" as const],
+      captureSourceLocation,
+    },
+  ];
   const log = () => {
     getLogger("source-location").info("Hello.");
     return records.pop()?.sourceLocation != null;
@@ -4697,18 +4697,22 @@ test("Logger source location capture follows reconfiguration", () => {
     assert.throws(() =>
       configureSync({
         sinks: {} as Record<"missing", Sink>,
-        loggers: [{
-          category: "source-location",
-          sinks: ["missing"],
-          captureSourceLocation: true,
-        }],
-      })
+        loggers: [
+          {
+            category: "source-location",
+            sinks: ["missing"],
+            captureSourceLocation: true,
+          },
+        ],
+      }),
     );
     resetSync();
-    configureSourceLocationTest(records, [{
-      category: "source-location",
-      sinks: ["buffer"],
-    }]);
+    configureSourceLocationTest(records, [
+      {
+        category: "source-location",
+        sinks: ["buffer"],
+      },
+    ]);
     assert.ok(!log());
     resetSync();
     configureSourceLocationTest(records, loggers(true));

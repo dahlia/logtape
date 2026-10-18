@@ -40,9 +40,7 @@ function lintTypeScript(code: string): Linter.LintMessage[] {
   ]);
 }
 
-function lintTypeScriptWithTypeInformation(
-  code: string,
-): Linter.LintMessage[] {
+function lintTypeScriptWithTypeInformation(code: string): Linter.LintMessage[] {
   const linter = new Linter();
   return linter.verify(
     code,
@@ -87,17 +85,15 @@ logger.debug(prefix + suffix);`,
 });
 
 test("no-dynamic-message: flags dynamic expressions for every log method", () => {
-  for (
-    const method of [
-      "trace",
-      "debug",
-      "info",
-      "warn",
-      "warning",
-      "error",
-      "fatal",
-    ]
-  ) {
+  for (const method of [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "warning",
+    "error",
+    "fatal",
+  ]) {
     const messages = lint(
       `import { getLogger } from "@logtape/logtape";
 const logger = getLogger(["test"]);

@@ -128,10 +128,7 @@ const helperNames = [
   "sequential",
 ] as const;
 
-const conditionalHelperNames = [
-  "skipIf",
-  "runIf",
-] as const;
+const conditionalHelperNames = ["skipIf", "runIf"] as const;
 
 const hookNames = [
   "beforeAll",
@@ -142,10 +139,7 @@ const hookNames = [
   "aroundEach",
 ] as const;
 
-const nestedSuiteNames = [
-  "describe",
-  "suite",
-] as const;
+const nestedSuiteNames = ["describe", "suite"] as const;
 
 /**
  * Creates a Vitest `test()` function that reports LogTape records from failed
@@ -485,8 +479,8 @@ function wrapVitestParameterizedArguments(
   args: readonly unknown[],
   options: FailureLogReporterOptions,
 ): unknown[] {
-  const callbackIndex = args.findIndex((arg, index) =>
-    index > 0 && typeof arg === "function"
+  const callbackIndex = args.findIndex(
+    (arg, index) => index > 0 && typeof arg === "function",
   );
   if (callbackIndex < 0) return [...args];
 

@@ -210,51 +210,56 @@ globalThis.Symbol = legacySymbol;
 
 // Package-local Deno tasks do not grant filesystem permissions.  Root tests
 // grant read access and exercise the worker cases; Node and Bun always do.
-const skip = typeof Deno !== "undefined" &&
+const skip =
+  typeof Deno !== "undefined" &&
   Deno.permissions.querySync({ name: "read" }).state !== "granted";
 
-for (
-  const missing of [
-    ["dispose", "asyncDispose"],
-    ["dispose"],
-    ["asyncDispose"],
-    [],
-  ]
-) {
-  test(`disposal hooks with missing symbols: ${missing.join(", ") || "none"}`, {
-    skip,
-  }, async () => {
-    if (skip) return;
-    const originalDispose = Symbol.dispose;
-    const originalAsyncDispose = Symbol.asyncDispose;
-    const worker = new Worker(regression, {
-      eval: true,
-      workerData: {
-        missing,
-        configUrl: new URL("./config.ts", import.meta.url).href,
-        filterUrl: new URL("./filter.ts", import.meta.url).href,
-        sinkUrl: new URL("./sink.ts", import.meta.url).href,
-      },
-    });
-    try {
-      await new Promise<void>((resolve, reject) => {
-        worker.once("error", reject);
-        worker.once("message", (message) => {
-          try {
-            assert.strictEqual(message, "ok");
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-        worker.once("exit", (code) => {
-          reject(new Error(`Worker exited before reporting success: ${code}`));
-        });
+for (const missing of [
+  ["dispose", "asyncDispose"],
+  ["dispose"],
+  ["asyncDispose"],
+  [],
+]) {
+  test(
+    `disposal hooks with missing symbols: ${missing.join(", ") || "none"}`,
+    {
+      skip,
+    },
+    async () => {
+      if (skip) return;
+      const originalDispose = Symbol.dispose;
+      const originalAsyncDispose = Symbol.asyncDispose;
+      const worker = new Worker(regression, {
+        eval: true,
+        workerData: {
+          missing,
+          configUrl: new URL("./config.ts", import.meta.url).href,
+          filterUrl: new URL("./filter.ts", import.meta.url).href,
+          sinkUrl: new URL("./sink.ts", import.meta.url).href,
+        },
       });
-    } finally {
-      await worker.terminate();
-    }
-    assert.strictEqual(Symbol.dispose, originalDispose);
-    assert.strictEqual(Symbol.asyncDispose, originalAsyncDispose);
-  });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          worker.once("error", reject);
+          worker.once("message", (message) => {
+            try {
+              assert.strictEqual(message, "ok");
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          });
+          worker.once("exit", (code) => {
+            reject(
+              new Error(`Worker exited before reporting success: ${code}`),
+            );
+          });
+        });
+      } finally {
+        await worker.terminate();
+      }
+      assert.strictEqual(Symbol.dispose, originalDispose);
+      assert.strictEqual(Symbol.asyncDispose, originalAsyncDispose);
+    },
+  );
 }

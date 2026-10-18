@@ -10,7 +10,7 @@ const logLevels = [
 /**
  * The severity level of a {@link LogRecord}.
  */
-export type LogLevel = typeof logLevels[number];
+export type LogLevel = (typeof logLevels)[number];
 
 /**
  * Lists all available log levels with the order of their severity.

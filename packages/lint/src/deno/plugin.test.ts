@@ -33,12 +33,14 @@ async function lintWithPlugin(
     // Pass the plugin as a file:// URL specifier.  An OS path (e.g. from
     // fileURLToPath) is `D:\...` on Windows, which deno.json's `plugins` array
     // does not accept; a file:// URL resolves correctly on every platform.
-    const strict = options.entryPoint != null
-      ? options.entryPoint === "strict"
-      : includeRules?.some((rule) =>
-        rule === "logtape/no-dynamic-message" ||
-        rule === "logtape/no-unrendered-properties"
-      );
+    const strict =
+      options.entryPoint != null
+        ? options.entryPoint === "strict"
+        : includeRules?.some(
+            (rule) =>
+              rule === "logtape/no-dynamic-message" ||
+              rule === "logtape/no-unrendered-properties",
+          );
     const pluginFile = strict ? "./strict-plugin.ts" : "./plugin.ts";
     // Deno can silently ignore unknown include names.  Prove the selected
     // entry point actually exposes every requested LogTape rule first.
@@ -62,10 +64,7 @@ async function lintWithPlugin(
       },
     };
     // @ts-ignore: Deno-only API
-    await Deno.writeTextFile(
-      `${tmpDir}/deno.json`,
-      JSON.stringify(denoJson),
-    );
+    await Deno.writeTextFile(`${tmpDir}/deno.json`, JSON.stringify(denoJson));
     // @ts-ignore: Deno-only API
     await Deno.writeTextFile(`${tmpDir}/test.ts`, sourceCode);
 
@@ -811,14 +810,12 @@ test(
       `import { getLogger } from "@logtape/logtape";
 const logger = getLogger(["test"]);
 logger.info(\`User \${userId} logged in.\`);`,
-      [
-        "logtape/no-dynamic-message",
-        "logtape/no-message-interpolation",
-      ],
+      ["logtape/no-dynamic-message", "logtape/no-message-interpolation"],
     );
-    const violations = diagnostics.filter((d) =>
-      d.code === "logtape/no-dynamic-message" ||
-      d.code === "logtape/no-message-interpolation"
+    const violations = diagnostics.filter(
+      (d) =>
+        d.code === "logtape/no-dynamic-message" ||
+        d.code === "logtape/no-message-interpolation",
     );
     assert.strictEqual(violations.length, 1);
     assert.strictEqual(violations[0].code, "logtape/no-message-interpolation");
@@ -838,9 +835,9 @@ logger.info(\`User \${userId} logged in.\`);`,
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
-      `Expected no-message-interpolation violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-message-interpolation violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -859,9 +856,9 @@ logger.info(\`User \${userId} logged in.\`);`,
     // A direct JSR specifier is valid Deno usage and must be recognized.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
-      `Expected no-message-interpolation violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-message-interpolation violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -897,9 +894,9 @@ logger.debug("Data: {data}.", { data: fetchData(id) });`,
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/prefer-lazy-evaluation"),
-      `Expected prefer-lazy-evaluation violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected prefer-lazy-evaluation violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -922,9 +919,9 @@ logger.debug("Data: {data}.", { data: lazy(() => fetchData(id)) });`,
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations for a lazy() value, got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations for a lazy() value, got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -944,9 +941,9 @@ logger.debug({ data: fetchData(id) });`,
     // it should be flagged just like the message+properties form.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/prefer-lazy-evaluation"),
-      `Expected prefer-lazy-evaluation violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected prefer-lazy-evaluation violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -964,9 +961,9 @@ logger.debug("Data: {data}.", { mod: import("./mod.ts") });`,
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/prefer-lazy-evaluation"),
-      `Expected a violation for the dynamic import, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation for the dynamic import, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -986,9 +983,9 @@ logger.debug("Data: {data}.", { data: fetchData(id) } as const);`,
     // be analyzed.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/prefer-lazy-evaluation"),
-      `Expected a violation through the type assertion, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation through the type assertion, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1010,9 +1007,9 @@ await configure({
     // it and warn about the missing meta logger.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected a violation through the type assertion, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation through the type assertion, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1034,9 +1031,9 @@ await configure({
     // its entries.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected a violation through the type assertion, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation through the type assertion, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1060,9 +1057,9 @@ await configure({
     // recognize the configured meta logger rather than report a false positive.
     assert.ok(
       !diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected no require-meta-sink violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no require-meta-sink violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1086,9 +1083,9 @@ await configure({
     // must unwrap it the same as a type assertion and recognize the meta logger.
     assert.ok(
       !diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected no require-meta-sink violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no require-meta-sink violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1108,9 +1105,9 @@ async function handler() {
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1131,9 +1128,9 @@ async function handler() {
     // LogTape awaits any promise the lazy callback returns, even without async.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1155,9 +1152,9 @@ async function handler() {
     // props resolves to an async function, so the log returns a Promise<void>.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1180,9 +1177,9 @@ async function handler() {
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1208,9 +1205,9 @@ function handler(props: unknown) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (param shadows outer async), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (param shadows outer async), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1230,9 +1227,9 @@ await configure({
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected require-meta-sink violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected require-meta-sink violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1256,9 +1253,9 @@ await configure({
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no require-meta-sink violation, got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no require-meta-sink violation, got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1284,9 +1281,9 @@ await configure({
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations for backtick array elements, got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations for backtick array elements, got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1309,9 +1306,9 @@ await configure({
     // meta logger entry exists and the rule must still warn.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected require-meta-sink violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected require-meta-sink violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1334,9 +1331,9 @@ await configure({
     // so no statically known loggers array exists and the rule must warn.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected require-meta-sink violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected require-meta-sink violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1362,9 +1359,9 @@ function setup() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (configure is a local function), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (configure is a local function), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1390,9 +1387,9 @@ function setup() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (hoisted local configure), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (hoisted local configure), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1416,9 +1413,9 @@ async function handler() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations for awaited call, got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations for awaited call, got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1440,9 +1437,9 @@ function handler(items: unknown[]) {
     // discarded, so the async log is never flushed.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1465,9 +1462,9 @@ function handler(items: unknown[]) {
     // The forEach() callback returns the promise, but forEach discards it.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1488,9 +1485,9 @@ async function handler() {
     // Awaiting a bare array does not await its element promises.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1511,9 +1508,9 @@ async function handler(timeout: Promise<void>) {
     // Promise.race can settle on timeout before the log promise resolves.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1534,9 +1531,9 @@ async function handler(items: unknown[]) {
     // await on a bare map() awaits the array, not the element promises.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1558,9 +1555,9 @@ async function handler(items: unknown[]) {
     // promise.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1633,9 +1630,9 @@ function handler(x: unknown) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (catch param shadows logger), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (catch param shadows logger), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1663,9 +1660,9 @@ function setup() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (catch param shadows configure), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (catch param shadows configure), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1689,9 +1686,9 @@ function f(getLogger) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (logger comes from parameter, not import), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (logger comes from parameter, not import), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1715,9 +1712,9 @@ function f(userId: string) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (getLogger is a local binding, not the import), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (getLogger is a local binding, not the import), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1743,9 +1740,9 @@ function f(userId: string) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (getLogger is a local function, not the import), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (getLogger is a local function, not the import), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1774,9 +1771,9 @@ function f(userId: string) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (hoisted local getLogger), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (hoisted local getLogger), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1794,9 +1791,9 @@ reqLogger.info(\`User \${userId} logged in.\`);`,
     );
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
-      `Expected a violation for the contextual logger, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation for the contextual logger, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1819,9 +1816,9 @@ async function handler() {
     // Promise<void> that must be awaited.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1846,9 +1843,9 @@ const make = function getLogger() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (getLogger shadowed by the function expression), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (getLogger shadowed by the function expression), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1873,9 +1870,9 @@ const make = function configure(_cfg: unknown) {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (configure shadowed by the function expression), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (configure shadowed by the function expression), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1903,9 +1900,9 @@ class Service {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (logger shadowed by a parameter property), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (logger shadowed by a parameter property), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -1951,9 +1948,9 @@ async function handler(items: unknown[]) {
     // result array, whose per-item log promises are not awaited.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -1978,9 +1975,9 @@ function props() {
     // before its declaration; the Program-level pre-scan must recognize it.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2000,9 +1997,9 @@ logger.debug("m", { a: { b: { c: compute() } } });`,
     // through the nested objects (Deno exposes children as prototype getters).
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/prefer-lazy-evaluation"),
-      `Expected prefer-lazy-evaluation violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected prefer-lazy-evaluation violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2029,9 +2026,9 @@ function configure(_cfg: unknown) {}`,
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (hoisted top-level configure), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (hoisted top-level configure), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -2059,9 +2056,9 @@ function f(x: number) {
     // `logger` is the outer LogTape logger, so the template literal is flagged.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
-      `Expected a violation after the switch, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation after the switch, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2089,9 +2086,9 @@ function setup(x: number) {
     // meta sink.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected a violation after the switch, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation after the switch, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2112,9 +2109,9 @@ function handler() {
     // setTimeout ignores its callback's return, so the log promise is dropped.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2136,9 +2133,9 @@ function f(lazy: (cb: () => unknown) => unknown) {
     // call, not LogTape's deferred wrapper.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/prefer-lazy-evaluation"),
-      `Expected prefer-lazy-evaluation violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected prefer-lazy-evaluation violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2160,9 +2157,9 @@ async function handler(items: unknown[]) {
     // does not await the element promises.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2183,9 +2180,9 @@ async function handler(other: Promise<void>) {
     // The comma operator yields only `other`; the log promise is dropped.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2210,9 +2207,9 @@ await configure({
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (object spread entry), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (object spread entry), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -2234,9 +2231,9 @@ async function handler(items: unknown[]) {
     // awaiting it, so the per-item log promises are dropped.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2260,9 +2257,9 @@ logger.info(\`v=\${x}\`);`,
     // outer LogTape logger, so the template literal is flagged.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
-      `Expected a violation after the namespace, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation after the namespace, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2288,10 +2285,7 @@ class Service {
   }
 }
 staticLogger.info(\`value=\${value}\`);`,
-      [
-        "logtape/no-dynamic-message",
-        "logtape/no-message-interpolation",
-      ],
+      ["logtape/no-dynamic-message", "logtape/no-message-interpolation"],
     );
     const dynamicMessages = diagnostics.filter(
       (d) => d.code === "logtape/no-dynamic-message",
@@ -2322,9 +2316,9 @@ configure({ loggers: [] });`,
     // the import and is flagged for a missing meta sink.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/require-meta-sink"),
-      `Expected a violation after the namespace, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation after the namespace, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2347,9 +2341,9 @@ test(
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (template-literal loggers key), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (template-literal loggers key), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -2369,9 +2363,9 @@ logger.info(\`User \${userId} logged in.\` as string);`,
     // unwrap and flag it.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-message-interpolation"),
-      `Expected a violation through the assertion, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation through the assertion, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2393,9 +2387,9 @@ async function handler() {
     // unwrap and flag the unawaited log.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected a violation through the assertion, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected a violation through the assertion, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2416,9 +2410,9 @@ async function handler(other: unknown) {
     // A promise is truthy, so && yields `other`; the log promise is dropped.
     assert.ok(
       diagnostics.some((d) => d.code === "logtape/no-unawaited-log"),
-      `Expected no-unawaited-log violation, got: ${
-        JSON.stringify(diagnostics)
-      }`,
+      `Expected no-unawaited-log violation, got: ${JSON.stringify(
+        diagnostics,
+      )}`,
     );
   },
 );
@@ -2444,9 +2438,9 @@ function getLogger() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (getLogger shadowed by a top-level function), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (getLogger shadowed by a top-level function), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -2473,9 +2467,9 @@ function scope() {
     assert.strictEqual(
       violations.length,
       0,
-      `Expected no violations (logger shadowed by a block function), got: ${
-        JSON.stringify(violations)
-      }`,
+      `Expected no violations (logger shadowed by a block function), got: ${JSON.stringify(
+        violations,
+      )}`,
     );
   },
 );
@@ -2488,21 +2482,27 @@ declare const message: string;
 logger.info(message);
 logger.info("Ready", { id: 1 });`;
 
-for (
-  const [name, entryPoint, exclude, expected] of [
-    ["default excludes optional rules", "default", [], []],
-    ["strict enables both optional rules", "strict", [], [
-      dynamicRule,
-      unrenderedRule,
-    ]],
-    ["strict excludes unrendered properties", "strict", [unrenderedRule], [
-      dynamicRule,
-    ]],
-    ["strict excludes dynamic messages", "strict", [dynamicRule], [
-      unrenderedRule,
-    ]],
-  ] as const
-) {
+for (const [name, entryPoint, exclude, expected] of [
+  ["default excludes optional rules", "default", [], []],
+  [
+    "strict enables both optional rules",
+    "strict",
+    [],
+    [dynamicRule, unrenderedRule],
+  ],
+  [
+    "strict excludes unrendered properties",
+    "strict",
+    [unrenderedRule],
+    [dynamicRule],
+  ],
+  [
+    "strict excludes dynamic messages",
+    "strict",
+    [dynamicRule],
+    [unrenderedRule],
+  ],
+] as const) {
   test(`deno lint: ${name}`, { skip: skipIfNotDeno }, async () => {
     if (skipIfNotDeno) return;
     const diagnostics = await lintWithPlugin(optionalRulesSource, undefined, {
@@ -2516,34 +2516,46 @@ for (
   });
 }
 
-test("deno lint: including unrendered properties selects strict", {
-  skip: skipIfNotDeno,
-}, async () => {
-  if (skipIfNotDeno) return;
-  const diagnostics = await lintWithPlugin(optionalRulesSource, [
-    unrenderedRule,
-  ], {
-    exclude: [dynamicRule],
-  });
-  assert.deepStrictEqual(diagnostics.map((d) => d.code), [unrenderedRule]);
-});
+test(
+  "deno lint: including unrendered properties selects strict",
+  {
+    skip: skipIfNotDeno,
+  },
+  async () => {
+    if (skipIfNotDeno) return;
+    const diagnostics = await lintWithPlugin(
+      optionalRulesSource,
+      [unrenderedRule],
+      {
+        exclude: [dynamicRule],
+      },
+    );
+    assert.deepStrictEqual(
+      diagnostics.map((d) => d.code),
+      [unrenderedRule],
+    );
+  },
+);
 
-test("deno lint: rejects unknown rules instead of returning no diagnostics", {
-  skip: skipIfNotDeno,
-}, async () => {
-  if (skipIfNotDeno) return;
-  await assert.rejects(() =>
-    lintWithPlugin(optionalRulesSource, ["logtape/not-a-rule"])
-  );
-});
+test(
+  "deno lint: rejects unknown rules instead of returning no diagnostics",
+  {
+    skip: skipIfNotDeno,
+  },
+  async () => {
+    if (skipIfNotDeno) return;
+    await assert.rejects(() =>
+      lintWithPlugin(optionalRulesSource, ["logtape/not-a-rule"]),
+    );
+  },
+);
 
 test(
   "deno lint: unrendered properties handles static syntax and key locations",
   { skip: skipIfNotDeno },
   async () => {
     if (skipIfNotDeno) return;
-    const source =
-      `import { getLogger as get } from "jsr:@logtape/logtape@^2.0.0";
+    const source = `import { getLogger as get } from "jsr:@logtape/logtape@^2.0.0";
 const logger = get("test");
 const a = 1, b = 2;
 logger.info("{a}", { a, b });

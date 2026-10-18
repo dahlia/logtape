@@ -161,7 +161,7 @@ Coding conventions
 
 ### Code style
 
-1.  *Formatting*: The project uses `deno fmt` for code formatting.  Prefer
+1.  *Formatting*: The project uses Oxfmt for code formatting.  Prefer
     `mise run fmt` for repository-wide formatting, including Markdown
     documentation.
 2.  *Comments*: Use JSDoc for all public APIs.
@@ -362,7 +362,7 @@ This runs:
 
  -  `deno check`: Type checking across all workspace members
  -  `deno lint`: Linting
- -  `deno fmt --check`, `hongdown --check`, and `mise fmt --check`: Format
+ -  `oxfmt --check`, `hongdown --check`, and `mise fmt --check`: Format
     checking
  -  `sacho check`: Changelog fragment and materialization checking
  -  `mise run check-versions`: Version consistency check across packages

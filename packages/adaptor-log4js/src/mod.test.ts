@@ -430,20 +430,21 @@ interface CapturedLog {
 
 function createCapturingAppender(buffer: CapturedLog[]) {
   return {
-    configure: () =>
-    (loggingEvent: {
-      categoryName: string;
-      level: { levelStr: string };
-      data: unknown[];
-      context: Record<string, unknown>;
-    }) => {
-      buffer.push({
-        categoryName: loggingEvent.categoryName,
-        level: loggingEvent.level,
-        data: loggingEvent.data,
-        context: loggingEvent.context,
-      });
-    },
+    configure:
+      () =>
+      (loggingEvent: {
+        categoryName: string;
+        level: { levelStr: string };
+        data: unknown[];
+        context: Record<string, unknown>;
+      }) => {
+        buffer.push({
+          categoryName: loggingEvent.categoryName,
+          level: loggingEvent.level,
+          data: loggingEvent.data,
+          context: loggingEvent.context,
+        });
+      },
   };
 }
 

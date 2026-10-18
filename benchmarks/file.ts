@@ -19,9 +19,7 @@ summary(() => {
       sinks: {
         file: getFileSink(tempFile, { nonBlocking: true }),
       },
-      loggers: [
-        { category: [], sinks: ["file"] },
-      ],
+      loggers: [{ category: [], sinks: ["file"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
@@ -35,9 +33,7 @@ summary(() => {
       sinks: {
         file: getStreamFileSink(tempFile),
       },
-      loggers: [
-        { category: [], sinks: ["file"] },
-      ],
+      loggers: [{ category: [], sinks: ["file"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
@@ -48,9 +44,7 @@ summary(() => {
   bench("winston", function* () {
     const tempFile = join(tmpdir(), `winston-bench-${Date.now()}.log`);
     const logger = winston.createLogger({
-      transports: [
-        new winston.transports.File({ filename: tempFile }),
-      ],
+      transports: [new winston.transports.File({ filename: tempFile })],
     });
     yield () => logger.info("Test log message.");
   });

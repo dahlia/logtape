@@ -35,10 +35,12 @@ function createTestSink(options: { includeMeta?: boolean } = {}): {
 }
 
 // Setup helper
-async function setupLogtape(options: {
-  contextLocalStorage?: boolean;
-  includeMeta?: boolean;
-} = {}): Promise<{
+async function setupLogtape(
+  options: {
+    contextLocalStorage?: boolean;
+    includeMeta?: boolean;
+  } = {},
+): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
@@ -91,9 +93,7 @@ test("elysiaLogger(): creates an Elysia plugin", async () => {
 test("elysiaLogger(): logs request after response", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     const res = await app.handle(new Request("http://localhost/test"));
     assert.strictEqual(res.status, 200);
@@ -110,9 +110,7 @@ test("elysiaLogger(): logs request after response", async () => {
 test("elysiaLogger(): uses default category ['elysia']", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
 
@@ -162,9 +160,7 @@ test("elysiaLogger(): accepts string category", async () => {
 test("elysiaLogger(): uses default log level 'info'", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
 
@@ -241,44 +237,41 @@ test("elysiaLogger(): combined format logs structured properties", async () => {
   }
 });
 
-test(
-  "elysiaLogger(): structured-combined format logs structured properties",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const app = new Elysia()
-        .use(elysiaLogger({ format: "structured-combined" }))
-        .get("/test", ({ set }) => {
-          set.headers["content-length"] = "123";
-          return "Hello";
-        });
+test("elysiaLogger(): structured-combined format logs structured properties", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({ format: "structured-combined" }))
+      .get("/test", ({ set }) => {
+        set.headers["content-length"] = "123";
+        return "Hello";
+      });
 
-      await app.handle(
-        new Request("http://localhost/test", {
-          headers: {
-            "User-Agent": "test-agent/1.0",
-            "Referer": "http://example.com",
-            "X-Forwarded-For": "127.0.0.1",
-          },
-        }),
-      );
+    await app.handle(
+      new Request("http://localhost/test", {
+        headers: {
+          "User-Agent": "test-agent/1.0",
+          "Referer": "http://example.com",
+          "X-Forwarded-For": "127.0.0.1",
+        },
+      }),
+    );
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.ok((props.url as string).includes("/test"));
-      assert.strictEqual(props.path, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.notStrictEqual(props.responseTime, null);
-      assert.strictEqual(props.contentLength, "123");
-      assert.strictEqual(props.remoteAddr, "127.0.0.1");
-      assert.strictEqual(props.userAgent, "test-agent/1.0");
-      assert.strictEqual(props.referrer, "http://example.com");
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.ok((props.url as string).includes("/test"));
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.contentLength, "123");
+    assert.strictEqual(props.remoteAddr, "127.0.0.1");
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Common
@@ -312,36 +305,33 @@ test("elysiaLogger(): common format excludes referrer and userAgent", async () =
   }
 });
 
-test(
-  "elysiaLogger(): structured-common format excludes referrer and userAgent",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const app = new Elysia()
-        .use(elysiaLogger({ format: "structured-common" }))
-        .get("/test", () => "Hello");
+test("elysiaLogger(): structured-common format excludes referrer and userAgent", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const app = new Elysia()
+      .use(elysiaLogger({ format: "structured-common" }))
+      .get("/test", () => "Hello");
 
-      await app.handle(
-        new Request("http://localhost/test", {
-          headers: {
-            "User-Agent": "test-agent/1.0",
-            "Referer": "http://example.com",
-          },
-        }),
-      );
+    await app.handle(
+      new Request("http://localhost/test", {
+        headers: {
+          "User-Agent": "test-agent/1.0",
+          "Referer": "http://example.com",
+        },
+      }),
+    );
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.strictEqual(props.path, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.strictEqual(props.referrer, undefined);
-      assert.strictEqual(props.userAgent, undefined);
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Morgan
@@ -688,9 +678,11 @@ test("elysiaLogger(): context true generates missing request ID", async () => {
   });
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: { requestId: { generate: () => "generated-123" } },
-      }))
+      .use(
+        elysiaLogger({
+          context: { requestId: { generate: () => "generated-123" } },
+        }),
+      )
       .get("/test", () => "Hello");
 
     const res = await app.handle(new Request("http://localhost/test"));
@@ -709,18 +701,20 @@ test("elysiaLogger(): context supports custom options", async () => {
   });
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: {
-          requestId: {
-            property: "correlationId",
-            headerNames: ["x-correlation-id", "x-request-id"],
-            responseHeader: "x-correlation-id",
-            normalize: (value) => value.trim().toUpperCase(),
+      .use(
+        elysiaLogger({
+          context: {
+            requestId: {
+              property: "correlationId",
+              headerNames: ["x-correlation-id", "x-request-id"],
+              responseHeader: "x-correlation-id",
+              normalize: (value) => value.trim().toUpperCase(),
+            },
+            include: ["requestId", "method", "path", "userAgent"],
+            enrich: (ctx) => ({ route: ctx.path }),
           },
-          include: ["requestId", "method", "path", "userAgent"],
-          enrich: (ctx) => ({ route: ctx.path }),
-        },
-      }))
+        }),
+      )
       .get("/test", () => "Hello");
 
     const res = await app.handle(
@@ -750,16 +744,18 @@ test("elysiaLogger(): context enrich can update response set", async () => {
   });
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: {
-          requestId: { generate: () => "enrich-set-123" },
-          enrich: (ctx) => {
-            ctx.set.status = 202;
-            ctx.set.headers["x-enriched"] = "yes";
-            return { enriched: true };
+      .use(
+        elysiaLogger({
+          context: {
+            requestId: { generate: () => "enrich-set-123" },
+            enrich: (ctx) => {
+              ctx.set.status = 202;
+              ctx.set.headers["x-enriched"] = "yes";
+              return { enriched: true };
+            },
           },
-        },
-      }))
+        }),
+      )
       .get("/test", () => "Accepted");
 
     const res = await app.handle(new Request("http://localhost/test"));
@@ -781,15 +777,17 @@ test("elysiaLogger(): async context enrich counts in response time", async () =>
   });
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: {
-          requestId: { generate: () => "async-enrich-123" },
-          enrich: async () => {
-            await delay(25);
-            return { enriched: true };
+      .use(
+        elysiaLogger({
+          context: {
+            requestId: { generate: () => "async-enrich-123" },
+            enrich: async () => {
+              await delay(25);
+              return { enriched: true };
+            },
           },
-        },
-      }))
+        }),
+      )
       .get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
@@ -811,10 +809,12 @@ test("elysiaLogger(): context keeps implicit context when skipped", async () => 
   try {
     const appLogger = getLogger(["app"]);
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: { requestId: { generate: () => "skip-123" } },
-        skip: () => true,
-      }))
+      .use(
+        elysiaLogger({
+          context: { requestId: { generate: () => "skip-123" } },
+          skip: () => true,
+        }),
+      )
       .get("/test", () => {
         appLogger.info("Handled skipped request");
         return "Hello";
@@ -836,10 +836,12 @@ test("elysiaLogger(): context works with logRequest", async () => {
   });
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: { requestId: { generate: () => "immediate-123" } },
-        logRequest: true,
-      }))
+      .use(
+        elysiaLogger({
+          context: { requestId: { generate: () => "immediate-123" } },
+          logRequest: true,
+        }),
+      )
       .get("/test", () => "Hello");
 
     const res = await app.handle(new Request("http://localhost/test"));
@@ -857,9 +859,11 @@ test("elysiaLogger(): missing context storage still logs request ID", async () =
   try {
     const appLogger = getLogger(["app"]);
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: { requestId: { generate: () => "no-storage-123" } },
-      }))
+      .use(
+        elysiaLogger({
+          context: { requestId: { generate: () => "no-storage-123" } },
+        }),
+      )
       .get("/test", () => {
         appLogger.info("Handled request");
         return "Hello";
@@ -869,9 +873,11 @@ test("elysiaLogger(): missing context storage still logs request ID", async () =
 
     const appLog = logs.find((record) => record.category[0] === "app");
     const requestLog = logs.find((record) => record.category[0] === "elysia");
-    const metaLog = logs.find((record) =>
-      record.category[0] === "logtape" && record.category[1] === "meta" &&
-      record.level === "warning"
+    const metaLog = logs.find(
+      (record) =>
+        record.category[0] === "logtape" &&
+        record.category[1] === "meta" &&
+        record.level === "warning",
     );
     assert.ok(appLog);
     assert.ok(requestLog);
@@ -891,9 +897,11 @@ test("elysiaLogger(): context appears on error logs", async () => {
   try {
     const appLogger = getLogger(["app"]);
     const app = new Elysia()
-      .use(elysiaLogger({
-        context: { requestId: { generate: () => "error-123" } },
-      }))
+      .use(
+        elysiaLogger({
+          context: { requestId: { generate: () => "error-123" } },
+        }),
+      )
       .get("/error", () => {
         appLogger.info("About to fail");
         throw new Error("Test error");
@@ -927,8 +935,7 @@ test("elysiaLogger(): context enrich errors keep local response time recent", as
           throw enrichError;
         },
       },
-    })
-      .get("/error", () => "Hello");
+    }).get("/error", () => "Hello");
     const app = new Elysia().use(plugin);
 
     await delay(100);
@@ -951,9 +958,7 @@ test("elysiaLogger(): context enrich errors keep local response time recent", as
 test("elysiaLogger(): scope 'global' is default", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
 
@@ -1002,10 +1007,12 @@ test("elysiaLogger(): local scope does not wrap parent route context", async () 
   try {
     const appLogger = getLogger(["app"]);
     const app = new Elysia()
-      .use(elysiaLogger({
-        scope: "local",
-        context: { requestId: { generate: () => "local-scope-123" } },
-      }))
+      .use(
+        elysiaLogger({
+          scope: "local",
+          context: { requestId: { generate: () => "local-scope-123" } },
+        }),
+      )
       .get("/test", () => {
         appLogger.info("Handled parent route");
         return "Hello";
@@ -1031,11 +1038,10 @@ test("elysiaLogger(): local scope builds context for local routes", async () => 
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-route-123" } },
-    })
-      .get("/test", () => {
-        appLogger.info("Handled local route");
-        return "Hello";
-      });
+    }).get("/test", () => {
+      appLogger.info("Handled local route");
+      return "Hello";
+    });
     const app = new Elysia().use(plugin);
 
     const res = await app.handle(new Request("http://localhost/test"));
@@ -1059,11 +1065,10 @@ test("elysiaLogger(): local scope builds context for prefixed local routes", asy
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-prefixed-123" } },
-    })
-      .get("/test", () => {
-        appLogger.info("Handled prefixed local route");
-        return "Hello";
-      });
+    }).get("/test", () => {
+      appLogger.info("Handled prefixed local route");
+      return "Hello";
+    });
     const app = new Elysia().group("/api", (app) => app.use(plugin));
 
     const res = await app.handle(new Request("http://localhost/api/test"));
@@ -1085,19 +1090,18 @@ test("elysiaLogger(): local scope builds context for child plugin routes", async
   try {
     const appLogger = getLogger(["app"]);
     const childHookLogger = getLogger(["child-hook"]);
-    const child = new Elysia()
-      .get(
-        "/child",
-        () => {
-          appLogger.info("Handled child plugin route");
-          return "Hello";
+    const child = new Elysia().get(
+      "/child",
+      () => {
+        appLogger.info("Handled child plugin route");
+        return "Hello";
+      },
+      {
+        beforeHandle() {
+          childHookLogger.info("Handled child plugin route hook");
         },
-        {
-          beforeHandle() {
-            childHookLogger.info("Handled child plugin route hook");
-          },
-        },
-      );
+      },
+    );
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-child-123" } },
@@ -1137,11 +1141,10 @@ test("elysiaLogger(): local scope handles circular child plugin defaults", async
   });
   try {
     const appLogger = getLogger(["app"]);
-    const child = new Elysia()
-      .get("/child", () => {
-        appLogger.info("Handled circular child plugin route");
-        return "Hello";
-      });
+    const child = new Elysia().get("/child", () => {
+      appLogger.info("Handled circular child plugin route");
+      return "Hello";
+    });
     Object.defineProperty(child, "default", {
       configurable: true,
       value: child,
@@ -1177,19 +1180,18 @@ test("elysiaLogger(): local scope builds context for route hooks", async () => {
       context: {
         requestId: { generate: () => `local-hook-${++requestIdCount}` },
       },
-    })
-      .get(
-        "/test",
-        () => {
-          appLogger.info("Handled local route with hook");
-          return "Hello";
+    }).get(
+      "/test",
+      () => {
+        appLogger.info("Handled local route with hook");
+        return "Hello";
+      },
+      {
+        beforeHandle() {
+          hookLogger.info("Handled local route hook");
         },
-        {
-          beforeHandle() {
-            hookLogger.info("Handled local route hook");
-          },
-        },
-      );
+      },
+    );
     const app = new Elysia().group("/api", (app) => app.use(plugin));
 
     const res = await app.handle(new Request("http://localhost/api/test"));
@@ -1232,10 +1234,7 @@ test("elysiaLogger(): local scope builds context for plugin hooks", async () => 
 
     const res = await app.handle(new Request("http://localhost/api/test"));
 
-    assert.strictEqual(
-      res.headers.get("x-request-id"),
-      "local-plugin-hook-1",
-    );
+    assert.strictEqual(res.headers.get("x-request-id"), "local-plugin-hook-1");
     assert.strictEqual(logs.length, 3);
     assert.deepStrictEqual(logs[0].category, ["hook"]);
     assert.strictEqual(logs[0].properties.requestId, "local-plugin-hook-1");
@@ -1333,10 +1332,7 @@ test("elysiaLogger(): local scope builds context for plugin parse hooks", async 
     );
 
     assert.strictEqual(await res.text(), "Hello");
-    assert.strictEqual(
-      res.headers.get("x-request-id"),
-      "local-parse-hook-1",
-    );
+    assert.strictEqual(res.headers.get("x-request-id"), "local-parse-hook-1");
     assert.strictEqual(logs.length, 3);
     assert.deepStrictEqual(logs[0].category, ["hook"]);
     assert.strictEqual(logs[0].properties.requestId, "local-parse-hook-1");
@@ -1359,14 +1355,11 @@ test("elysiaLogger(): local scope does not wrap parent routes with the same suff
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-suffix-123" } },
-    })
-      .get("/test", () => "Local");
-    const app = new Elysia()
-      .use(plugin)
-      .get("/api/test", () => {
-        appLogger.info("Handled parent suffix route");
-        return "Parent";
-      });
+    }).get("/test", () => "Local");
+    const app = new Elysia().use(plugin).get("/api/test", () => {
+      appLogger.info("Handled parent suffix route");
+      return "Parent";
+    });
 
     const res = await app.handle(new Request("http://localhost/api/test"));
 
@@ -1389,11 +1382,10 @@ test("elysiaLogger(): local scope wraps wildcard ALL routes", async () => {
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-wildcard-123" } },
-    })
-      .all("/files/*", () => {
-        appLogger.info("Handled local wildcard route");
-        return "Hello";
-      });
+    }).all("/files/*", () => {
+      appLogger.info("Handled local wildcard route");
+      return "Hello";
+    });
     const app = new Elysia().use(plugin);
 
     const res = await app.handle(
@@ -1419,11 +1411,10 @@ test("elysiaLogger(): local scope wraps optional ALL routes", async () => {
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-optional-123" } },
-    })
-      .all("/users/:id?", () => {
-        appLogger.info("Handled local optional route");
-        return "Hello";
-      });
+    }).all("/users/:id?", () => {
+      appLogger.info("Handled local optional route");
+      return "Hello";
+    });
     const app = new Elysia().use(plugin);
 
     const res = await app.handle(
@@ -1449,11 +1440,10 @@ test("elysiaLogger(): local scope fallback matches optional routes", async () =>
     const plugin = elysiaLogger({
       scope: "local",
       context: { requestId: { generate: () => "local-fallback-123" } },
-    })
-      .all("/users/:id?", () => {
-        appLogger.info("Handled local optional fallback route");
-        return "Hello";
-      });
+    }).all("/users/:id?", () => {
+      appLogger.info("Handled local optional fallback route");
+      return "Hello";
+    });
     const routeMatcher = plugin as unknown as {
       router?: { http?: { find: () => unknown } };
     };
@@ -1483,11 +1473,9 @@ test("elysiaLogger(): local scope fallback matches optional routes", async () =>
 test("elysiaLogger(): logs errors at error level", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/error", () => {
-        throw new Error("Test error");
-      });
+    const app = new Elysia().use(elysiaLogger()).get("/error", () => {
+      throw new Error("Test error");
+    });
 
     await app.handle(new Request("http://localhost/error"));
 
@@ -1587,9 +1575,7 @@ test("elysiaLogger(): logs status code", async () => {
 test("elysiaLogger(): logs response time as number", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
 
@@ -1604,9 +1590,7 @@ test("elysiaLogger(): logs response time as number", async () => {
 test("elysiaLogger(): logs user agent", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(
       new Request("http://localhost/test", {
@@ -1624,9 +1608,7 @@ test("elysiaLogger(): logs user agent", async () => {
 test("elysiaLogger(): logs referrer", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(
       new Request("http://localhost/test", {
@@ -1644,9 +1626,7 @@ test("elysiaLogger(): logs referrer", async () => {
 test("elysiaLogger(): logs X-Forwarded-For as remoteAddr", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(
       new Request("http://localhost/test", {
@@ -1692,9 +1672,7 @@ test("elysiaLogger(): handles multiple sequential requests", async () => {
 test("elysiaLogger(): handles missing user-agent", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
 
@@ -1708,9 +1686,7 @@ test("elysiaLogger(): handles missing user-agent", async () => {
 test("elysiaLogger(): handles missing referrer", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/test", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/test", () => "Hello");
 
     await app.handle(new Request("http://localhost/test"));
 
@@ -1746,9 +1722,7 @@ test("elysiaLogger(): handles query parameters in url", async () => {
 test("elysiaLogger(): logs correct 404 status code for NOT_FOUND errors", async () => {
   const { logs, cleanup } = await setupLogtape();
   try {
-    const app = new Elysia()
-      .use(elysiaLogger())
-      .get("/exists", () => "Hello");
+    const app = new Elysia().use(elysiaLogger()).get("/exists", () => "Hello");
 
     // Request non-existent route to trigger NOT_FOUND
     const res = await app.handle(new Request("http://localhost/not-found"));
@@ -1769,9 +1743,9 @@ test("elysiaLogger(): logs correct 404 status code for NOT_FOUND errors", async 
 
 // Creates a completion level callback that records its arguments.
 function recordCompletions(
-  choose: (completion: RequestCompletion) => ReturnType<
-    CompletionLevelFunction
-  > = () => "info",
+  choose: (
+    completion: RequestCompletion,
+  ) => ReturnType<CompletionLevelFunction> = () => "info",
 ): {
   completionLevel: CompletionLevelFunction;
   calls: [ElysiaContext, RequestCompletion][];
@@ -1790,9 +1764,12 @@ test("elysiaLogger(): completionLevel chooses the level from the status", async 
   const { logs, cleanup } = await setupLogtape();
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        completionLevel: (_ctx, { status }) => status >= 500 ? "error" : "info",
-      }))
+      .use(
+        elysiaLogger({
+          completionLevel: (_ctx, { status }) =>
+            status >= 500 ? "error" : "info",
+        }),
+      )
       .get("/ok", () => "ok")
       .get("/unavailable", ({ set }) => {
         set.status = 503;
@@ -1802,11 +1779,14 @@ test("elysiaLogger(): completionLevel chooses the level from the status", async 
     await app.handle(new Request("http://localhost/ok"));
     await app.handle(new Request("http://localhost/unavailable"));
 
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
-    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
-      200,
-      503,
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
+    assert.deepStrictEqual(
+      logs.map((log) => log.properties.status),
+      [200, 503],
+    );
     assert.strictEqual(
       logs[1].rawMessage,
       "{method} {url} {status} - {responseTime} ms",
@@ -1893,9 +1873,7 @@ test("elysiaLogger(): completionLevel resolves status names", async () => {
           return "unavailable";
         });
 
-      const res = await app.handle(
-        new Request("http://localhost/unavailable"),
-      );
+      const res = await app.handle(new Request("http://localhost/unavailable"));
 
       assert.strictEqual(res.status, 503);
       assert.deepStrictEqual(
@@ -1952,7 +1930,7 @@ test("elysiaLogger(): completionLevel chooses the error record level", async () 
   try {
     const failure = new Error("handler failure");
     const { completionLevel, calls } = recordCompletions((completion) =>
-      completion.status === 404 ? "info" : "fatal"
+      completion.status === 404 ? "info" : "fatal",
     );
     const app = new Elysia()
       .use(elysiaLogger({ completionLevel }))
@@ -1968,7 +1946,10 @@ test("elysiaLogger(): completionLevel chooses the error record level", async () 
     assert.strictEqual(calls[0][1].error, failure);
     assert.strictEqual(calls[1][1].status, 404);
     assert.ok(calls[1][1].error != null);
-    assert.deepStrictEqual(logs.map((log) => log.level), ["fatal", "info"]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["fatal", "info"],
+    );
     assert.strictEqual(logs[0].properties.errorMessage, "handler failure");
     assert.strictEqual(logs[1].properties.status, 404);
   } finally {
@@ -1980,12 +1961,14 @@ test("elysiaLogger(): completionLevel keeps responses when it fails", async () =
   const { logs, cleanup } = await setupLogtape({ includeMeta: true });
   try {
     const app = new Elysia()
-      .use(elysiaLogger({
-        level: "debug",
-        completionLevel: () => {
-          throw new Error("level failure");
-        },
-      }))
+      .use(
+        elysiaLogger({
+          level: "debug",
+          completionLevel: () => {
+            throw new Error("level failure");
+          },
+        }),
+      )
       .get("/test", () => "ok")
       .get("/fail", () => {
         throw new Error("handler failure");
@@ -2018,7 +2001,7 @@ test("elysiaLogger(): completionLevel does not change later failures", async () 
   try {
     const failure = new Error("late failure");
     const { completionLevel, calls } = recordCompletions((completion) =>
-      completion.error == null ? "info" : "error"
+      completion.error == null ? "info" : "error",
     );
     const app = new Elysia()
       .use(elysiaLogger({ completionLevel }))
@@ -2033,9 +2016,15 @@ test("elysiaLogger(): completionLevel does not change later failures", async () 
     assert.strictEqual(res.status, 500);
     assert.deepStrictEqual(
       calls.map(([, completion]) => [completion.status, completion.error]),
-      [[200, undefined], [500, failure]],
+      [
+        [200, undefined],
+        [500, failure],
+      ],
     );
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
   } finally {
     await cleanup();
   }
@@ -2058,11 +2047,10 @@ test("elysiaLogger(): completionLevel is not used for logRequest logs", async ()
 
     assert.strictEqual(calls.length, 1);
     assert.strictEqual(calls[0][1].error, failure);
-    assert.deepStrictEqual(logs.map((log) => log.level), [
-      "debug",
-      "debug",
-      "warning",
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["debug", "debug", "warning"],
+    );
   } finally {
     await cleanup();
   }
@@ -2100,13 +2088,13 @@ test("elysiaLogger(): completionLevel respects skip in local logRequest mode", a
     await app.handle(new Request("http://localhost/parent"));
 
     assert.strictEqual(calls.length, 1);
-    assert.strictEqual(
-      (calls[0][1].error as Error).message,
-      "start skipped",
-    );
+    assert.strictEqual((calls[0][1].error as Error).message, "start skipped");
     assert.deepStrictEqual(
       logs.map((log) => [log.properties.path, log.level]),
-      [["/skip-start", "warning"], ["/skip-error", "debug"]],
+      [
+        ["/skip-start", "warning"],
+        ["/skip-error", "debug"],
+      ],
     );
   } finally {
     await cleanup();
@@ -2119,10 +2107,12 @@ async function runCompletionLevel(
   completionLevel: () => unknown,
 ): Promise<void> {
   const app = new Elysia()
-    .use(elysiaLogger({
-      level: "debug",
-      completionLevel: completionLevel as CompletionLevelFunction,
-    }))
+    .use(
+      elysiaLogger({
+        level: "debug",
+        completionLevel: completionLevel as CompletionLevelFunction,
+      }),
+    )
     .get("/test", () => "ok");
   await app.handle(new Request("http://localhost/test"));
 }
@@ -2132,11 +2122,12 @@ async function runCompletionLevel(
 // ============================================
 
 function findMetaErrors(logs: LogRecord[]): LogRecord[] {
-  return logs.filter((record) =>
-    record.category.length === 2 &&
-    record.category[0] === "logtape" &&
-    record.category[1] === "meta" &&
-    record.level === "error"
+  return logs.filter(
+    (record) =>
+      record.category.length === 2 &&
+      record.category[0] === "logtape" &&
+      record.category[1] === "meta" &&
+      record.level === "error",
   );
 }
 
@@ -2175,7 +2166,7 @@ function assertFallback(
   assert.strictEqual(requestLogs[0].level, "debug");
   assert.ok(
     findMetaErrors(logs).some((record) =>
-      matchesMetaError(record.properties.error)
+      matchesMetaError(record.properties.error),
     ),
     "expected the failure to be reported to the meta logger",
   );
@@ -2212,7 +2203,7 @@ test("elysiaLogger(): completionLevel reports rejected promises", async () => {
   try {
     const failure = new Error("async level failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => Promise.reject(failure))
+      runCompletionLevel(() => Promise.reject(failure)),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -2237,9 +2228,9 @@ test("elysiaLogger(): completionLevel bypasses overridden promise then", async (
     }
     const failure = new Error("subclass failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() =>
-        new OverridingPromise((_, reject) => reject(failure))
-      )
+      runCompletionLevel(
+        () => new OverridingPromise((_, reject) => reject(failure)),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(overriddenThenCalled, false);
@@ -2260,7 +2251,7 @@ test("elysiaLogger(): completionLevel does not adopt promise results", async () 
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -2280,7 +2271,7 @@ test("elysiaLogger(): completionLevel falls back on unobservable promises", asyn
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -2300,7 +2291,7 @@ test("elysiaLogger(): completionLevel never invokes custom thenables", async () 
       },
     };
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => thenable)
+      runCompletionLevel(() => thenable),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(thenCalled, false);
@@ -2315,15 +2306,17 @@ test("elysiaLogger(): completionLevel reports cross-realm rejections", async () 
   try {
     const reasons = await collectUnhandledRejections(() =>
       runCompletionLevel(() =>
-        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
-      )
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))'),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(
       logs,
       (error) =>
-        error != null && typeof error === "object" &&
-        "message" in error && error.message === "foreign failure",
+        error != null &&
+        typeof error === "object" &&
+        "message" in error &&
+        error.message === "foreign failure",
     );
   } finally {
     await cleanup();

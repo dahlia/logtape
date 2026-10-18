@@ -44,11 +44,11 @@ function formatLocalDateTimeTimezone(ts: number): string {
   const abs = Math.abs(offsetMinutes);
   const offHour = pad2(Math.floor(abs / 60));
   const offMinute = pad2(abs % 60);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${
-    pad2(d.getHours())
-  }:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${
-    pad3(d.getMilliseconds())
-  } ${sign}${offHour}:${offMinute}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
+    d.getHours(),
+  )}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(
+    d.getMilliseconds(),
+  )} ${sign}${offHour}:${offMinute}`;
 }
 
 test("getTextFormatter()", () => {
@@ -243,16 +243,13 @@ test("getTextFormatter()", () => {
     })(info),
     "INF <my-app·junk> Hello, 123 & 456! 2023-11-14 22:13:20.000 +00:00\n",
   );
-  assert.deepStrictEqual(
-    recordedValues,
-    {
-      timestamp: "2023-11-14 22:13:20.000 +00:00",
-      level: "INF",
-      category: "my-app·junk",
-      message: "Hello, 123 & 456!",
-      record: info,
-    },
-  );
+  assert.deepStrictEqual(recordedValues, {
+    timestamp: "2023-11-14 22:13:20.000 +00:00",
+    level: "INF",
+    category: "my-app·junk",
+    message: "Hello, 123 & 456!",
+    record: info,
+  });
 
   const longArray = new Array(150).fill(0);
   const longStringAndArray: LogRecord = {
@@ -270,23 +267,23 @@ test("getTextFormatter()", () => {
   for (let i = 0; i < longArray.length % 12; i++) {
     if (i < 1) longArrayStr += "  0";
     else longArrayStr += ", 0";
-    if (i === longArray.length % 12 - 1) longArrayStr += "\n";
+    if (i === (longArray.length % 12) - 1) longArrayStr += "\n";
   }
   longArrayStr += "]";
   // dnt-shim-ignore
   if ("Deno" in globalThis) {
     assert.deepStrictEqual(
       getTextFormatter()(longStringAndArray),
-      `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, "${
-        "a".repeat(15000)
-      }" & ${longArrayStr}!\n`,
+      `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, "${"a".repeat(
+        15000,
+      )}" & ${longArrayStr}!\n`,
     );
   } else {
     assert.deepStrictEqual(
       getTextFormatter()(longStringAndArray),
-      `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, '${
-        "a".repeat(15000)
-      }' & ${longArrayStr}!\n`,
+      `2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, '${"a".repeat(
+        15000,
+      )}' & ${longArrayStr}!\n`,
     );
   }
 });
@@ -466,16 +463,13 @@ test("getAnsiColorFormatter()", () => {
       "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m! " +
       "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m\n",
   );
-  assert.deepStrictEqual(
-    recordedValues,
-    {
-      timestamp: "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m",
-      level: "\x1b[1m\x1b[32mINF\x1b[0m",
-      category: "\x1b[2mmy-app·junk\x1b[0m",
-      message: "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!",
-      record: info,
-    },
-  );
+  assert.deepStrictEqual(recordedValues, {
+    timestamp: "\x1b[2m2023-11-14 22:13:20.000 +00\x1b[0m",
+    level: "\x1b[1m\x1b[32mINF\x1b[0m",
+    category: "\x1b[2mmy-app·junk\x1b[0m",
+    message: "Hello, \x1b[33m123\x1b[39m & \x1b[33m456\x1b[39m!",
+    record: info,
+  });
 });
 
 test("getTextFormatter() with timeZone validation", () => {
@@ -483,14 +477,8 @@ test("getTextFormatter() with timeZone validation", () => {
     () => getTextFormatter({ timeZone: "not/a-real-zone" }),
     TypeError,
   );
-  assert.throws(
-    () => getTextFormatter({ timeZone: "+9:00" }),
-    TypeError,
-  );
-  assert.throws(
-    () => getTextFormatter({ timeZone: "+24:00" }),
-    TypeError,
-  );
+  assert.throws(() => getTextFormatter({ timeZone: "+9:00" }), TypeError);
+  assert.throws(() => getTextFormatter({ timeZone: "+24:00" }), TypeError);
   assert.throws(
     () => getAnsiColorFormatter({ timeZone: "not/a-real-zone" }),
     TypeError,
@@ -541,19 +529,16 @@ test("ansiColorFormatter()", () => {
 });
 
 test("defaultConsoleFormatter()", () => {
-  assert.deepStrictEqual(
-    defaultConsoleFormatter(info),
-    [
-      "%c22:13:20.000 %cINF%c %cmy-app·junk %cHello, %o & %o!",
-      "color: gray;",
-      "background-color: white; color: black;",
-      "background-color: default;",
-      "color: gray;",
-      "color: default;",
-      123,
-      456,
-    ],
-  );
+  assert.deepStrictEqual(defaultConsoleFormatter(info), [
+    "%c22:13:20.000 %cINF%c %cmy-app·junk %cHello, %o & %o!",
+    "color: gray;",
+    "background-color: white; color: black;",
+    "background-color: default;",
+    "color: gray;",
+    "color: default;",
+    123,
+    456,
+  ]);
 });
 
 test("getJsonLinesFormatter()", () => {
@@ -576,7 +561,8 @@ test("getJsonLinesFormatter()", () => {
     properties: { attempt: 3 },
   };
 
-  { // default options
+  {
+    // default options
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(logRecord));
 
@@ -590,9 +576,11 @@ test("getJsonLinesFormatter()", () => {
     });
   }
 
-  { // default options keep the fixed JSON Lines shape
+  {
+    // default options keep the fixed JSON Lines shape
     const formatter = getJsonLinesFormatter({ lineEnding: "crlf" });
-    const expected = '{"@timestamp":"2023-11-14T22:13:20.000Z",' +
+    const expected =
+      '{"@timestamp":"2023-11-14T22:13:20.000Z",' +
       '"level":"INFO","message":"Hello, 123 & 456!",' +
       '"logger":"my-app.junk",' +
       '"properties":{"userId":"12345","requestId":"abc-def"}}\r\n';
@@ -600,19 +588,22 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(formatter(logRecord), expected);
   }
 
-  { // warning level converts to WARN
+  {
+    // warning level converts to WARN
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(warningRecord));
     assert.deepStrictEqual(result.level, "WARN");
   }
 
-  { // categorySeparator string option
+  {
+    // categorySeparator string option
     const formatter = getJsonLinesFormatter({ categorySeparator: "/" });
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.logger, "my-app/junk");
   }
 
-  { // categorySeparator function option
+  {
+    // categorySeparator function option
     const formatter = getJsonLinesFormatter({
       categorySeparator: (category) => category.join("::").toUpperCase(),
     });
@@ -620,7 +611,8 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.logger, "MY-APP::JUNK");
   }
 
-  { // categorySeparator function returning array
+  {
+    // categorySeparator function returning array
     const formatter = getJsonLinesFormatter({
       categorySeparator: (category) => category,
     });
@@ -628,7 +620,8 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.logger, ["my-app", "junk"]);
   }
 
-  { // message template option
+  {
+    // message template option
     const formatter = getJsonLinesFormatter({ message: "template" });
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.message, "Hello, {a} & {b}!");
@@ -637,17 +630,21 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result2.message, "Login failed for {}");
   }
 
-  { // message template option with multiple interpolations
+  {
+    // message template option with multiple interpolations
     const formatter = getJsonLinesFormatter({ message: "template" });
-    const result = JSON.parse(formatter({
-      ...logRecord,
-      message: ["a ", 1, " b ", 2, " c"],
-      rawMessage: ["a ", " b ", " c"] as unknown as TemplateStringsArray,
-    }));
+    const result = JSON.parse(
+      formatter({
+        ...logRecord,
+        message: ["a ", 1, " b ", 2, " c"],
+        rawMessage: ["a ", " b ", " c"] as unknown as TemplateStringsArray,
+      }),
+    );
     assert.deepStrictEqual(result.message, "a {} b {} c");
   }
 
-  { // message template with string rawMessage
+  {
+    // message template with string rawMessage
     const stringRawRecord: LogRecord = {
       ...logRecord,
       rawMessage: "Simple string message",
@@ -657,13 +654,15 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.message, "Simple string message");
   }
 
-  { // message rendered option (default)
+  {
+    // message rendered option (default)
     const formatter = getJsonLinesFormatter({ message: "rendered" });
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.message, "Hello, 123 & 456!");
   }
 
-  { // properties flatten option
+  {
+    // properties flatten option
     const formatter = getJsonLinesFormatter({ properties: "flatten" });
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.userId, "12345");
@@ -671,7 +670,8 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.properties, undefined);
   }
 
-  { // properties prepend option
+  {
+    // properties prepend option
     const formatter = getJsonLinesFormatter({ properties: "prepend:ctx_" });
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.ctx_userId, "12345");
@@ -679,7 +679,8 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.properties, undefined);
   }
 
-  { // properties nest option
+  {
+    // properties nest option
     const formatter = getJsonLinesFormatter({ properties: "nest:context" });
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.context, {
@@ -689,7 +690,8 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.properties, undefined);
   }
 
-  { // properties nest option (default)
+  {
+    // properties nest option (default)
     const formatter = getJsonLinesFormatter();
     const result = JSON.parse(formatter(logRecord));
     assert.deepStrictEqual(result.properties, {
@@ -698,7 +700,8 @@ test("getJsonLinesFormatter()", () => {
     });
   }
 
-  { // Error properties are serialized
+  {
+    // Error properties are serialized
     const recordWithError: LogRecord = {
       ...logRecord,
       properties: {
@@ -718,7 +721,8 @@ test("getJsonLinesFormatter()", () => {
     }
   }
 
-  { // Error cause is serialized (recursively)
+  {
+    // Error cause is serialized (recursively)
     // `cause` option typing differs across runtimes / TS libs
     const inner = new Error("inner");
     const outer = new Error("outer", { cause: inner });
@@ -737,11 +741,12 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.properties.error.cause.message, "inner");
   }
 
-  { // AggregateError.errors is serialized
-    const aggregate = new AggregateError([
-      new Error("first"),
-      new Error("second"),
-    ], "boom");
+  {
+    // AggregateError.errors is serialized
+    const aggregate = new AggregateError(
+      [new Error("first"), new Error("second")],
+      "boom",
+    );
 
     const recordWithAggregate: LogRecord = {
       ...logRecord,
@@ -758,44 +763,55 @@ test("getJsonLinesFormatter()", () => {
     assert.deepStrictEqual(result.properties.error.errors[1].message, "second");
   }
 
-  { // BigInt values preserve precision as decimal strings
+  {
+    // BigInt values preserve precision as decimal strings
     const formatter = getJsonLinesFormatter();
 
     assert.deepStrictEqual(
-      JSON.parse(formatter({
-        ...logRecord,
-        properties: { value: 1n },
-      })).properties,
+      JSON.parse(
+        formatter({
+          ...logRecord,
+          properties: { value: 1n },
+        }),
+      ).properties,
       { value: "1" },
     );
     assert.strictEqual(
-      JSON.parse(formatter({
-        ...logRecord,
-        message: ["value ", 1n, ""],
-        rawMessage: ["value ", ""] as unknown as TemplateStringsArray,
-        properties: {},
-      })).message,
+      JSON.parse(
+        formatter({
+          ...logRecord,
+          message: ["value ", 1n, ""],
+          rawMessage: ["value ", ""] as unknown as TemplateStringsArray,
+          properties: {},
+        }),
+      ).message,
       'value "1"',
     );
   }
 
-  { // default path preserves toJSON() field keys
+  {
+    // default path preserves toJSON() field keys
     const formatter = getJsonLinesFormatter();
-    const result = JSON.parse(formatter({
-      ...logRecord,
-      message: [{
-        toJSON: (key: string) => key,
-      }],
-      properties: {
-        toJSON: (key: string) => ({ key }),
-      } as unknown as Record<string, unknown>,
-    }));
+    const result = JSON.parse(
+      formatter({
+        ...logRecord,
+        message: [
+          {
+            toJSON: (key: string) => key,
+          },
+        ],
+        properties: {
+          toJSON: (key: string) => ({ key }),
+        } as unknown as Record<string, unknown>,
+      }),
+    );
 
     assert.deepStrictEqual(result.message, "message");
     assert.deepStrictEqual(result.properties, { key: "properties" });
   }
 
-  { // invalid properties option - empty prepend prefix
+  {
+    // invalid properties option - empty prepend prefix
     assert.throws(
       () => getJsonLinesFormatter({ properties: "prepend:" }),
       TypeError,
@@ -803,7 +819,8 @@ test("getJsonLinesFormatter()", () => {
     );
   }
 
-  { // invalid properties option - invalid format
+  {
+    // invalid properties option - invalid format
     assert.throws(
       () =>
         getJsonLinesFormatter({
@@ -815,7 +832,8 @@ test("getJsonLinesFormatter()", () => {
     );
   }
 
-  { // combined options
+  {
+    // combined options
     const formatter = getJsonLinesFormatter({
       categorySeparator: "::",
       message: "template",
@@ -1012,9 +1030,8 @@ test("getLogfmtFormatter() coerces browser inspect fallback output", async () =>
   globals.document = {};
 
   try {
-    const { getLogfmtFormatter: getBrowserLogfmtFormatter } = await import(
-      "./formatter.ts?browser-inspect-fallback"
-    );
+    const { getLogfmtFormatter: getBrowserLogfmtFormatter } =
+      await import("./formatter.ts?browser-inspect-fallback");
     const formatter = getBrowserLogfmtFormatter();
     const actual = formatter({
       level: "info",
@@ -1139,22 +1156,18 @@ test("JSON Lines formatters serialize bigint properties without losing precision
     nested: { values: ["1", { value: "-2" }] },
     number: 42,
   };
-  for (
-    const message of [
-      ["plain"],
-      ["value=", 42, ""],
-      ["first=", 42, " second=", 43, ""],
-    ]
-  ) {
+  for (const message of [
+    ["plain"],
+    ["value=", 42, ""],
+    ["first=", 42, " second=", 43, ""],
+  ]) {
     const record = { ...info, message, properties };
-    for (
-      const formatter of [
-        jsonLinesFormatter,
-        getJsonLinesFormatter(),
-        getJsonLinesFormatter({ properties: "nest:data" }),
-        getJsonLinesFormatter({ message: "template" }),
-      ]
-    ) {
+    for (const formatter of [
+      jsonLinesFormatter,
+      getJsonLinesFormatter(),
+      getJsonLinesFormatter({ properties: "nest:data" }),
+      getJsonLinesFormatter({ message: "template" }),
+    ]) {
       const result = JSON.parse(formatter(record));
       assert.deepStrictEqual(result.data ?? result.properties, expected);
     }
@@ -1174,30 +1187,26 @@ test("JSON Lines formatters serialize bigint properties without losing precision
 });
 
 test("JSON Lines formatters serialize bigint message values as decimal strings", () => {
-  for (
-    const formatter of [
-      jsonLinesFormatter,
-      getJsonLinesFormatter(),
-      getJsonLinesFormatter({ message: "rendered" }),
-      getJsonLinesFormatter({ properties: "flatten" }),
-      getJsonLinesFormatter({ properties: "prepend:ctx_" }),
-    ]
-  ) {
-    for (
-      const [message, expected] of [
-        [["id=", 9007199254740993n, ""], 'id="9007199254740993"'],
-        [["id=", -12345678901234567890n, ""], 'id="-12345678901234567890"'],
-        [["id=", 0n, ""], 'id="0"'],
-        [
-          ["first=", 9007199254740993n, " second=", -2n, ""],
-          'first="9007199254740993" second="-2"',
-        ],
-        [
-          ["data=", { values: [9007199254740993n, { zero: 0n }] }, ""],
-          'data={"values":["9007199254740993",{"zero":"0"}]}',
-        ],
-      ] as const
-    ) {
+  for (const formatter of [
+    jsonLinesFormatter,
+    getJsonLinesFormatter(),
+    getJsonLinesFormatter({ message: "rendered" }),
+    getJsonLinesFormatter({ properties: "flatten" }),
+    getJsonLinesFormatter({ properties: "prepend:ctx_" }),
+  ]) {
+    for (const [message, expected] of [
+      [["id=", 9007199254740993n, ""], 'id="9007199254740993"'],
+      [["id=", -12345678901234567890n, ""], 'id="-12345678901234567890"'],
+      [["id=", 0n, ""], 'id="0"'],
+      [
+        ["first=", 9007199254740993n, " second=", -2n, ""],
+        'first="9007199254740993" second="-2"',
+      ],
+      [
+        ["data=", { values: [9007199254740993n, { zero: 0n }] }, ""],
+        'data={"values":["9007199254740993",{"zero":"0"}]}',
+      ],
+    ] as const) {
       const result = JSON.parse(formatter({ ...info, message }));
       assert.strictEqual(result.message, expected);
     }
@@ -1207,17 +1216,17 @@ test("JSON Lines formatters serialize bigint message values as decimal strings",
 test("JSON Lines formatters preserve Error serialization with bigint metadata", () => {
   const error = Object.assign(new Error("boom", { cause: 1n }), { code: 2n });
   const aggregate = new AggregateError([3n, error], "aggregate");
-  for (
-    const formatter of [
-      jsonLinesFormatter,
-      getJsonLinesFormatter({ message: "rendered" }),
-    ]
-  ) {
-    const result = JSON.parse(formatter({
-      ...info,
-      message: ["error=", error, " aggregate=", aggregate, ""],
-      properties: { error, aggregate },
-    }));
+  for (const formatter of [
+    jsonLinesFormatter,
+    getJsonLinesFormatter({ message: "rendered" }),
+  ]) {
+    const result = JSON.parse(
+      formatter({
+        ...info,
+        message: ["error=", error, " aggregate=", aggregate, ""],
+        properties: { error, aggregate },
+      }),
+    );
     assert.strictEqual(result.properties.error.name, "Error");
     assert.strictEqual(result.properties.error.message, "boom");
     assert.strictEqual(result.properties.error.cause, "1");
@@ -1239,17 +1248,17 @@ test("JSON Lines formatters preserve Error serialization with bigint metadata", 
 test("JSON Lines formatters serialize bigint values alongside circular references", () => {
   const value: { id: bigint; self?: unknown } = { id: 9007199254740993n };
   value.self = value;
-  for (
-    const formatter of [
-      jsonLinesFormatter,
-      getJsonLinesFormatter({ message: "rendered" }),
-    ]
-  ) {
-    const result = JSON.parse(formatter({
-      ...info,
-      message: ["value=", value, ""],
-      properties: { value },
-    }));
+  for (const formatter of [
+    jsonLinesFormatter,
+    getJsonLinesFormatter({ message: "rendered" }),
+  ]) {
+    const result = JSON.parse(
+      formatter({
+        ...info,
+        message: ["value=", value, ""],
+        properties: { value },
+      }),
+    );
     assert.strictEqual(
       result.message,
       'value={"id":"9007199254740993","self":"[Circular]"}',
@@ -1269,18 +1278,18 @@ test("JSON Lines formatters respect toJSON() when serializing bigint values", ()
       return { id: 9007199254740993n };
     },
   };
-  for (
-    const formatter of [
-      jsonLinesFormatter,
-      getJsonLinesFormatter({ message: "rendered" }),
-    ]
-  ) {
+  for (const formatter of [
+    jsonLinesFormatter,
+    getJsonLinesFormatter({ message: "rendered" }),
+  ]) {
     calls = 0;
-    const result = JSON.parse(formatter({
-      ...info,
-      message: ["value=", value, ""],
-      properties: { value },
-    }));
+    const result = JSON.parse(
+      formatter({
+        ...info,
+        message: ["value=", value, ""],
+        properties: { value },
+      }),
+    );
     assert.strictEqual(result.message, 'value={"id":"9007199254740993"}');
     assert.deepStrictEqual(result.properties.value, { id: "9007199254740993" });
     assert.strictEqual(calls, 2);
@@ -1364,7 +1373,8 @@ test("defaultTextFormatter() renders circular values", () => {
 test("getJsonLinesFormatter() renders circular values", () => {
   const record = createCyclicRecord();
 
-  { // default options take the pre-compiled fixed-shape path
+  {
+    // default options take the pre-compiled fixed-shape path
     const result = JSON.parse(getJsonLinesFormatter()(record));
 
     assert.deepStrictEqual(
@@ -1376,7 +1386,8 @@ test("getJsonLinesFormatter() renders circular values", () => {
     });
   }
 
-  { // non-default options take the configured path
+  {
+    // non-default options take the configured path
     const result = JSON.parse(
       getJsonLinesFormatter({ properties: "flatten" })(record),
     );
@@ -1391,7 +1402,8 @@ test("getJsonLinesFormatter() renders circular values", () => {
     });
   }
 
-  { // template messages skip interpolation entirely
+  {
+    // template messages skip interpolation entirely
     const result = JSON.parse(
       getJsonLinesFormatter({ message: "template" })(record),
     );
@@ -1458,9 +1470,8 @@ test("getTextFormatter() renders circular values in the browser fallback", async
   globals.document = {};
 
   try {
-    const { getTextFormatter: getBrowserTextFormatter } = await import(
-      "./formatter.ts?browser-circular-values"
-    );
+    const { getTextFormatter: getBrowserTextFormatter } =
+      await import("./formatter.ts?browser-circular-values");
     const formatter = getBrowserTextFormatter({ timestamp: "none" });
 
     assert.deepStrictEqual(
@@ -1482,9 +1493,10 @@ function parseLogfmt(line: string): Record<string, string> {
     const keyEnd: number = source.indexOf("=", index);
     if (keyEnd < 0) break;
     const key: string = source.slice(index, keyEnd);
-    const parsed: ParsedLogfmtValue = source[keyEnd + 1] === '"'
-      ? parseQuotedLogfmtValue(source, keyEnd + 2)
-      : parseBareLogfmtValue(source, keyEnd + 1);
+    const parsed: ParsedLogfmtValue =
+      source[keyEnd + 1] === '"'
+        ? parseQuotedLogfmtValue(source, keyEnd + 2)
+        : parseBareLogfmtValue(source, keyEnd + 1);
 
     result[key] = parsed.value;
     index = parsed.nextIndex;
@@ -1833,11 +1845,14 @@ test('getTextFormatter() with value: "bare" sanitizes strings', () => {
     "\\x1b[31mred|",
   );
   // Newlines are escaped unless explicitly preserved.
-  for (
-    const sanitize of [undefined, {}, { newlines: undefined }, {
+  for (const sanitize of [
+    undefined,
+    {},
+    { newlines: undefined },
+    {
       sgr: "escape" as const,
-    }]
-  ) {
+    },
+  ]) {
     assert.strictEqual(render("a\rb\nc", { sanitize }), "a\\rb\\nc|");
   }
   assert.strictEqual(
@@ -1871,7 +1886,8 @@ test("getTextFormatter() with an invalid value option", () => {
   // The option type accepts both forms.
   const values: TextFormatterOptions["value"][] = [
     "bare",
-    (value, inspect) => typeof value === "number" ? `${value}` : inspect(value),
+    (value, inspect) =>
+      typeof value === "number" ? `${value}` : inspect(value),
   ];
   assert.strictEqual(values.length, 2);
 });
@@ -1950,9 +1966,8 @@ test('getTextFormatter() with value: "bare" in the browser fallback', async () =
   globals.document = {};
 
   try {
-    const { getTextFormatter: getBrowserTextFormatter } = await import(
-      "./formatter.ts?browser-bare-values"
-    );
+    const { getTextFormatter: getBrowserTextFormatter } =
+      await import("./formatter.ts?browser-bare-values");
     const formatter = getBrowserTextFormatter({
       format: onlyMessage,
       value: "bare",
@@ -1973,7 +1988,8 @@ const infoWithSourceLocation: LogRecord = {
 };
 
 test("getTextFormatter() shows source locations only when asked", () => {
-  const plain = "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+  const plain =
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
     "Hello, 123 & 456!\n";
   assert.strictEqual(getTextFormatter()(infoWithSourceLocation), plain);
   assert.strictEqual(
@@ -2069,20 +2085,17 @@ test("getConsoleFormatter()", () => {
   );
   const formatter = getConsoleFormatter({ sourceLocation: true });
   assert.deepStrictEqual(formatter(info), defaultConsoleFormatter(info));
-  assert.deepStrictEqual(
-    formatter(infoWithSourceLocation),
-    [
-      "%c22:13:20.000 %cINF%c %cmy-app·junk (%s) %cHello, %o & %o!",
-      "color: gray;",
-      "background-color: white; color: black;",
-      "background-color: default;",
-      "color: gray;",
-      "file:///app/src/main.ts:42:7",
-      "color: default;",
-      123,
-      456,
-    ],
-  );
+  assert.deepStrictEqual(formatter(infoWithSourceLocation), [
+    "%c22:13:20.000 %cINF%c %cmy-app·junk (%s) %cHello, %o & %o!",
+    "color: gray;",
+    "background-color: white; color: black;",
+    "background-color: default;",
+    "color: gray;",
+    "file:///app/src/main.ts:42:7",
+    "color: default;",
+    123,
+    456,
+  ]);
   assert.deepStrictEqual(
     getConsoleFormatter({ sourceLocation: ({ line }) => `line ${line}` })(
       infoWithSourceLocation,
@@ -2097,12 +2110,10 @@ test("getConsoleFormatter() keeps format directives in locations inert", () => {
     message: ["Value: ", { a: 1 }, ""],
     sourceLocation: { file: "/app/%s%c%o.ts", line: 1, column: 2 },
   };
-  for (
-    const formatter of [
-      getConsoleFormatter({ sourceLocation: true }),
-      getConsoleFormatter({ sourceLocation: () => "%o %s %c" }),
-    ]
-  ) {
+  for (const formatter of [
+    getConsoleFormatter({ sourceLocation: true }),
+    getConsoleFormatter({ sourceLocation: () => "%o %s %c" }),
+  ]) {
     const output = formatWithDirectives(...formatter(record));
     const location = formatter(record)[5] as string;
     // Every style is consumed by its own %c, the location is printed as is,
@@ -2125,12 +2136,10 @@ test("Formatters escape control characters from custom location renderers", () =
       column: 2,
     },
   };
-  for (
-    const output of [
-      getTextFormatter({ sourceLocation })(record),
-      getAnsiColorFormatter({ sourceLocation })(record),
-    ]
-  ) {
+  for (const output of [
+    getTextFormatter({ sourceLocation })(record),
+    getAnsiColorFormatter({ sourceLocation })(record),
+  ]) {
     assert.ok(!output.includes("\x1b[2J"), output);
     assert.strictEqual(output.split("\n").length, 2, output);
   }

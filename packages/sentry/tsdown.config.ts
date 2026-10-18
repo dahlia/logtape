@@ -11,10 +11,9 @@ export default defineConfig({
   inputOptions: {
     onLog(level, log, defaultHandler) {
       if (
-        level === "warn" && log.code === "UNRESOLVED_IMPORT" &&
-        ["node:util", "#util"].includes(
-          log.exporter ?? "",
-        )
+        level === "warn" &&
+        log.code === "UNRESOLVED_IMPORT" &&
+        ["node:util", "#util"].includes(log.exporter ?? "")
       ) {
         return;
       }

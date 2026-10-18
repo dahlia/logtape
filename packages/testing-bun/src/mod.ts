@@ -119,10 +119,7 @@ interface BunEachRegisterFunction {
 type BunDoneCallback = (error?: unknown) => void;
 type AnyFunction = (...args: never[]) => unknown;
 type BunFunction = (...args: unknown[]) => unknown;
-type BunEachInvoker = (
-  thisArg: unknown,
-  args: readonly unknown[],
-) => unknown;
+type BunEachInvoker = (thisArg: unknown, args: readonly unknown[]) => unknown;
 type ExpectTypeOfFunction = (...args: unknown[]) => unknown;
 type OnTestFinishedFunction = (callback: () => unknown) => void;
 type BaseBunTestFunction = AnyFunction & {
@@ -147,11 +144,7 @@ const helperNames = [
   "serial",
 ] as const;
 
-const conditionalHelperNames = [
-  "if",
-  "skipIf",
-  "todoIf",
-] as const;
+const conditionalHelperNames = ["if", "skipIf", "todoIf"] as const;
 
 const expectTypeOf: ExpectTypeOfFunction = (
   bunTestModule as unknown as { readonly expectTypeOf: ExpectTypeOfFunction }
@@ -161,17 +154,20 @@ const onTestFinished: OnTestFinishedFunction = (
     readonly onTestFinished: OnTestFinishedFunction;
   }
 ).onTestFinished;
-const vi: typeof jest =
-  (bunTestModule as unknown as { readonly vi: typeof jest }).vi;
-const xdescribe: BunFunction =
-  (bunTestModule as unknown as { readonly xdescribe: BunFunction })
-    .xdescribe;
-const xit: BunFunction =
-  (bunTestModule as unknown as { readonly xit: BunFunction }).xit;
-const xtest: BunFunction = (bunTestModule as unknown as {
-  readonly xtest: BunFunction;
-})
-  .xtest;
+const vi: typeof jest = (
+  bunTestModule as unknown as { readonly vi: typeof jest }
+).vi;
+const xdescribe: BunFunction = (
+  bunTestModule as unknown as { readonly xdescribe: BunFunction }
+).xdescribe;
+const xit: BunFunction = (
+  bunTestModule as unknown as { readonly xit: BunFunction }
+).xit;
+const xtest: BunFunction = (
+  bunTestModule as unknown as {
+    readonly xtest: BunFunction;
+  }
+).xtest;
 
 /**
  * Creates a `bun:test` test function that reports LogTape records from failed
@@ -297,10 +293,7 @@ function createBunTestFunction(
     Object.defineProperty(register, helperName, {
       configurable: true,
       enumerable: true,
-      value: createBunTestFunction(
-        helper as BaseBunTestFunction,
-        options,
-      ),
+      value: createBunTestFunction(helper as BaseBunTestFunction, options),
       writable: true,
     });
   }
@@ -371,8 +364,8 @@ function wrapBunEachArguments(
   options: FailureLogReporterOptions,
   maxCaseArgumentCount: number,
 ): unknown[] {
-  const callbackIndex = args.findIndex((arg, index) =>
-    index > 0 && typeof arg === "function"
+  const callbackIndex = args.findIndex(
+    (arg, index) => index > 0 && typeof arg === "function",
   );
   if (callbackIndex < 0) return [...args];
 
@@ -396,7 +389,7 @@ function wrapBunTestCallback(
   if (callback.length >= 1) {
     return function (this: unknown, done: BunDoneCallback): void {
       const wrapped = reporter.wrap(() =>
-        runBunDoneCallback(callback, this, [])
+        runBunDoneCallback(callback, this, []),
       );
 
       void wrapped().then(
@@ -418,13 +411,7 @@ function wrapBunEachCallback(
 ): AnyFunction {
   const reporter = createFailureLogReporter(options);
   const invoke = (thisArg: unknown, args: readonly unknown[]): unknown =>
-    runBunEachCallback(
-      reporter,
-      callback,
-      thisArg,
-      args,
-      maxCaseArgumentCount,
-    );
+    runBunEachCallback(reporter, callback, thisArg, args, maxCaseArgumentCount);
 
   return createArityPreservingFunction(callback.length, invoke);
 }
@@ -433,10 +420,9 @@ function createArityPreservingFunction(
   length: number,
   invoke: BunEachInvoker,
 ): AnyFunction {
-  const parameters = Array.from(
-    { length },
-    (_, index) => `arg${index}`,
-  ).join(", ");
+  const parameters = Array.from({ length }, (_, index) => `arg${index}`).join(
+    ", ",
+  );
   const createFunction = Function(
     "invoke",
     `return function (${parameters}) {` +
@@ -459,12 +445,12 @@ function runBunEachCallback(
     typeof lastArgument === "function"
   ) {
     const done = lastArgument as BunDoneCallback;
-    void reporter.run(() =>
-      runBunDoneCallback(callback, thisArg, args.slice(0, -1))
-    ).then(
-      () => done(),
-      (error: unknown) => done(error),
-    );
+    void reporter
+      .run(() => runBunDoneCallback(callback, thisArg, args.slice(0, -1)))
+      .then(
+        () => done(),
+        (error: unknown) => done(error),
+      );
     return undefined;
   }
 
@@ -511,9 +497,10 @@ function runBunDoneCallback(
 }
 
 function getMaxCaseArgumentCount(cases: readonly unknown[]): number {
-  const rows = cases.length === 1 && Array.isArray(cases[0])
-    ? cases[0] as readonly unknown[]
-    : cases;
+  const rows =
+    cases.length === 1 && Array.isArray(cases[0])
+      ? (cases[0] as readonly unknown[])
+      : cases;
   let maxArgumentCount = 0;
   for (const row of rows) {
     const argumentCount = Array.isArray(row) ? row.length : 1;

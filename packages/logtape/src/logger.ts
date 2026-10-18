@@ -22,9 +22,7 @@ const lazySymbol: unique symbol = Symbol.for("logtape.lazy");
 const throttlingSummaryRecordSymbol = Symbol.for(
   "LogTape.throttlingSummaryRecord",
 );
-const immediateSinkSymbol = Symbol.for(
-  "LogTape.sinkSnapshotPolicy.immediate",
-);
+const immediateSinkSymbol = Symbol.for("LogTape.sinkSnapshotPolicy.immediate");
 const internalStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 const resolvedStringLogRecords: WeakSet<LogRecord> = new WeakSet();
 
@@ -72,10 +70,12 @@ export interface Lazy<T> {
  * @since 2.0.0
  */
 export function isLazy(value: unknown): value is Lazy<unknown> {
-  return value != null &&
+  return (
+    value != null &&
     typeof value === "object" &&
     lazySymbol in value &&
-    (value as Lazy<unknown>)[lazySymbol] === true;
+    (value as Lazy<unknown>)[lazySymbol] === true
+  );
 }
 
 /**
@@ -146,8 +146,10 @@ function isPromiseObject<T>(value: unknown): value is Promise<T> {
   // `Object.prototype.toString` recognizes native promises across realms.
   // We also require a callable `then` so an object that only spoofs
   // `Symbol.toStringTag = "Promise"` is not treated as an async result.
-  return Object.prototype.toString.call(value) === "[object Promise]" &&
-    typeof (value as Promise<T>).then === "function";
+  return (
+    Object.prototype.toString.call(value) === "[object Promise]" &&
+    typeof (value as Promise<T>).then === "function"
+  );
 }
 
 interface StringMessageLogger {
@@ -215,9 +217,9 @@ function snapshotLogRecordProperties(record: LogRecord): LogRecord {
     attachSourceLocation(snapshot, record.sourceLocation);
     return snapshot;
   }
-  const descriptors = Object.getOwnPropertyDescriptors(record) as
-    & PropertyDescriptorMap
-    & { properties?: PropertyDescriptor };
+  const descriptors = Object.getOwnPropertyDescriptors(
+    record,
+  ) as PropertyDescriptorMap & { properties?: PropertyDescriptor };
   descriptors.properties = {
     value: properties,
     enumerable: true,
@@ -228,18 +230,21 @@ function snapshotLogRecordProperties(record: LogRecord): LogRecord {
 
 function hasEnumerableProperties(properties: unknown): boolean {
   if (properties == null || typeof properties !== "object") return false;
-  return Object.keys(properties).length > 0 ||
+  return (
+    Object.keys(properties).length > 0 ||
     Object.prototype.propertyIsEnumerable.call(
       properties,
       throttlingSummaryRecordSymbol,
-    );
+    )
+  );
 }
 
 function shouldSnapshotForSink(sink: Sink): boolean {
   // Custom sinks are assumed to be buffering sinks.  Only built-in sinks that
   // synchronously finish formatting/encoding opt into receiving the live record.
-  return (sink as unknown as Record<symbol, unknown>)[immediateSinkSymbol] !==
-    true;
+  return (
+    (sink as unknown as Record<symbol, unknown>)[immediateSinkSymbol] !== true
+  );
 }
 
 type ParentSinksMode = "inherit" | "override" | "forward";
@@ -251,18 +256,17 @@ type SinkDispatchPlanState = {
   readonly parentPlan: SinkDispatchPlan | ForwardSinkPlan | undefined;
 };
 
-type SinkDispatchPlan =
-  & SinkDispatchPlanState
-  & (
+type SinkDispatchPlan = SinkDispatchPlanState &
+  (
     | { readonly kind: "none" }
     | {
-      readonly kind: "one";
-      readonly sink: Sink;
-    }
+        readonly kind: "one";
+        readonly sink: Sink;
+      }
     | {
-      readonly kind: "many";
-      readonly sinks: readonly Sink[];
-    }
+        readonly kind: "many";
+        readonly sinks: readonly Sink[];
+      }
   );
 
 /**
@@ -1495,10 +1499,7 @@ export interface LogMethod {
    * @param message The message template strings array.
    * @param values The message template values.
    */
-  (
-    message: TemplateStringsArray,
-    ...values: readonly unknown[]
-  ): void;
+  (message: TemplateStringsArray, ...values: readonly unknown[]): void;
 
   /**
    * Log a message with the given level with properties.
@@ -1582,11 +1583,8 @@ export function getLogger(category: string | readonly string[] = []): Logger {
 export function getLoggers(
   logger?: Logger | string | readonly string[],
 ): readonly Logger[] {
-  const category = logger == null
-    ? []
-    : isCategory(logger)
-    ? logger
-    : logger.category;
+  const category =
+    logger == null ? [] : isCategory(logger) ? logger : logger.category;
   return collectDescendants(LoggerImpl.getLogger(category));
 }
 
@@ -1615,9 +1613,9 @@ const globalRootLoggerSymbol = Symbol.for("logtape.rootLogger");
  * its descendants, to which category prefixes do not apply.
  */
 export function isMetaLoggerCategory(category: readonly string[]): boolean {
-  return category.length >= 2 &&
-    category[0] === "logtape" &&
-    category[1] === "meta";
+  return (
+    category.length >= 2 && category[0] === "logtape" && category[1] === "meta"
+  );
 }
 
 /**
@@ -1637,10 +1635,11 @@ export function findLogger(
       : undefined;
     // Without WeakRef, children are stored directly, and they may have been
     // created by another copy of LogTape, so instanceof cannot tell them apart:
-    logger = childRef == null ||
-        typeof (childRef as Partial<WeakRef<LoggerImpl>>).deref !== "function"
-      ? childRef as LoggerImpl | undefined
-      : (childRef as WeakRef<LoggerImpl>).deref();
+    logger =
+      childRef == null ||
+      typeof (childRef as Partial<WeakRef<LoggerImpl>>).deref !== "function"
+        ? (childRef as LoggerImpl | undefined)
+        : (childRef as WeakRef<LoggerImpl>).deref();
   }
   return logger;
 }
@@ -1674,10 +1673,11 @@ export class LoggerImpl implements Logger {
   #forwardPlanCache: ForwardSinkPlan | undefined = undefined;
 
   static getLogger(category: string | readonly string[] = []): LoggerImpl {
-    let rootLogger: LoggerImpl | null = globalRootLoggerSymbol in globalThis
-      ? ((globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] ??
-        null)
-      : null;
+    let rootLogger: LoggerImpl | null =
+      globalRootLoggerSymbol in globalThis
+        ? ((globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] ??
+          null)
+        : null;
     if (rootLogger == null) {
       rootLogger = new LoggerImpl(null, []);
       (globalThis as GlobalRootLoggerRegistry)[globalRootLoggerSymbol] =
@@ -1694,9 +1694,8 @@ export class LoggerImpl implements Logger {
     let logger = LoggerImpl.getLogger();
     for (const name of category) {
       const childRef = logger.children[name];
-      const child = childRef instanceof LoggerImpl
-        ? childRef
-        : childRef?.deref();
+      const child =
+        childRef instanceof LoggerImpl ? childRef : childRef?.deref();
       if (child == null) break;
       logger = child;
     }
@@ -1737,14 +1736,12 @@ export class LoggerImpl implements Logger {
   ): LoggerImpl {
     const name = typeof subcategory === "string" ? subcategory : subcategory[0];
     const childRef = this.children[name];
-    let child: LoggerImpl | undefined = childRef instanceof LoggerImpl
-      ? childRef
-      : childRef?.deref();
+    let child: LoggerImpl | undefined =
+      childRef instanceof LoggerImpl ? childRef : childRef?.deref();
     if (child == null) {
       child = new LoggerImpl(this, [...this.category, name]);
-      this.children[name] = "WeakRef" in globalThis
-        ? new WeakRef(child)
-        : child;
+      this.children[name] =
+        "WeakRef" in globalThis ? new WeakRef(child) : child;
     }
     if (typeof subcategory === "string" || subcategory.length === 1) {
       return child;
@@ -1833,9 +1830,10 @@ export class LoggerImpl implements Logger {
       LoggerImpl.getLogger().contextLocalStorage,
     );
     if (scopedConfig != null) {
-      const category = categoryPrefix.length > 0
-        ? [...categoryPrefix, ...this.category]
-        : this.category;
+      const category =
+        categoryPrefix.length > 0
+          ? [...categoryPrefix, ...this.category]
+          : this.category;
       if (
         !scopedConfigHasSink(scopedConfig, category, level) ||
         !scopedConfigCapturesSourceLocation(scopedConfig, category)
@@ -1944,9 +1942,10 @@ export class LoggerImpl implements Logger {
     const cached = this.#forwardPlanCache;
     if (cached != null && this.isForwardSinkPlanFresh(cached)) return cached;
 
-    const parentPlan = this.parent != null && this.parentSinks !== "override"
-      ? this.parent.getForwardSinkPlan()
-      : undefined;
+    const parentPlan =
+      this.parent != null && this.parentSinks !== "override"
+        ? this.parent.getForwardSinkPlan()
+        : undefined;
     const plan = this.createForwardSinkPlan(parentPlan);
     this.#forwardPlanCache = plan;
     return plan;
@@ -1963,9 +1962,10 @@ export class LoggerImpl implements Logger {
       if (plan.localSinks[i] !== this.sinks[i]) return false;
     }
 
-    const parentPlan = this.parent != null && this.parentSinks !== "override"
-      ? this.parent.getForwardSinkPlan()
-      : undefined;
+    const parentPlan =
+      this.parent != null && this.parentSinks !== "override"
+        ? this.parent.getForwardSinkPlan()
+        : undefined;
     return plan.parentPlan === parentPlan;
   }
 
@@ -1974,9 +1974,10 @@ export class LoggerImpl implements Logger {
   ): ForwardSinkPlan {
     // Snapshot so direct index/length mutations invalidate the cache.
     const localSinks = [...this.sinks];
-    const sinks = parentPlan == null || parentPlan.sinks.length < 1
-      ? localSinks
-      : [...parentPlan.sinks, ...localSinks];
+    const sinks =
+      parentPlan == null || parentPlan.sinks.length < 1
+        ? localSinks
+        : [...parentPlan.sinks, ...localSinks];
     return {
       kind: "forward",
       localSinks,
@@ -2089,9 +2090,7 @@ export class LoggerImpl implements Logger {
         level,
       );
     }
-    return this.getDispatcher(categoryPrefix).isCertainlyDroppedResolved(
-      level,
-    );
+    return this.getDispatcher(categoryPrefix).isCertainlyDroppedResolved(level);
   }
 
   /**
@@ -2103,7 +2102,8 @@ export class LoggerImpl implements Logger {
     // emitResolved() checks the dispatcher's own lowestLevel before running
     // any filter:
     if (
-      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
+      this.lowestLevel === null ||
+      compareLogLevel(level, this.lowestLevel) < 0
     ) {
       return true;
     }
@@ -2120,9 +2120,9 @@ export class LoggerImpl implements Logger {
   private getDispatcher(categoryPrefix: readonly string[]): LoggerImpl {
     return categoryPrefix.length > 0
       ? LoggerImpl.getNearestExistingLogger([
-        ...categoryPrefix,
-        ...this.category,
-      ])
+          ...categoryPrefix,
+          ...this.category,
+        ])
       : this;
   }
 
@@ -2142,7 +2142,8 @@ export class LoggerImpl implements Logger {
    */
   private isEnabledForResolved(level: LogLevel): boolean {
     if (
-      this.lowestLevel === null || compareLogLevel(level, this.lowestLevel) < 0
+      this.lowestLevel === null ||
+      compareLogLevel(level, this.lowestLevel) < 0
     ) {
       return false;
     }
@@ -2162,8 +2163,11 @@ export class LoggerImpl implements Logger {
    */
   private hasForwardSinks(): boolean {
     if (this.sinks.length > 0) return true;
-    return this.parent != null && this.parentSinks !== "override" &&
-      this.parent.hasForwardSinks();
+    return (
+      this.parent != null &&
+      this.parentSinks !== "override" &&
+      this.parent.hasForwardSinks()
+    );
   }
 
   emit(record: Omit<LogRecord, "category">): void;
@@ -2179,9 +2183,10 @@ export class LoggerImpl implements Logger {
     const categoryPrefix = isMetaLoggerCategory(baseCategory)
       ? []
       : getCategoryPrefix();
-    const fullCategory = categoryPrefix.length > 0
-      ? [...categoryPrefix, ...baseCategory]
-      : baseCategory;
+    const fullCategory =
+      categoryPrefix.length > 0
+        ? [...categoryPrefix, ...baseCategory]
+        : baseCategory;
     if (
       categoryPrefix.length < 1 &&
       Object.prototype.hasOwnProperty.call(record, "category")
@@ -2194,18 +2199,19 @@ export class LoggerImpl implements Logger {
 
     // Create the full record by copying property descriptors from the original
     // record, which preserves getters without invoking them (unlike spread).
-    const descriptors = Object.getOwnPropertyDescriptors(record) as
-      & PropertyDescriptorMap
-      & { category?: PropertyDescriptor };
+    const descriptors = Object.getOwnPropertyDescriptors(
+      record,
+    ) as PropertyDescriptorMap & { category?: PropertyDescriptor };
     descriptors.category = {
       value: fullCategory,
       enumerable: true,
       configurable: true,
     };
     const fullRecord = Object.defineProperties({}, descriptors) as LogRecord;
-    const dispatcher = categoryPrefix.length > 0
-      ? LoggerImpl.getNearestExistingLogger(fullCategory)
-      : this;
+    const dispatcher =
+      categoryPrefix.length > 0
+        ? LoggerImpl.getNearestExistingLogger(fullCategory)
+        : this;
     dispatcher.emitResolved(fullRecord, bypassSinks);
   }
 
@@ -2291,7 +2297,9 @@ export class LoggerImpl implements Logger {
       if (bypassSinks?.has(sink)) continue;
       try {
         if (
-          snapshot == null && !snapshotFailed && shouldSnapshotForSink(sink)
+          snapshot == null &&
+          !snapshotFailed &&
+          shouldSnapshotForSink(sink)
         ) {
           try {
             // Build the snapshot only once and only for a sink that will
@@ -2347,49 +2355,56 @@ export class LoggerImpl implements Logger {
 
     let cachedProps: Record<string, unknown> | undefined = undefined;
     let cachedMessage: readonly unknown[] | undefined = undefined;
-    const record: LogRecord = typeof properties === "function"
-      ? {
-        category: this.category,
-        level,
-        timestamp: Date.now(),
-        get message() {
-          if (cachedMessage == null) {
-            cachedMessage = parseMessageTemplate(rawMessage, this.properties);
+    const record: LogRecord =
+      typeof properties === "function"
+        ? {
+            category: this.category,
+            level,
+            timestamp: Date.now(),
+            get message() {
+              if (cachedMessage == null) {
+                cachedMessage = parseMessageTemplate(
+                  rawMessage,
+                  this.properties,
+                );
+              }
+              return cachedMessage;
+            },
+            rawMessage,
+            get properties() {
+              if (cachedProps == null) {
+                cachedProps = resolveProperties({
+                  ...(implicitContext ?? {}),
+                  ...properties(),
+                });
+              }
+              return cachedProps;
+            },
           }
-          return cachedMessage;
-        },
-        rawMessage,
-        get properties() {
-          if (cachedProps == null) {
-            cachedProps = resolveProperties({
-              ...(implicitContext ?? {}),
-              ...properties(),
-            });
-          }
-          return cachedProps;
-        },
-      }
-      : {
-        category: this.category,
-        level,
-        timestamp: Date.now(),
-        get message() {
-          if (cachedMessage == null) {
-            cachedMessage = parseMessageTemplate(rawMessage, this.properties);
-          }
-          return cachedMessage;
-        },
-        rawMessage,
-        get properties() {
-          if (cachedProps == null) {
-            cachedProps = resolveProperties({
-              ...(implicitContext ?? {}),
-              ...properties,
-            });
-          }
-          return cachedProps;
-        },
-      };
+        : {
+            category: this.category,
+            level,
+            timestamp: Date.now(),
+            get message() {
+              if (cachedMessage == null) {
+                cachedMessage = parseMessageTemplate(
+                  rawMessage,
+                  this.properties,
+                );
+              }
+              return cachedMessage;
+            },
+            rawMessage,
+            get properties() {
+              if (cachedProps == null) {
+                cachedProps = resolveProperties({
+                  ...(implicitContext ?? {}),
+                  ...properties,
+                });
+              }
+              return cachedProps;
+            },
+          };
     attachSourceLocation(record, sourceLocation);
     internalStringLogRecords.add(record);
     this.emit(record, bypassSinks);
@@ -2618,9 +2633,9 @@ export class LoggerImpl implements Logger {
 
     if (!this.isEnabledFor(level)) return Promise.resolve();
 
-    const result = (props as () =>
-      | Record<string, unknown>
-      | Promise<Record<string, unknown>>)();
+    const result = (
+      props as () => Record<string, unknown> | Promise<Record<string, unknown>>
+    )();
 
     if (result instanceof Promise) {
       return result.then((resolved) => {
@@ -2978,10 +2993,10 @@ export class LoggerCtx implements Logger {
       message,
       typeof properties === "function"
         ? () =>
-          resolveProperties({
-            ...contextProps,
-            ...properties(),
-          })
+            resolveProperties({
+              ...contextProps,
+              ...properties(),
+            })
         : () => resolveProperties({ ...contextProps, ...properties }),
       bypassSinks,
       sourceLocation,
@@ -3196,9 +3211,9 @@ export class LoggerCtx implements Logger {
 
     if (!this.isEnabledFor(level)) return Promise.resolve();
 
-    const result = (props as () =>
-      | Record<string, unknown>
-      | Promise<Record<string, unknown>>)();
+    const result = (
+      props as () => Record<string, unknown> | Promise<Record<string, unknown>>
+    )();
 
     if (result instanceof Promise) {
       return result.then((resolved) => {
@@ -3650,9 +3665,7 @@ function parseNextSegment(
     } else {
       // Array index: [0]
       const startIndex = i;
-      while (
-        i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"'
-      ) {
+      while (i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"') {
         i++;
       }
       if (i >= len) return null;
@@ -3670,7 +3683,10 @@ function parseNextSegment(
     // Dot notation: prop
     const startIndex = i;
     while (
-      i < len && path[i] !== "." && path[i] !== "[" && path[i] !== "?" &&
+      i < len &&
+      path[i] !== "." &&
+      path[i] !== "[" &&
+      path[i] !== "?" &&
       path[i] !== "]"
     ) {
       i++;
@@ -3861,11 +3877,12 @@ export function parseMessageTemplate(
       const trimmedKey = key.trim();
       if (trimmedKey === "*") {
         // This is a wildcard pattern
-        prop = key in properties
-          ? properties[key]
-          : "*" in properties
-          ? properties["*"]
-          : properties;
+        prop =
+          key in properties
+            ? properties[key]
+            : "*" in properties
+              ? properties["*"]
+              : properties;
       } else {
         // Regular property lookup with possible whitespace handling
         if (key !== trimmedKey) {

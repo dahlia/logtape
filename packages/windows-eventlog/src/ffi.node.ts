@@ -25,20 +25,21 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
       this.lib = koffi.load("advapi32.dll");
 
       // Define Windows API functions with correct koffi types using __stdcall convention
-      const RegisterEventSourceA =
-        (this.lib as unknown as { func: (sig: string) => unknown }).func(
-          "uintptr __stdcall RegisterEventSourceA(uintptr lpUNCServerName, str lpSourceName)",
-        );
+      const RegisterEventSourceA = (
+        this.lib as unknown as { func: (sig: string) => unknown }
+      ).func(
+        "uintptr __stdcall RegisterEventSourceA(uintptr lpUNCServerName, str lpSourceName)",
+      );
       // ReportEventA expects LPCSTR* (array of string pointers) for lpStrings
       // Use char** for null-terminated array of strings
-      const ReportEventA =
-        (this.lib as unknown as { func: (sig: string) => unknown }).func(
-          "bool __stdcall ReportEventA(uintptr hEventLog, uint16 wType, uint16 wCategory, uint32 dwEventID, uintptr lpUserSid, uint16 wNumStrings, uint32 dwDataSize, char** lpStrings, uint8* lpRawData)",
-        );
-      const DeregisterEventSource =
-        (this.lib as unknown as { func: (sig: string) => unknown }).func(
-          "bool __stdcall DeregisterEventSource(uintptr hEventLog)",
-        );
+      const ReportEventA = (
+        this.lib as unknown as { func: (sig: string) => unknown }
+      ).func(
+        "bool __stdcall ReportEventA(uintptr hEventLog, uint16 wType, uint16 wCategory, uint32 dwEventID, uintptr lpUserSid, uint16 wNumStrings, uint32 dwDataSize, char** lpStrings, uint8* lpRawData)",
+      );
+      const DeregisterEventSource = (
+        this.lib as unknown as { func: (sig: string) => unknown }
+      ).func("bool __stdcall DeregisterEventSource(uintptr hEventLog)");
 
       // Store functions
       this.RegisterEventSourceA = RegisterEventSourceA;
@@ -46,21 +47,17 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
       this.DeregisterEventSource = DeregisterEventSource;
 
       // Register event source
-      this.eventSource = (this.RegisterEventSourceA as unknown as (
-        ...args: unknown[]
-      ) => unknown)(0, this.sourceName);
+      this.eventSource = (
+        this.RegisterEventSourceA as unknown as (...args: unknown[]) => unknown
+      )(0, this.sourceName);
 
       if (!this.eventSource || this.eventSource === 0) {
-        throw new Error(
-          `Failed to register event source: ${this.sourceName}`,
-        );
+        throw new Error(`Failed to register event source: ${this.sourceName}`);
       }
 
       this.initialized = true;
     } catch (error) {
-      throw new Error(
-        `Failed to initialize Windows Event Log FFI: ${error}`,
-      );
+      throw new Error(`Failed to initialize Windows Event Log FFI: ${error}`);
     }
   }
 
@@ -82,18 +79,19 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
       const nullTerminatedParams = params.map((s) => s + "\0");
 
       // Report the event using strings array approach
-      const success =
-        (this.ReportEventA as unknown as (...args: unknown[]) => unknown)(
-          this.eventSource,
-          eventType,
-          0, // category
-          eventId,
-          0, // user SID (null)
-          nullTerminatedParams.length, // number of strings
-          0, // data size (0 - not using raw data)
-          nullTerminatedParams, // strings array with our message
-          null, // raw data (null - not using)
-        );
+      const success = (
+        this.ReportEventA as unknown as (...args: unknown[]) => unknown
+      )(
+        this.eventSource,
+        eventType,
+        0, // category
+        eventId,
+        0, // user SID (null)
+        nullTerminatedParams.length, // number of strings
+        0, // data size (0 - not using raw data)
+        nullTerminatedParams, // strings array with our message
+        null, // raw data (null - not using)
+      );
 
       if (!success) {
         throw new Error("ReportEventA() returned false.");
@@ -109,9 +107,11 @@ export class WindowsEventLogNodeFFI implements WindowsEventLogFFI {
   dispose(): void {
     if (this.initialized && this.eventSource && this.DeregisterEventSource) {
       try {
-        (this.DeregisterEventSource as unknown as (
-          ...args: unknown[]
-        ) => unknown)(this.eventSource);
+        (
+          this.DeregisterEventSource as unknown as (
+            ...args: unknown[]
+          ) => unknown
+        )(this.eventSource);
       } catch (error) {
         this.metaLogger.error(
           "Failed to deregister event source during cleanup: {error}",

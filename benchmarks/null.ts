@@ -16,12 +16,9 @@ summary(() => {
   bench("LogTape", async function* () {
     await logtape.configure({
       sinks: {
-        null(_record: logtape.LogRecord) {
-        },
+        null(_record: logtape.LogRecord) {},
       },
-      loggers: [
-        { category: [], sinks: ["null"] },
-      ],
+      loggers: [{ category: [], sinks: ["null"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
@@ -41,9 +38,7 @@ summary(() => {
       }
     }
     const logger = winston.createLogger({
-      transports: [
-        new NullTransport({}),
-      ],
+      transports: [new NullTransport({})],
     });
     yield () => logger.info("Test log message.");
   });
@@ -108,8 +103,8 @@ summary(() => {
       | number
       | boolean
       | {
-        [key: string | number]: AttributeValue;
-      }
+          [key: string | number]: AttributeValue;
+        }
       | AttributeValue[]
       // deno-lint-ignore ban-types
       | Object
@@ -117,18 +112,14 @@ summary(() => {
       | undefined
       // deno-lint-ignore no-explicit-any
       | any;
-    type Attributes = AttributeValue[] | {
-      [key: string | number]: AttributeValue;
-    };
+    type Attributes =
+      | AttributeValue[]
+      | {
+          [key: string | number]: AttributeValue;
+        };
     class NullLogWriter implements hiveLogger.LogWriter {
-      write(
-        _level: hiveLogger.LogLevel,
-        _attrs: Attributes,
-        _msg: string,
-      ) {
-      }
-      flush() {
-      }
+      write(_level: hiveLogger.LogLevel, _attrs: Attributes, _msg: string) {}
+      flush() {}
     }
     const logger = new hiveLogger.Logger({ writers: [new NullLogWriter()] });
     yield () => logger.info("Test log message.");

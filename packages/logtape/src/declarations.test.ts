@@ -39,31 +39,35 @@ const cases = [
 
 for (const extension of ["d.ts", "d.cts"]) {
   for (const entry of cases) {
-    test(`${entry.module}.${extension} preserves only public JSDoc`, {
-      skip,
-    }, async () => {
-      // Bun needs an early return as well as the skip option.
-      if (skip) return;
-      const source = await readFile(
-        new URL(`./${entry.module}.ts`, import.meta.url),
-        "utf8",
-      );
-      assert.ok(source.includes(entry.internalDocs));
-      assert.ok(source.includes(entry.publicDocs));
-      const declarations = await readFile(
-        new URL(`../dist/${entry.module}.${extension}`, import.meta.url),
-        "utf8",
-      );
-      assert.ok(!declarations.includes(entry.internalDocs));
-      assert.doesNotMatch(
-        declarations,
-        new RegExp(`declare (?:class|function) ${entry.internalName}\\b`),
-      );
-      assert.match(
-        declarations,
-        new RegExp(`declare function ${entry.publicName}\\b`),
-      );
-      assert.ok(declarations.includes(entry.publicDocs));
-    });
+    test(
+      `${entry.module}.${extension} preserves only public JSDoc`,
+      {
+        skip,
+      },
+      async () => {
+        // Bun needs an early return as well as the skip option.
+        if (skip) return;
+        const source = await readFile(
+          new URL(`./${entry.module}.ts`, import.meta.url),
+          "utf8",
+        );
+        assert.ok(source.includes(entry.internalDocs));
+        assert.ok(source.includes(entry.publicDocs));
+        const declarations = await readFile(
+          new URL(`../dist/${entry.module}.${extension}`, import.meta.url),
+          "utf8",
+        );
+        assert.ok(!declarations.includes(entry.internalDocs));
+        assert.doesNotMatch(
+          declarations,
+          new RegExp(`declare (?:class|function) ${entry.internalName}\\b`),
+        );
+        assert.match(
+          declarations,
+          new RegExp(`declare function ${entry.publicName}\\b`),
+        );
+        assert.ok(declarations.includes(entry.publicDocs));
+      },
+    );
   }
 }

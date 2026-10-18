@@ -58,10 +58,7 @@ test("loadModuleExport()", async () => {
 
 test("createSink()", async () => {
   // Create console sink via shorthand
-  const sink = await createSink(
-    { type: "#console()" },
-    DEFAULT_SHORTHANDS,
-  );
+  const sink = await createSink({ type: "#console()" }, DEFAULT_SHORTHANDS);
   assert.ok(typeof sink === "function");
 
   // Create sink with formatter shorthand

@@ -157,9 +157,12 @@ const logger = getLogger("test");
 logger.info("Ready", { id: 1 });`;
   const linter = new Linter();
   assert.deepStrictEqual(linter.verify(source, [recommended]), []);
-  const messages = linter.verify(source, [recommended, {
-    rules: { "logtape/no-unrendered-properties": "warn" },
-  }]);
+  const messages = linter.verify(source, [
+    recommended,
+    {
+      rules: { "logtape/no-unrendered-properties": "warn" },
+    },
+  ]);
   assert.strictEqual(messages.length, 1);
   assert.strictEqual(messages[0].ruleId, "logtape/no-unrendered-properties");
   assert.strictEqual(messages[0].severity, 1);

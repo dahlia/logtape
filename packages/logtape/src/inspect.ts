@@ -381,10 +381,12 @@ export function inspectLogger(
   for (let length = 0; length <= effectiveCategory.length; length++) {
     const nodeCategory = effectiveCategory.slice(0, length);
     nodes.push(
-      scopedConfig == null ? getGlobalNode(nodeCategory) : getScopedNode(
-        getScopedLogger(scopedConfig, nodeCategory),
-        nodeCategory,
-      ),
+      scopedConfig == null
+        ? getGlobalNode(nodeCategory)
+        : getScopedNode(
+            getScopedLogger(scopedConfig, nodeCategory),
+            nodeCategory,
+          ),
     );
   }
 
@@ -397,14 +399,15 @@ export function inspectLogger(
       break;
     }
   }
-  const filters: FilterInspection[] = filterNode == null
-    ? []
-    : filterNode.filters.map((filter, i) => {
-      const filterLevel = getFilterLevel(filter);
-      return filterLevel === undefined
-        ? { id: filterNode.filterIds[i], filter }
-        : { id: filterNode.filterIds[i], filter, lowestLevel: filterLevel };
-    });
+  const filters: FilterInspection[] =
+    filterNode == null
+      ? []
+      : filterNode.filters.map((filter, i) => {
+          const filterLevel = getFilterLevel(filter);
+          return filterLevel === undefined
+            ? { id: filterNode.filterIds[i], filter }
+            : { id: filterNode.filterIds[i], filter, lowestLevel: filterLevel };
+        });
   const hasCustomFilters = filters.some((f) => !("lowestLevel" in f));
   const filterLevels = filters
     .filter((f) => "lowestLevel" in f)
@@ -425,22 +428,24 @@ export function inspectLogger(
           lowestLevel: gate.lowestLevel,
         })),
         lowestLevel,
-        status: lowestLevel === null ||
-            level !== undefined && compareLogLevel(level, lowestLevel) < 0
-          ? "disabled"
-          : hasCustomFilters
-          ? "conditional"
-          : "enabled",
+        status:
+          lowestLevel === null ||
+          (level !== undefined && compareLogLevel(level, lowestLevel) < 0)
+            ? "disabled"
+            : hasCustomFilters
+              ? "conditional"
+              : "enabled",
       };
     },
   );
 
   const inspection: LoggerInspection = {
-    source: scopedConfig != null
-      ? "scoped"
-      : isConfigured()
-      ? "global"
-      : "unconfigured",
+    source:
+      scopedConfig != null
+        ? "scoped"
+        : isConfigured()
+          ? "global"
+          : "unconfigured",
     category: [...category],
     categoryPrefix,
     effectiveCategory: [...effectiveCategory],
@@ -461,8 +466,8 @@ export function inspectLogger(
     status: sinkPaths.some((path) => path.status === "enabled")
       ? "enabled"
       : sinkPaths.some((path) => path.status === "conditional")
-      ? "conditional"
-      : "disabled",
+        ? "conditional"
+        : "disabled",
   };
   return level === undefined ? inspection : { ...inspection, level };
 }
@@ -470,13 +475,14 @@ export function inspectLogger(
 function normalizeCategory(
   logger: Logger | string | readonly string[] | undefined,
 ): readonly string[] {
-  const category = logger == null
-    ? []
-    : typeof logger === "string"
-    ? [logger]
-    : Array.isArray(logger)
-    ? logger
-    : (logger as Logger).category;
+  const category =
+    logger == null
+      ? []
+      : typeof logger === "string"
+        ? [logger]
+        : Array.isArray(logger)
+          ? logger
+          : (logger as Logger).category;
   if (
     !Array.isArray(category) ||
     category.some((part) => typeof part !== "string")
@@ -568,9 +574,10 @@ function collectForwardedSinkPaths(
   index: number,
 ): SinkPath[] {
   const node = nodes[index];
-  const paths = index > 0 && node.parentSinks !== "override"
-    ? collectForwardedSinkPaths(nodes, index - 1)
-    : [];
+  const paths =
+    index > 0 && node.parentSinks !== "override"
+      ? collectForwardedSinkPaths(nodes, index - 1)
+      : [];
   for (let i = 0; i < node.sinks.length; i++) {
     paths.push({ node, index: i, gates: [] });
   }

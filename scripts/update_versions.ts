@@ -27,10 +27,7 @@ for (const member of metadata.workspace) {
     const data2 = JSON.parse(json2);
     if ("version" in data2) {
       data2.version = version;
-      await writeFile(
-        packageJson,
-        `${JSON.stringify(data2, undefined, 2)}\n`,
-      );
+      await writeFile(packageJson, `${JSON.stringify(data2, undefined, 2)}\n`);
     }
   } catch (error) {
     if (

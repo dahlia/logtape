@@ -49,24 +49,18 @@ test("withFilter()", () => {
 
 test("withFilter() forwards generated records accepted by level filters", () => {
   fc.assert(
-    fc.property(
-      logLevelArb,
-      fc.array(logLevelArb),
-      (minimum, levels) => {
-        const buffer: LogRecord[] = [];
-        const sink = withFilter(buffer.push.bind(buffer), minimum);
-        const records = levels.map(recordWithLevel);
+    fc.property(logLevelArb, fc.array(logLevelArb), (minimum, levels) => {
+      const buffer: LogRecord[] = [];
+      const sink = withFilter(buffer.push.bind(buffer), minimum);
+      const records = levels.map(recordWithLevel);
 
-        for (const record of records) sink(record);
+      for (const record of records) sink(record);
 
-        assert.deepStrictEqual(
-          buffer,
-          records.filter((record) =>
-            compareLogLevel(record.level, minimum) >= 0
-          ),
-        );
-      },
-    ),
+      assert.deepStrictEqual(
+        buffer,
+        records.filter((record) => compareLogLevel(record.level, minimum) >= 0),
+      );
+    }),
   );
 });
 
@@ -346,89 +340,83 @@ test("getStreamSink() with nonBlocking - flush on dispose", async () => {
   );
 });
 
-test(
-  "getStreamSink() with nonBlocking and closeStream: false",
-  async () => {
-    // Arrange
-    let buffer = "";
-    let closed = false;
-    const decoder = new TextDecoder();
-    const stream = new WritableStream({
-      write(chunk: Uint8Array) {
-        buffer += decoder.decode(chunk);
-      },
-      close() {
-        closed = true;
-      },
-    });
-    const sink = getStreamSink(stream, {
-      closeStream: false,
-      nonBlocking: {
-        bufferSize: 100,
-        flushInterval: 5000,
-      },
-    });
+test("getStreamSink() with nonBlocking and closeStream: false", async () => {
+  // Arrange
+  let buffer = "";
+  let closed = false;
+  const decoder = new TextDecoder();
+  const stream = new WritableStream({
+    write(chunk: Uint8Array) {
+      buffer += decoder.decode(chunk);
+    },
+    close() {
+      closed = true;
+    },
+  });
+  const sink = getStreamSink(stream, {
+    closeStream: false,
+    nonBlocking: {
+      bufferSize: 100,
+      flushInterval: 5000,
+    },
+  });
 
-    // Act
-    sink(info);
-    await sink[Symbol.asyncDispose]();
+  // Act
+  sink(info);
+  await sink[Symbol.asyncDispose]();
 
-    // Assert
-    assert.strictEqual(
-      buffer,
-      "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
-        "Hello, 123 & 456!\n",
-    );
-    assert.strictEqual(closed, false);
-    const writer = stream.getWriter();
-    await writer.close();
-    writer.releaseLock();
-  },
-);
+  // Assert
+  assert.strictEqual(
+    buffer,
+    "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: " +
+      "Hello, 123 & 456!\n",
+  );
+  assert.strictEqual(closed, false);
+  const writer = stream.getWriter();
+  await writer.close();
+  writer.releaseLock();
+});
 
-test(
-  "getStreamSink() with nonBlocking waits for an active flush on dispose",
-  async () => {
-    // Arrange
-    let markWriteStarted: () => void = () => {};
-    let finishWrite: () => void = () => {};
-    const writeStarted = new Promise<void>((resolve) => {
-      markWriteStarted = resolve;
-    });
-    const writeCanFinish = new Promise<void>((resolve) => {
-      finishWrite = resolve;
-    });
-    const stream = new WritableStream({
-      async write() {
-        markWriteStarted();
-        await writeCanFinish;
-      },
-    });
-    const sink = getStreamSink(stream, {
-      closeStream: false,
-      nonBlocking: { bufferSize: 1 },
-    });
+test("getStreamSink() with nonBlocking waits for an active flush on dispose", async () => {
+  // Arrange
+  let markWriteStarted: () => void = () => {};
+  let finishWrite: () => void = () => {};
+  const writeStarted = new Promise<void>((resolve) => {
+    markWriteStarted = resolve;
+  });
+  const writeCanFinish = new Promise<void>((resolve) => {
+    finishWrite = resolve;
+  });
+  const stream = new WritableStream({
+    async write() {
+      markWriteStarted();
+      await writeCanFinish;
+    },
+  });
+  const sink = getStreamSink(stream, {
+    closeStream: false,
+    nonBlocking: { bufferSize: 1 },
+  });
 
-    // Act
-    sink(info);
-    await beforeDeadline(writeStarted, "The buffered write did not start");
-    let disposed = false;
-    const disposePromise = Promise.resolve(sink[Symbol.asyncDispose]()).then(
-      () => {
-        disposed = true;
-      },
-    );
-    await delay(0);
+  // Act
+  sink(info);
+  await beforeDeadline(writeStarted, "The buffered write did not start");
+  let disposed = false;
+  const disposePromise = Promise.resolve(sink[Symbol.asyncDispose]()).then(
+    () => {
+      disposed = true;
+    },
+  );
+  await delay(0);
 
-    // Assert
-    assert.strictEqual(disposed, false);
-    finishWrite();
-    await beforeDeadline(disposePromise, "The stream sink was not disposed");
-    const writer = stream.getWriter();
-    await writer.close();
-    writer.releaseLock();
-  },
-);
+  // Assert
+  assert.strictEqual(disposed, false);
+  finishWrite();
+  await beforeDeadline(disposePromise, "The stream sink was not disposed");
+  const writer = stream.getWriter();
+  await writer.close();
+  writer.releaseLock();
+});
 
 test("getStreamSink() with nonBlocking - buffer overflow protection", async () => {
   let buffer: string = "";
@@ -440,9 +428,9 @@ test("getStreamSink() with nonBlocking - buffer overflow protection", async () =
         const text = decoder.decode(chunk);
         buffer += text;
         // Count how many log records we actually receive
-        recordsReceived += text.split("\n").filter((line) =>
-          line.trim() !== ""
-        ).length;
+        recordsReceived += text
+          .split("\n")
+          .filter((line) => line.trim() !== "").length;
         return Promise.resolve();
       },
     }),
@@ -1377,7 +1365,10 @@ test("fromAsyncSink() - drop-oldest keeps the record being processed", async () 
     await delay(0);
   }
   await sink[Symbol.asyncDispose]();
-  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 3, 4]);
+  assert.deepStrictEqual(
+    calls.map((c) => indexOf(c.record)),
+    [0, 3, 4],
+  );
 });
 
 test("fromAsyncSink() - drop-newest rejects the incoming record", async () => {
@@ -1405,7 +1396,10 @@ test("fromAsyncSink() - drop-newest rejects the incoming record", async () => {
   await delay(0);
   calls[1].resolve();
   await sink[Symbol.asyncDispose]();
-  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 1]);
+  assert.deepStrictEqual(
+    calls.map((c) => indexOf(c.record)),
+    [0, 1],
+  );
 });
 
 test("fromAsyncSink() - sustained eviction behind a stalled record", async () => {
@@ -1426,16 +1420,18 @@ test("fromAsyncSink() - sustained eviction behind a stalled record", async () =>
     await delay(0);
   }
   await sink[Symbol.asyncDispose]();
-  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 998, 999]);
+  assert.deepStrictEqual(
+    calls.map((c) => indexOf(c.record)),
+    [0, 998, 999],
+  );
 });
 
-const gc: (() => void) | undefined = (globalThis as { gc?: () => void }).gc ??
+const gc: (() => void) | undefined =
+  (globalThis as { gc?: () => void }).gc ??
   ((globalThis as { Bun?: { gc(force: boolean): void } }).Bun == null
     ? undefined
     : () =>
-      (globalThis as { Bun?: { gc(force: boolean): void } }).Bun!.gc(
-        true,
-      ));
+        (globalThis as { Bun?: { gc(force: boolean): void } }).Bun!.gc(true));
 
 test(
   "fromAsyncSink() - drop-oldest releases dropped records",
@@ -1480,14 +1476,23 @@ test("fromAsyncSink() - waitUntil receives a prefix promise synchronously", asyn
   await delay(0);
   calls[0].resolve();
   await delay(0);
-  assert.deepStrictEqual(states.map((s) => s.settled), [true, false, false]);
+  assert.deepStrictEqual(
+    states.map((s) => s.settled),
+    [true, false, false],
+  );
   calls[1].resolve();
   await delay(0);
   // Record 1's promise does not wait for record 2, which is still pending:
-  assert.deepStrictEqual(states.map((s) => s.settled), [true, true, false]);
+  assert.deepStrictEqual(
+    states.map((s) => s.settled),
+    [true, true, false],
+  );
   calls[2].resolve();
   await sink[Symbol.asyncDispose]();
-  assert.deepStrictEqual(states.map((s) => s.settled), [true, true, true]);
+  assert.deepStrictEqual(
+    states.map((s) => s.settled),
+    [true, true, true],
+  );
 });
 
 test("fromAsyncSink() - waitUntil promises of dropped records", async () => {
@@ -1503,26 +1508,25 @@ test("fromAsyncSink() - waitUntil promises of dropped records", async () => {
   sink(makeRecord(3));
   const states = registered.map(trackSettled);
   await delay(0);
-  assert.deepStrictEqual(states.map((s) => s.settled), [
-    false,
-    false,
-    false,
-    false,
-  ]);
+  assert.deepStrictEqual(
+    states.map((s) => s.settled),
+    [false, false, false, false],
+  );
   calls[0].resolve();
   await delay(0);
   // The dropped records' promises settle once record 0 has finished, while
   // record 3 is still being processed:
   assert.strictEqual(calls.length, 2);
-  assert.deepStrictEqual(states.map((s) => s.settled), [
-    true,
-    true,
-    true,
-    false,
-  ]);
+  assert.deepStrictEqual(
+    states.map((s) => s.settled),
+    [true, true, true, false],
+  );
   calls[1].resolve();
   await sink[Symbol.asyncDispose]();
-  assert.deepStrictEqual(calls.map((c) => indexOf(c.record)), [0, 3]);
+  assert.deepStrictEqual(
+    calls.map((c) => indexOf(c.record)),
+    [0, 3],
+  );
   assert.ok(states.every((s) => s.settled));
 });
 
@@ -1579,7 +1583,10 @@ test("fromAsyncSink() - runs each record in its own async context", async () => 
       calls[1].resolve();
       await sink[Symbol.asyncDispose]();
     });
-    assert.deepStrictEqual(seenBySink, [[0, "request-a"], [1, "request-b"]]);
+    assert.deepStrictEqual(seenBySink, [
+      [0, "request-a"],
+      [1, "request-b"],
+    ]);
     assert.deepStrictEqual(
       seenByWaitUntil.map(([store]) => store),
       ["request-a", "request-b"],
@@ -1681,7 +1688,8 @@ test("fromAsyncSink() - rejections of async callbacks are reported", async () =>
     await sink[Symbol.asyncDispose]();
     await delay(0);
     assert.deepStrictEqual(
-      metaBuffer.map((r) => [r.properties.callback, `${r.properties.error}`])
+      metaBuffer
+        .map((r) => [r.properties.callback, `${r.properties.error}`])
         .sort(),
       [
         ["onDrop", "Error: onDrop rejected"],
@@ -1804,7 +1812,9 @@ test("fromAsyncSink() - disposal reports carried drops at most once per call", a
     onDrop: (event) => {
       drops.push(event);
       // Logs more than the queue can take, causing further drops:
-      if (logInsideOnDrop) { for (let i = 0; i < 3; i++) sink(warning); }
+      if (logInsideOnDrop) {
+        for (let i = 0; i < 3; i++) sink(warning);
+      }
     },
   });
   sink(makeRecord(0));
@@ -1847,15 +1857,16 @@ test("fromAsyncSink() - onDrop may drop the record that caused it", async () => 
   await delay(0);
   // Records 1 and 2 were dropped; their promises settle with record 0,
   // while the warning is still being processed:
-  assert.deepStrictEqual(states.map((s) => s.settled), [
-    true,
-    true,
-    false,
-    true,
-  ]);
+  assert.deepStrictEqual(
+    states.map((s) => s.settled),
+    [true, true, false, true],
+  );
   calls[1].resolve();
   await sink[Symbol.asyncDispose]();
-  assert.deepStrictEqual(calls.map((c) => c.record), [makeRecord(0), warning]);
+  assert.deepStrictEqual(
+    calls.map((c) => c.record),
+    [makeRecord(0), warning],
+  );
 });
 
 test("fromAsyncSink() - failure reports can refill an empty queue", async () => {
@@ -1886,23 +1897,26 @@ test("fromAsyncSink() - failure reports can refill an empty queue", async () => 
 test("fromAsyncSink() - a throwing meta sink does not break the chain", async () => {
   const registered: Promise<void>[] = [];
   const delivered: unknown[] = [];
-  await withMetaSink(() => {
-    throw new Error("Meta sink failed");
-  }, async () => {
-    const sink = fromAsyncSink(
-      async (record) => {
-        await Promise.resolve();
-        if (indexOf(record) === 0) throw new Error("Async sink error");
-        delivered.push(indexOf(record));
-      },
-      { waitUntil: (promise) => registered.push(promise) },
-    );
-    sink(makeRecord(0));
-    sink(makeRecord(1));
-    await registered[0];
-    await registered[1];
-    await sink[Symbol.asyncDispose]();
-  });
+  await withMetaSink(
+    () => {
+      throw new Error("Meta sink failed");
+    },
+    async () => {
+      const sink = fromAsyncSink(
+        async (record) => {
+          await Promise.resolve();
+          if (indexOf(record) === 0) throw new Error("Async sink error");
+          delivered.push(indexOf(record));
+        },
+        { waitUntil: (promise) => registered.push(promise) },
+      );
+      sink(makeRecord(0));
+      sink(makeRecord(1));
+      await registered[0];
+      await registered[1];
+      await sink[Symbol.asyncDispose]();
+    },
+  );
   assert.deepStrictEqual(delivered, [1]);
 });
 
@@ -1932,10 +1946,13 @@ test("fromAsyncSink() - a failing record that cannot be inspected does not break
 test("fromAsyncSink() - disposal waits for records logged while it resumes", async () => {
   const delivered: unknown[] = [];
   const registered: Promise<void>[] = [];
-  const sink = fromAsyncSink(async (record) => {
-    await Promise.resolve();
-    delivered.push(indexOf(record));
-  }, { waitUntil: (promise) => registered.push(promise) });
+  const sink = fromAsyncSink(
+    async (record) => {
+      await Promise.resolve();
+      delivered.push(indexOf(record));
+    },
+    { waitUntil: (promise) => registered.push(promise) },
+  );
   sink(makeRecord(0));
   // This reaction is registered before the disposer awaits the same promise,
   // so it logs right after the chain settles and before the disposer resumes:
@@ -1950,10 +1967,7 @@ test("fromAsyncSink() - concurrent and idle disposal", async () => {
   sink(makeRecord(0));
   sink(makeRecord(1));
   sink(makeRecord(2));
-  await Promise.all([
-    sink[Symbol.asyncDispose](),
-    sink[Symbol.asyncDispose](),
-  ]);
+  await Promise.all([sink[Symbol.asyncDispose](), sink[Symbol.asyncDispose]()]);
 });
 
 test("fingersCrossed() forwards Symbol.dispose", () => {
@@ -1977,10 +1991,8 @@ test("fingersCrossed() forwards Symbol.dispose", () => {
 });
 
 test("fingersCrossed() forwards Symbol.asyncDispose", async () => {
-  const rawSink = ((_record: LogRecord) => {}) as
-    & Sink
-    & AsyncDisposable
-    & { disposed: boolean };
+  const rawSink = ((_record: LogRecord) => {}) as Sink &
+    AsyncDisposable & { disposed: boolean };
   rawSink.disposed = false;
   rawSink[Symbol.asyncDispose] = async function (this: typeof rawSink) {
     await Promise.resolve();
@@ -1996,10 +2008,8 @@ test("fingersCrossed() forwards Symbol.asyncDispose", async () => {
 });
 
 test("fingersCrossed() composes TTL and wrapped sink disposal", () => {
-  const rawSink = ((_record: LogRecord) => {}) as
-    & Sink
-    & Disposable
-    & { disposed: boolean };
+  const rawSink = ((_record: LogRecord) => {}) as Sink &
+    Disposable & { disposed: boolean };
   rawSink.disposed = false;
   rawSink[Symbol.dispose] = function (this: typeof rawSink) {
     assert.strictEqual(this, rawSink);
@@ -2189,7 +2199,10 @@ for (const { name, options } of [snapshotModes[0], snapshotModes[3]]) {
     });
 
     sink(debug);
-    assert.throws(() => sink(info), (caught) => caught === failure);
+    assert.throws(
+      () => sink(info),
+      (caught) => caught === failure,
+    );
     assert.strictEqual(output.length, 0);
     sink(error);
 
@@ -2213,7 +2226,7 @@ for (const { name, options } of [snapshotModes[0], snapshotModes[3]]) {
       const sink = fingersCrossed(output.push.bind(output), {
         ...options,
         snapshot(record) {
-          return record === info ? invalid as LogRecord : record;
+          return record === info ? (invalid as LogRecord) : record;
         },
       });
 
@@ -2241,15 +2254,19 @@ test("fingersCrossed() snapshots real logger lazy values at intake", () => {
   logger.lowestLevel = "debug";
   logger.sinks.push(sink);
   try {
-    logger.logLazily("debug", (render) => {
-      messageCalls++;
-      return render`Payload: ${payload}`;
-    }, {
-      payload: lazy(() => {
-        propertyCalls++;
-        return payload;
-      }),
-    });
+    logger.logLazily(
+      "debug",
+      (render) => {
+        messageCalls++;
+        return render`Payload: ${payload}`;
+      },
+      {
+        payload: lazy(() => {
+          propertyCalls++;
+          return payload;
+        }),
+      },
+    );
     assert.strictEqual(messageCalls, 1);
     assert.strictEqual(propertyCalls, 1);
     payload.names.push("after");
@@ -2916,14 +2933,11 @@ test("fingersCrossed() - edge case: invalid trigger level", () => {
   const buffer: LogRecord[] = [];
 
   // Should throw TypeError during sink creation
-  assert.throws(
-    () => {
-      fingersCrossed(buffer.push.bind(buffer), {
-        triggerLevel: "invalid" as LogLevel,
-      });
-    },
-    TypeError,
-  );
+  assert.throws(() => {
+    fingersCrossed(buffer.push.bind(buffer), {
+      triggerLevel: "invalid" as LogLevel,
+    });
+  }, TypeError);
 });
 
 test("fingersCrossed() - edge case: very large buffer size", () => {
@@ -4363,13 +4377,10 @@ test("fingersCrossed() - context selectors require every isolation key", () => {
   });
 
   // Act and assert
-  assert.throws(
-    () => sink.discard({ context: { requestId: "req-1" } }),
-    {
-      name: "TypeError",
-      message: "Missing context selector keys: sessionId.",
-    },
-  );
+  assert.throws(() => sink.discard({ context: { requestId: "req-1" } }), {
+    name: "TypeError",
+    message: "Missing context selector keys: sessionId.",
+  });
 });
 
 test("fingersCrossed() - afterTrigger defaults to passthrough", () => {
@@ -4464,10 +4475,10 @@ test("fingersCrossed() - afterTrigger buffer limits each cycle", () => {
     afterTrigger: "buffer",
     maxBufferSize: 2,
   });
-  const records = Array.from(
-    { length: 6 },
-    (_, i): LogRecord => ({ ...debug, message: [`Record ${i}.`] }),
-  );
+  const records = Array.from({ length: 6 }, (_, i): LogRecord => ({
+    ...debug,
+    message: [`Record ${i}.`],
+  }));
 
   // Act
   for (const record of records.slice(0, 3)) sink(record);
@@ -4707,8 +4718,8 @@ test("fingersCrossed() - bufferAction takes precedence over afterTrigger", () =>
       record === flushRecord
         ? "flush"
         : record.level === "fatal"
-        ? "discard"
-        : undefined,
+          ? "discard"
+          : undefined,
   });
 
   // Act
@@ -4753,10 +4764,13 @@ test("fingersCrossed() - afterTrigger buffer isolates synchronous re-entry", () 
     message: ["Re-entered while flushing."],
   };
   let reenter = (_record: LogRecord): void => {};
-  const sink = fingersCrossed((record) => {
-    output.push(record);
-    if (record === info) reenter(reentrantRecord);
-  }, { afterTrigger: "buffer" });
+  const sink = fingersCrossed(
+    (record) => {
+      output.push(record);
+      if (record === info) reenter(reentrantRecord);
+    },
+    { afterTrigger: "buffer" },
+  );
   reenter = sink;
 
   // Act
@@ -4779,14 +4793,17 @@ test("fingersCrossed() - afterTrigger buffer processes re-entrant triggers", () 
   };
   let reentered = false;
   let reenter = (_record: LogRecord): void => {};
-  const sink = fingersCrossed((record) => {
-    output.push(record);
-    if (record === info && !reentered) {
-      reentered = true;
-      reenter(trace);
-      reenter(reentrantError);
-    }
-  }, { afterTrigger: "buffer" });
+  const sink = fingersCrossed(
+    (record) => {
+      output.push(record);
+      if (record === info && !reentered) {
+        reentered = true;
+        reenter(trace);
+        reenter(reentrantError);
+      }
+    },
+    { afterTrigger: "buffer" },
+  );
   reenter = sink;
 
   // Act
@@ -4795,13 +4812,7 @@ test("fingersCrossed() - afterTrigger buffer processes re-entrant triggers", () 
   sink(fatal);
 
   // Assert
-  assert.deepStrictEqual(output, [
-    info,
-    trace,
-    reentrantError,
-    debug,
-    fatal,
-  ]);
+  assert.deepStrictEqual(output, [info, trace, reentrantError, debug, fatal]);
 });
 
 test("fingersCrossed() - afterTrigger buffer isolates re-entry per context", () => {
@@ -4821,13 +4832,16 @@ test("fingersCrossed() - afterTrigger buffer isolates re-entry per context", () 
     properties: { requestId: "req-1" },
   };
   let reenter = (_record: LogRecord): void => {};
-  const sink = fingersCrossed((record) => {
-    output.push(record);
-    if (record === buffered) reenter(reentrantRecord);
-  }, {
-    isolateByContext: { keys: ["requestId"] },
-    afterTrigger: "buffer",
-  });
+  const sink = fingersCrossed(
+    (record) => {
+      output.push(record);
+      if (record === buffered) reenter(reentrantRecord);
+    },
+    {
+      isolateByContext: { keys: ["requestId"] },
+      afterTrigger: "buffer",
+    },
+  );
   reenter = sink;
 
   // Act
@@ -4849,13 +4863,16 @@ test("fingersCrossed() - afterTrigger buffer consumes batches on sink errors", (
   // Arrange
   const attempts: LogRecord[] = [];
   let shouldThrow = true;
-  const sink = fingersCrossed((record) => {
-    attempts.push(record);
-    if (shouldThrow) {
-      shouldThrow = false;
-      throw new Error("Sink failed.");
-    }
-  }, { afterTrigger: "buffer" });
+  const sink = fingersCrossed(
+    (record) => {
+      attempts.push(record);
+      if (shouldThrow) {
+        shouldThrow = false;
+        throw new Error("Sink failed.");
+      }
+    },
+    { afterTrigger: "buffer" },
+  );
 
   // Act and assert
   sink(debug);
@@ -4871,24 +4888,26 @@ test("fingersCrossed() - afterTrigger buffer keeps unselected buffers on sink er
   let shouldThrow = true;
   const req1: LogRecord = { ...debug, properties: { requestId: "req-1" } };
   const req2: LogRecord = { ...debug, properties: { requestId: "req-2" } };
-  const sink = fingersCrossed((record) => {
-    attempts.push(record);
-    if (shouldThrow) {
-      shouldThrow = false;
-      throw new Error("Sink failed.");
-    }
-  }, {
-    isolateByContext: { keys: ["requestId"] },
-    afterTrigger: "buffer",
-  });
+  const sink = fingersCrossed(
+    (record) => {
+      attempts.push(record);
+      if (shouldThrow) {
+        shouldThrow = false;
+        throw new Error("Sink failed.");
+      }
+    },
+    {
+      isolateByContext: { keys: ["requestId"] },
+      afterTrigger: "buffer",
+    },
+  );
 
   // Act and assert
   sink(req1);
   sink(req2);
-  assert.throws(
-    () => sink({ ...error, properties: { requestId: "req-1" } }),
-    { message: "Sink failed." },
-  );
+  assert.throws(() => sink({ ...error, properties: { requestId: "req-1" } }), {
+    message: "Sink failed.",
+  });
   sink({ ...error, properties: { requestId: "req-1" } });
   sink({ ...error, properties: { requestId: "req-2" } });
   assert.deepStrictEqual(attempts, [
@@ -4980,7 +4999,8 @@ test("fingersCrossed() - afterTrigger validation", () => {
         }),
       {
         name: "TypeError",
-        message: `Invalid afterTrigger: ${JSON.stringify(afterTrigger)}. ` +
+        message:
+          `Invalid afterTrigger: ${JSON.stringify(afterTrigger)}. ` +
           'Expected "passthrough", "buffer", or undefined.',
       },
     );
@@ -5144,11 +5164,7 @@ test("fingersCrossed() - TTL cleanup preserves active triggered contexts", async
       timestamp: now,
     };
     sink(req1PassThrough);
-    assert.deepStrictEqual(buffer, [
-      req1Debug,
-      req1Error,
-      req1PassThrough,
-    ]);
+    assert.deepStrictEqual(buffer, [req1Debug, req1Error, req1PassThrough]);
 
     buffer.length = 0;
     now += 70;
@@ -5749,8 +5765,8 @@ test("getConsoleSink() reports drops in separate aggregation windows", () => {
     pending.set(++nextId, { callback, ms });
     return nextId;
   }) as unknown as typeof setTimeout;
-  globalThis.clearTimeout =
-    ((id: number) => pending.delete(id)) as unknown as typeof clearTimeout;
+  globalThis.clearTimeout = ((id: number) =>
+    pending.delete(id)) as unknown as typeof clearTimeout;
   const drops: SinkDropEvent[] = [];
   const sink = getConsoleSink({
     console: { ...console, info() {} },
@@ -5791,27 +5807,32 @@ test("getConsoleSink() reports drops in separate aggregation windows", () => {
 });
 
 test("getConsoleSink() generated bursts count only real overflow", () => {
-  fc.assert(fc.property(fc.array(fc.string()), (messages) => {
-    // Arrange
-    const output: string[] = [];
-    const drops: SinkDropEvent[] = [];
-    const sink = getConsoleSink({
-      console: { ...console, info: (message: string) => output.push(message) },
-      formatter: (record) => [record.rawMessage],
-      nonBlocking: { bufferSize: 2, onDrop: (event) => drops.push(event) },
-    }) as Sink & Disposable;
-    // Act
-    for (const rawMessage of messages) sink({ ...info, rawMessage });
-    sink[Symbol.dispose]();
-    // Assert
-    assert.deepStrictEqual(output, messages.slice(-4));
-    assert.deepStrictEqual(
-      drops,
-      messages.length > 4
-        ? [{ count: messages.length - 4, reason: "overflow" }]
-        : [],
-    );
-  }));
+  fc.assert(
+    fc.property(fc.array(fc.string()), (messages) => {
+      // Arrange
+      const output: string[] = [];
+      const drops: SinkDropEvent[] = [];
+      const sink = getConsoleSink({
+        console: {
+          ...console,
+          info: (message: string) => output.push(message),
+        },
+        formatter: (record) => [record.rawMessage],
+        nonBlocking: { bufferSize: 2, onDrop: (event) => drops.push(event) },
+      }) as Sink & Disposable;
+      // Act
+      for (const rawMessage of messages) sink({ ...info, rawMessage });
+      sink[Symbol.dispose]();
+      // Assert
+      assert.deepStrictEqual(output, messages.slice(-4));
+      assert.deepStrictEqual(
+        drops,
+        messages.length > 4
+          ? [{ count: messages.length - 4, reason: "overflow" }]
+          : [],
+      );
+    }),
+  );
 });
 
 test("getStreamSink() reports overflow while output is stalled", async () => {
@@ -5946,9 +5967,9 @@ for (const operation of ["format", "encode", "write", "close"] as const) {
       operation === "close"
         ? [{ error: failure, sink: "stream", operation }]
         : [
-          { error: failure, sink: "stream", operation },
-          { error: failure, sink: "stream", operation },
-        ],
+            { error: failure, sink: "stream", operation },
+            { error: failure, sink: "stream", operation },
+          ],
     );
     for (const event of events) assert.strictEqual(event.error, failure);
     assert.strictEqual(stream.locked, false);
@@ -5993,11 +6014,13 @@ for (const start of ["producer", "timer"] as const) {
       await beforeDeadline(notified.promise, "Flush error not reported");
       assert.ok(disposal);
       await disposal;
-      assert.deepStrictEqual(events, [{
-        error: failure,
-        sink: "stream",
-        operation: "format",
-      }]);
+      assert.deepStrictEqual(events, [
+        {
+          error: failure,
+          sink: "stream",
+          operation: "format",
+        },
+      ]);
       assert.deepStrictEqual(output, ["1", "2"]);
       assert.strictEqual(closed, 1);
       assert.strictEqual(stream.locked, false);
@@ -6119,11 +6142,13 @@ test("getStreamSink() close error callback cannot recursively dispose", async ()
     Promise.resolve(first),
     "Recursive disposal never settled",
   );
-  assert.deepStrictEqual(events, [{
-    error: failure,
-    sink: "stream",
-    operation: "close",
-  }]);
+  assert.deepStrictEqual(events, [
+    {
+      error: failure,
+      sink: "stream",
+      operation: "close",
+    },
+  ]);
   assert.strictEqual(closeCalls, 1);
   assert.strictEqual(stream.locked, false);
 });
@@ -6195,20 +6220,21 @@ for (const kind of ["console", "stream"] as const) {
       notified.resolve();
       return Promise.reject(new Error("diagnostic failed"));
     };
-    const sink = kind === "console"
-      ? getConsoleSink({
-        console: { ...console, info: (text: string) => output.push(text) },
-        formatter,
-        nonBlocking: { bufferSize: 1, onError },
-      }) as Sink & Disposable
-      : getStreamSink(
-        new WritableStream({
-          write(bytes: Uint8Array) {
-            output.push(new TextDecoder().decode(bytes));
-          },
-        }),
-        { formatter, nonBlocking: { bufferSize: 1, onError } },
-      );
+    const sink =
+      kind === "console"
+        ? (getConsoleSink({
+            console: { ...console, info: (text: string) => output.push(text) },
+            formatter,
+            nonBlocking: { bufferSize: 1, onError },
+          }) as Sink & Disposable)
+        : getStreamSink(
+            new WritableStream({
+              write(bytes: Uint8Array) {
+                output.push(new TextDecoder().decode(bytes));
+              },
+            }),
+            { formatter, nonBlocking: { bufferSize: 1, onError } },
+          );
     try {
       sink({ ...info, timestamp: 0 });
       await beforeDeadline(notified.promise, "Error callback not invoked");
@@ -6219,15 +6245,20 @@ for (const kind of ["console", "stream"] as const) {
     }
     await delay(0);
     assert.deepStrictEqual(output, ["1"]);
-    assert.deepStrictEqual(events, [{
-      error: failure,
-      sink: kind,
-      operation: "format",
-    }]);
+    assert.deepStrictEqual(events, [
+      {
+        error: failure,
+        sink: kind,
+        operation: "format",
+      },
+    ]);
   });
 }
 
-for (const [bufferSize, burstSize] of [[1, 4], [100, 350]]) {
+for (const [bufferSize, burstSize] of [
+  [1, 4],
+  [100, 350],
+]) {
   for (const withNotifications of [false, true]) {
     test(`getStreamSink() retains synchronous burst capacity (${bufferSize}, ${withNotifications})`, async () => {
       const output: number[] = [];
@@ -6354,7 +6385,10 @@ function createDeferred(): Deferred {
 
 async function isSettled(promise: Promise<unknown>): Promise<boolean> {
   let settled = false;
-  promise.then(() => settled = true, () => settled = true);
+  promise.then(
+    () => (settled = true),
+    () => (settled = true),
+  );
   await delay(20);
   return settled;
 }
@@ -6415,7 +6449,8 @@ function createControlledStream(hold = true) {
 }
 
 function writtenTexts(events: readonly string[]): string[] {
-  return events.filter((event) => event.startsWith("write "))
+  return events
+    .filter((event) => event.startsWith("write "))
     .map((event) => event.slice("write ".length));
 }
 
@@ -6994,7 +7029,10 @@ test("Drainable is preserved by wrapper types", () => {
   const filtered: Drainable = withFilter(sink, "info");
   const crossed: Drainable & AsyncDisposable = fingersCrossed(sink);
   const crossedFiltered: Drainable = fingersCrossed(
-    withFilter(fromAsyncSink(async () => {}), "info"),
+    withFilter(
+      fromAsyncSink(async () => {}),
+      "info",
+    ),
   );
   assert.strictEqual(typeof filtered.drain, "function");
   assert.strictEqual(typeof crossed.drain, "function");

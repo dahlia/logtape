@@ -136,18 +136,17 @@ globalThis.Symbol = legacySymbol;
 
 // Workers import source modules and create temporary log files.  Skip only
 // restricted Deno invocations; root and package test tasks grant both accesses.
-const skip = typeof Deno !== "undefined" &&
+const skip =
+  typeof Deno !== "undefined" &&
   (Deno.permissions.querySync({ name: "read" }).state !== "granted" ||
     Deno.permissions.querySync({ name: "write" }).state !== "granted");
 
-for (
-  const missing of [
-    ["dispose", "asyncDispose"],
-    ["dispose"],
-    ["asyncDispose"],
-    [],
-  ]
-) {
+for (const missing of [
+  ["dispose", "asyncDispose"],
+  ["dispose"],
+  ["asyncDispose"],
+  [],
+]) {
   test(
     `File disposal hooks with missing symbols: ${missing.join(", ") || "none"}`,
     {

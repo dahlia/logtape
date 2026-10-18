@@ -21,11 +21,11 @@ function formatLocalDateTimeTimezone(ts: number): string {
   const offsetMinutes = -d.getTimezoneOffset();
   const sign = offsetMinutes < 0 ? "-" : "+";
   const abs = Math.abs(offsetMinutes);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${
-    pad2(d.getHours())
-  }:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${
-    pad3(d.getMilliseconds())
-  } ${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
+    d.getHours(),
+  )}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(
+    d.getMilliseconds(),
+  )} ${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
 }
 
 function createLogRecord(
@@ -36,9 +36,10 @@ function createLogRecord(
   properties: Record<string, unknown> = {},
 ): LogRecord {
   // Convert message array to template strings format for rawMessage
-  const rawMessage = typeof message === "string"
-    ? message
-    : message.filter((_, i) => i % 2 === 0).join("{}");
+  const rawMessage =
+    typeof message === "string"
+      ? message
+      : message.filter((_, i) => i % 2 === 0).join("{}");
 
   return {
     level,
@@ -391,14 +392,8 @@ test("getPrettyFormatter() with invalid timeZone", () => {
     () => getPrettyFormatter({ timeZone: "not/a-real-zone" }),
     TypeError,
   );
-  assert.throws(
-    () => getPrettyFormatter({ timeZone: "+9:00" }),
-    TypeError,
-  );
-  assert.throws(
-    () => getPrettyFormatter({ timeZone: "+24:00" }),
-    TypeError,
-  );
+  assert.throws(() => getPrettyFormatter({ timeZone: "+9:00" }), TypeError);
+  assert.throws(() => getPrettyFormatter({ timeZone: "+24:00" }), TypeError);
 });
 
 test("getPrettyFormatter() with styles", () => {
@@ -473,16 +468,20 @@ test("getPrettyFormatter() with category color mapping", () => {
   });
 
   // Test exact match
-  const authRecord = createLogRecord("info", ["app", "auth", "login"], [
-    "User logged in",
-  ]);
+  const authRecord = createLogRecord(
+    "info",
+    ["app", "auth", "login"],
+    ["User logged in"],
+  );
   const authResult = formatter(authRecord);
   assert.ok(authResult.includes("\x1b[38;2;255;107;107m")); // #ff6b6b
 
   // Test prefix fallback
-  const miscRecord = createLogRecord("info", ["app", "utils"], [
-    "Utility called",
-  ]);
+  const miscRecord = createLogRecord(
+    "info",
+    ["app", "utils"],
+    ["Utility called"],
+  );
   const miscResult = formatter(miscRecord);
   assert.ok(miscResult.includes("\x1b[38;2;69;183;209m")); // #45b7d1
 
@@ -505,31 +504,35 @@ test("Category color mapping precedence", () => {
   });
 
   // Should match most specific pattern
-  const jwtRecord = createLogRecord("info", ["app", "auth", "jwt", "verify"], [
-    "Token verified",
-  ]);
+  const jwtRecord = createLogRecord(
+    "info",
+    ["app", "auth", "jwt", "verify"],
+    ["Token verified"],
+  );
   const jwtResult = formatter(jwtRecord);
   assert.ok(jwtResult.includes("\x1b[38;2;255;0;0m")); // #ff0000
 
   // Should match less specific pattern
-  const authRecord = createLogRecord("info", ["app", "auth", "session"], [
-    "Session created",
-  ]);
+  const authRecord = createLogRecord(
+    "info",
+    ["app", "auth", "session"],
+    ["Session created"],
+  );
   const authResult = formatter(authRecord);
   assert.ok(authResult.includes("\x1b[38;2;0;255;0m")); // #00ff00
 
   // Should match least specific pattern
-  const appRecord = createLogRecord("info", ["app", "server"], [
-    "Server started",
-  ]);
+  const appRecord = createLogRecord(
+    "info",
+    ["app", "server"],
+    ["Server started"],
+  );
   const appResult = formatter(appRecord);
   assert.ok(appResult.includes("\x1b[38;2;0;0;255m")); // #0000ff
 });
 
 test("Category color mapping with no match", () => {
-  const categoryColorMap: CategoryColorMap = new Map([
-    [["app"], "#ff0000"],
-  ]);
+  const categoryColorMap: CategoryColorMap = new Map([[["app"], "#ff0000"]]);
 
   const formatter = getPrettyFormatter({
     categoryColorMap,
@@ -538,9 +541,11 @@ test("Category color mapping with no match", () => {
   });
 
   // Should use fallback color for non-matching category
-  const record = createLogRecord("info", ["system", "kernel"], [
-    "Kernel message",
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["system", "kernel"],
+    ["Kernel message"],
+  );
   const result = formatter(record);
   assert.ok(result.includes("\x1b[38;2;0;255;0m")); // fallback #00ff00
 });
@@ -552,12 +557,11 @@ test("Interpolated values with proper color reset/reapply", () => {
     colors: true,
   });
 
-  const record = createLogRecord("info", ["test"], [
-    "User data: ",
-    { id: 123, name: "John" },
-    ", status: ",
-    "active",
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["User data: ", { id: 123, name: "John" }, ", status: ", "active"],
+  );
 
   const result = formatter(record);
 
@@ -729,9 +733,9 @@ test("getPrettyFormatter() with consistent icon spacing", () => {
 
   // Split into lines and get continuation lines
   const infoLines = infoResult.split("\n").filter((line) => line.length > 0);
-  const warningLines = warningResult.split("\n").filter((line) =>
-    line.length > 0
-  );
+  const warningLines = warningResult
+    .split("\n")
+    .filter((line) => line.length > 0);
   const errorLines = errorResult.split("\n").filter((line) => line.length > 0);
 
   // All should have multiple lines due to wrapping
@@ -742,7 +746,9 @@ test("getPrettyFormatter() with consistent icon spacing", () => {
   // Check that continuation lines are indented to the same position
   // despite different icon widths
   if (
-    infoLines.length > 1 && warningLines.length > 1 && errorLines.length > 1
+    infoLines.length > 1 &&
+    warningLines.length > 1 &&
+    errorLines.length > 1
   ) {
     const infoIndent = infoLines[1].search(/\S/);
     const warningIndent = warningLines[1].search(/\S/);
@@ -799,10 +805,11 @@ test("getPrettyFormatter() with multiline interpolated values", () => {
 
   // Create an error that will have multiline output
   const error = new Error("Test error message");
-  const record = createLogRecord("error", ["test"], [
-    "Exception occurred: ",
-    error,
-  ]);
+  const record = createLogRecord(
+    "error",
+    ["test"],
+    ["Exception occurred: ", error],
+  );
   const result = formatter(record);
 
   const lines = result.split("\n").filter((line) => line.length > 0);
@@ -857,10 +864,7 @@ test("getPrettyFormatter() with multiline interpolated values (no align)", () =>
   });
 
   const error = new Error("Test error");
-  const record = createLogRecord("error", ["app"], [
-    "Error: ",
-    error,
-  ]);
+  const record = createLogRecord("error", ["app"], ["Error: ", error]);
   const result = formatter(record);
 
   const lines = result.split("\n").filter((line) => line.length > 0);
@@ -1020,10 +1024,11 @@ test("interpolated values keep arrays on one line by default", () => {
     wordWrap: false,
   });
 
-  const record = createLogRecord("info", ["test"], [
-    "commands: ",
-    ["one", "two", "three", "four", "five", "six", "seven"],
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["commands: ", ["one", "two", "three", "four", "five", "six", "seven"]],
+  );
   const result = formatter(record);
 
   assert.strictEqual(
@@ -1043,10 +1048,11 @@ test("interpolated values are inspected without a depth limit by default", () =>
     wordWrap: false,
   });
 
-  const record = createLogRecord("info", ["test"], [
-    "deep: ",
-    { a: { b: { c: { d: { e: 1 } } } } },
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["deep: ", { a: { b: { c: { d: { e: 1 } } } } }],
+  );
   const result = formatter(record);
 
   assert.ok(!result.includes("[Object]"));
@@ -1111,14 +1117,18 @@ test("getPrettyFormatter() with getters option", () => {
     inspectOptions: { getters: true },
   });
 
-  const recordWithGetters = createLogRecord("info", ["test"], [
-    "Object with getter: ",
-    {
-      get computed() {
-        return "getter result";
+  const recordWithGetters = createLogRecord(
+    "info",
+    ["test"],
+    [
+      "Object with getter: ",
+      {
+        get computed() {
+          return "getter result";
+        },
       },
-    },
-  ]);
+    ],
+  );
 
   const result = formatter(recordWithGetters);
 
@@ -1146,10 +1156,11 @@ test("getPrettyFormatter() with getters option", () => {
       },
     };
 
-    const record = createLogRecord("info", ["test"], [
-      "Result: ",
-      objectWithGetters,
-    ]);
+    const record = createLogRecord(
+      "info",
+      ["test"],
+      ["Result: ", objectWithGetters],
+    );
 
     const result = formatter(record);
 
@@ -1177,10 +1188,11 @@ test("getPrettyFormatter() with showProxy option", () => {
     },
   );
 
-  const record = createLogRecord("info", ["test"], [
-    "Proxy object: ",
-    proxyObject,
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Proxy object: ", proxyObject],
+  );
 
   const result = formatter(record);
 
@@ -1209,10 +1221,11 @@ test("getPrettyFormatter() with both getters and showProxy options", () => {
     },
   );
 
-  const record = createLogRecord("info", ["test"], [
-    "Complex object: ",
-    proxyWithGetters,
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["test"],
+    ["Complex object: ", proxyWithGetters],
+  );
 
   const result = formatter(record);
 
@@ -1222,9 +1235,11 @@ test("getPrettyFormatter() with both getters and showProxy options", () => {
 
 test("getPrettyFormatter() sanitizes control sequences in the message", () => {
   const formatter = getPrettyFormatter({ colors: false });
-  const record = createLogRecord("info", ["app"], [
-    "\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok",
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["app"],
+    ["\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok"],
+  );
   const result = formatter(record);
 
   assert.ok(result.includes("\\x1b[1A\\x1b[2K"));
@@ -1250,9 +1265,11 @@ test("getPrettyFormatter() preserves SGR sequences in the message", () => {
 });
 
 test("getPrettyFormatter() with sanitize option", () => {
-  const record = createLogRecord("info", ["app"], [
-    "\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok",
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["app"],
+    ["\x1b[1A\x1b[2K\x1b[32m[INF] auth: login ok"],
+  );
 
   // `false` restores the pre-2.0.23 behavior, in the category as well as the
   // message; the category has its own sanitizer, so it needs its own check.
@@ -1278,11 +1295,7 @@ test("getPrettyFormatter() with sanitize option", () => {
 
 test("getPrettyFormatter() does not sanitize interpolated values twice", () => {
   const formatter = getPrettyFormatter({ colors: false });
-  const record = createLogRecord("info", ["app"], [
-    "value: ",
-    "\x1b[2J",
-    "",
-  ]);
+  const record = createLogRecord("info", ["app"], ["value: ", "\x1b[2J", ""]);
   const result = formatter(record);
 
   // `inspect()` already escapes the value, so it must not be double-escaped.
@@ -1297,26 +1310,22 @@ test('getPrettyFormatter() with value: "bare"', () => {
   const options = { colors: false, wordWrap: false } as const;
   const formatter = getPrettyFormatter({ ...options, value: "bare" });
   const defaultFormatter = getPrettyFormatter(options);
-  const record = createLogRecord("info", ["app"], [
-    "Resume it with: ",
-    "swamp workflow resume wf",
-    "",
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["app"],
+    ["Resume it with: ", "swamp workflow resume wf", ""],
+  );
   assert.ok(
     formatter(record).endsWith(" Resume it with: swamp workflow resume wf\n"),
   );
 
   // Values other than strings, including strings nested in objects and
   // arrays, are rendered as they are by default.
-  const others = createLogRecord("info", ["app"], [
-    "",
-    123,
-    " ",
-    { name: "a b" },
-    " ",
-    ["c d"],
-    "",
-  ]);
+  const others = createLogRecord(
+    "info",
+    ["app"],
+    ["", 123, " ", { name: "a b" }, " ", ["c d"], ""],
+  );
   assert.strictEqual(formatter(others), defaultFormatter(others));
 
   // Strings in the properties section keep their quotes.
@@ -1396,15 +1405,11 @@ test("getPrettyFormatter() with a value callback", () => {
     wordWrap: false,
     inspectOptions: { depth: 0 },
   } as const;
-  const record = createLogRecord("info", ["app"], [
-    "",
-    { a: { b: 1 } },
-    " ",
-    1.5,
-    " ",
-    "s",
-    "",
-  ]);
+  const record = createLogRecord(
+    "info",
+    ["app"],
+    ["", { a: { b: 1 } }, " ", 1.5, " ", "s", ""],
+  );
   // Falling back to the given inspect() renders values as by default, with
   // inspectOptions and colors applied.
   assert.strictEqual(
@@ -1416,7 +1421,7 @@ test("getPrettyFormatter() with a value callback", () => {
   const custom = getPrettyFormatter({
     colors: false,
     wordWrap: false,
-    value: (v, inspect) => typeof v === "number" ? v.toFixed(2) : inspect(v),
+    value: (v, inspect) => (typeof v === "number" ? v.toFixed(2) : inspect(v)),
   })(record);
   assert.ok(custom.includes(" 1.50 "));
 });

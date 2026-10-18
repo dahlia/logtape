@@ -543,19 +543,22 @@ async function buildRequestContext(
   options: RequestContextOptions,
 ): Promise<HonoRequestContextState> {
   const requestIdOptions = normalizeRequestIdOptions(options.requestId);
-  const resolvedRequestId = requestIdOptions == null
-    ? undefined
-    : resolveRequestId(c, requestIdOptions);
-  const include = options.include ??
-    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const resolvedRequestId =
+    requestIdOptions == null
+      ? undefined
+      : resolveRequestId(c, requestIdOptions);
+  const include =
+    options.include ??
+    (resolvedRequestId == null ? [] : (["requestId"] as const));
   const context = buildIncludedContext(c, resolvedRequestId, include);
   if (options.enrich != null) Object.assign(context, await options.enrich(c));
-  const responseHeader = resolvedRequestId?.responseHeader == null
-    ? undefined
-    : {
-      name: resolvedRequestId.responseHeader,
-      value: resolvedRequestId.value,
-    };
+  const responseHeader =
+    resolvedRequestId?.responseHeader == null
+      ? undefined
+      : {
+          name: resolvedRequestId.responseHeader,
+          value: resolvedRequestId.value,
+        };
   return { context, responseHeader };
 }
 
@@ -611,9 +614,9 @@ function formatClfDate(timestamp: number = Date.now()): string {
   const date = new Date(timestamp);
   return `${pad2(date.getUTCDate())}/${
     clfMonths[date.getUTCMonth()]
-  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${
-    pad2(date.getUTCMinutes())
-  }:${pad2(date.getUTCSeconds())} +0000`;
+  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${pad2(
+    date.getUTCMinutes(),
+  )}:${pad2(date.getUTCSeconds())} +0000`;
 }
 
 function escapeAccessLogValue(value: unknown, escapeSpaces: boolean): string {
@@ -689,15 +692,15 @@ function formatCommon(
  * ":referrer" ":user-agent"
  */
 function formatMorganCombined(c: HonoContext): string {
-  return `${formatAccessLogToken(getRemoteAddr(c))} - ${
-    formatAccessLogToken(getRemoteUser(c))
-  } [${formatClfDate()}] "${formatAccessLogToken(c.req.method)} ${
-    formatAccessLogToken(getRequestTarget(c))
-  } HTTP/-" ${formatAccessLogToken(c.res.status)} ${
-    formatAccessLogToken(getContentLength(c))
-  } ${formatAccessLogQuotedToken(getReferrer(c))} ${
-    formatAccessLogQuotedToken(getUserAgent(c))
-  }`;
+  return `${formatAccessLogToken(getRemoteAddr(c))} - ${formatAccessLogToken(
+    getRemoteUser(c),
+  )} [${formatClfDate()}] "${formatAccessLogToken(c.req.method)} ${formatAccessLogToken(
+    getRequestTarget(c),
+  )} HTTP/-" ${formatAccessLogToken(c.res.status)} ${formatAccessLogToken(
+    getContentLength(c),
+  )} ${formatAccessLogQuotedToken(getReferrer(c))} ${formatAccessLogQuotedToken(
+    getUserAgent(c),
+  )}`;
 }
 
 /**
@@ -706,55 +709,46 @@ function formatMorganCombined(c: HonoContext): string {
  * ":method :url HTTP/:http-version" :status :res[content-length]
  */
 function formatMorganCommon(c: HonoContext): string {
-  return `${formatAccessLogToken(getRemoteAddr(c))} - ${
-    formatAccessLogToken(getRemoteUser(c))
-  } [${formatClfDate()}] "${formatAccessLogToken(c.req.method)} ${
-    formatAccessLogToken(getRequestTarget(c))
-  } HTTP/-" ${formatAccessLogToken(c.res.status)} ${
-    formatAccessLogToken(getContentLength(c))
-  }`;
+  return `${formatAccessLogToken(getRemoteAddr(c))} - ${formatAccessLogToken(
+    getRemoteUser(c),
+  )} [${formatClfDate()}] "${formatAccessLogToken(c.req.method)} ${formatAccessLogToken(
+    getRequestTarget(c),
+  )} HTTP/-" ${formatAccessLogToken(c.res.status)} ${formatAccessLogToken(
+    getContentLength(c),
+  )}`;
 }
 
 /**
  * Dev format (colored output for development).
  * :method :path :status :response-time ms - :res[content-length]
  */
-function formatDev(
-  c: HonoContext,
-  responseTime: number,
-): string {
+function formatDev(c: HonoContext, responseTime: number): string {
   const contentLength = getContentLength(c) ?? "-";
-  return `${c.req.method} ${c.req.path} ${c.res.status} ${
-    responseTime.toFixed(3)
-  } ms - ${contentLength}`;
+  return `${c.req.method} ${c.req.path} ${c.res.status} ${responseTime.toFixed(
+    3,
+  )} ms - ${contentLength}`;
 }
 
 /**
  * Short format.
  * :method :url :status :res[content-length] - :response-time ms
  */
-function formatShort(
-  c: HonoContext,
-  responseTime: number,
-): string {
+function formatShort(c: HonoContext, responseTime: number): string {
   const contentLength = getContentLength(c) ?? "-";
-  return `${c.req.method} ${c.req.url} ${c.res.status} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  return `${c.req.method} ${c.req.url} ${c.res.status} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
  * Tiny format (minimal output).
  * :method :path :status :res[content-length] - :response-time ms
  */
-function formatTiny(
-  c: HonoContext,
-  responseTime: number,
-): string {
+function formatTiny(c: HonoContext, responseTime: number): string {
   const contentLength = getContentLength(c) ?? "-";
-  return `${c.req.method} ${c.req.path} ${c.res.status} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  return `${c.req.method} ${c.req.path} ${c.res.status} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
@@ -906,9 +900,10 @@ export function honoLogger(
   const contextOptions = normalizeRequestContextOptions(options.context);
 
   // Resolve format function
-  const formatFn: FormatFunction = typeof formatOption === "string"
-    ? predefinedFormats[formatOption]
-    : formatOption;
+  const formatFn: FormatFunction =
+    typeof formatOption === "string"
+      ? predefinedFormats[formatOption]
+      : formatOption;
 
   const logMethod = logger[level].bind(logger);
 
@@ -935,22 +930,24 @@ export function honoLogger(
         if (finished) return;
         finished = true;
         try {
-          const log = outcome == null || completionLevel == null
-            ? logMethod
-            : logger[
-              resolveCompletionLevel(
-                () =>
-                  completionLevel(honoContext, {
-                    status: honoContext.res.status,
-                    responseTime,
-                    error: outcome.kind === "errored"
-                      ? outcome.error
-                      : honoContext.error,
-                    aborted: outcome.kind === "cancelled",
-                  }),
-                level,
-              )
-            ].bind(logger);
+          const log =
+            outcome == null || completionLevel == null
+              ? logMethod
+              : logger[
+                  resolveCompletionLevel(
+                    () =>
+                      completionLevel(honoContext, {
+                        status: honoContext.res.status,
+                        responseTime,
+                        error:
+                          outcome.kind === "errored"
+                            ? outcome.error
+                            : honoContext.error,
+                        aborted: outcome.kind === "cancelled",
+                      }),
+                    level,
+                  )
+                ].bind(logger);
           const result = withRequestLogContext(
             formatFn(honoContext, responseTime),
             requestContext,
@@ -1120,41 +1117,44 @@ export function honoLogger(
           (error: unknown) => errorWhenIdle(error),
         );
 
-        const wrapped = new ReadableStream<Uint8Array>({
-          start(ctrl) {
-            controller = ctrl;
-          },
-          async pull(ctrl) {
-            controller = ctrl;
-            reading = true;
-            try {
-              const result = await reader.read();
-              reading = false;
-              if (wrapperFinished) return;
-              if (pendingError !== undefined) {
-                if (!result.done) ctrl.enqueue(result.value);
-                const error = pendingError.value;
-                pendingError = undefined;
+        const wrapped = new ReadableStream<Uint8Array>(
+          {
+            start(ctrl) {
+              controller = ctrl;
+            },
+            async pull(ctrl) {
+              controller = ctrl;
+              reading = true;
+              try {
+                const result = await reader.read();
+                reading = false;
+                if (wrapperFinished) return;
+                if (pendingError !== undefined) {
+                  if (!result.done) ctrl.enqueue(result.value);
+                  const error = pendingError.value;
+                  pendingError = undefined;
+                  finish(() => ctrl.error(error), { kind: "errored", error });
+                  return;
+                }
+                if (result.done) {
+                  finish(() => ctrl.close(), closedBodyOutcome);
+                } else {
+                  ctrl.enqueue(result.value);
+                  closeWhenIdle();
+                }
+              } catch (error) {
+                reading = false;
                 finish(() => ctrl.error(error), { kind: "errored", error });
-                return;
+                await cancelReader(reader, error);
               }
-              if (result.done) {
-                finish(() => ctrl.close(), closedBodyOutcome);
-              } else {
-                ctrl.enqueue(result.value);
-                closeWhenIdle();
-              }
-            } catch (error) {
-              reading = false;
-              finish(() => ctrl.error(error), { kind: "errored", error });
-              await cancelReader(reader, error);
-            }
+            },
+            cancel(reason) {
+              finish(() => {}, cancelledBodyOutcome);
+              return reader.cancel(reason);
+            },
           },
-          cancel(reason) {
-            finish(() => {}, cancelledBodyOutcome);
-            return reader.cancel(reason);
-          },
-        }, { highWaterMark: 0 });
+          { highWaterMark: 0 },
+        );
         c.res = new Response(wrapped, response);
         copyResponseMetadata(response, c.res);
         return;
@@ -1245,59 +1245,63 @@ export function honoLogger(
       // consumer asks for BYOB.
       acquireReader(false);
 
-      const wrapped = new ReadableStream({
-        type: "bytes",
-        start(ctrl: ReadableByteStreamController) {
-          controller = ctrl;
-        },
-        async pull(ctrl: ReadableByteStreamController) {
-          controller = ctrl;
-          try {
-            const request = ctrl.byobRequest;
-            const wantByob = request != null;
-            if (sourceReader == null) {
-              acquireReader(wantByob);
-            } else if (wantByob !== sourceIsByob) {
-              sourceReader.releaseLock();
-              acquireReader(wantByob);
-            }
-            reading = true;
-            const result = sourceIsByob
-              ? await (sourceReader as ReadableStreamBYOBReader).read(
-                new Uint8Array(request?.view?.byteLength ?? byobBufferSize),
-              )
-              : await (sourceReader as ReadableStreamDefaultReader<Uint8Array>)
-                .read();
-            reading = false;
-            if (wrapperFinished) return;
-            if (pendingError !== undefined) {
-              if (!result.done) ctrl.enqueue(result.value);
-              const error = pendingError.value;
-              pendingError = undefined;
+      const wrapped = new ReadableStream(
+        {
+          type: "bytes",
+          start(ctrl: ReadableByteStreamController) {
+            controller = ctrl;
+          },
+          async pull(ctrl: ReadableByteStreamController) {
+            controller = ctrl;
+            try {
+              const request = ctrl.byobRequest;
+              const wantByob = request != null;
+              if (sourceReader == null) {
+                acquireReader(wantByob);
+              } else if (wantByob !== sourceIsByob) {
+                sourceReader.releaseLock();
+                acquireReader(wantByob);
+              }
+              reading = true;
+              const result = sourceIsByob
+                ? await (sourceReader as ReadableStreamBYOBReader).read(
+                    new Uint8Array(request?.view?.byteLength ?? byobBufferSize),
+                  )
+                : await (
+                    sourceReader as ReadableStreamDefaultReader<Uint8Array>
+                  ).read();
+              reading = false;
+              if (wrapperFinished) return;
+              if (pendingError !== undefined) {
+                if (!result.done) ctrl.enqueue(result.value);
+                const error = pendingError.value;
+                pendingError = undefined;
+                finish(() => ctrl.error(error), { kind: "errored", error });
+                return;
+              }
+              if (result.done) {
+                finish(() => {
+                  ctrl.close();
+                  ctrl.byobRequest?.respond(0);
+                }, closedBodyOutcome);
+                return;
+              }
+              ctrl.enqueue(result.value);
+              closeWhenIdle();
+            } catch (error) {
+              reading = false;
               finish(() => ctrl.error(error), { kind: "errored", error });
-              return;
+              if (sourceReader != null) await cancelReader(sourceReader, error);
             }
-            if (result.done) {
-              finish(() => {
-                ctrl.close();
-                ctrl.byobRequest?.respond(0);
-              }, closedBodyOutcome);
-              return;
-            }
-            ctrl.enqueue(result.value);
-            closeWhenIdle();
-          } catch (error) {
-            reading = false;
-            finish(() => ctrl.error(error), { kind: "errored", error });
-            if (sourceReader != null) await cancelReader(sourceReader, error);
-          }
+          },
+          cancel(reason) {
+            finish(() => {}, cancelledBodyOutcome);
+            const reader = sourceReader;
+            return reader == null ? body.cancel(reason) : reader.cancel(reason);
+          },
         },
-        cancel(reason) {
-          finish(() => {}, cancelledBodyOutcome);
-          const reader = sourceReader;
-          return reader == null ? body.cancel(reason) : reader.cancel(reason);
-        },
-      }, { highWaterMark: 0 });
+        { highWaterMark: 0 },
+      );
 
       c.res = new Response(wrapped, response);
       copyResponseMetadata(response, c.res);
@@ -1312,9 +1316,8 @@ export function honoLogger(
       honoContext,
       contextOptions,
     );
-    await withContext(
-      requestContextState.context,
-      () => handleRequest(requestContextState),
+    await withContext(requestContextState.context, () =>
+      handleRequest(requestContextState),
     );
   });
 }

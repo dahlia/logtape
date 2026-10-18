@@ -14,7 +14,8 @@ export interface HookContext extends ElysiaContext {
 /** The adapter only needs these lifecycle registration capabilities. */
 export function createCompatibility(instance: unknown) {
   const plugin = instance as Fields;
-  const v2 = typeof plugin.onRequest !== "function" &&
+  const v2 =
+    typeof plugin.onRequest !== "function" &&
     typeof plugin.request === "function";
   const register = (
     event: "Request" | "BeforeHandle" | "AfterHandle" | "Error",
@@ -24,9 +25,8 @@ export function createCompatibility(instance: unknown) {
     const method = plugin[name];
     if (typeof method !== "function") throw unsupported();
     method.call(instance, (raw: HookContext) =>
-      callback(
-        v2 ? normalizeContext(raw, event === "Error") : raw,
-      ));
+      callback(v2 ? normalizeContext(raw, event === "Error") : raw),
+    );
   };
   const as = (scope: "scoped" | "global"): void => {
     (plugin.as as Callback).call(
@@ -65,11 +65,12 @@ function normalizeContext(raw: HookContext, error: boolean): HookContext {
   materializeHeaders(rawSet);
   const response = (raw as unknown as Fields).responseValue;
   const statusClass = (elysia as unknown as Fields).ElysiaStatus;
-  const responseStatus = !error &&
-      (response instanceof Response ||
-        (typeof statusClass === "function" && response instanceof statusClass))
-    ? (response as { status: number }).status
-    : undefined;
+  const responseStatus =
+    !error &&
+    (response instanceof Response ||
+      (typeof statusClass === "function" && response instanceof statusClass))
+      ? (response as { status: number }).status
+      : undefined;
   const set = Object.create(rawSet, {
     status: {
       enumerable: true,
@@ -103,9 +104,8 @@ function normalizeContext(raw: HookContext, error: boolean): HookContext {
 export function completionStatus(context: HookContext, v2: boolean): number {
   const fields = context as unknown as Fields;
   // Elysia 1 without AOT compilation only populates the deprecated field.
-  const response = fields.responseValue !== undefined
-    ? fields.responseValue
-    : fields.response;
+  const response =
+    fields.responseValue !== undefined ? fields.responseValue : fields.response;
   // An Elysia 2 context's normalized `set` inherits from the native one.
   const set: { readonly status?: unknown } = v2
     ? Object.getPrototypeOf(context.set)
@@ -188,23 +188,28 @@ export function wrapV2LocalContext(
       // Early-wrapped guard errors can meet their original macro callback.
       // Native macro dedupe would retain the existing (wrapped) slot. Remove
       // only that mixed representation, not deliberate [fn, fn] repetitions.
-      return value.filter((item) => {
-        if (typeof item !== "function") return true;
-        const replacement = replacements.get(item);
-        return replacement == null || !present.has(replacement);
-      }).map(wrap);
+      return value
+        .filter((item) => {
+          if (typeof item !== "function") return true;
+          const replacement = replacements.get(item);
+          return replacement == null || !present.has(replacement);
+        })
+        .map(wrap);
     }
     const wrapped = wrapCallback(value);
     if (
-      typeof value === "function" && typeof wrapped === "function" &&
+      typeof value === "function" &&
+      typeof wrapped === "function" &&
       value !== wrapped
     ) {
       replacements.set(value, wrapped);
     }
     if (
-      typeof value === "function" && typeof wrapped === "function" &&
+      typeof value === "function" &&
+      typeof wrapped === "function" &&
       origins.has(value)
-    ) origins.set(wrapped, origins.get(value));
+    )
+      origins.set(wrapped, origins.get(value));
     return wrapped;
   };
   const resolveParse = (value: unknown): unknown => {
@@ -212,7 +217,9 @@ export function wrapV2LocalContext(
     const parsers = (plugin["~ext"] as Fields | undefined)?.parser as
       | Fields
       | undefined;
-    return wrap(typeof value === "string" ? parsers?.[value] ?? value : value);
+    return wrap(
+      typeof value === "string" ? (parsers?.[value] ?? value) : value,
+    );
   };
   const hooks = (value: unknown, final = false): unknown => {
     if (value == null) return final ? value : { [macroName]: true };
@@ -221,15 +228,16 @@ export function wrapV2LocalContext(
     const copy = { ...source };
     for (const key of hookKeys) {
       if (final && key in source) {
-        copy[key] = key === "parse"
-          ? resolveParse(source[key])
-          : wrap(source[key]);
+        copy[key] =
+          key === "parse" ? resolveParse(source[key]) : wrap(source[key]);
       }
     }
     if (final && "~deriveEntries" in source) {
       if (!Array.isArray(source["~deriveEntries"])) throw unsupported();
       copy["~deriveEntries"] = source["~deriveEntries"].map((entry) =>
-        Array.isArray(entry) ? [wrap(entry[0]), ...entry.slice(1)] : wrap(entry)
+        Array.isArray(entry)
+          ? [wrap(entry[0]), ...entry.slice(1)]
+          : wrap(entry),
       );
     }
     // Run after the route's own macro options have expanded. Reinsert last
@@ -283,9 +291,8 @@ export function wrapV2LocalContext(
       if (!("added" in node)) throw unsupported();
       // Preserve propagated callback identities for native deduplication,
       // but still visit local ancestors below the propagated link.
-      copy.added = node.propagated === true
-        ? node.added
-        : hooks(node.added, final);
+      copy.added =
+        node.propagated === true ? node.added : hooks(node.added, final);
       copy.parent = chain(node.parent, memo, final);
     }
     if ((node.owner as Fields | undefined)?.["~scopeChild"] === true) {
@@ -363,7 +370,8 @@ export function wrapV2LocalContext(
         if (
           source[0] === "WS" ||
           (source[2] != null && (source[2] as Fields)["~mount"])
-        ) continue;
+        )
+          continue;
         const copy = source.slice();
         copy[2] = wrap(source[2]);
         copy[3] = owner(source[3]);

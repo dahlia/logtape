@@ -63,9 +63,10 @@ export function getTerminalWidth(): number | null {
     }
 
     // Fallback to environment variable
-    const envColumns = typeof Deno !== "undefined"
-      ? Deno.env.get("COLUMNS")
-      : process?.env?.COLUMNS;
+    const envColumns =
+      typeof Deno !== "undefined"
+        ? Deno.env.get("COLUMNS")
+        : process?.env?.COLUMNS;
 
     if (envColumns) {
       const parsed = parseInt(envColumns, 10);

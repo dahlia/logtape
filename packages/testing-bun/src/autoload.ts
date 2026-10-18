@@ -50,9 +50,7 @@ if (config == null) {
       Record<string, unknown>
     >,
     sinks: {},
-    loggers: [
-      { category: ["logtape", "meta"], sinks: [] },
-    ],
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
   });
 } else if (config.contextLocalStorage == null) {
   throw new ConfigError(

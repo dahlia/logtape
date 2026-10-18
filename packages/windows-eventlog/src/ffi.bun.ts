@@ -61,16 +61,12 @@ export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
       this.eventSource = typeof result === "number" ? result : null;
 
       if (!this.eventSource || this.eventSource === 0) {
-        throw new Error(
-          `Failed to register event source: ${this.sourceName}`,
-        );
+        throw new Error(`Failed to register event source: ${this.sourceName}`);
       }
 
       this.initialized = true;
     } catch (error) {
-      throw new Error(
-        `Failed to initialize Windows Event Log FFI: ${error}`,
-      );
+      throw new Error(`Failed to initialize Windows Event Log FFI: ${error}`);
     }
   }
 

@@ -20,7 +20,6 @@ export function inspect(obj: unknown, options?: InspectOptions): string {
     });
   } else {
     const indent = options?.compact === true ? undefined : 2;
-    return stringifyWithoutCycles(obj, undefined, indent) ??
-      "undefined";
+    return stringifyWithoutCycles(obj, undefined, indent) ?? "undefined";
   }
 }

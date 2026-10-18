@@ -92,10 +92,7 @@ nodeTest(
         throw new Error("expected");
       });
 
-      assert.match(
-        reported.join("\n"),
-        /Autoload expectFailure diagnostic\./,
-      );
+      assert.match(reported.join("\n"), /Autoload expectFailure diagnostic\./);
     } finally {
       restoreEnv("LOGTAPE_TEST_MODE", originalMode);
       restoreEnv("LOGTAPE_TEST_LOWEST_LEVEL", originalLowestLevel);
@@ -140,9 +137,7 @@ nodeTest(
   async () => {
     const existingConfig = {
       sinks: {},
-      loggers: [
-        { category: ["logtape", "meta"], sinks: [] },
-      ],
+      loggers: [{ category: ["logtape", "meta"], sinks: [] }],
     };
     configureSync(existingConfig);
     try {

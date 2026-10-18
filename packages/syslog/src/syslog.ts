@@ -12,8 +12,8 @@ import process from "node:process";
 import * as tls from "node:tls";
 import { stringifyWithoutCycles } from "./circular.ts";
 
-const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
-  Symbol.for("Symbol.asyncDispose");
+const asyncDisposeSymbol: typeof Symbol.asyncDispose =
+  Symbol.asyncDispose ?? Symbol.for("Symbol.asyncDispose");
 
 /**
  * Syslog protocol type.
@@ -306,8 +306,11 @@ function isStructuredDataName(name: string): boolean {
   for (const char of name) {
     const charCode = char.charCodeAt(0);
     if (
-      charCode <= 32 || charCode > 126 ||
-      char === "=" || char === "]" || char === '"'
+      charCode <= 32 ||
+      charCode > 126 ||
+      char === "=" ||
+      char === "]" ||
+      char === '"'
     ) {
       return false;
     }
@@ -578,9 +581,9 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
           hostname: this.hostname,
           port: this.port,
           caCerts: this.tlsOptions?.ca
-            ? (Array.isArray(this.tlsOptions.ca)
+            ? Array.isArray(this.tlsOptions.ca)
               ? [...this.tlsOptions.ca]
-              : [this.tlsOptions.ca])
+              : [this.tlsOptions.ca]
             : undefined,
         };
         const connectPromise = Deno.connectTls(tlsConnectOptions);
@@ -621,7 +624,8 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
         } else {
           this.connection = await connectPromise;
         }
-      } else { // Insecure TCP connection
+      } else {
+        // Insecure TCP connection
         if (this.timeout > 0) {
           // Use AbortController for proper timeout handling
           const controller = new AbortController();
@@ -717,9 +721,9 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
           timeout: this.timeout,
           rejectUnauthorized: this.tlsOptions?.rejectUnauthorized ?? true,
           ca: this.tlsOptions?.ca
-            ? (Array.isArray(this.tlsOptions.ca)
+            ? Array.isArray(this.tlsOptions.ca)
               ? [...this.tlsOptions.ca]
-              : [this.tlsOptions.ca])
+              : [this.tlsOptions.ca]
             : undefined,
         };
 
@@ -937,23 +941,23 @@ export function getSyslogSink(
       // Deno runtime
       return protocol === "tcp"
         ? new DenoTcpSyslogConnection(
-          hostname,
-          port,
-          timeout,
-          secure,
-          tlsOptions,
-        )
+            hostname,
+            port,
+            timeout,
+            secure,
+            tlsOptions,
+          )
         : new DenoUdpSyslogConnection(hostname, port, timeout);
     } else {
       // Node.js runtime (and Bun, which uses Node.js APIs)
       return protocol === "tcp"
         ? new NodeTcpSyslogConnection(
-          hostname,
-          port,
-          timeout,
-          secure,
-          tlsOptions,
-        )
+            hostname,
+            port,
+            timeout,
+            secure,
+            tlsOptions,
+          )
         : new NodeUdpSyslogConnection(hostname, port, timeout);
     }
   })();
@@ -968,9 +972,10 @@ export function getSyslogSink(
 
   const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     const syslogMessage = formatSyslogMessage(record, formatOptions);
-    const messageBytes = maxBufferedBytes === Infinity
-      ? 0
-      : Buffer.byteLength(syslogMessage, "utf8");
+    const messageBytes =
+      maxBufferedBytes === Infinity
+        ? 0
+        : Buffer.byteLength(syslogMessage, "utf8");
     if (messageBytes > maxBufferedBytes - bufferedBytes) {
       // Mark before reporting: the meta logger may route back to this sink.
       if (!overflowReported) {

@@ -33,10 +33,12 @@ function createTestSink(options: { includeMeta?: boolean } = {}): {
 }
 
 // Setup helper
-async function setupLogtape(options: {
-  contextLocalStorage?: boolean;
-  includeMeta?: boolean;
-} = {}): Promise<{
+async function setupLogtape(
+  options: {
+    contextLocalStorage?: boolean;
+    includeMeta?: boolean;
+  } = {},
+): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
@@ -263,34 +265,31 @@ test("koaLogger(): combined format logs structured properties", async () => {
   }
 });
 
-test(
-  "koaLogger(): structured-combined format logs structured properties",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const middleware = koaLogger({ format: "structured-combined" });
-      const ctx = createMockContext({
-        response: { length: 123 },
-      });
+test("koaLogger(): structured-combined format logs structured properties", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = koaLogger({ format: "structured-combined" });
+    const ctx = createMockContext({
+      response: { length: 123 },
+    });
 
-      await runMiddleware(middleware, ctx);
+    await runMiddleware(middleware, ctx);
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.strictEqual(props.url, "/test");
-      assert.strictEqual(props.path, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.notStrictEqual(props.responseTime, null);
-      assert.strictEqual(props.contentLength, 123);
-      assert.strictEqual(props.remoteAddr, "127.0.0.1");
-      assert.strictEqual(props.userAgent, "test-agent/1.0");
-      assert.strictEqual(props.referrer, "http://example.com");
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.url, "/test");
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.contentLength, 123);
+    assert.strictEqual(props.remoteAddr, "127.0.0.1");
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Common
@@ -316,28 +315,25 @@ test("koaLogger(): common format excludes referrer and userAgent", async () => {
   }
 });
 
-test(
-  "koaLogger(): structured-common format excludes referrer and userAgent",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const middleware = koaLogger({ format: "structured-common" });
-      const ctx = createMockContext();
+test("koaLogger(): structured-common format excludes referrer and userAgent", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = koaLogger({ format: "structured-common" });
+    const ctx = createMockContext();
 
-      await runMiddleware(middleware, ctx);
+    await runMiddleware(middleware, ctx);
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.strictEqual(props.path, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.strictEqual(props.referrer, undefined);
-      assert.strictEqual(props.userAgent, undefined);
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.path, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Morgan
@@ -780,9 +776,11 @@ test("koaLogger(): missing context storage still logs request ID", async () => {
 
     const appLog = logs.find((record) => record.category[0] === "app");
     const requestLog = logs.find((record) => record.category[0] === "koa");
-    const metaLog = logs.find((record) =>
-      record.category[0] === "logtape" && record.category[1] === "meta" &&
-      record.level === "warning"
+    const metaLog = logs.find(
+      (record) =>
+        record.category[0] === "logtape" &&
+        record.category[1] === "meta" &&
+        record.level === "warning",
     );
     assert.ok(appLog);
     assert.ok(requestLog);
@@ -1066,17 +1064,20 @@ test("koaLogger(): completionLevel chooses the level from the status", async () 
   const { logs, cleanup } = await setupLogtape();
   try {
     const middleware = koaLogger({
-      completionLevel: (_ctx, { status }) => status >= 500 ? "error" : "info",
+      completionLevel: (_ctx, { status }) => (status >= 500 ? "error" : "info"),
     });
     for (const status of [200, 500]) {
       await runMiddleware(middleware, createMockContext({ status }));
     }
 
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
-    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
-      200,
-      500,
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
+    assert.deepStrictEqual(
+      logs.map((log) => log.properties.status),
+      [200, 500],
+    );
     assert.strictEqual(
       logs[1].rawMessage,
       "{method} {url} {status} - {responseTime} ms",
@@ -1192,7 +1193,7 @@ async function withKoaServer(
     await fn(`http://127.0.0.1:${port}`);
   } finally {
     await new Promise<void>((resolve, reject) => {
-      server.close((error) => error == null ? resolve() : reject(error));
+      server.close((error) => (error == null ? resolve() : reject(error)));
       server.closeAllConnections();
     });
   }
@@ -1204,12 +1205,14 @@ test("koaLogger(): completionLevel sees statuses set by error handlers", async (
     const completions: unknown[] = [];
     const app = new Koa();
     app.silent = true;
-    app.use(koaLogger({
-      completionLevel: (_ctx, completion) => {
-        completions.push(completion);
-        return completion.status >= 500 ? "error" : "info";
-      },
-    }));
+    app.use(
+      koaLogger({
+        completionLevel: (_ctx, completion) => {
+          completions.push(completion);
+          return completion.status >= 500 ? "error" : "info";
+        },
+      }),
+    );
     app.use(async (ctx, next) => {
       try {
         await next();
@@ -1231,10 +1234,13 @@ test("koaLogger(): completionLevel sees statuses set by error handlers", async (
       assert.strictEqual(await failed.text(), "handled");
     });
 
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
     assert.deepStrictEqual(
-      completions.map((completion) =>
-        (completion as { status: number }).status
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
+    assert.deepStrictEqual(
+      completions.map(
+        (completion) => (completion as { status: number }).status,
       ),
       [200, 500],
     );
@@ -1249,12 +1255,14 @@ test("koaLogger(): completionLevel is not called for thrown errors", async () =>
     let called = false;
     const app = new Koa();
     app.silent = true;
-    app.use(koaLogger({
-      completionLevel: () => {
-        called = true;
-        return "error";
-      },
-    }));
+    app.use(
+      koaLogger({
+        completionLevel: () => {
+          called = true;
+          return "error";
+        },
+      }),
+    );
     app.use(() => {
       throw new Error("handler failure");
     });
@@ -1277,12 +1285,14 @@ test("koaLogger(): completionLevel failures keep Koa responses", async () => {
   try {
     const app = new Koa();
     app.silent = true;
-    app.use(koaLogger({
-      level: "debug",
-      completionLevel: () => {
-        throw new Error("level failure");
-      },
-    }));
+    app.use(
+      koaLogger({
+        level: "debug",
+        completionLevel: () => {
+          throw new Error("level failure");
+        },
+      }),
+    );
     app.use((ctx) => {
       ctx.status = 201;
       ctx.body = "created";
@@ -1320,11 +1330,12 @@ async function runCompletionLevel(
 // ============================================
 
 function findMetaErrors(logs: LogRecord[]): LogRecord[] {
-  return logs.filter((record) =>
-    record.category.length === 2 &&
-    record.category[0] === "logtape" &&
-    record.category[1] === "meta" &&
-    record.level === "error"
+  return logs.filter(
+    (record) =>
+      record.category.length === 2 &&
+      record.category[0] === "logtape" &&
+      record.category[1] === "meta" &&
+      record.level === "error",
   );
 }
 
@@ -1363,7 +1374,7 @@ function assertFallback(
   assert.strictEqual(requestLogs[0].level, "debug");
   assert.ok(
     findMetaErrors(logs).some((record) =>
-      matchesMetaError(record.properties.error)
+      matchesMetaError(record.properties.error),
     ),
     "expected the failure to be reported to the meta logger",
   );
@@ -1400,7 +1411,7 @@ test("koaLogger(): completionLevel reports rejected promises", async () => {
   try {
     const failure = new Error("async level failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => Promise.reject(failure))
+      runCompletionLevel(() => Promise.reject(failure)),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -1425,9 +1436,9 @@ test("koaLogger(): completionLevel bypasses overridden promise then", async () =
     }
     const failure = new Error("subclass failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() =>
-        new OverridingPromise((_, reject) => reject(failure))
-      )
+      runCompletionLevel(
+        () => new OverridingPromise((_, reject) => reject(failure)),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(overriddenThenCalled, false);
@@ -1448,7 +1459,7 @@ test("koaLogger(): completionLevel does not adopt promise results", async () => 
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -1468,7 +1479,7 @@ test("koaLogger(): completionLevel falls back on unobservable promises", async (
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -1488,7 +1499,7 @@ test("koaLogger(): completionLevel never invokes custom thenables", async () => 
       },
     };
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => thenable)
+      runCompletionLevel(() => thenable),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(thenCalled, false);
@@ -1503,15 +1514,17 @@ test("koaLogger(): completionLevel reports cross-realm rejections", async () => 
   try {
     const reasons = await collectUnhandledRejections(() =>
       runCompletionLevel(() =>
-        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
-      )
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))'),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(
       logs,
       (error) =>
-        error != null && typeof error === "object" &&
-        "message" in error && error.message === "foreign failure",
+        error != null &&
+        typeof error === "object" &&
+        "message" in error &&
+        error.message === "foreign failure",
     );
   } finally {
     await cleanup();

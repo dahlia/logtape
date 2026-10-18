@@ -206,12 +206,12 @@ export interface SentryNamespace {
    */
   getActiveSpan():
     | {
-      spanContext: () => {
-        traceId: string;
-        spanId: string;
-        parentSpanId?: string;
-      };
-    }
+        spanContext: () => {
+          traceId: string;
+          spanId: string;
+          parentSpanId?: string;
+        };
+      }
     | undefined;
 
   /**
@@ -219,13 +219,13 @@ export interface SentryNamespace {
    */
   getClient():
     | {
-      getOptions: () => {
-        enableLogs?: boolean;
-        _experiments?: {
+        getOptions: () => {
           enableLogs?: boolean;
+          _experiments?: {
+            enableLogs?: boolean;
+          };
         };
-      };
-    }
+      }
     | undefined;
 
   /**
@@ -233,14 +233,14 @@ export interface SentryNamespace {
    */
   getIsolationScope():
     | {
-      addBreadcrumb: (breadcrumb: {
-        category: string;
-        level: SeverityLevel;
-        message: string;
-        timestamp: number;
-        data: Record<string, unknown>;
-      }) => void;
-    }
+        addBreadcrumb: (breadcrumb: {
+          category: string;
+          level: SeverityLevel;
+          message: string;
+          timestamp: number;
+          data: Record<string, unknown>;
+        }) => void;
+      }
     | undefined;
 
   /**
@@ -476,11 +476,11 @@ export function getSentrySink(
   //   don't expose current scope/span APIs.
   const captureMessage = legacyClient
     ? (msg: ParameterizedString, ctx?: unknown) =>
-      legacyClient.captureMessage(String(msg), ctx)
+        legacyClient.captureMessage(String(msg), ctx)
     : sentry.captureMessage;
   const captureException = legacyClient
     ? (exception: unknown, hint?: unknown) =>
-      legacyClient.captureException(exception, hint)
+        legacyClient.captureException(exception, hint)
     : sentry.captureException;
 
   return (record: LogRecord) => {
@@ -488,7 +488,8 @@ export function getSentrySink(
       // Skip meta logger records to prevent infinite recursion
       const { category } = record;
       if (
-        category[0] === "logtape" && category[1] === "meta" &&
+        category[0] === "logtape" &&
+        category[1] === "meta" &&
         category[2] === "sentry"
       ) {
         return;
@@ -588,8 +589,9 @@ function shouldSendToLogs(
   record: LogRecord,
   options: SentryLogsOptions | undefined,
 ): boolean {
-  return options?.level == null ||
-    compareLogLevel(record.level, options.level) >= 0;
+  return (
+    options?.level == null || compareLogLevel(record.level, options.level) >= 0
+  );
 }
 
 function shouldAddBreadcrumb(
@@ -608,6 +610,8 @@ function shouldAddBreadcrumb(
     return false;
   }
 
-  return breadcrumbOptions.maxLevel == null ||
-    compareLogLevel(record.level, breadcrumbOptions.maxLevel) <= 0;
+  return (
+    breadcrumbOptions.maxLevel == null ||
+    compareLogLevel(record.level, breadcrumbOptions.maxLevel) <= 0
+  );
 }

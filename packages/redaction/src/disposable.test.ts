@@ -128,17 +128,16 @@ globalThis.Symbol = legacySymbol;
 
 // Package-local Deno tasks do not grant filesystem permissions.  Root tests
 // grant read access and exercise the worker cases; Node and Bun always do.
-const skip = typeof Deno !== "undefined" &&
+const skip =
+  typeof Deno !== "undefined" &&
   Deno.permissions.querySync({ name: "read" }).state !== "granted";
 
-for (
-  const missing of [
-    ["dispose", "asyncDispose"],
-    ["dispose"],
-    ["asyncDispose"],
-    [],
-  ]
-) {
+for (const missing of [
+  ["dispose", "asyncDispose"],
+  ["dispose"],
+  ["asyncDispose"],
+  [],
+]) {
   test(
     `redactByField disposal hooks with missing symbols: ${
       missing.join(", ") || "none"
@@ -154,8 +153,8 @@ for (
         eval: true,
         workerData: {
           missing,
-          configUrl:
-            new URL("../../logtape/src/config.ts", import.meta.url).href,
+          configUrl: new URL("../../logtape/src/config.ts", import.meta.url)
+            .href,
           fieldUrl: new URL("./field.ts", import.meta.url).href,
         },
       });

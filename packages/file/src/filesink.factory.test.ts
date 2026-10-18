@@ -80,9 +80,13 @@ test("Node factory uses injected sink implementations", () => {
   checkFactory(createNodeFileSinks);
 });
 
-test("Deno factory uses injected sink implementations and path joining", {
-  skip: !isDeno,
-}, () => {
-  if (!isDeno) return;
-  checkFactory(createDenoFileSinks);
-});
+test(
+  "Deno factory uses injected sink implementations and path joining",
+  {
+    skip: !isDeno,
+  },
+  () => {
+    if (!isDeno) return;
+    checkFactory(createDenoFileSinks);
+  },
+);

@@ -57,11 +57,13 @@ export interface Config<TSinkId extends string, TFilterId extends string> {
  *
  * @since 2.3.0
  */
-export type ScopedConfig<TSinkId extends string, TFilterId extends string> =
-  ScopedConfigLike<TSinkId, TFilterId>;
+export type ScopedConfig<
+  TSinkId extends string,
+  TFilterId extends string,
+> = ScopedConfigLike<TSinkId, TFilterId>;
 
-type SyncCallbackResult<TResult> = TResult extends PromiseLike<unknown> ? never
-  : TResult;
+type SyncCallbackResult<TResult> =
+  TResult extends PromiseLike<unknown> ? never : TResult;
 
 /**
  * A logger configuration.
@@ -243,11 +245,13 @@ function isLoggerConfigMeta<TSinkId extends string, TFilterId extends string>(
   cfg: LoggerConfig<TSinkId, TFilterId>,
 ): boolean {
   const category = Array.isArray(cfg.category) ? cfg.category : [cfg.category];
-  return category.length === 0 ||
+  return (
+    category.length === 0 ||
     (category.length === 1 && category[0] === "logtape") ||
     (category.length === 2 &&
       category[0] === "logtape" &&
-      category[1] === "meta");
+      category[1] === "meta")
+  );
 }
 
 function registerDisposeHook(allowAsync: boolean): void {
@@ -517,9 +521,8 @@ export function withConfigSync<
   config: ScopedConfig<TSinkId, TFilterId>,
   callback: () => SyncCallbackResult<TResult>,
 ): SyncCallbackResult<TResult> {
-  const contextLocalStorage = getConfiguredContextLocalStorage(
-    "withConfigSync()",
-  );
+  const contextLocalStorage =
+    getConfiguredContextLocalStorage("withConfigSync()");
   const scopedConfig = compileScopedConfig(
     config,
     false,
@@ -570,10 +573,12 @@ export function withConfigSync<
 }
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return value != null &&
+  return (
+    value != null &&
     (typeof value === "object" || typeof value === "function") &&
     "then" in value &&
-    typeof value.then === "function";
+    typeof value.then === "function"
+  );
 }
 
 function getGlobalDisposables(): ReadonlySet<Disposable | AsyncDisposable> {
@@ -614,10 +619,10 @@ function addScopedConfigDisposables(
   for (const disposable of scopedConfig.asyncSinks) disposables.add(disposable);
 }
 
-function configureInternal<
-  TSinkId extends string,
-  TFilterId extends string,
->(config: Config<TSinkId, TFilterId>, allowAsync: boolean): void {
+function configureInternal<TSinkId extends string, TFilterId extends string>(
+  config: Config<TSinkId, TFilterId>,
+  allowAsync: boolean,
+): void {
   currentConfig = config;
   getInspectionState().configured = true;
 
@@ -924,8 +929,8 @@ async function settleDrainPromises(
 ): Promise<void> {
   const results = await Promise.allSettled(promises);
   const errors = results
-    .filter((result): result is PromiseRejectedResult =>
-      result.status === "rejected"
+    .filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
     )
     .map((result) => result.reason);
   if (errors.length < 1) return;
@@ -1086,8 +1091,9 @@ async function settleDisposePromises(
   const results = await Promise.allSettled(promises);
   throwDisposeErrors(
     results
-      .filter((result): result is PromiseRejectedResult =>
-        result.status === "rejected"
+      .filter(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
       )
       .map((result) => result.reason),
   );

@@ -270,10 +270,12 @@ test("LogRecorder diagnostics handle null-prototype circular values", () => {
   const recorder = createLogRecorder();
   const recordedValue = circularNullPrototypeObject();
   const matcherValue = circularNullPrototypeObject();
-  recorder.sink(logRecord({
-    message: ["circular diagnostic value"],
-    properties: { recordedValue },
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["circular diagnostic value"],
+      properties: { recordedValue },
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ properties: { matcherValue } }),
@@ -294,25 +296,22 @@ test("LogRecorder diagnostics render nested BigInt and circular values", () => {
   const recorder = createLogRecorder();
   const circularValue: Record<string, unknown> = { id: "payload" };
   circularValue.self = circularValue;
-  recorder.sink(logRecord({
-    message: ["nested diagnostic value"],
-    properties: {
-      payload: { attempts: 3n, pattern: /retry/g, self: circularValue },
-      statusById: new Map<unknown, unknown>([
-        ["job-1", { attempts: 2n }],
-      ]),
-      flags: new Set<unknown>([1n, /ready/i]),
-    },
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["nested diagnostic value"],
+      properties: {
+        payload: { attempts: 3n, pattern: /retry/g, self: circularValue },
+        statusById: new Map<unknown, unknown>([["job-1", { attempts: 2n }]]),
+        flags: new Set<unknown>([1n, /ready/i]),
+      },
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ properties: { expected: { count: 1n } } }),
     (error) => {
       assert.ok(error instanceof Error);
-      assert.match(
-        error.message,
-        /properties\.expected: {"count":"1n"}/,
-      );
+      assert.match(error.message, /properties\.expected: {"count":"1n"}/);
       assert.match(
         error.message,
         /payload: {"attempts":"3n","pattern":"\/retry\/g","self":{"id":"payload","self":"\[Circular\]"}}/,
@@ -333,15 +332,17 @@ test("LogRecorder diagnostics render nested BigInt and circular values", () => {
 test("LogRecorder diagnostics preserve repeated non-circular references", () => {
   const recorder = createLogRecorder();
   const sharedValue = { id: "user-123" };
-  recorder.sink(logRecord({
-    message: ["shared reference diagnostics"],
-    properties: {
-      payload: {
-        before: sharedValue,
-        after: sharedValue,
+  recorder.sink(
+    logRecord({
+      message: ["shared reference diagnostics"],
+      properties: {
+        payload: {
+          before: sharedValue,
+          after: sharedValue,
+        },
       },
-    },
-  }));
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ properties: { missing: true } }),
@@ -359,25 +360,22 @@ test("LogRecorder diagnostics preserve repeated non-circular references", () => 
 
 test("LogRecorder diagnostics render nested Error values", () => {
   const recorder = createLogRecorder();
-  recorder.sink(logRecord({
-    message: ["nested error diagnostic value"],
-    properties: {
-      payload: { error: new TypeError("Bad input") },
-      failuresById: new Map<unknown, unknown>([
-        ["job-1", new Error("Boom")],
-      ]),
-      failures: new Set<unknown>([new RangeError("Too high")]),
-    },
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["nested error diagnostic value"],
+      properties: {
+        payload: { error: new TypeError("Bad input") },
+        failuresById: new Map<unknown, unknown>([["job-1", new Error("Boom")]]),
+        failures: new Set<unknown>([new RangeError("Too high")]),
+      },
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ properties: { missing: true } }),
     (error) => {
       assert.ok(error instanceof Error);
-      assert.match(
-        error.message,
-        /payload: {"error":"TypeError: Bad input"}/,
-      );
+      assert.match(error.message, /payload: {"error":"TypeError: Bad input"}/);
       assert.match(
         error.message,
         /failuresById: Map\(1\) {"job-1":"Error: Boom"}/,
@@ -401,10 +399,12 @@ test("LogRecorder diagnostics handle throwing property getters", () => {
       throw new Error("getter failed");
     },
   });
-  recorder.sink(logRecord({
-    message: ["throwing getter diagnostic value"],
-    properties,
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["throwing getter diagnostic value"],
+      properties,
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ properties: { missing: true } }),
@@ -419,16 +419,18 @@ test("LogRecorder diagnostics handle throwing property getters", () => {
 
 test("LogRecorder diagnostics render Map and Set values", () => {
   const recorder = createLogRecorder();
-  recorder.sink(logRecord({
-    message: ["collection diagnostics"],
-    properties: {
-      roles: new Set(["admin", "operator"]),
-      tags: new Map<string, unknown>([
-        ["environment", "production"],
-        ["retries", 3],
-      ]),
-    },
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["collection diagnostics"],
+      properties: {
+        roles: new Set(["admin", "operator"]),
+        tags: new Map<string, unknown>([
+          ["environment", "production"],
+          ["retries", 3],
+        ]),
+      },
+    }),
+  );
 
   assert.throws(
     () =>
@@ -448,10 +450,7 @@ test("LogRecorder diagnostics render Map and Set values", () => {
         error.message,
         /properties\.expectedTags: Map\(1\) {"environment":"staging"}/,
       );
-      assert.match(
-        error.message,
-        /roles: Set\(2\) \["admin","operator"\]/,
-      );
+      assert.match(error.message, /roles: Set\(2\) \["admin","operator"\]/);
       assert.match(
         error.message,
         /tags: Map\(2\) {"environment":"production","retries":3}/,
@@ -469,18 +468,20 @@ test("LogRecorder diagnostics preserve Map entries with object keys", () => {
   nullPrototypeKey.id = "primary";
   const firstObjectKey = { id: "first" };
   const secondObjectKey = { id: "second" };
-  recorder.sink(logRecord({
-    message: ["object key diagnostics"],
-    properties: {
-      distinctKeyMap: new Map<unknown, string>([
-        [nullPrototypeKey, "visible"],
-      ]),
-      collidingKeyMap: new Map<unknown, string>([
-        [firstObjectKey, "first"],
-        [secondObjectKey, "second"],
-      ]),
-    },
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["object key diagnostics"],
+      properties: {
+        distinctKeyMap: new Map<unknown, string>([
+          [nullPrototypeKey, "visible"],
+        ]),
+        collidingKeyMap: new Map<unknown, string>([
+          [firstObjectKey, "first"],
+          [secondObjectKey, "second"],
+        ]),
+      },
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ properties: { missing: true } }),
@@ -506,10 +507,12 @@ test("LogRecorder diagnostics preserve Map entries with object keys", () => {
 
 test("LogRecorder diagnostics preserve non-finite numbers", () => {
   const recorder = createLogRecorder();
-  recorder.sink(logRecord({
-    message: ["non-finite numbers"],
-    properties: { value: -Infinity },
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["non-finite numbers"],
+      properties: { value: -Infinity },
+    }),
+  );
 
   assert.throws(
     () =>
@@ -559,20 +562,14 @@ test("LogRecorder matches rendered object message values", () => {
     message: renderMessageWithCoreFormatter(record),
   });
   assert.ok(
-    !renderMessageWithCoreFormatter(record).includes(
-      JSON.stringify(payload),
-    ),
+    !renderMessageWithCoreFormatter(record).includes(JSON.stringify(payload)),
   );
 });
 
 test("LogRecorder diagnostics render messages like the core formatter", () => {
   const recorder = createLogRecorder();
   const record = logRecord({
-    message: [
-      "Payload ",
-      { foo: "bar" },
-      ".",
-    ],
+    message: ["Payload ", { foo: "bar" }, "."],
     rawMessage: "Payload {payload}.",
   });
   recorder.sink(record);
@@ -614,10 +611,12 @@ test("LogRecorder message predicates do not render messages", () => {
 
 test("LogRecorder diagnostics guard message rendering errors", () => {
   const recorder = createLogRecorder();
-  recorder.sink(logRecord({
-    message: ["Value ", throwingInspectValue(), "."],
-    rawMessage: "Value {value}.",
-  }));
+  recorder.sink(
+    logRecord({
+      message: ["Value ", throwingInspectValue(), "."],
+      rawMessage: "Value {value}.",
+    }),
+  );
 
   assert.throws(
     () => recorder.assertLogged({ level: "error" }),
@@ -682,9 +681,11 @@ test("LogRecorder.assertLogged()", () => {
       assert.match(error.message, /Recorded 1 record:/);
       assert.match(
         error.message,
-        new RegExp(escapeRegExp(
-          `[warning] app.auth: ${renderMessageWithCoreFormatter(authRecord)}`,
-        )),
+        new RegExp(
+          escapeRegExp(
+            `[warning] app.auth: ${renderMessageWithCoreFormatter(authRecord)}`,
+          ),
+        ),
       );
       return true;
     },
@@ -712,9 +713,11 @@ test("LogRecorder.assertNotLogged()", () => {
       assert.match(error.message, /Found 1 matching record:/);
       assert.match(
         error.message,
-        new RegExp(escapeRegExp(
-          `[warning] app.auth: ${renderMessageWithCoreFormatter(authRecord)}`,
-        )),
+        new RegExp(
+          escapeRegExp(
+            `[warning] app.auth: ${renderMessageWithCoreFormatter(authRecord)}`,
+          ),
+        ),
       );
       return true;
     },
@@ -832,11 +835,7 @@ test("LogRecorder preserves extra fields when snapshotting lazy messages", () =>
     readonly [contextKey]?: { readonly spanId: string };
   };
   assert.notStrictEqual(snapshot, record);
-  assert.deepStrictEqual(snapshot.message, [
-    "User ",
-    "alice",
-    " logged in.",
-  ]);
+  assert.deepStrictEqual(snapshot.message, ["User ", "alice", " logged in."]);
   assert.strictEqual(snapshot.requestId, "req-123");
   assert.strictEqual(snapshot.traceId, "trace-123");
   assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
@@ -876,11 +875,7 @@ test("LogRecorder preserves extra accessors when messages are eager", () => {
     readonly [contextKey]?: { readonly spanId: string };
   };
   assert.notStrictEqual(snapshot, record);
-  assert.deepStrictEqual(snapshot.message, [
-    "User ",
-    "alice",
-    " logged in.",
-  ]);
+  assert.deepStrictEqual(snapshot.message, ["User ", "alice", " logged in."]);
   assert.strictEqual(snapshot.requestId, "req-123");
   assert.strictEqual(snapshot.traceId, "trace-123");
   assert.deepStrictEqual(snapshot[contextKey], { spanId: "span-123" });
@@ -998,9 +993,7 @@ test("FailureLogReporter.run() reports buffered records when callback throws", a
     assert.deepStrictEqual(
       reported.map((record) => [
         record.level,
-        renderRawMessage(
-          record.rawMessage,
-        ),
+        renderRawMessage(record.rawMessage),
       ]),
       [
         ["debug", "Preparing fixture {fixture}."],
@@ -1308,9 +1301,10 @@ test("FailureLogReporter snapshots lazy values before reporting", async () => {
       /failure/,
     );
 
-    assert.deepStrictEqual(reported.map((record) => record.properties), [
-      { userId: "alice" },
-    ]);
+    assert.deepStrictEqual(
+      reported.map((record) => record.properties),
+      [{ userId: "alice" }],
+    );
     assert.deepStrictEqual(
       reported.map((record) => renderRawMessage(record.rawMessage)),
       ["Loaded {userId}."],

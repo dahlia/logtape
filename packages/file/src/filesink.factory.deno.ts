@@ -18,14 +18,12 @@ import type {
 // Keep this module free of runtime imports from shared code. A dynamic import
 // must not depend on the chunk that is waiting for it to finish loading.
 /** Creates platform sinks using shared functions supplied by the caller. */
-export function createFileSinks(
-  {
-    getBaseFileSink,
-    getBaseRotatingFileSink,
-    getBaseTimeRotatingFileSink,
-    join,
-  }: FileSinkDependencies,
-): FileSinkFactoryResult<Deno.FsFile> {
+export function createFileSinks({
+  getBaseFileSink,
+  getBaseRotatingFileSink,
+  getBaseTimeRotatingFileSink,
+  join,
+}: FileSinkDependencies): FileSinkFactoryResult<Deno.FsFile> {
   /**
    * A Deno-specific file sink driver.
    */

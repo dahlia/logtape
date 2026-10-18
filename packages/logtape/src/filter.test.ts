@@ -209,9 +209,7 @@ test("getThrottlingFilter() does not shift sliding-window timestamps", () => {
   const originalShift = Array.prototype.shift;
   let shiftCalled = false;
 
-  Array.prototype.shift = function shift(
-    this: unknown[],
-  ): unknown | undefined {
+  Array.prototype.shift = function shift(this: unknown[]): unknown | undefined {
     shiftCalled = true;
     return originalShift.call(this);
   };
@@ -278,21 +276,27 @@ test("getThrottlingFilter() groups records by category, level, and template", ()
   });
 
   assert.strictEqual(
-    filter(recordWithRawMessage("Failed for {tenant}", {
-      message: ["Failed for ", "alpha"],
-    })),
+    filter(
+      recordWithRawMessage("Failed for {tenant}", {
+        message: ["Failed for ", "alpha"],
+      }),
+    ),
     true,
   );
   assert.strictEqual(
-    filter(recordWithRawMessage("Failed for {tenant}", {
-      message: ["Failed for ", "beta"],
-    })),
+    filter(
+      recordWithRawMessage("Failed for {tenant}", {
+        message: ["Failed for ", "beta"],
+      }),
+    ),
     false,
   );
   assert.strictEqual(
-    filter(recordWithRawMessage("Failed for {tenant}", {
-      category: ["other"],
-    })),
+    filter(
+      recordWithRawMessage("Failed for {tenant}", {
+        category: ["other"],
+      }),
+    ),
     true,
   );
   assert.strictEqual(
@@ -311,7 +315,7 @@ test("getThrottlingFilter() default keys preserve category and template boundari
   const originalStringify = JSON.stringify;
   let stringifyCalled = false;
 
-  JSON.stringify = (function stringify(
+  JSON.stringify = function stringify(
     value: unknown,
     replacer?:
       | ((this: unknown, key: string, value: unknown) => unknown)
@@ -325,7 +329,7 @@ test("getThrottlingFilter() default keys preserve category and template boundari
       replacer as (string | number)[] | null | undefined,
       space,
     );
-  }) as typeof JSON.stringify;
+  } as typeof JSON.stringify;
   try {
     assert.strictEqual(
       filter(
@@ -336,9 +340,11 @@ test("getThrottlingFilter() default keys preserve category and template boundari
       true,
     );
     assert.strictEqual(
-      filter(recordWithRawMessage(["d"] as unknown as TemplateStringsArray, {
-        category: ["a", "bc"],
-      })),
+      filter(
+        recordWithRawMessage(["d"] as unknown as TemplateStringsArray, {
+          category: ["a", "bc"],
+        }),
+      ),
       true,
     );
     assert.strictEqual(filter(recordWithRawMessage("a\u0000b")), true);
@@ -356,10 +362,9 @@ test("getThrottlingFilter() default keys handle invalid cooked template parts", 
     windowMs: 100,
     clock: () => 0,
   });
-  const invalidCooked = Object.assign(
-    [undefined, "suffix"],
-    { raw: ["\\unicode", "suffix"] },
-  ) as unknown as TemplateStringsArray;
+  const invalidCooked = Object.assign([undefined, "suffix"], {
+    raw: ["\\unicode", "suffix"],
+  }) as unknown as TemplateStringsArray;
 
   assert.doesNotThrow(() => filter(recordWithRawMessage(invalidCooked)));
   assert.strictEqual(filter(recordWithRawMessage(invalidCooked)), false);
@@ -713,9 +718,11 @@ test("getThrottlingFilter() recognizes copied summary properties reentrantly", (
       if (summaryCalls > 1) throw new Error("recursive summary");
       assert.ok(filterRef.current != null);
       assert.strictEqual(
-        filterRef.current(recordWithRawMessage(message, {
-          properties: { ...properties },
-        })),
+        filterRef.current(
+          recordWithRawMessage(message, {
+            properties: { ...properties },
+          }),
+        ),
         true,
       );
     },
@@ -777,8 +784,8 @@ test("getThrottlingFilter() recognizes standard logger summary records", () => {
     root.resetDescendants();
   }
 
-  const generatedSummaries = records.filter((record) =>
-    record.properties.key != null
+  const generatedSummaries = records.filter(
+    (record) => record.properties.key != null,
   );
   assert.strictEqual(generatedSummaries.length, 1);
   assert.strictEqual(generatedSummaries[0].properties.suppressed, 1);
@@ -880,8 +887,9 @@ function recordWithRawMessage(
   return {
     category: options.category ?? ["test"],
     level: options.level ?? "info",
-    message: options.message ??
-      [typeof rawMessage === "string" ? rawMessage : rawMessage.join("{}")],
+    message: options.message ?? [
+      typeof rawMessage === "string" ? rawMessage : rawMessage.join("{}"),
+    ],
     rawMessage,
     timestamp: options.timestamp ?? 0,
     properties: options.properties ?? {},

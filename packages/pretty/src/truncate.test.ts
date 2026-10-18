@@ -82,10 +82,7 @@ test("truncateCategory() edge cases", () => {
   );
 
   // Empty category
-  assert.deepStrictEqual(
-    truncateCategory([], 10, ".", "middle"),
-    "",
-  );
+  assert.deepStrictEqual(truncateCategory([], 10, ".", "middle"), "");
 });
 
 test("truncateCategory() with custom separator", () => {

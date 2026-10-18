@@ -99,8 +99,10 @@ const MAX_RECURSION_DEPTH = 100;
  * `jsr:@logtape/logtape` or `npm:@logtape/logtape@^1.0.0`).
  */
 export function isLogtapeImportSource(source: unknown): boolean {
-  return typeof source === "string" &&
-    /^(?:(?:jsr|npm):)?@logtape\/logtape(?:@[^/]+)?$/.test(source);
+  return (
+    typeof source === "string" &&
+    /^(?:(?:jsr|npm):)?@logtape\/logtape(?:@[^/]+)?$/.test(source)
+  );
 }
 
 /**
@@ -150,7 +152,8 @@ export function findUnrenderedProperties(
     if (!property.computed && keyNode?.type === "Identifier") {
       key = keyNode.name;
     } else if (
-      keyNode?.type === "Literal" && typeof keyNode.value === "number"
+      keyNode?.type === "Literal" &&
+      typeof keyNode.value === "number"
     ) {
       key = String(keyNode.value);
     } else {
@@ -158,9 +161,13 @@ export function findUnrenderedProperties(
     }
     if (key === null) return [];
     if (
-      key === "__proto__" && !property.computed && !property.shorthand &&
-      !property.method && property.kind === "init"
-    ) continue;
+      key === "__proto__" &&
+      !property.computed &&
+      !property.shorthand &&
+      !property.method &&
+      property.kind === "init"
+    )
+      continue;
     properties.set(key, property.key);
   }
   return getUnreferencedKeys(template, [...properties.keys()]).map((key) => ({
@@ -174,7 +181,8 @@ function staticMessageText(node: any): string | null {
     return node.value;
   }
   if (
-    node?.type === "TemplateLiteral" && node.expressions?.length === 0 &&
+    node?.type === "TemplateLiteral" &&
+    node.expressions?.length === 0 &&
     node.quasis?.length === 1
   ) {
     const cooked = node.quasis[0]?.value?.cooked ?? node.quasis[0]?.cooked;
@@ -228,7 +236,7 @@ export function classifyTypeAnnotation(
       }
       const kinds = new Set<LogArgumentKind>(
         (node.types ?? []).map((type: any) =>
-          classifyTypeAnnotation(type, context)
+          classifyTypeAnnotation(type, context),
         ),
       );
       return kinds.size === 1 ? [...kinds][0]! : "unknown";
@@ -236,7 +244,7 @@ export function classifyTypeAnnotation(
     case "TSIntersectionType": {
       const kinds = new Set<LogArgumentKind>(
         (node.types ?? []).map((type: any) =>
-          classifyTypeAnnotation(type, context)
+          classifyTypeAnnotation(type, context),
         ),
       );
       if (kinds.has("error")) return "error";
@@ -244,15 +252,15 @@ export function classifyTypeAnnotation(
     }
     case "TSTypeReference": {
       const name = typeNameText(node.typeName);
-      const isBuiltin = name != null &&
-        context?.isBuiltinTypeName(name) === true;
+      const isBuiltin =
+        name != null && context?.isBuiltinTypeName(name) === true;
       if (isBuiltin && ERROR_CONSTRUCTORS.has(name)) return "error";
       if (isBuiltin && (name === "Record" || name === "Object")) {
         return "properties";
       }
       if (isBuiltin && name === "Readonly") {
-        const parameters = node.typeArguments?.params ??
-          node.typeParameters?.params ?? [];
+        const parameters =
+          node.typeArguments?.params ?? node.typeParameters?.params ?? [];
         return parameters.length === 1
           ? classifyTypeAnnotation(parameters[0], context)
           : "unknown";
@@ -269,7 +277,7 @@ function stringLiteralTypeValue(node: any): string | undefined {
     return stringLiteralTypeValue(node.typeAnnotation);
   }
   return node?.type === "TSLiteralType" &&
-      typeof node.literal?.value === "string"
+    typeof node.literal?.value === "string"
     ? node.literal.value
     : undefined;
 }
@@ -291,7 +299,8 @@ export function classifyLogArgumentSyntax(
   if (!node) return "unknown";
 
   if (
-    node.type === "TSAsExpression" || node.type === "TSTypeAssertion" ||
+    node.type === "TSAsExpression" ||
+    node.type === "TSTypeAssertion" ||
     node.type === "TSSatisfiesExpression"
   ) {
     const expression = classifyLogArgumentSyntax(node.expression, context);
@@ -336,16 +345,20 @@ export function classifyLogArgumentSyntax(
 function isStaticTemplateSegment(node: any): boolean {
   node = unwrapTypeAssertion(node);
   if (node?.type === "Literal") return typeof node.value === "string";
-  return node?.type === "TemplateLiteral" &&
-    (node.expressions?.length ?? 0) === 0;
+  return (
+    node?.type === "TemplateLiteral" && (node.expressions?.length ?? 0) === 0
+  );
 }
 
 function isErrorConstructor(
   node: any,
   context?: LogArgumentClassificationContext,
 ): boolean {
-  return node?.type === "Identifier" && ERROR_CONSTRUCTORS.has(node.name) &&
-    context?.isBuiltinValueName(node.name) === true;
+  return (
+    node?.type === "Identifier" &&
+    ERROR_CONSTRUCTORS.has(node.name) &&
+    context?.isBuiltinValueName(node.name) === true
+  );
 }
 
 /**
@@ -372,7 +385,7 @@ export function logMethodName(callee: any): string | null {
   // A computed key must be a string literal; a numeric literal (logger[0]) is
   // not a method name and must not be returned as one.
   return callee.property?.type === "Literal" &&
-      typeof callee.property.value === "string"
+    typeof callee.property.value === "string"
     ? callee.property.value
     : null;
 }
@@ -393,16 +406,17 @@ export function containsCallExpression(
   if (depth > MAX_RECURSION_DEPTH || !node || typeof node !== "object") {
     return false;
   }
-  const isLazyCall = node.type === "CallExpression" &&
-    node.callee?.type === "Identifier" && lazyNames.has(node.callee.name);
+  const isLazyCall =
+    node.type === "CallExpression" &&
+    node.callee?.type === "Identifier" &&
+    lazyNames.has(node.callee.name);
   if (
-    !isLazyCall && (
-      node.type === "CallExpression" ||
+    !isLazyCall &&
+    (node.type === "CallExpression" ||
       node.type === "OptionalCallExpression" ||
       node.type === "NewExpression" ||
       node.type === "TaggedTemplateExpression" ||
-      node.type === "ImportExpression"
-    )
+      node.type === "ImportExpression")
   ) {
     return true;
   }
@@ -421,8 +435,12 @@ export function containsCallExpression(
   // is non-enumerable in Deno and skipped below for ESTree.
   for (const key in node) {
     if (
-      key === "type" || key === "start" || key === "end" ||
-      key === "loc" || key === "parent" || key === "range"
+      key === "type" ||
+      key === "start" ||
+      key === "end" ||
+      key === "loc" ||
+      key === "parent" ||
+      key === "range"
     ) {
       continue;
     }
@@ -430,9 +448,11 @@ export function containsCallExpression(
     if (Array.isArray(child)) {
       for (const item of child) {
         if (
-          typeof item === "object" && item !== null &&
+          typeof item === "object" &&
+          item !== null &&
           containsCallExpression(item, lazyNames, depth + 1)
-        ) return true;
+        )
+          return true;
       }
     } else if (typeof child === "object" && child !== null) {
       if (containsCallExpression(child, lazyNames, depth + 1)) return true;
@@ -466,8 +486,12 @@ export function containsAwaitOrYield(node: any, depth = 0): boolean {
   // is non-enumerable in Deno and skipped below for ESTree.
   for (const key in node) {
     if (
-      key === "type" || key === "start" || key === "end" ||
-      key === "loc" || key === "parent" || key === "range"
+      key === "type" ||
+      key === "start" ||
+      key === "end" ||
+      key === "loc" ||
+      key === "parent" ||
+      key === "range"
     ) {
       continue;
     }
@@ -475,9 +499,11 @@ export function containsAwaitOrYield(node: any, depth = 0): boolean {
     if (Array.isArray(child)) {
       for (const item of child) {
         if (
-          typeof item === "object" && item !== null &&
+          typeof item === "object" &&
+          item !== null &&
           containsAwaitOrYield(item, depth + 1)
-        ) return true;
+        )
+          return true;
       }
     } else if (typeof child === "object" && child !== null) {
       if (containsAwaitOrYield(child, depth + 1)) return true;
@@ -529,23 +555,27 @@ export function propsHaveEagerCall(
   propsObject: any,
   lazyNames: Set<string>,
 ): boolean {
-  return propsObject.properties?.some(
-    (prop: any) =>
-      (prop.type === "Property" &&
-        (containsCallExpression(prop.value, lazyNames) ||
-          (prop.computed &&
-            containsCallExpression(prop.key, lazyNames)))) ||
-      (prop.type === "SpreadElement" &&
-        containsCallExpression(prop.argument, lazyNames)),
-  ) ?? false;
+  return (
+    propsObject.properties?.some(
+      (prop: any) =>
+        (prop.type === "Property" &&
+          (containsCallExpression(prop.value, lazyNames) ||
+            (prop.computed && containsCallExpression(prop.key, lazyNames)))) ||
+        (prop.type === "SpreadElement" &&
+          containsCallExpression(prop.argument, lazyNames)),
+    ) ?? false
+  );
 }
 
 /**
  * Whether `node` is an async function literal (arrow or function expression).
  */
 export function isAsyncFunctionExpr(node: any): boolean {
-  return (node?.type === "ArrowFunctionExpression" ||
-    node?.type === "FunctionExpression") && node.async === true;
+  return (
+    (node?.type === "ArrowFunctionExpression" ||
+      node?.type === "FunctionExpression") &&
+    node.async === true
+  );
 }
 
 /**
@@ -568,9 +598,11 @@ export function findEnclosingFunction(node: any): any {
  */
 export function isCallArgumentFunction(fn: any): boolean {
   const parent = fn?.parent;
-  return parent?.type === "CallExpression" &&
+  return (
+    parent?.type === "CallExpression" &&
     parent.callee !== fn &&
-    (parent.arguments?.includes(fn) ?? false);
+    (parent.arguments?.includes(fn) ?? false)
+  );
 }
 
 /**
@@ -621,7 +653,8 @@ export function isDiscardedCallbackArgument(fn: any): boolean {
   const callee = parent.callee;
   // setTimeout(() => ...), queueMicrotask(() => ...), etc.
   if (
-    callee?.type === "Identifier" && FIRE_AND_FORGET_GLOBALS.has(callee.name)
+    callee?.type === "Identifier" &&
+    FIRE_AND_FORGET_GLOBALS.has(callee.name)
   ) {
     return true;
   }
@@ -638,12 +671,14 @@ export function isDiscardedCallbackArgument(fn: any): boolean {
  * (`Promise.all`/`allSettled`) awaits those.
  */
 export function isMapResult(node: any): boolean {
-  return node?.type === "CallExpression" &&
+  return (
+    node?.type === "CallExpression" &&
     node.callee?.type === "MemberExpression" &&
     !node.callee.computed &&
     node.callee.property?.type === "Identifier" &&
     (node.callee.property.name === "map" ||
-      node.callee.property.name === "flatMap");
+      node.callee.property.name === "flatMap")
+  );
 }
 
 /**
@@ -697,7 +732,8 @@ export function isPromiseReturningExpr(node: any): boolean {
   if (!node) return false;
   if (
     node.type === "CallExpression" &&
-    node.callee?.type === "MemberExpression" && !node.callee.computed &&
+    node.callee?.type === "MemberExpression" &&
+    !node.callee.computed &&
     node.callee.property?.type === "Identifier"
   ) {
     const name = node.callee.property.name;
@@ -705,12 +741,15 @@ export function isPromiseReturningExpr(node: any): boolean {
     if (
       node.callee.object?.type === "Identifier" &&
       node.callee.object.name === "Promise"
-    ) return true;
+    )
+      return true;
   }
   if (
-    node.type === "NewExpression" && node.callee?.type === "Identifier" &&
+    node.type === "NewExpression" &&
+    node.callee?.type === "Identifier" &&
     node.callee.name === "Promise"
-  ) return true;
+  )
+    return true;
   return false;
 }
 
@@ -739,16 +778,23 @@ export function blockReturnsPromise(node: any, depth = 0): boolean {
   // is non-enumerable in Deno and skipped below for ESTree.
   for (const key in node) {
     if (
-      key === "type" || key === "start" || key === "end" ||
-      key === "loc" || key === "parent" || key === "range"
-    ) continue;
+      key === "type" ||
+      key === "start" ||
+      key === "end" ||
+      key === "loc" ||
+      key === "parent" ||
+      key === "range"
+    )
+      continue;
     const child = node[key];
     if (Array.isArray(child)) {
       for (const item of child) {
         if (
-          typeof item === "object" && item !== null &&
+          typeof item === "object" &&
+          item !== null &&
           blockReturnsPromise(item, depth + 1)
-        ) return true;
+        )
+          return true;
       }
     } else if (typeof child === "object" && child !== null) {
       if (blockReturnsPromise(child, depth + 1)) return true;
@@ -795,12 +841,14 @@ export function isPromiseCombinatorArrayArg(arrayNode: any): boolean {
   if (!parent || parent.type !== "CallExpression") return false;
   if (!(parent.arguments?.includes(arrayNode) ?? false)) return false;
   const callee = parent.callee;
-  return callee?.type === "MemberExpression" &&
+  return (
+    callee?.type === "MemberExpression" &&
     !callee.computed &&
     callee.object?.type === "Identifier" &&
     callee.object.name === "Promise" &&
     callee.property?.type === "Identifier" &&
-    ["all", "allSettled"].includes(callee.property.name);
+    ["all", "allSettled"].includes(callee.property.name)
+  );
 }
 
 /**
@@ -952,8 +1000,11 @@ export function isLogPromiseHandled(node: any): boolean {
  */
 export function canInsertAwait(node: any): boolean {
   const enclosingFn = findEnclosingFunction(node);
-  return enclosingFn != null && enclosingFn.async === true &&
-    node.parent?.type === "ExpressionStatement";
+  return (
+    enclosingFn != null &&
+    enclosingFn.async === true &&
+    node.parent?.type === "ExpressionStatement"
+  );
 }
 
 /**
@@ -980,8 +1031,8 @@ export function staticKeyName(prop: any): string | null {
     prop.key.expressions?.length === 0 &&
     prop.key.quasis?.length === 1
   ) {
-    const cooked = prop.key.quasis[0]?.value?.cooked ??
-      prop.key.quasis[0]?.cooked;
+    const cooked =
+      prop.key.quasis[0]?.value?.cooked ?? prop.key.quasis[0]?.cooked;
     return typeof cooked === "string" ? cooked : null;
   }
   return null;
@@ -997,9 +1048,11 @@ export function isStringLiteral(node: any, value: string): boolean {
   if (node?.type === "Literal") return node.value === value;
   if (node?.type === "TemplateLiteral") {
     const cooked = node.quasis?.[0]?.value?.cooked ?? node.quasis?.[0]?.cooked;
-    return node.expressions?.length === 0 &&
+    return (
+      node.expressions?.length === 0 &&
       node.quasis?.length === 1 &&
-      cooked === value;
+      cooked === value
+    );
   }
   return false;
 }

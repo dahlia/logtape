@@ -19,8 +19,10 @@ export type TimeRotationInterval = "hourly" | "daily" | "weekly";
 /**
  * Options for the {@link getBaseTimeRotatingFileSink} function.
  */
-export interface TimeRotatingFileSinkOptions
-  extends Omit<FileSinkOptions, "lazy"> {
+export interface TimeRotatingFileSinkOptions extends Omit<
+  FileSinkOptions,
+  "lazy"
+> {
   /**
    * The directory to write log files to.
    */
@@ -65,8 +67,9 @@ export interface TimeRotatingFileSinkOptions
 /**
  * A platform-specific time-rotating file sink driver.
  */
-export interface TimeRotatingFileSinkDriver<TFile>
-  extends FileSinkDriver<TFile> {
+export interface TimeRotatingFileSinkDriver<
+  TFile,
+> extends FileSinkDriver<TFile> {
   /**
    * Read the contents of a directory.
    * @param path A path to the directory.
@@ -108,8 +111,9 @@ export interface TimeRotatingFileSinkDriver<TFile>
  * A platform-specific async time-rotating file sink driver.
  * @since 2.0.0
  */
-export interface AsyncTimeRotatingFileSinkDriver<TFile>
-  extends AsyncFileSinkDriver<TFile> {
+export interface AsyncTimeRotatingFileSinkDriver<
+  TFile,
+> extends AsyncFileSinkDriver<TFile> {
   /**
    * Read the contents of a directory.
    * @param path A path to the directory.
@@ -248,9 +252,7 @@ function hasStatSyncDriver(options: object): options is StatSyncDriver {
 }
 
 function parseDefaultFilename(file: string): Date | null {
-  const dateMatch = file.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2}))?\.log$/,
-  );
+  const dateMatch = file.match(/^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2}))?\.log$/);
   const weekMatch = file.match(/^(\d{4})-W(\d{2})\.log$/);
 
   if (dateMatch) {
@@ -297,9 +299,8 @@ export function getBaseTimeRotatingFileSink<TFile>(
   options: TimeRotatingFileSinkOptions & AsyncTimeRotatingFileSinkDriver<TFile>,
 ): Sink & AsyncDisposable;
 export function getBaseTimeRotatingFileSink<TFile>(
-  options:
-    & TimeRotatingFileSinkOptions
-    & (
+  options: TimeRotatingFileSinkOptions &
+    (
       | TimeRotatingFileSinkDriver<TFile>
       | AsyncTimeRotatingFileSinkDriver<TFile>
     ),
@@ -311,9 +312,10 @@ export function getBaseTimeRotatingFileSink<TFile>(
   const filenameGenerator = options.filename ?? getDefaultFilename(interval);
   const parseFilename = options.parseFilename;
   const maxAgeMs = options.maxAgeMs;
-  const cleanupInterval = maxAgeMs === undefined
-    ? getRotationIntervalMs(interval)
-    : Math.min(getRotationIntervalMs(interval), maxAgeMs);
+  const cleanupInterval =
+    maxAgeMs === undefined
+      ? getRotationIntervalMs(interval)
+      : Math.min(getRotationIntervalMs(interval), maxAgeMs);
   const bufferSize = options.bufferSize ?? 1024 * 8;
   const flushInterval = options.flushInterval ?? 5000;
   const directory = options.directory;
@@ -354,7 +356,8 @@ export function getBaseTimeRotatingFileSink<TFile>(
 
     const now = Date.now();
     if (
-      lastCleanupTimestamp !== undefined && cleanupInterval > 0 &&
+      lastCleanupTimestamp !== undefined &&
+      cleanupInterval > 0 &&
       now - lastCleanupTimestamp < cleanupInterval
     ) {
       return;
@@ -421,8 +424,9 @@ export function getBaseTimeRotatingFileSink<TFile>(
       buffer += formatter(record);
 
       const shouldFlushBySize = buffer.length >= bufferSize;
-      const shouldFlushByTime = flushInterval > 0 &&
-        (record.timestamp - lastFlushTimestamp) >= flushInterval;
+      const shouldFlushByTime =
+        flushInterval > 0 &&
+        record.timestamp - lastFlushTimestamp >= flushInterval;
 
       if (shouldFlushBySize || shouldFlushByTime) {
         flushBuffer();
@@ -484,8 +488,9 @@ export function getBaseTimeRotatingFileSink<TFile>(
     buffer += formatter(record);
 
     const shouldFlushBySize = buffer.length >= bufferSize;
-    const shouldFlushByTime = flushInterval > 0 &&
-      (record.timestamp - lastFlushTimestamp) >= flushInterval;
+    const shouldFlushByTime =
+      flushInterval > 0 &&
+      record.timestamp - lastFlushTimestamp >= flushInterval;
 
     if (shouldFlushBySize || shouldFlushByTime) {
       scheduleFlush();

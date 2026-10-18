@@ -9,10 +9,10 @@ import {
 } from "./traversal.ts";
 
 // Match transpiled resource management without changing the global Symbol.
-const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ??
-  Symbol.for("Symbol.dispose");
-const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
-  Symbol.for("Symbol.asyncDispose");
+const disposeSymbol: typeof Symbol.dispose =
+  Symbol.dispose ?? Symbol.for("Symbol.dispose");
+const asyncDisposeSymbol: typeof Symbol.asyncDispose =
+  Symbol.asyncDispose ?? Symbol.for("Symbol.asyncDispose");
 
 /**
  * The type for a field pattern used in redaction.  A string or a regular
@@ -205,9 +205,9 @@ export interface HmacPseudonymizerOptions {
  * @since 0.10.0
  */
 export function redactByField(
-  sink: Sink | Sink & Disposable | Sink & AsyncDisposable,
+  sink: Sink | (Sink & Disposable) | (Sink & AsyncDisposable),
   options: FieldRedactionOptions | FieldPatterns = DEFAULT_REDACT_FIELDS,
-): Sink | Sink & Disposable | Sink & AsyncDisposable {
+): Sink | (Sink & Disposable) | (Sink & AsyncDisposable) {
   const opts = Array.isArray(options) ? { fieldPatterns: options } : options;
   const wrapped = (record: LogRecord) => {
     const context = createFieldRedactionContext(opts);
@@ -224,10 +224,7 @@ export function redactByField(
       // String template: redact by placeholder names
       const placeholders = extractPlaceholderNames(record.rawMessage);
       const { redactedIndices, wildcardIndices } =
-        getRedactedPlaceholderIndices(
-          placeholders,
-          opts.fieldPatterns,
-        );
+        getRedactedPlaceholderIndices(placeholders, opts.fieldPatterns);
       redactedMessage = redactMessageArray(
         record.message,
         placeholders,
@@ -294,7 +291,7 @@ export function redactByField(
  * @since 2.1.0
  */
 export function redactByFieldAsync(
-  sink: Sink | Sink & Disposable | Sink & AsyncDisposable,
+  sink: Sink | (Sink & Disposable) | (Sink & AsyncDisposable),
   options: AsyncFieldRedactionOptions,
 ): Sink & AsyncDisposable {
   let lastPromise = Promise.resolve();
@@ -338,9 +335,8 @@ export function redactByFieldAsync(
     }
 
     if (sinkErrors.length > 0) {
-      const errors = disposeError == null
-        ? sinkErrors
-        : [...sinkErrors, disposeError];
+      const errors =
+        disposeError == null ? sinkErrors : [...sinkErrors, disposeError];
       if (errors.length === 1) throw errors[0];
       throw new AggregateError(
         errors,
@@ -481,22 +477,22 @@ export async function createHmacPseudonymizer(
   }
   const hash = getHmacHash(options.key, options.hash);
   const encoding = options.encoding ?? "base64url";
-  const prefix = options.prefix ??
-    `hmac-${hash.toLowerCase().replaceAll("-", "")}:`;
-  const key = isCryptoKey(options.key) ? options.key : await subtle.importKey(
-    "raw",
-    keyToBytes(options.key),
-    { name: "HMAC", hash },
-    false,
-    ["sign"],
-  );
+  const prefix =
+    options.prefix ?? `hmac-${hash.toLowerCase().replaceAll("-", "")}:`;
+  const key = isCryptoKey(options.key)
+    ? options.key
+    : await subtle.importKey(
+        "raw",
+        keyToBytes(options.key),
+        { name: "HMAC", hash },
+        false,
+        ["sign"],
+      );
   const encoder = new TextEncoder();
 
   return async (value: unknown): Promise<string> => {
     const data = encoder.encode(String(value));
-    const signature = new Uint8Array(
-      await subtle.sign("HMAC", key, data),
-    );
+    const signature = new Uint8Array(await subtle.sign("HMAC", key, data));
     return prefix + encodeBytes(signature, encoding);
   };
 }
@@ -794,7 +790,8 @@ async function redactArrayAsync(
  * @returns `true` if the value is a built-in object, `false` otherwise.
  */
 function isBuiltInObject(value: object): boolean {
-  return value instanceof Error ||
+  return (
+    value instanceof Error ||
     value instanceof Date ||
     value instanceof RegExp ||
     value instanceof Map ||
@@ -805,7 +802,8 @@ function isBuiltInObject(value: object): boolean {
     value instanceof ArrayBuffer ||
     (typeof SharedArrayBuffer !== "undefined" &&
       value instanceof SharedArrayBuffer) ||
-    ArrayBuffer.isView(value);
+    ArrayBuffer.isView(value)
+  );
 }
 
 /**
@@ -1116,8 +1114,10 @@ function collectRedactedValues(
 
     // Recurse into nested objects
     if (
-      typeof origVal === "object" && origVal !== null &&
-      typeof redVal === "object" && redVal !== null &&
+      typeof origVal === "object" &&
+      origVal !== null &&
+      typeof redVal === "object" &&
+      redVal !== null &&
       !Array.isArray(origVal)
     ) {
       collectRedactedValues(
@@ -1185,8 +1185,11 @@ function keyToBytes(key: string | Uint8Array | ArrayBuffer): BufferSource {
 function isCryptoKey(
   key: string | Uint8Array | ArrayBuffer | CryptoKey,
 ): key is CryptoKey {
-  return typeof key === "object" && key !== null &&
-    Object.prototype.toString.call(key) === "[object CryptoKey]";
+  return (
+    typeof key === "object" &&
+    key !== null &&
+    Object.prototype.toString.call(key) === "[object CryptoKey]"
+  );
 }
 
 function getHmacHash(
@@ -1215,8 +1218,10 @@ function getCryptoKeyHmacHash(
   }
   const hashAlgorithm = algorithm.hash;
   if (
-    typeof hashAlgorithm !== "object" || hashAlgorithm == null ||
-    !("name" in hashAlgorithm) || typeof hashAlgorithm.name !== "string"
+    typeof hashAlgorithm !== "object" ||
+    hashAlgorithm == null ||
+    !("name" in hashAlgorithm) ||
+    typeof hashAlgorithm.name !== "string"
   ) {
     throw new TypeError("The CryptoKey must specify an HMAC hash algorithm.");
   }
