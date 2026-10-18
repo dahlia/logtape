@@ -1,8 +1,5 @@
 {
-  "deno.enable": true,
-  "deno.unstable": [
-    "fs"
-  ],
+  "deno.enable": false,
   "editor.detectIndentation": false,
   "editor.indentSize": 2,
   "editor.insertSpaces": true,
@@ -10,25 +7,32 @@
   "files.insertFinalNewline": true,
   "files.trimFinalNewlines": true,
   "[javascript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.sortImports": "always"
-    }
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+    "editor.formatOnSave": true
   },
   "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true
   },
   "[typescript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.sortImports": "always"
-    }
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+    "editor.formatOnSave": true
+  },
+  "deno.enablePaths": [
+    "./packages/testing-deno"
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+    "editor.formatOnSave": true
   }
 }

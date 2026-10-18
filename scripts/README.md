@@ -1,10 +1,10 @@
 Development checks
 ==================
 
-`mise run check:node` builds fresh npm artifacts, checks local source and tests
-with TypeScript, runs Oxlint, and checks formatting and the changelog.
-`mise run check:deno` runs Deno's type checker and its complete recommended
-lint rule set.
+`mise run check` (also available as `check:node`) builds fresh npm artifacts,
+checks local source and tests with TypeScript, runs Oxlint, and checks
+formatting and the changelog. `mise run check:deno` runs Deno's type checker
+and its complete recommended lint rule set.
 
 
 Formatting
@@ -189,3 +189,52 @@ own directives.
 
 The migration obtained the Deno rule list with `deno lint --rules --json` and
 the Oxlint list with `oxlint --rules --format json`.
+
+
+Tests and coverage
+------------------
+
+`mise run test` runs the default checks and Node.js tests.  Use
+`mise run test:all` before submitting changes to include Deno type and lint
+checks, Deno tests, and Bun tests.  Runtime suites run sequentially because
+Node.js and Bun rebuild the same output directories.
+
+`mise run coverage` builds all packages and collects Node.js coverage with c8.
+HTML, LCOV, and JSON reports go to *coverage/node/*, and per-package JUnit
+reports go to *coverage/junit/*.  The report checker rejects empty coverage.
+`mise run test:node:report` produces JUnit reports without coverage.
+
+The reporting runner reads Node flags from each package's existing test script
+and invokes Node directly after the workspace build.  Wrapping the standalone
+pnpm executable with c8 produced empty coverage in the migration probe: pnpm
+cleared `NODE_V8_COVERAGE` before starting its children.
+
+Source maps attribute built Node.js code to source files.  Node coverage omits
+Deno-only and Bun-only branches, the JSR-only test package, and source files
+not reached by the built Node test suites.  It is not a replacement for Deno
+coverage and its percentages should be compared separately.  Use
+`mise run coverage:deno` for the Deno report at *.cov/deno/html/index.html*.
+
+
+Optional Deno tasks and editors
+-------------------------------
+
+`mise install`, dependency installation, formatting, checks, builds, default
+tests, coverage, and Git hooks use Node.js tooling.  Deno is a task-local tool
+for `check:deno`, `test:deno`, `coverage:deno`, Elysia compatibility, the
+disabled-call benchmark, `check:jsr`, and JSR publishing.  The `test:all` task
+calls the compatibility tasks.  Mise installs Deno when one of those tasks
+requests it. CI keeps separate Deno checks and all three runtime suites on
+Linux, macOS, and Windows.  Node.js and Deno coverage uploads use separate
+flags and test-result names.
+
+VS Code uses the workspace TypeScript and Oxc extensions for the default
+workflow.  The optional Deno extension is scoped to *packages/testing-deno/*.
+Zed uses its TypeScript support with the Oxc extension for linting and
+formatting.  Both editors use the repository's Oxfmt settings and leave import
+order unchanged.  Run `mise run check` for the authoritative package-aware
+source check; the shared editor configuration does not reproduce its separate
+compiler programs.
+
+The formatter migration can be hidden from blame with
+`git config blame.ignoreRevsFile .git-blame-ignore-revs`.

@@ -7,6 +7,7 @@
     "@types/cross-spawn": "6.0.6",
     "@types/deno": "2.7.0",
     "@types/node": "22.15.31",
+    "c8": "12.0.0",
     "cross-spawn": "7.0.6",
     "oxfmt": "0.73.0",
     "oxlint": "1.88.0",

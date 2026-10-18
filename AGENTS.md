@@ -190,6 +190,12 @@ compatibility:
 
 These modules work across Deno, Node.js, and Bun runtimes.
 
+The default development workflow uses Node.js, TypeScript, Oxlint, and Oxfmt.
+Deno is installed on demand for explicit compatibility tasks and JSR
+publishing.  Run `mise run test:all` before submitting changes.  See
+*scripts/README.md* for compiler scope, lint-rule mapping, and coverage
+limitations.
+
 ### Test organization
 
 1.  Each implementation file has a corresponding _\*.test.ts_ file
@@ -273,11 +279,14 @@ The project supports testing across multiple JavaScript runtimes:
 # Run Deno tests only
 mise run test:deno
 
-# Run tests with coverage (Deno)
+# Run tests with coverage (Node.js)
 mise run coverage
 
+# Run Deno tests with coverage
+mise run coverage:deno
+
 # Run tests across ALL runtimes (Deno, Node.js, Bun)
-mise run test
+mise run test:all
 
 # Run tests for specific runtime
 mise run test:node    # Node.js only
@@ -312,7 +321,8 @@ mise deps
 mise run check
 
 # Run tests
-mise run test           # All runtimes (includes check)
+mise run test           # Node.js (includes check)
+mise run test:all       # All runtimes and compatibility checks
 mise run test:deno      # Deno only
 mise run test:node      # Node.js only
 mise run test:bun       # Bun only
@@ -324,7 +334,8 @@ mise run build
 mise run fmt
 
 # Other useful tasks
-mise run coverage       # Run tests with coverage
+mise run coverage       # Run Node.js tests with coverage
+mise run coverage:deno  # Run Deno tests with coverage
 mise run check-versions # Check version consistency
 mise run update-versions # Update versions
 mise run bump-version 2.4.0 # Update package and next changelog versions
@@ -362,8 +373,6 @@ This runs:
 
  -  `mise run check:node`: Fresh builds, TypeScript checks of source and tests,
     and Oxlint checks
- -  `mise run check:deno`: Deno type checking and the complete Deno lint rule
-    set
  -  `oxfmt --check`, `hongdown --check`, and `mise fmt --check`: Format
     checking
  -  `sacho check`: Changelog fragment and materialization checking
@@ -380,8 +389,7 @@ This runs:
 The project uses git hooks managed by mise's `generate git-pre-commit` feature:
 
  -  *pre-commit*: Runs `mise run hooks:pre-commit` (which depends on `check`)
- -  *pre-push*: Runs `mise run hooks:pre-push` (which depends on `check` and
-    `test:deno`)
+ -  *pre-push*: Runs `mise run hooks:pre-push` (which depends on `test`)
 
 To install hooks:
 

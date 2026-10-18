@@ -57,7 +57,7 @@ Before starting any release:
     ~~~~ bash
     sacho preview
     sacho check
-    mise run test
+    mise run test:all
     ~~~~
 
     Edit the source fragments to combine duplicate entries, remove development
@@ -171,7 +171,7 @@ section in *CHANGES.md* and preserves the receiving branch's
     sacho fmt
     sacho preview
     sacho check
-    mise run test
+    mise run test:all
     ~~~~
 
 4.  Complete the merge and release the newer branch's patch version.  Continue

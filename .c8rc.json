@@ -1,0 +1,19 @@
+{
+  "include": [
+    "packages/*/src/**"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/fixtures/**",
+    "**/dist/**",
+    "**/*.d.ts"
+  ],
+  "reporter": [
+    "text",
+    "html",
+    "lcov",
+    "json"
+  ],
+  "reports-dir": "coverage/node",
+  "temp-directory": "coverage/node/tmp"
+}
