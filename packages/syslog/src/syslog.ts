@@ -682,6 +682,7 @@ export class DenoTcpSyslogConnection implements SyslogConnection {
 export class NodeTcpSyslogConnection implements SyslogConnection {
   private connection?: Socket | tls.TLSSocket;
   private encoder = new TextEncoder();
+  private _reconnectOnSend = false;
 
   constructor(
     private hostname: string,
@@ -718,12 +719,18 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
         socket.on("connect", () => {
           clearTimeout(timeout);
           this.connection = socket;
+          this._reconnectOnSend = true;
           resolve();
         });
 
         socket.on("error", (error) => {
           clearTimeout(timeout);
+          socket.destroy();
           reject(error);
+        });
+
+        socket.once("close", () => {
+          if (this.connection === socket) this.connection = undefined;
         });
 
         // For non-TLS sockets, explicitly call connect
@@ -738,6 +745,11 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
 
   send(message: string): Promise<void> {
     if (!this.connection) {
+      // A peer may have closed an established socket while it was idle.
+      // Reconnect before the first send attempt, without retrying failed writes.
+      if (this._reconnectOnSend) {
+        return this.connect().then(() => this.send(message));
+      }
       throw new Error("Connection not established");
     }
 
@@ -759,6 +771,7 @@ export class NodeTcpSyslogConnection implements SyslogConnection {
   }
 
   close(): void {
+    this._reconnectOnSend = false;
     if (this.connection) {
       try {
         this.connection.end();
@@ -931,6 +944,8 @@ export function getSyslogSink(
   let lastPromise = Promise.resolve();
   let bufferedBytes = 0;
   let overflowReported = false;
+  // Keep delivery failures observable to tests without rejecting the queue.
+  let queue = Promise.resolve();
 
   const sink: Sink & AsyncDisposable = (record: LogRecord) => {
     const syslogMessage = formatSyslogMessage(record, formatOptions);
@@ -957,31 +972,47 @@ export function getSyslogSink(
     }
     bufferedBytes += messageBytes;
 
-    lastPromise = lastPromise
-      .then(async () => {
-        if (!isConnected) {
-          await connection.connect();
-          isConnected = true;
-        }
-        await connection.send(syslogMessage);
-      })
-      .catch((error) => {
-        // If connection fails, try to reconnect on next message
-        isConnected = false;
-        throw error;
-      });
+    lastPromise = queue.then(async () => {
+      if (!isConnected) {
+        await connection.connect();
+        isConnected = true;
+      }
+      await connection.send(syslogMessage);
+    });
     if (maxBufferedBytes !== Infinity) {
-      // Keep cleanup in the chain so failed or skipped sends also release
-      // their reservation without creating a detached rejected promise.
+      // Release the reservation before reporting a failed delivery, since
+      // the meta logger may enqueue another record through this sink.
       lastPromise = lastPromise.finally(() => {
         bufferedBytes -= messageBytes;
         if (bufferedBytes === 0) overflowReported = false;
       });
     }
+    queue = lastPromise.catch((error) => {
+      // Reconnect for the next record, including records already queued.
+      isConnected = false;
+      connection.close();
+      // A meta logger may use this sink too. Never report a report's failure.
+      if (record.category[0] === "logtape" && record.category[1] === "meta") {
+        return;
+      }
+      try {
+        getLogger(["logtape", "meta"]).error(
+          "Failed to send a log record to the syslog server: {error}",
+          { error, record },
+        );
+      } catch {
+        // Error reporting must not reject the queue if the meta logger fails.
+      }
+    });
   };
 
   sink[asyncDisposeSymbol] = async () => {
-    await lastPromise.catch(() => {}); // Wait for any pending operations
+    // Error reporting may enqueue another record through the meta logger.
+    for (;;) {
+      const pending = queue;
+      await pending;
+      if (pending === queue) break;
+    }
     connection.close();
     isConnected = false;
   };

@@ -233,6 +233,48 @@ for (const failure of ["connect", "send"] as const) {
   });
 }
 
+for (const failure of ["connect", "send"] as const) {
+  test(`getSyslogSink() recovers a finite buffer after ${failure} failure`, async () => {
+    const gate = Promise.withResolvers<void>();
+    const sent: string[] = [];
+    const bytes = encoder.encode(header + "- small").length;
+    let attempts = 0;
+    const failOnce = async (): Promise<void> => {
+      if (++attempts === 1) await gate.promise;
+    };
+    await captureWarnings(async (warnings) => {
+      await withConnection("tcp", async (message) => {
+        if (failure === "send") await failOnce();
+        sent.push(message);
+      }, async () => {
+        const sink = makeSink("tcp", { maxBufferedBytes: bytes * 2 });
+        try {
+          sink(makeRecord("small"));
+          sink(makeRecord("other"));
+          sink(makeRecord("drops"));
+          gate.reject(new Error("first delivery failed"));
+          await sink[Symbol.asyncDispose]();
+          assert.deepStrictEqual(sent, [header + "- other"]);
+          assert.strictEqual(warnings.length, 1);
+          // Both reservations, including the failed one, must be reusable.
+          sink(makeRecord("later"));
+          sink(makeRecord("again"));
+          await sink[Symbol.asyncDispose]();
+          assert.deepStrictEqual(sent, [
+            header + "- other",
+            header + "- later",
+            header + "- again",
+          ]);
+          assert.strictEqual(warnings.length, 1);
+        } finally {
+          gate.resolve();
+          await sink[Symbol.asyncDispose]();
+        }
+      }, failure === "connect" ? failOnce : undefined);
+    });
+  });
+}
+
 for (const forwarding of ["direct", "async"] as const) {
   for (const limit of [1, 1024]) {
     test(`getSyslogSink() bounds ${forwarding} reflected warnings at limit ${limit}`, async () => {
