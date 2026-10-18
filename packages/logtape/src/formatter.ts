@@ -607,7 +607,22 @@ function escapeJsonControlChars(json: string): string {
   );
 }
 
+function bigintReplacer(_key: string, value: unknown): unknown {
+  return typeof value === "bigint" ? value.toString() : value;
+}
+
+function stringifyJsonMessageValue(value: unknown): string | undefined {
+  // Keep the fast path for primitives that cannot contain bigints or toJSON().
+  if (
+    typeof value === "string" || typeof value === "number" ||
+    typeof value === "boolean"
+  ) return JSON.stringify(value);
+  // Unlike properties, message values retain ordinary JSON Error semantics.
+  return stringifyWithoutCycles(value, bigintReplacer);
+}
+
 function jsonReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
   if (!(value instanceof Error)) return value;
 
   const serialized: Record<string, unknown> = {
@@ -648,13 +663,13 @@ function renderDefaultJsonLinesMessage(
     return message[0];
   }
   if (messageLength === 3) {
-    return (message[0] as string) + stringifyWithoutCycles(message[1]) +
+    return (message[0] as string) + stringifyJsonMessageValue(message[1]) +
       (message[2] as string);
   }
 
   let rendered = message[0] as string;
   for (let i = 1; i < messageLength; i++) {
-    rendered += (i & 1) ? stringifyWithoutCycles(message[i]) : message[i];
+    rendered += (i & 1) ? stringifyJsonMessageValue(message[i]) : message[i];
   }
   return rendered;
 }
@@ -1107,6 +1122,8 @@ export interface JsonLinesFormatterOptions {
  * Get a [JSON Lines] formatter with the specified options.  The log records
  * will be rendered as JSON objects, one per line, which is a common format
  * for log files.  This format is also known as Newline-Delimited JSON (NDJSON).
+ * Bigint values in properties and interpolated messages are serialized as
+ * decimal strings to preserve precision.
  * It looks like this:
  *
  * ```json
@@ -1204,7 +1221,7 @@ export function getJsonLinesFormatter(
       for (let i = 0; i < msgLen; i++) {
         msg += (i % 2 < 1)
           ? record.message[i]
-          : stringifyWithoutCycles(record.message[i]);
+          : stringifyJsonMessageValue(record.message[i]);
       }
       return msg;
     };
