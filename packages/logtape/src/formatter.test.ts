@@ -11,6 +11,7 @@ import {
   getJsonLinesFormatter,
   getLogfmtFormatter,
   getTextFormatter,
+  jsonLinesFormatter,
   logfmtFormatter,
 } from "./formatter.ts";
 import type { LogLevel } from "./level.ts";
@@ -1071,6 +1072,144 @@ test("getLogfmtFormatter() emits parseable logfmt lines", () => {
       },
     ),
   );
+});
+
+test("JSON Lines formatters serialize bigint properties without losing precision", () => {
+  const properties = {
+    large: 9007199254740993n,
+    negative: -12345678901234567890n,
+    zero: 0n,
+    nested: { values: [1n, { value: -2n }] },
+    number: 42,
+  };
+  const expected = {
+    large: "9007199254740993",
+    negative: "-12345678901234567890",
+    zero: "0",
+    nested: { values: ["1", { value: "-2" }] },
+    number: 42,
+  };
+  for (
+    const message of [
+      ["plain"],
+      ["value=", 42, ""],
+      ["first=", 42, " second=", 43, ""],
+    ]
+  ) {
+    const record = { ...info, message, properties };
+    for (
+      const formatter of [
+        jsonLinesFormatter,
+        getJsonLinesFormatter(),
+        getJsonLinesFormatter({ properties: "nest:data" }),
+        getJsonLinesFormatter({ message: "template" }),
+      ]
+    ) {
+      const result = JSON.parse(formatter(record));
+      assert.deepStrictEqual(result.data ?? result.properties, expected);
+    }
+    const flattened = JSON.parse(
+      getJsonLinesFormatter({ properties: "flatten" })(record),
+    );
+    for (const [key, value] of Object.entries(expected)) {
+      assert.deepStrictEqual(flattened[key], value);
+    }
+    const prepended = JSON.parse(
+      getJsonLinesFormatter({ properties: "prepend:ctx_" })(record),
+    );
+    for (const [key, value] of Object.entries(expected)) {
+      assert.deepStrictEqual(prepended[`ctx_${key}`], value);
+    }
+  }
+});
+
+test("JSON Lines formatters serialize bigint message values as decimal strings", () => {
+  for (
+    const formatter of [
+      jsonLinesFormatter,
+      getJsonLinesFormatter(),
+      getJsonLinesFormatter({ message: "rendered" }),
+      getJsonLinesFormatter({ properties: "flatten" }),
+      getJsonLinesFormatter({ properties: "prepend:ctx_" }),
+    ]
+  ) {
+    for (
+      const [message, expected] of [
+        [["id=", 9007199254740993n, ""], 'id="9007199254740993"'],
+        [["id=", -12345678901234567890n, ""], 'id="-12345678901234567890"'],
+        [["id=", 0n, ""], 'id="0"'],
+        [
+          ["first=", 9007199254740993n, " second=", -2n, ""],
+          'first="9007199254740993" second="-2"',
+        ],
+        [
+          ["data=", { values: [9007199254740993n, { zero: 0n }] }, ""],
+          'data={"values":["9007199254740993",{"zero":"0"}]}',
+        ],
+      ] as const
+    ) {
+      const result = JSON.parse(formatter({ ...info, message }));
+      assert.strictEqual(result.message, expected);
+    }
+  }
+});
+
+test("JSON Lines formatters preserve Error serialization with bigint metadata", () => {
+  const error = Object.assign(new Error("boom", { cause: 1n }), { code: 2n });
+  const aggregate = new AggregateError([3n, error], "aggregate");
+  for (
+    const formatter of [
+      jsonLinesFormatter,
+      getJsonLinesFormatter({ message: "rendered" }),
+    ]
+  ) {
+    const result = JSON.parse(formatter({
+      ...info,
+      message: ["error=", error, " aggregate=", aggregate, ""],
+      properties: { error, aggregate },
+    }));
+    assert.strictEqual(result.properties.error.name, "Error");
+    assert.strictEqual(result.properties.error.message, "boom");
+    assert.strictEqual(result.properties.error.cause, "1");
+    assert.strictEqual(result.properties.error.code, "2");
+    assert.strictEqual(result.properties.aggregate.errors[0], "3");
+    assert.deepStrictEqual(
+      result.properties.aggregate.errors[1],
+      result.properties.error,
+    );
+    assert.strictEqual(result.message, 'error={"code":"2"} aggregate={}');
+    assert.strictEqual(
+      JSON.parse(formatter({ ...info, message: ["error=", error, ""] }))
+        .message,
+      'error={"code":"2"}',
+    );
+  }
+});
+
+test("JSON Lines formatters respect toJSON() when serializing bigint values", () => {
+  let calls = 0;
+  const value = {
+    toJSON() {
+      calls++;
+      return { id: 9007199254740993n };
+    },
+  };
+  for (
+    const formatter of [
+      jsonLinesFormatter,
+      getJsonLinesFormatter({ message: "rendered" }),
+    ]
+  ) {
+    calls = 0;
+    const result = JSON.parse(formatter({
+      ...info,
+      message: ["value=", value, ""],
+      properties: { value },
+    }));
+    assert.strictEqual(result.message, 'value={"id":"9007199254740993"}');
+    assert.deepStrictEqual(result.properties.value, { id: "9007199254740993" });
+    assert.strictEqual(calls, 2);
+  }
 });
 
 test("getTextFormatter() with lineEnding option", () => {

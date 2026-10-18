@@ -605,7 +605,22 @@ function escapeJsonControlChars(json: string): string {
   );
 }
 
+function bigintReplacer(_key: string, value: unknown): unknown {
+  return typeof value === "bigint" ? value.toString() : value;
+}
+
+function stringifyJsonMessageValue(value: unknown): string | undefined {
+  // Keep the fast path for primitives that cannot contain bigints or toJSON().
+  if (
+    typeof value === "string" || typeof value === "number" ||
+    typeof value === "boolean"
+  ) return JSON.stringify(value);
+  // Unlike properties, message values retain ordinary JSON Error semantics.
+  return JSON.stringify(value, bigintReplacer);
+}
+
 function jsonReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
   if (!(value instanceof Error)) return value;
 
   const serialized: Record<string, unknown> = {
@@ -1033,6 +1048,8 @@ export interface JsonLinesFormatterOptions {
  * Get a [JSON Lines] formatter with the specified options.  The log records
  * will be rendered as JSON objects, one per line, which is a common format
  * for log files.  This format is also known as Newline-Delimited JSON (NDJSON).
+ * Bigint values in properties and interpolated messages are serialized as
+ * decimal strings to preserve precision.
  * It looks like this:
  *
  * ```json
@@ -1060,7 +1077,8 @@ export function getJsonLinesFormatter(
           level: record.level === "warning"
             ? "WARN"
             : record.level.toUpperCase(),
-          message: record.message[0] + JSON.stringify(record.message[1]) +
+          message: (record.message[0] as string) +
+            stringifyJsonMessageValue(record.message[1]) +
             record.message[2],
           logger: record.category.join("."),
           properties: record.properties,
@@ -1083,7 +1101,9 @@ export function getJsonLinesFormatter(
       // Complex messages (fallback)
       let msg = record.message[0] as string;
       for (let i = 1; i < record.message.length; i++) {
-        msg += (i & 1) ? JSON.stringify(record.message[i]) : record.message[i];
+        msg += (i & 1)
+          ? stringifyJsonMessageValue(record.message[i])
+          : record.message[i];
       }
 
       return escapeJsonControlChars(JSON.stringify({
@@ -1171,7 +1191,7 @@ export function getJsonLinesFormatter(
       for (let i = 0; i < msgLen; i++) {
         msg += (i % 2 < 1)
           ? record.message[i]
-          : JSON.stringify(record.message[i]);
+          : stringifyJsonMessageValue(record.message[i]);
       }
       return msg;
     };
