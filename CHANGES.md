@@ -8,6 +8,16 @@ Version 2.0.29
 
 To be released.
 
+### @logtape/logtape
+
+ -  Fixed `jsonLinesFormatter` and `getJsonLinesFormatter()` throwing on
+    `bigint` values in structured properties and interpolated messages.
+    Bigints are now serialized as decimal strings without losing precision.
+    [[#258], [#261]]
+
+[#258]: https://github.com/dahlia/logtape/issues/258
+[#261]: https://github.com/dahlia/logtape/pull/261
+
 
 Version 2.0.28
 --------------
