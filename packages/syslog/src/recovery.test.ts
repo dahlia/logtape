@@ -13,9 +13,12 @@ import { once } from "node:events";
 import { setImmediate } from "node:timers/promises";
 import {
   DenoTcpSyslogConnection,
+  DenoUdpSyslogConnection,
   getSyslogSink,
   NodeTcpSyslogConnection,
+  NodeUdpSyslogConnection,
   type SyslogConnection,
+  type SyslogSinkOptions,
 } from "./syslog.ts";
 
 type TestSink = Sink & AsyncDisposable & {
@@ -37,17 +40,19 @@ async function withConnection(
   connection: SyslogConnection,
   run: (sink: TestSink, errors: LogRecord[]) => Promise<void>,
   shared = false,
+  options: SyslogSinkOptions = {},
 ): Promise<void> {
+  const udp = options.protocol === "udp";
   const prototype = typeof Deno === "undefined"
-    ? NodeTcpSyslogConnection.prototype
-    : DenoTcpSyslogConnection.prototype;
+    ? (udp ? NodeUdpSyslogConnection : NodeTcpSyslogConnection).prototype
+    : (udp ? DenoUdpSyslogConnection : DenoTcpSyslogConnection).prototype;
   const original = {
     connect: prototype.connect,
     send: prototype.send,
     close: prototype.close,
   };
   Object.assign(prototype, connection);
-  const sink = getSyslogSink({ protocol: "tcp" }) as TestSink;
+  const sink = getSyslogSink({ protocol: "tcp", ...options }) as TestSink;
   const errors: LogRecord[] = [];
   configureSync({
     contextLocalStorage: new AsyncLocalStorage(),
@@ -388,4 +393,211 @@ test("getSyslogSink() reconnects before sending after an idle peer close", {
       NodeTcpSyslogConnection.prototype.connect = originalConnect;
     }
   }
+});
+
+for (const transport of ["tcp", "tls", "udp"] as const) {
+  for (const failure of ["connect", "send"] as const) {
+    for (const maxBufferedBytes of [Infinity, 4096]) {
+      test(`getSyslogSink() drops queued ${transport} messages after ${failure} failure with limit ${maxBufferedBytes}`, async () => {
+        const gate = Promise.withResolvers<void>();
+        const started = Promise.withResolvers<void>();
+        const sent: string[] = [];
+        let connects = 0;
+        const fail = async (): Promise<void> => {
+          started.resolve();
+          await gate.promise;
+        };
+        await withConnection(
+          {
+            async connect() {
+              if (++connects === 1 && failure === "connect") await fail();
+            },
+            async send(message) {
+              const text = message.split(" ").at(-1)!;
+              sent.push(text);
+              if (text === "failed" && failure === "send") await fail();
+            },
+            close() {},
+          },
+          async (sink, errors) => {
+            try {
+              sink(record("failed"));
+              const failed = sink._internal_lastPromise;
+              await started.promise;
+              sink(record("second"));
+              sink(record("third"));
+              const skipped = sink._internal_lastPromise;
+              gate.reject(new Error("unreachable"));
+              await assert.rejects(failed, /unreachable/);
+              // Admission after the observed failure remains eligible, even if
+              // older skipped callbacks have not all run yet.
+              sink(record("recovered"));
+              await skipped;
+              await sink[Symbol.asyncDispose]();
+              assert.deepStrictEqual(
+                sent,
+                failure === "send" ? ["failed", "recovered"] : ["recovered"],
+              );
+              assert.strictEqual(connects, 2);
+              assert.strictEqual(errors.length, 1);
+            } finally {
+              gate.resolve();
+            }
+          },
+          false,
+          {
+            protocol: transport === "udp" ? "udp" : "tcp",
+            secure: transport === "tls",
+            dropQueuedOnError: true,
+            maxBufferedBytes,
+          },
+        );
+      });
+    }
+  }
+}
+
+for (const dropQueuedOnError of [undefined, false, true]) {
+  test(`getSyslogSink() handles repeated failures with dropQueuedOnError=${dropQueuedOnError}`, async () => {
+    const sent: string[] = [];
+    await withConnection(
+      {
+        connect() {},
+        send(message) {
+          const text = message.split(" ").at(-1)!;
+          sent.push(text);
+          return text.startsWith("failed")
+            ? Promise.reject(new Error("send failed"))
+            : Promise.resolve();
+        },
+        close() {},
+      },
+      async (sink, errors) => {
+        for (const suffix of ["one", "two"]) {
+          sink(record(`failed-${suffix}`));
+          sink(record(`queued-${suffix}`));
+          await sink[Symbol.asyncDispose]();
+          sink(record(`recovered-${suffix}`));
+          sink(record(`success-${suffix}`));
+          await sink[Symbol.asyncDispose]();
+        }
+        assert.deepStrictEqual(sent, [
+          "failed-one",
+          ...(dropQueuedOnError ? [] : ["queued-one"]),
+          "recovered-one",
+          "success-one",
+          "failed-two",
+          ...(dropQueuedOnError ? [] : ["queued-two"]),
+          "recovered-two",
+          "success-two",
+        ]);
+        assert.strictEqual(errors.length, 2);
+      },
+      false,
+      { dropQueuedOnError },
+    );
+  });
+}
+
+for (const shared of [false, true]) {
+  test(`getSyslogSink() drops queued records on meta failure with shared=${shared}`, async () => {
+    const sent: string[] = [];
+    let connects = 0;
+    await withConnection(
+      {
+        connect() {
+          if (++connects === 1) throw new Error("unreachable");
+        },
+        send(message) {
+          sent.push(message);
+          return Promise.resolve();
+        },
+        close() {},
+      },
+      async (sink, errors) => {
+        sink({ ...record("meta failure"), category: ["logtape", "meta"] });
+        sink(record("discarded"));
+        await sink[Symbol.asyncDispose]();
+        assert.strictEqual(sent.length, 0);
+        assert.deepStrictEqual(errors, []);
+        sink(record("recovered"));
+        await sink[Symbol.asyncDispose]();
+        assert.strictEqual(sent.length, 1);
+        assert.ok(sent[0].endsWith("recovered"));
+      },
+      shared,
+      { dropQueuedOnError: true },
+    );
+  });
+}
+
+test("getSyslogSink() drains reentrant meta failures after discarding queued records", async () => {
+  let connects = 0;
+  await withConnection(
+    {
+      connect() {
+        connects++;
+        throw new Error("unreachable");
+      },
+      send() {
+        return Promise.resolve();
+      },
+      close() {},
+    },
+    async (sink, errors) => {
+      sink(record("failed"));
+      sink(record("discarded"));
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(connects, 2);
+      assert.strictEqual(errors.length, 1);
+      await setImmediate();
+      assert.strictEqual(connects, 2);
+    },
+    true,
+    { dropQueuedOnError: true },
+  );
+});
+
+test("getSyslogSink() recovers from throwing meta filters after discarding", async () => {
+  const sent: string[] = [];
+  let connects = 0;
+  await withConnection(
+    {
+      connect() {
+        if (++connects === 1) throw new Error("unreachable");
+      },
+      send(message) {
+        sent.push(message);
+        return Promise.resolve();
+      },
+      close() {},
+    },
+    async (sink) => {
+      configureSync({
+        reset: true,
+        sinks: {},
+        filters: {
+          broken: () => {
+            throw new Error("meta filter failed");
+          },
+        },
+        loggers: [{
+          category: ["logtape", "meta"],
+          lowestLevel: "error",
+          filters: ["broken"],
+        }],
+      });
+      sink(record("failed"));
+      sink(record("discarded"));
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(sent.length, 0);
+      sink(record("recovered"));
+      await sink[Symbol.asyncDispose]();
+      assert.strictEqual(connects, 2);
+      assert.strictEqual(sent.length, 1);
+      assert.ok(sent[0].endsWith("recovered"));
+    },
+    false,
+    { dropQueuedOnError: true },
+  );
 });

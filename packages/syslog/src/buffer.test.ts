@@ -259,13 +259,16 @@ for (const failure of ["connect", "send"] as const) {
           // Both reservations, including the failed one, must be reusable.
           sink(makeRecord("later"));
           sink(makeRecord("again"));
+          sink(makeRecord("drops"));
+          assert.strictEqual(warnings.length, 2);
+          assert.strictEqual(warnings[1].properties.bufferedBytes, bytes * 2);
           await sink[Symbol.asyncDispose]();
           assert.deepStrictEqual(sent, [
             header + "- other",
             header + "- later",
             header + "- again",
           ]);
-          assert.strictEqual(warnings.length, 1);
+          assert.strictEqual(warnings.length, 2);
         } finally {
           gate.resolve();
           await sink[Symbol.asyncDispose]();
@@ -412,6 +415,140 @@ test("getSyslogSink() finite byte limit preserves real TCP framing", {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+for (const failure of ["connect", "send"] as const) {
+  test(`getSyslogSink() releases discarded reservations before ${failure} error reporting`, async () => {
+    const failed = Promise.withResolvers<void>();
+    const started = Promise.withResolvers<void>();
+    const reported = Promise.withResolvers<void>();
+    const metaStarted = Promise.withResolvers<void>();
+    const metaGate = Promise.withResolvers<void>();
+    const sent: string[] = [];
+    const warnings: LogRecord[] = [];
+    const emptyBytes = encoder.encode(header + "- ").length;
+    const waiting = "한".repeat(150);
+    const cap = encoder.encode(header + "- failed").length +
+      2 * encoder.encode(header + "- " + waiting).length;
+    let connects = 0;
+    let sink: ReturnType<typeof getSyslogSink>;
+    const fail = async (): Promise<void> => {
+      started.resolve();
+      await failed.promise;
+    };
+    await withConnection("tcp", async (message) => {
+      sent.push(message);
+      if (failure === "send" && message.endsWith("- failed")) await fail();
+      if (message.includes("Failed to send a log record")) {
+        metaStarted.resolve();
+        await metaGate.promise;
+      }
+    }, async () => {
+      sink = makeSink("tcp", {
+        dropQueuedOnError: true,
+        maxBufferedBytes: cap,
+      });
+      await configure({
+        sinks: {
+          capture: (r) => {
+            if (r.level === "warning") warnings.push(r);
+            else if (r.level === "error") {
+              sink(r);
+              reported.resolve();
+            }
+          },
+        },
+        loggers: [{
+          category: ["logtape", "meta"],
+          lowestLevel: "warning",
+          sinks: ["capture"],
+        }],
+      });
+      try {
+        sink(makeRecord("failed"));
+        await started.promise;
+        sink(makeRecord(waiting));
+        sink(makeRecord(waiting));
+        failed.reject(new Error("unreachable"));
+        await reported.promise;
+        // A's own reservation is too small for the error report.  B/C's
+        // discarded reservations must be available before this reentrant call.
+        assert.strictEqual(warnings.length, 0);
+        await metaStarted.promise;
+        const metaBytes = encoder.encode(sent.at(-1)!).length;
+        const fits = "d".repeat(cap - metaBytes - emptyBytes);
+        sink(makeRecord(fits));
+        sink(makeRecord("overflows"));
+        assert.strictEqual(warnings.length, 1);
+        assert.strictEqual(warnings[0].properties.bufferedBytes, cap);
+        metaGate.resolve();
+        await sink[Symbol.asyncDispose]();
+        assert.strictEqual(sent.length, failure === "send" ? 3 : 2);
+        assert.ok(sent.at(-1)!.endsWith("- " + fits));
+
+        // Skipped callbacks must not subtract again or clear the warning latch
+        // while the new generation has reservations.  Once settled, all of the
+        // capacity must be reusable and warnings must be armed again.
+        const full = "e".repeat(cap - emptyBytes);
+        sink(makeRecord(full));
+        sink(makeRecord("overflows again"));
+        assert.strictEqual(warnings.length, 2);
+        assert.strictEqual(warnings[1].properties.bufferedBytes, cap);
+        await sink[Symbol.asyncDispose]();
+        sink(makeRecord(full + "!"));
+        assert.strictEqual(warnings.length, 3);
+        assert.strictEqual(warnings[2].properties.bufferedBytes, 0);
+      } finally {
+        failed.resolve();
+        metaGate.resolve();
+        await sink[Symbol.asyncDispose]();
+        await reset();
+      }
+    }, async () => {
+      if (++connects === 1 && failure === "connect") await fail();
+    });
+  });
+}
+
+for (const protocol of ["udp", "tcp"] as const) {
+  test(`getSyslogSink() ${protocol} does not discard its queue on admission errors`, async () => {
+    const gate = Promise.withResolvers<void>();
+    const started = Promise.withResolvers<void>();
+    const sent: string[] = [];
+    const bytes = encoder.encode(header + "- first").length;
+    await captureWarnings(async (warnings) => {
+      await withConnection(protocol, async (message) => {
+        sent.push(message);
+        started.resolve();
+        await gate.promise;
+      }, async () => {
+        const sink = makeSink(protocol, {
+          dropQueuedOnError: true,
+          maxBufferedBytes: bytes * 2,
+        });
+        try {
+          sink(makeRecord("first"));
+          await started.promise;
+          sink(makeRecord("other"));
+          assert.throws(
+            () => sink({ ...makeRecord("invalid"), timestamp: NaN }),
+            RangeError,
+          );
+          sink(makeRecord("overflow"));
+          assert.strictEqual(warnings.length, 1);
+          gate.resolve();
+          await sink[Symbol.asyncDispose]();
+          assert.deepStrictEqual(sent, [
+            header + "- first",
+            header + "- other",
+          ]);
+        } finally {
+          gate.resolve();
+          await sink[Symbol.asyncDispose]();
+        }
+      });
+    });
+  });
+}
 
 function makeRecord(
   message: string,
