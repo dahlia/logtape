@@ -4,6 +4,8 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+// @ts-types="npm:@types/cross-spawn@6.0.6"
+import spawn from "cross-spawn";
 import ts from "typescript";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -13,14 +15,18 @@ const work = await mkdtemp(join(tmpdir(), "logtape-elysia-"));
 
 async function run(command: string, args: string[], cwd = root): Promise<void> {
   console.log(`\n${command} ${args.join(" ")} (${cwd})`);
-  const status = await new Deno.Command(command, {
-    args,
+  const child = spawn(command, args, {
     cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-    env: { npm_config_ignore_scripts: "true" },
-  }).spawn().status;
-  if (!status.success) throw new Error(`${command} exited ${status.code}`);
+    stdio: "inherit",
+    env: { ...process.env, npm_config_ignore_scripts: "true" },
+  });
+  await new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} exited ${signal ?? code}`));
+    });
+  });
 }
 
 /**

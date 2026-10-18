@@ -32,11 +32,11 @@ run = "deno check && deno lint && deno fmt --check && hongdown --check && sacho 
 
 [tasks.check-versions]
 description = "Check that all subpackages have matching versions"
-run = "deno task check:versions"
+run = "node scripts/check_versions.ts"
 
 [tasks.update-versions]
 description = "Update all subpackage versions to match"
-run = "deno task update-versions"
+run = "node scripts/update_versions.ts"
 
 [tasks.fmt]
 description = "Format code, documentation, and the changelog"
@@ -48,11 +48,11 @@ run = "deno task test"
 
 [tasks."test:node"]
 description = "Run the test suite using Node.js"
-run = "deno task test:node"
+run = "pnpm run -r test"
 
 [tasks."test:bun"]
 description = "Run the test suite using Bun"
-run = "deno task test:bun"
+run = "pnpm run -r test:bun"
 
 [tasks.test]
 description = "Run the test suite across all environments"
@@ -75,7 +75,7 @@ run = [
 
 [tasks.build]
 description = "Build all packages for npm publishing"
-run = "deno task build"
+run = 'pnpm run -r --filter "./packages/*" build'
 
 [tasks.publish]
 description = "Publish packages to JSR"
@@ -123,4 +123,4 @@ depends = ["check", "test:deno"]
 
 [tasks."test:elysia-compatibility"]
 description = "Test Elysia 1 and 2 with packed npm artifacts and Deno source"
-run = "deno run --allow-all scripts/check_elysia_compatibility.ts"
+run = "node scripts/check_elysia_compatibility.ts"

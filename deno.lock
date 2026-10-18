@@ -35,6 +35,7 @@
     "npm:@types/bun@^1.2.15": "1.2.16",
     "npm:@types/bun@^1.2.16": "1.2.16",
     "npm:@types/bunyan@^1.8.11": "1.8.11",
+    "npm:@types/cross-spawn@6.0.6": "6.0.6",
     "npm:@types/express@^5.0.6": "5.0.6",
     "npm:@types/koa@^2.15.0": "2.15.0",
     "npm:@types/node@*": "24.0.7",
@@ -44,6 +45,7 @@
     "npm:aws-sdk-client-mock@4": "4.1.0",
     "npm:bunyan@^1.8.15": "1.8.15",
     "npm:consolemock@^1.1.0": "1.1.0",
+    "npm:cross-spawn@7.0.6": "7.0.6",
     "npm:elysia@^1.4.0": "1.4.19_@types+bun@1.2.16_typescript@5.9.3",
     "npm:eslint@9": "9.39.4",
     "npm:express@^5.2.1": "5.2.1",
@@ -1845,6 +1847,12 @@
         "@types/connect",
         "@types/express",
         "@types/keygrip",
+        "@types/node"
+      ]
+    },
+    "@types/cross-spawn@6.0.6": {
+      "integrity": "sha512-fXRhhUkG4H3TQk5dBhQ7m/JDdSNHKwR2BBia62lhwEIq9xGiQKLxd6LymNhn47SjXhsUEPmxi+PKw2OkW4LLjA==",
+      "dependencies": [
         "@types/node"
       ]
     },
@@ -4873,6 +4881,12 @@
       "npm:typescript@^5.8.3",
       "npm:vitest@^4.1.6"
     ],
+    "packageJson": {
+      "dependencies": [
+        "npm:@types/cross-spawn@6.0.6",
+        "npm:cross-spawn@7.0.6"
+      ]
+    },
     "members": {
       "benchmarks": {
         "dependencies": [
