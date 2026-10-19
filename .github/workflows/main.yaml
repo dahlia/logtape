@@ -264,12 +264,14 @@ jobs:
           mise run check-versions
         fi
     - run: mise run build
+    # Recursive publishing skips existing npm versions so this job can be
+    # rerun after a partial publish or a JSR failure.  Do not add --force.
     - run: |
         set -ex
         if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-          pnpm publish -r --filter './packages/*' --force --no-git-checks --access public --tag latest
+          pnpm publish -r --filter './packages/*' --no-git-checks --access public --tag latest
         else
-          pnpm publish -r --filter './packages/*' --force --no-git-checks --access public --tag dev
+          pnpm publish -r --filter './packages/*' --no-git-checks --access public --tag dev
         fi
       env:
         NPM_CONFIG_PROVENANCE: "true"
