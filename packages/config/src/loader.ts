@@ -49,9 +49,7 @@ export async function loadModuleExport(
   try {
     mod = await import(parsed.modulePath);
   } catch (e) {
-    throw new ConfigError(
-      `Failed to load module ${parsed.modulePath}: ${e}`,
-    );
+    throw new ConfigError(`Failed to load module ${parsed.modulePath}: ${e}`);
   }
 
   const exportName = parsed.exportName ?? "default";

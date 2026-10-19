@@ -125,7 +125,10 @@ function colorToAnsi(color: Color): string {
     let hex = hexMatch[1];
     // Convert 3-digit hex to 6-digit
     if (hex.length === 3) {
-      hex = hex.split("").map((c) => c + c).join("");
+      hex = hex
+        .split("")
+        .map((c) => c + c)
+        .join("");
     }
     const r = parseInt(hex.substr(0, 2), 16);
     const g = parseInt(hex.substr(2, 2), 16);
@@ -248,12 +251,13 @@ function resolveTimeZone(timeZone: string | null | undefined): TimeZoneConfig {
   }
 
   if (
-    typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function"
+    typeof Intl === "undefined" ||
+    typeof Intl.DateTimeFormat !== "function"
   ) {
     throw new TypeError(
-      `Invalid timeZone option: ${
-        JSON.stringify(timeZone)
-      }. This environment does not support IANA time zones.`,
+      `Invalid timeZone option: ${JSON.stringify(
+        timeZone,
+      )}. This environment does not support IANA time zones.`,
     );
   }
 
@@ -274,9 +278,9 @@ function resolveTimeZone(timeZone: string | null | undefined): TimeZoneConfig {
     };
   } catch {
     throw new TypeError(
-      `Invalid timeZone option: ${
-        JSON.stringify(timeZone)
-      }. Expected an IANA time zone name (e.g., "Asia/Seoul") or a fixed UTC offset string (e.g., "+09:00").`,
+      `Invalid timeZone option: ${JSON.stringify(
+        timeZone,
+      )}. Expected an IANA time zone name (e.g., "Asia/Seoul") or a fixed UTC offset string (e.g., "+09:00").`,
     );
   }
 }
@@ -408,11 +412,10 @@ function normalizeIconSpacing(
  *
  * @since 1.0.0
  */
-export interface PrettyFormatterOptions extends
-  Omit<
-    TextFormatterOptions,
-    "category" | "value" | "format" | "sourceLocation"
-  > {
+export interface PrettyFormatterOptions extends Omit<
+  TextFormatterOptions,
+  "category" | "value" | "format" | "sourceLocation"
+> {
   /**
    * Color for timestamp display when timestamps are enabled.
    *
@@ -905,9 +908,10 @@ export function getPrettyFormatter(
   // the category segments.  Interpolated values go through `inspect()`, which
   // escapes them already, except for strings under `value: "bare"`, which are
   // neutralized by `sanitizeBare` below.
-  const sanitize: ((text: string) => string) | null = sanitizeOptions === false
-    ? null
-    : (text: string) => sanitizeControlSequences(text, sanitizeOptions);
+  const sanitize: ((text: string) => string) | null =
+    sanitizeOptions === false
+      ? null
+      : (text: string) => sanitizeControlSequences(text, sanitizeOptions);
   // A category is an identifier rather than display text, so SGR sequences are
   // escaped there too; otherwise truncation could split one and leave a
   // dangling introducer in the output.
@@ -915,7 +919,7 @@ export function getPrettyFormatter(
     sanitizeOptions === false
       ? null
       : (text: string) =>
-        sanitizeControlSequences(text, { ...sanitizeOptions, sgr: "escape" });
+          sanitizeControlSequences(text, { ...sanitizeOptions, sgr: "escape" });
 
   // Fill in the documented defaults.  Without these, the runtime's own
   // `inspect()` defaults leak through: Node.js and Bun use `compact: 3`,
@@ -946,13 +950,14 @@ export function getPrettyFormatter(
       ...options,
     });
   if (
-    valueOption != null && valueOption !== "bare" &&
+    valueOption != null &&
+    valueOption !== "bare" &&
     typeof valueOption !== "function"
   ) {
     throw new TypeError(
-      `Invalid value option: ${
-        JSON.stringify(valueOption)
-      }. It must be "bare" or a function.`,
+      `Invalid value option: ${JSON.stringify(
+        valueOption,
+      )}. It must be "bare" or a function.`,
     );
   }
   const bare = valueOption === "bare";
@@ -960,21 +965,22 @@ export function getPrettyFormatter(
     !bare || sanitizeOptions === false
       ? null
       : (text: string) =>
-        sanitizeControlSequences(text, {
-          sgr: "escape",
-          newlines: sanitizeOptions.newlines ?? "escape",
-        });
+          sanitizeControlSequences(text, {
+            sgr: "escape",
+            newlines: sanitizeOptions.newlines ?? "escape",
+          });
   const renderValue: (value: unknown) => string =
     typeof valueOption === "function"
       ? (value) => valueOption(value, inspectValue)
       : (value) => inspectValue(value);
 
   // Resolve icons
-  const baseIconMap: Record<LogLevel, string> = icons === false
-    ? { trace: "", debug: "", info: "", warning: "", error: "", fatal: "" }
-    : icons === true
-    ? defaultIcons
-    : { ...defaultIcons, ...(icons as Partial<Record<LogLevel, string>>) };
+  const baseIconMap: Record<LogLevel, string> =
+    icons === false
+      ? { trace: "", debug: "", info: "", warning: "", error: "", fatal: "" }
+      : icons === true
+        ? defaultIcons
+        : { ...defaultIcons, ...(icons as Partial<Record<LogLevel, string>>) };
 
   // Normalize icon spacing for consistent alignment
   const iconMap = normalizeIconSpacing(baseIconMap);
@@ -1167,7 +1173,7 @@ export function getPrettyFormatter(
 
     // Determine category color (with prefix matching)
     const finalCategoryColor = useColors
-      ? (matchCategoryColor(record.category, categoryPatterns) || categoryColor)
+      ? matchCategoryColor(record.category, categoryPatterns) || categoryColor
       : null;
 
     // Apply colors and styling
@@ -1186,8 +1192,7 @@ export function getPrettyFormatter(
       // Apply category color and style (with prefix matching)
       const categoryColorCode = colorToAnsi(finalCategoryColor);
       const categoryStyleCode = styleToAnsi(categoryStyle);
-      formattedCategory =
-        `${categoryStyleCode}${categoryColorCode}${categoryStr}${RESET}`;
+      formattedCategory = `${categoryStyleCode}${categoryColorCode}${categoryStr}${RESET}`;
 
       // Apply message color and style (already handled in message building above)
       formattedMessage = `${messagePrefix}${message}${RESET}`;
@@ -1200,8 +1205,7 @@ export function getPrettyFormatter(
         if (useColors) {
           const timestampColorCode = colorToAnsi(timestampColor);
           const timestampStyleCode = styleToAnsi(timestampStyle);
-          formattedTimestamp =
-            `${timestampStyleCode}${timestampColorCode}${ts}${RESET}  `;
+          formattedTimestamp = `${timestampStyleCode}${timestampColorCode}${ts}${RESET}  `;
         } else {
           formattedTimestamp = `${ts}  `;
         }
@@ -1212,12 +1216,14 @@ export function getPrettyFormatter(
     if (align) {
       // Calculate padding accounting for ANSI escape sequences
       const levelColorLength = useColors
-        ? (colorToAnsi(resolvedLevelColors[record.level]).length +
-          styleToAnsi(levelStyle).length + RESET.length)
+        ? colorToAnsi(resolvedLevelColors[record.level]).length +
+          styleToAnsi(levelStyle).length +
+          RESET.length
         : 0;
       const categoryColorLength = useColors
-        ? (colorToAnsi(finalCategoryColor).length +
-          styleToAnsi(categoryStyle).length + RESET.length)
+        ? colorToAnsi(finalCategoryColor).length +
+          styleToAnsi(categoryStyle).length +
+          RESET.length
         : 0;
 
       const paddedLevel = formattedLevel.padEnd(levelWidth + levelColorLength);
@@ -1225,8 +1231,7 @@ export function getPrettyFormatter(
         categoryWidth + categoryColorLength,
       );
 
-      let result =
-        `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
+      let result = `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} ${formattedMessage}`;
       const indentWidth = getDisplayWidth(
         stripAnsi(
           `${formattedTimestamp}${formattedIcon} ${paddedLevel} ${paddedCategory} `,
@@ -1254,8 +1259,7 @@ export function getPrettyFormatter(
 
       return result + "\n";
     } else {
-      let result =
-        `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
+      let result = `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} ${formattedMessage}`;
       const indentWidth = getDisplayWidth(
         stripAnsi(
           `${formattedTimestamp}${formattedIcon} ${formattedLevel} ${formattedCategory} `,
@@ -1298,13 +1302,15 @@ function formatProperties(
     const propValue = record.properties[prop];
     // Ensure padding is never negative
     const pad = Math.max(0, indentWidth - getDisplayWidth(prop) - 2);
-    result += "\n" + wrapText(
-      `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
-        useColors ? RESET : ""
-      } ${inspect(propValue, { colors: useColors, ...inspectOptions })}`,
-      maxWidth,
-      indentWidth,
-    );
+    result +=
+      "\n" +
+      wrapText(
+        `${" ".repeat(pad)}${useColors ? DIM : ""}${prop}:${
+          useColors ? RESET : ""
+        } ${inspect(propValue, { colors: useColors, ...inspectOptions })}`,
+        maxWidth,
+        indentWidth,
+      );
   }
   return result;
 }

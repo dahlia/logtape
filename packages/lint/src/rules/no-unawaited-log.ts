@@ -49,28 +49,35 @@ export const noUnawaitedLog: Rule.RuleModule = {
     // variable form (`const props = async () => ({ ... })` or
     // `const props = () => fetchData().then(...)`) and the function-declaration
     // form (`async function props() {}` or `function props() { return p.then(...) }`).
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     function resolvesToPromiseCallback(idNode: any, callNode: any): boolean {
-      // deno-lint-ignore no-explicit-any
-      let cur: any = (context as any).sourceCode?.getScope?.(callNode) ??
-        // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
+      let cur: any =
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
+        (context as any).sourceCode?.getScope?.(callNode) ??
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         (context as any).getScope?.();
       while (cur) {
         const variable = cur.set?.get(idNode.name);
         if (variable) {
-          // deno-lint-ignore no-explicit-any
-          return variable.defs?.some((d: any) => {
-            if (d.type === "Variable") {
-              return isAsyncFunctionExpr(d.node?.init) ||
-                isPromiseReturningCallback(d.node?.init);
-            }
-            // function props() {} is a FunctionName def.
-            if (d.type === "FunctionName") {
-              return d.node?.async === true ||
-                isPromiseReturningCallback(d.node);
-            }
-            return false;
-          }) ?? false;
+          return (
+            /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
+            variable.defs?.some((d: any) => {
+              if (d.type === "Variable") {
+                return (
+                  isAsyncFunctionExpr(d.node?.init) ||
+                  isPromiseReturningCallback(d.node?.init)
+                );
+              }
+              // function props() {} is a FunctionName def.
+              if (d.type === "FunctionName") {
+                return (
+                  d.node?.async === true || isPromiseReturningCallback(d.node)
+                );
+              }
+              return false;
+            }) ?? false
+          );
         }
         cur = cur.upper;
       }
@@ -88,7 +95,8 @@ export const noUnawaitedLog: Rule.RuleModule = {
         const secondArg = unwrapTypeAssertion(node.arguments[1]);
         if (!secondArg) return;
 
-        const isAsyncCallback = isAsyncFunctionExpr(secondArg) ||
+        const isAsyncCallback =
+          isAsyncFunctionExpr(secondArg) ||
           isPromiseReturningCallback(secondArg) ||
           (secondArg.type === "Identifier" &&
             resolvesToPromiseCallback(secondArg, node));

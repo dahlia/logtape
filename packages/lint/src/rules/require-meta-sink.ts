@@ -34,7 +34,8 @@ export const requireMetaSink: Rule.RuleModule = {
     },
     schema: [],
     messages: {
-      requireMeta: "Add a dedicated sink for the meta logger " +
+      requireMeta:
+        "Add a dedicated sink for the meta logger " +
         '(category: ["logtape"] or ["logtape", "meta"]) ' +
         "to handle LogTape's own diagnostic messages.",
     },
@@ -46,9 +47,9 @@ export const requireMetaSink: Rule.RuleModule = {
 
     return {
       ImportDeclaration(node) {
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         if (!isLogtapeImportSource((node as any).source?.value)) return;
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         for (const specifier of (node as any).specifiers ?? []) {
           if (specifier.type !== "ImportSpecifier") continue;
           const imported = specifier.imported?.name;
@@ -63,20 +64,21 @@ export const requireMetaSink: Rule.RuleModule = {
 
         const { callee } = node;
         if (callee.type !== "Identifier") return;
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         const calleeName = (callee as any).name as string;
         if (!configFns.has(calleeName)) return;
 
         // Verify the callee resolves to the actual import, not a shadow
         // (e.g. a function parameter also named configure).
-        // deno-lint-ignore no-explicit-any
-        const scope = (context as any).sourceCode?.getScope?.(node) ??
-          // deno-lint-ignore no-explicit-any
+        const scope =
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
+          (context as any).sourceCode?.getScope?.(node) ??
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           (context as any).getScope?.();
         if (scope) {
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           let cur: any = scope;
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           let calleeVar: any = null;
           while (cur) {
             const v = cur.set?.get(calleeName);
@@ -87,9 +89,10 @@ export const requireMetaSink: Rule.RuleModule = {
             cur = cur.upper;
           }
           if (
-            // deno-lint-ignore no-explicit-any
+            /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
             !calleeVar?.defs?.some((d: any) => d.type === "ImportBinding")
-          ) return;
+          )
+            return;
         }
 
         // Unwrap a TypeScript type assertion (e.g. `configure({ ... } as const)`).

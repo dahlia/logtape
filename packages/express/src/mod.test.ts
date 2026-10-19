@@ -33,10 +33,12 @@ function createTestSink(options: { includeMeta?: boolean } = {}): {
 }
 
 // Setup helper
-async function setupLogtape(options: {
-  contextLocalStorage?: boolean;
-  includeMeta?: boolean;
-} = {}): Promise<{
+async function setupLogtape(
+  options: {
+    contextLocalStorage?: boolean;
+    includeMeta?: boolean;
+  } = {},
+): Promise<{
   logs: LogRecord[];
   cleanup: () => Promise<void>;
 }> {
@@ -300,10 +302,7 @@ test("expressLogger(): combined format logs structured properties", async () => 
     const middleware = expressLogger({ format: "combined" });
     const req = createMockRequest();
     const res = createMockResponse({ statusCode: 200 });
-    res.setHeader(
-      "content-length",
-      "123",
-    );
+    res.setHeader("content-length", "123");
     const next: ExpressNextFunction = () => {};
 
     middleware(req, res, next);
@@ -325,36 +324,33 @@ test("expressLogger(): combined format logs structured properties", async () => 
   }
 });
 
-test(
-  "expressLogger(): structured-combined format logs structured properties",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const middleware = expressLogger({ format: "structured-combined" });
-      const req = createMockRequest();
-      const res = createMockResponse({ statusCode: 200 });
-      res.setHeader("content-length", "123");
-      const next: ExpressNextFunction = () => {};
+test("expressLogger(): structured-combined format logs structured properties", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = expressLogger({ format: "structured-combined" });
+    const req = createMockRequest();
+    const res = createMockResponse({ statusCode: 200 });
+    res.setHeader("content-length", "123");
+    const next: ExpressNextFunction = () => {};
 
-      middleware(req, res, next);
-      finishResponse(res);
+    middleware(req, res, next);
+    finishResponse(res);
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.strictEqual(props.url, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.notStrictEqual(props.responseTime, null);
-      assert.strictEqual(props.contentLength, "123");
-      assert.strictEqual(props.remoteAddr, "127.0.0.1");
-      assert.strictEqual(props.userAgent, "test-agent/1.0");
-      assert.strictEqual(props.referrer, "http://example.com");
-      assert.strictEqual(props.httpVersion, "1.1");
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.url, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.notStrictEqual(props.responseTime, null);
+    assert.strictEqual(props.contentLength, "123");
+    assert.strictEqual(props.remoteAddr, "127.0.0.1");
+    assert.strictEqual(props.userAgent, "test-agent/1.0");
+    assert.strictEqual(props.referrer, "http://example.com");
+    assert.strictEqual(props.httpVersion, "1.1");
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Common
@@ -383,31 +379,28 @@ test("expressLogger(): common format excludes referrer and userAgent", async () 
   }
 });
 
-test(
-  "expressLogger(): structured-common format excludes referrer and userAgent",
-  async () => {
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const middleware = expressLogger({ format: "structured-common" });
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const next: ExpressNextFunction = () => {};
+test("expressLogger(): structured-common format excludes referrer and userAgent", async () => {
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const middleware = expressLogger({ format: "structured-common" });
+    const req = createMockRequest();
+    const res = createMockResponse();
+    const next: ExpressNextFunction = () => {};
 
-      middleware(req, res, next);
-      finishResponse(res);
+    middleware(req, res, next);
+    finishResponse(res);
 
-      assert.strictEqual(logs.length, 1);
-      const props = logs[0].properties;
-      assert.strictEqual(props.method, "GET");
-      assert.strictEqual(props.url, "/test");
-      assert.strictEqual(props.status, 200);
-      assert.strictEqual(props.referrer, undefined);
-      assert.strictEqual(props.userAgent, undefined);
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    assert.strictEqual(logs.length, 1);
+    const props = logs[0].properties;
+    assert.strictEqual(props.method, "GET");
+    assert.strictEqual(props.url, "/test");
+    assert.strictEqual(props.status, 200);
+    assert.strictEqual(props.referrer, undefined);
+    assert.strictEqual(props.userAgent, undefined);
+  } finally {
+    await cleanup();
+  }
+});
 
 // ============================================
 // Format Tests - Morgan
@@ -495,10 +488,7 @@ test("expressLogger(): dev format returns string message", async () => {
       originalUrl: "/api/users",
     });
     const res = createMockResponse({ statusCode: 201 });
-    res.setHeader(
-      "content-length",
-      "456",
-    );
+    res.setHeader("content-length", "456");
     const next: ExpressNextFunction = () => {};
 
     middleware(req, res, next);
@@ -999,9 +989,11 @@ test("expressLogger(): missing context storage still logs request ID", async () 
 
     const appLog = logs.find((record) => record.category[0] === "app");
     const requestLog = logs.find((record) => record.category[0] === "express");
-    const metaLog = logs.find((record) =>
-      record.category[0] === "logtape" && record.category[1] === "meta" &&
-      record.level === "warning"
+    const metaLog = logs.find(
+      (record) =>
+        record.category[0] === "logtape" &&
+        record.category[1] === "meta" &&
+        record.level === "warning",
     );
     assert.ok(appLog);
     assert.ok(requestLog);
@@ -1137,10 +1129,7 @@ test("expressLogger(): logs content-length when present", async () => {
     const middleware = expressLogger();
     const req = createMockRequest();
     const res = createMockResponse();
-    res.setHeader(
-      "content-length",
-      "1024",
-    );
+    res.setHeader("content-length", "1024");
     const next: ExpressNextFunction = () => {};
 
     middleware(req, res, next);
@@ -1320,11 +1309,14 @@ test("expressLogger(): completionLevel chooses the level from the status", async
       finishResponse(res);
     }
 
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
-    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
-      200,
-      500,
-    ]);
+    assert.deepStrictEqual(
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
+    assert.deepStrictEqual(
+      logs.map((log) => log.properties.status),
+      [200, 500],
+    );
     assert.strictEqual(
       logs[1].rawMessage,
       "{method} {url} {status} - {responseTime} ms",
@@ -1474,7 +1466,7 @@ async function withExpressServer(
     await fn(`http://127.0.0.1:${port}`);
   } finally {
     await new Promise<void>((resolve, reject) => {
-      server.close((error) => error == null ? resolve() : reject(error));
+      server.close((error) => (error == null ? resolve() : reject(error)));
       server.closeAllConnections();
     });
   }
@@ -1491,12 +1483,14 @@ test("expressLogger(): completionLevel sees Express error responses", async () =
     const completions: unknown[] = [];
     const app = express();
     app.set("env", "test");
-    app.use(expressLogger({
-      completionLevel: (_req, _res, completion) => {
-        completions.push(completion);
-        return completion.status >= 500 ? "error" : "info";
-      },
-    }));
+    app.use(
+      expressLogger({
+        completionLevel: (_req, _res, completion) => {
+          completions.push(completion);
+          return completion.status >= 500 ? "error" : "info";
+        },
+      }),
+    );
     app.get("/ok", (_req, res) => {
       res.send("ok");
     });
@@ -1514,14 +1508,17 @@ test("expressLogger(): completionLevel sees Express error responses", async () =
       await waitForLogs(logs, 2);
     });
 
-    assert.deepStrictEqual(logs.map((log) => log.level), ["info", "error"]);
-    assert.deepStrictEqual(logs.map((log) => log.properties.status), [
-      200,
-      500,
-    ]);
     assert.deepStrictEqual(
-      completions.map((completion) =>
-        (completion as { status: number }).status
+      logs.map((log) => log.level),
+      ["info", "error"],
+    );
+    assert.deepStrictEqual(
+      logs.map((log) => log.properties.status),
+      [200, 500],
+    );
+    assert.deepStrictEqual(
+      completions.map(
+        (completion) => (completion as { status: number }).status,
       ),
       [200, 500],
     );
@@ -1535,12 +1532,14 @@ test("expressLogger(): completionLevel failures keep Express responses", async (
   try {
     const app = express();
     app.set("env", "test");
-    app.use(expressLogger({
-      level: "debug",
-      completionLevel: () => {
-        throw new Error("level failure");
-      },
-    }));
+    app.use(
+      expressLogger({
+        level: "debug",
+        completionLevel: () => {
+          throw new Error("level failure");
+        },
+      }),
+    );
     app.get("/ok", (_req, res) => {
       res.send("ok");
     });
@@ -1581,11 +1580,12 @@ function runCompletionLevel(completionLevel: () => unknown): Promise<void> {
 // ============================================
 
 function findMetaErrors(logs: LogRecord[]): LogRecord[] {
-  return logs.filter((record) =>
-    record.category.length === 2 &&
-    record.category[0] === "logtape" &&
-    record.category[1] === "meta" &&
-    record.level === "error"
+  return logs.filter(
+    (record) =>
+      record.category.length === 2 &&
+      record.category[0] === "logtape" &&
+      record.category[1] === "meta" &&
+      record.level === "error",
   );
 }
 
@@ -1624,7 +1624,7 @@ function assertFallback(
   assert.strictEqual(requestLogs[0].level, "debug");
   assert.ok(
     findMetaErrors(logs).some((record) =>
-      matchesMetaError(record.properties.error)
+      matchesMetaError(record.properties.error),
     ),
     "expected the failure to be reported to the meta logger",
   );
@@ -1661,7 +1661,7 @@ test("expressLogger(): completionLevel reports rejected promises", async () => {
   try {
     const failure = new Error("async level failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => Promise.reject(failure))
+      runCompletionLevel(() => Promise.reject(failure)),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -1686,9 +1686,9 @@ test("expressLogger(): completionLevel bypasses overridden promise then", async 
     }
     const failure = new Error("subclass failure");
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() =>
-        new OverridingPromise((_, reject) => reject(failure))
-      )
+      runCompletionLevel(
+        () => new OverridingPromise((_, reject) => reject(failure)),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(overriddenThenCalled, false);
@@ -1709,7 +1709,7 @@ test("expressLogger(): completionLevel does not adopt promise results", async ()
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -1729,7 +1729,7 @@ test("expressLogger(): completionLevel falls back on unobservable promises", asy
       },
     });
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => promise)
+      runCompletionLevel(() => promise),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(logs, (error) => error instanceof TypeError);
@@ -1749,7 +1749,7 @@ test("expressLogger(): completionLevel never invokes custom thenables", async ()
       },
     };
     const reasons = await collectUnhandledRejections(() =>
-      runCompletionLevel(() => thenable)
+      runCompletionLevel(() => thenable),
     );
     assert.deepStrictEqual(reasons, []);
     assert.strictEqual(thenCalled, false);
@@ -1764,15 +1764,17 @@ test("expressLogger(): completionLevel reports cross-realm rejections", async ()
   try {
     const reasons = await collectUnhandledRejections(() =>
       runCompletionLevel(() =>
-        vm.runInNewContext('Promise.reject(new Error("foreign failure"))')
-      )
+        vm.runInNewContext('Promise.reject(new Error("foreign failure"))'),
+      ),
     );
     assert.deepStrictEqual(reasons, []);
     assertFallback(
       logs,
       (error) =>
-        error != null && typeof error === "object" &&
-        "message" in error && error.message === "foreign failure",
+        error != null &&
+        typeof error === "object" &&
+        "message" in error &&
+        error.message === "foreign failure",
     );
   } finally {
     await cleanup();

@@ -123,9 +123,11 @@ export function createFailureLogReporter(
 ): FailureLogReporter {
   const mode = options.mode ?? "on-failure";
   const lowestLevel = options.lowestLevel ?? "info";
-  const outputSink = options.sink ?? getConsoleSink({
-    formatter: options.formatter,
-  });
+  const outputSink =
+    options.sink ??
+    getConsoleSink({
+      formatter: options.formatter,
+    });
 
   async function run<TResult>(
     callback: () => TResult,
@@ -137,15 +139,20 @@ export function createFailureLogReporter(
 
     let result: Awaited<TResult>;
     try {
-      result = await withConfig({
-        sinks: { failureLogReporter: bufferSink },
-        loggers: [{
-          category: [],
-          lowestLevel,
-          parentSinks: "override",
-          sinks: ["failureLogReporter"],
-        }],
-      }, callback);
+      result = await withConfig(
+        {
+          sinks: { failureLogReporter: bufferSink },
+          loggers: [
+            {
+              category: [],
+              lowestLevel,
+              parentSinks: "override",
+              sinks: ["failureLogReporter"],
+            },
+          ],
+        },
+        callback,
+      );
     } catch (error) {
       if (mode !== "never") {
         try {
@@ -164,10 +171,7 @@ export function createFailureLogReporter(
   function wrap<TThis, TArgs extends readonly unknown[], TResult>(
     callback: (this: TThis, ...args: TArgs) => TResult,
   ): (this: TThis, ...args: TArgs) => Promise<Awaited<TResult>> {
-    return function (
-      this: TThis,
-      ...args: TArgs
-    ): Promise<Awaited<TResult>> {
+    return function (this: TThis, ...args: TArgs): Promise<Awaited<TResult>> {
       return run(() => Reflect.apply(callback, this, args) as TResult);
     };
   }
@@ -209,10 +213,7 @@ export function getFailureLogReporterOptionsFromEnv(
   return reporterOptions;
 }
 
-function flushRecords(
-  records: readonly LogRecord[],
-  sink: Sink,
-): void {
+function flushRecords(records: readonly LogRecord[], sink: Sink): void {
   for (const record of records) sink(record);
 }
 

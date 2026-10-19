@@ -67,9 +67,11 @@ export type NodeTestCallback = (
  * @since 2.3.0
  */
 export interface NodeTestFunction {
-  (name?: string, options?: NodeTestOptions, fn?: NodeTestCallback): Promise<
-    void
-  >;
+  (
+    name?: string,
+    options?: NodeTestOptions,
+    fn?: NodeTestCallback,
+  ): Promise<void>;
   (name?: string, fn?: NodeTestCallback): Promise<void>;
   (options?: NodeTestOptions, fn?: NodeTestCallback): Promise<void>;
   (fn?: NodeTestCallback): Promise<void>;
@@ -224,14 +226,15 @@ function createNodeTestFunction(
         undefined,
         wrapCallbackArgument(args, options),
       )) as NodeTestFunction["todo"],
-    expectFailure: typeof baseExpectFailure === "function"
-      ? ((...args: unknown[]) =>
-        Reflect.apply(
-          baseExpectFailure,
-          undefined,
-          wrapCallbackArgument(args, options),
-        )) as NodeTestFunction["expectFailure"]
-      : undefined,
+    expectFailure:
+      typeof baseExpectFailure === "function"
+        ? (((...args: unknown[]) =>
+            Reflect.apply(
+              baseExpectFailure,
+              undefined,
+              wrapCallbackArgument(args, options),
+            )) as NodeTestFunction["expectFailure"])
+        : undefined,
   });
 
   if (includeExtendedProperties) {
@@ -287,47 +290,48 @@ function wrapNodeCallback(
     ): void {
       const runCallback = (...args: readonly unknown[]): unknown =>
         Reflect.apply(callback, this, args);
-      void wrap(() =>
-        new Promise<void>((resolve, reject) => {
-          let callbackReturned = false;
-          let doneCalled = false;
-          let pendingDone = false;
-          let pendingDoneError: unknown;
-          let settled = false;
-          const settle = (error?: unknown): void => {
-            if (settled) return;
-            settled = true;
-            if (error == null) resolve();
-            else reject(error);
-          };
-          const wrappedDone: NodeDoneCallback = ((error?: unknown) => {
-            if (doneCalled) return;
-            doneCalled = true;
-            if (!callbackReturned) {
-              pendingDone = true;
-              pendingDoneError = error;
-              return;
-            }
-            settle(error);
-          }) as NodeDoneCallback;
+      void wrap(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            let callbackReturned = false;
+            let doneCalled = false;
+            let pendingDone = false;
+            let pendingDoneError: unknown;
+            let settled = false;
+            const settle = (error?: unknown): void => {
+              if (settled) return;
+              settled = true;
+              if (error == null) resolve();
+              else reject(error);
+            };
+            const wrappedDone: NodeDoneCallback = ((error?: unknown) => {
+              if (doneCalled) return;
+              doneCalled = true;
+              if (!callbackReturned) {
+                pendingDone = true;
+                pendingDoneError = error;
+                return;
+              }
+              settle(error);
+            }) as NodeDoneCallback;
 
-          try {
-            const result = runCallback(context, wrappedDone);
-            callbackReturned = true;
-            if (isPromiseLike(result)) {
-              reject(
-                new TypeError(
-                  "Callback-style node:test functions must not return a Promise.",
-                ),
-              );
-              return;
+            try {
+              const result = runCallback(context, wrappedDone);
+              callbackReturned = true;
+              if (isPromiseLike(result)) {
+                reject(
+                  new TypeError(
+                    "Callback-style node:test functions must not return a Promise.",
+                  ),
+                );
+                return;
+              }
+              if (pendingDone) settle(pendingDoneError);
+            } catch (error) {
+              callbackReturned = true;
+              reject(error);
             }
-            if (pendingDone) settle(pendingDoneError);
-          } catch (error) {
-            callbackReturned = true;
-            reject(error);
-          }
-        })
+          }),
       )().then(
         () => done(),
         (error: unknown) => done(error),
@@ -341,9 +345,12 @@ function wrapNodeCallback(
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return typeof value === "object" && value != null &&
+  return (
+    typeof value === "object" &&
+    value != null &&
     "then" in value &&
-    typeof value.then === "function";
+    typeof value.then === "function"
+  );
 }
 
 export type { TestContext };

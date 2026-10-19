@@ -16,7 +16,8 @@ export default defineConfig({
   inputOptions: {
     onLog(level, log, defaultHandler) {
       if (
-        level === "warn" && log.code === "UNRESOLVED_IMPORT" &&
+        level === "warn" &&
+        log.code === "UNRESOLVED_IMPORT" &&
         ["bun:ffi", "#wineventlog"].includes(log.exporter ?? "")
       ) {
         return;

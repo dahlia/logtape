@@ -20,8 +20,7 @@ function lint(code: string): Linter.LintMessage[] {
   ]);
 }
 
-const BASE_IMPORT =
-  `import { configure, configureSync } from "@logtape/logtape";`;
+const BASE_IMPORT = `import { configure, configureSync } from "@logtape/logtape";`;
 
 test("require-meta-sink: skips files without @logtape/logtape import", () => {
   const messages = lint(

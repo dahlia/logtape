@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "singleQuote": false,
+  "semi": true,
+  "trailingComma": "all",
+  "endOfLine": "lf",
+  "sortPackageJson": false,
+  "sortImports": false,
+  "jsdoc": false,
+  "quoteProps": "preserve",
+  "embeddedLanguageFormatting": "off",
+  "objectWrap": "preserve",
+  "ignorePatterns": [
+    "**/.test-report.xml",
+    ".agents/",
+    ".claude/",
+    ".cov/",
+    ".enricomi-publish-action-pip/",
+    ".github/",
+    ".test-report.xml",
+    "coverage/",
+    "docs/",
+    "screenshots/",
+    "packages/*/dist/",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "**/*.md",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.toml"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "**/*.json",
+        "**/*.jsonc"
+      ],
+      "options": {
+        "printWidth": 1
+      }
+    }
+  ]
+}

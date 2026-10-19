@@ -612,162 +612,148 @@ test("logger handles undefined in interpolation", async () => {
 // Integration Tests with Fastify
 // ============================================
 
-test(
-  "integration: Fastify server logs requests",
-  async () => {
-    const { default: Fastify } = await import("fastify");
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const fastify = Fastify({
-        loggerInstance: getLogTapeFastifyLogger({
-          category: ["fastify", "test"],
-        }),
-      });
+test("integration: Fastify server logs requests", async () => {
+  const { default: Fastify } = await import("fastify");
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const fastify = Fastify({
+      loggerInstance: getLogTapeFastifyLogger({
+        category: ["fastify", "test"],
+      }),
+    });
 
-      fastify.get("/", (_request, _reply) => {
-        return { hello: "world" };
-      });
+    fastify.get("/", (_request, _reply) => {
+      return { hello: "world" };
+    });
 
-      await fastify.ready();
+    await fastify.ready();
 
-      // Make a request using inject (doesn't require actual server)
-      const response = await fastify.inject({
-        method: "GET",
-        url: "/",
-      });
+    // Make a request using inject (doesn't require actual server)
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/",
+    });
 
-      assert.strictEqual(response.statusCode, 200);
-      assert.deepStrictEqual(JSON.parse(response.body), { hello: "world" });
+    assert.strictEqual(response.statusCode, 200);
+    assert.deepStrictEqual(JSON.parse(response.body), { hello: "world" });
 
-      // Fastify should have logged server ready message
-      const serverLogs = logs.filter((log) =>
-        log.category[0] === "fastify" && log.category[1] === "test"
-      );
-      assert.ok(serverLogs.length > 0);
+    // Fastify should have logged server ready message
+    const serverLogs = logs.filter(
+      (log) => log.category[0] === "fastify" && log.category[1] === "test",
+    );
+    assert.ok(serverLogs.length > 0);
 
-      await fastify.close();
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    await fastify.close();
+  } finally {
+    await cleanup();
+  }
+});
 
-test(
-  "integration: Fastify request.log creates child logger",
-  async () => {
-    const { default: Fastify } = await import("fastify");
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const fastify = Fastify({
-        loggerInstance: getLogTapeFastifyLogger({ category: ["fastify"] }),
-      });
+test("integration: Fastify request.log creates child logger", async () => {
+  const { default: Fastify } = await import("fastify");
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const fastify = Fastify({
+      loggerInstance: getLogTapeFastifyLogger({ category: ["fastify"] }),
+    });
 
-      fastify.get("/test", (request, _reply) => {
-        request.log.info({ customProp: "test-value" }, "Request handler log");
-        return { ok: true };
-      });
+    fastify.get("/test", (request, _reply) => {
+      request.log.info({ customProp: "test-value" }, "Request handler log");
+      return { ok: true };
+    });
 
-      await fastify.ready();
+    await fastify.ready();
 
-      const response = await fastify.inject({
-        method: "GET",
-        url: "/test",
-      });
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/test",
+    });
 
-      assert.strictEqual(response.statusCode, 200);
+    assert.strictEqual(response.statusCode, 200);
 
-      // Find the log from our handler
-      const handlerLog = logs.find((log) =>
-        log.rawMessage === "Request handler log"
-      );
-      assert.strictEqual(handlerLog !== undefined, true);
-      assert.strictEqual(handlerLog?.properties.customProp, "test-value");
-      // Fastify adds reqId to child logger bindings
-      assert.strictEqual("reqId" in (handlerLog?.properties ?? {}), true);
+    // Find the log from our handler
+    const handlerLog = logs.find(
+      (log) => log.rawMessage === "Request handler log",
+    );
+    assert.strictEqual(handlerLog !== undefined, true);
+    assert.strictEqual(handlerLog?.properties.customProp, "test-value");
+    // Fastify adds reqId to child logger bindings
+    assert.strictEqual("reqId" in (handlerLog?.properties ?? {}), true);
 
-      await fastify.close();
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    await fastify.close();
+  } finally {
+    await cleanup();
+  }
+});
 
-test(
-  "integration: Fastify logs at different levels",
-  async () => {
-    const { default: Fastify } = await import("fastify");
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const fastify = Fastify({
-        loggerInstance: getLogTapeFastifyLogger(),
-      });
+test("integration: Fastify logs at different levels", async () => {
+  const { default: Fastify } = await import("fastify");
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const fastify = Fastify({
+      loggerInstance: getLogTapeFastifyLogger(),
+    });
 
-      fastify.get("/levels", (request, _reply) => {
-        request.log.debug("Debug message");
-        request.log.info("Info message");
-        request.log.warn("Warn message");
-        request.log.error("Error message");
-        return { ok: true };
-      });
+    fastify.get("/levels", (request, _reply) => {
+      request.log.debug("Debug message");
+      request.log.info("Info message");
+      request.log.warn("Warn message");
+      request.log.error("Error message");
+      return { ok: true };
+    });
 
-      await fastify.ready();
+    await fastify.ready();
 
-      await fastify.inject({
-        method: "GET",
-        url: "/levels",
-      });
+    await fastify.inject({
+      method: "GET",
+      url: "/levels",
+    });
 
-      const debugLog = logs.find((log) => log.rawMessage === "Debug message");
-      const infoLog = logs.find((log) => log.rawMessage === "Info message");
-      const warnLog = logs.find((log) => log.rawMessage === "Warn message");
-      const errorLog = logs.find((log) => log.rawMessage === "Error message");
+    const debugLog = logs.find((log) => log.rawMessage === "Debug message");
+    const infoLog = logs.find((log) => log.rawMessage === "Info message");
+    const warnLog = logs.find((log) => log.rawMessage === "Warn message");
+    const errorLog = logs.find((log) => log.rawMessage === "Error message");
 
-      assert.strictEqual(debugLog?.level, "debug");
-      assert.strictEqual(infoLog?.level, "info");
-      assert.strictEqual(warnLog?.level, "warning");
-      assert.strictEqual(errorLog?.level, "error");
+    assert.strictEqual(debugLog?.level, "debug");
+    assert.strictEqual(infoLog?.level, "info");
+    assert.strictEqual(warnLog?.level, "warning");
+    assert.strictEqual(errorLog?.level, "error");
 
-      await fastify.close();
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    await fastify.close();
+  } finally {
+    await cleanup();
+  }
+});
 
-test(
-  "integration: Fastify logs with object properties",
-  async () => {
-    const { default: Fastify } = await import("fastify");
-    const { logs, cleanup } = await setupLogtape();
-    try {
-      const fastify = Fastify({
-        loggerInstance: getLogTapeFastifyLogger(),
-      });
+test("integration: Fastify logs with object properties", async () => {
+  const { default: Fastify } = await import("fastify");
+  const { logs, cleanup } = await setupLogtape();
+  try {
+    const fastify = Fastify({
+      loggerInstance: getLogTapeFastifyLogger(),
+    });
 
-      fastify.get("/props", (request, _reply) => {
-        request.log.info({ userId: 123, action: "test" }, "Action performed");
-        return { ok: true };
-      });
+    fastify.get("/props", (request, _reply) => {
+      request.log.info({ userId: 123, action: "test" }, "Action performed");
+      return { ok: true };
+    });
 
-      await fastify.ready();
+    await fastify.ready();
 
-      await fastify.inject({
-        method: "GET",
-        url: "/props",
-      });
+    await fastify.inject({
+      method: "GET",
+      url: "/props",
+    });
 
-      const actionLog = logs.find((log) =>
-        log.rawMessage === "Action performed"
-      );
-      assert.strictEqual(actionLog?.properties.userId, 123);
-      assert.strictEqual(actionLog?.properties.action, "test");
+    const actionLog = logs.find((log) => log.rawMessage === "Action performed");
+    assert.strictEqual(actionLog?.properties.userId, 123);
+    assert.strictEqual(actionLog?.properties.action, "test");
 
-      await fastify.close();
-    } finally {
-      await cleanup();
-    }
-  },
-);
+    await fastify.close();
+  } finally {
+    await cleanup();
+  }
+});
 
 test("getLogTapeFastifyLogger(): renders circular values in %j", async () => {
   const { logs, cleanup } = await setupLogtape();

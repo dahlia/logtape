@@ -31,8 +31,8 @@ import metadata from "../deno.json" with { type: "json" };
 import { inspect } from "#util";
 
 // Match transpiled resource management without changing the global Symbol.
-const asyncDisposeSymbol: typeof Symbol.asyncDispose = Symbol.asyncDispose ??
-  Symbol.for("Symbol.asyncDispose");
+const asyncDisposeSymbol: typeof Symbol.asyncDispose =
+  Symbol.asyncDispose ?? Symbol.for("Symbol.asyncDispose");
 
 /**
  * Gets an environment variable value across different JavaScript runtimes.
@@ -52,7 +52,8 @@ function getEnvironmentVariable(name: string): string | undefined {
 
   // Node.js/Bun runtime
   if (
-    typeof globalThis !== "undefined" && "process" in globalThis &&
+    typeof globalThis !== "undefined" &&
+    "process" in globalThis &&
     // @ts-ignore: process exists in Node.js/Bun
     typeof globalThis.process !== "undefined" &&
     // @ts-ignore: process.env exists in Node.js/Bun
@@ -137,7 +138,7 @@ function detectOtlpProtocol(): OtlpProtocol {
 // - Vite/Rollup: a variable specifier defeats static analysis; /* @vite-ignore
 //   */ suppresses the resulting "cannot be analyzed" warning.
 // - Webpack: /* webpackIgnore: true */ disables bundling of this import.
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 const _importModule = (specifier: string): Promise<any> =>
   import(/* @vite-ignore */ /* webpackIgnore: true */ specifier);
 
@@ -149,7 +150,7 @@ const _importModule = (specifier: string): Promise<any> =>
  */
 async function createOtlpExporter(
   config?: OTLPExporterNodeConfigBase,
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 ): Promise<any> {
   const protocol = detectOtlpProtocol();
 
@@ -272,8 +273,7 @@ interface OpenTelemetrySinkOptionsBase {
  * full control over the OpenTelemetry configuration.
  * @since 0.9.0
  */
-export interface OpenTelemetrySinkProviderOptions
-  extends OpenTelemetrySinkOptionsBase {
+export interface OpenTelemetrySinkProviderOptions extends OpenTelemetrySinkOptionsBase {
   /**
    * The OpenTelemetry logger provider to use.
    */
@@ -291,8 +291,7 @@ export interface OpenTelemetrySinkProviderOptions
  * via {@link OpenTelemetrySinkProviderOptions} for more control.
  * @since 0.9.0
  */
-export interface OpenTelemetrySinkExporterOptions
-  extends OpenTelemetrySinkOptionsBase {
+export interface OpenTelemetrySinkExporterOptions extends OpenTelemetrySinkOptionsBase {
   /**
    * The OpenTelemetry logger provider to use.
    * Must be undefined or omitted when using exporter options.
@@ -383,10 +382,9 @@ async function initializeLoggerProvider(
 
   const resource = defaultResource().merge(
     resourceFromAttributes({
-      [ATTR_SERVICE_NAME]: options.serviceName ??
-        getEnvironmentVariable("OTEL_SERVICE_NAME"),
-    })
-      .merge(options.additionalResource ?? null),
+      [ATTR_SERVICE_NAME]:
+        options.serviceName ?? getEnvironmentVariable("OTEL_SERVICE_NAME"),
+    }).merge(options.additionalResource ?? null),
   );
   const otlpExporter = await createOtlpExporter(options.otlpExporterConfig);
   const loggerProvider = new LoggerProvider({
@@ -420,24 +418,23 @@ function emitLogRecord(
     exceptionMode,
   );
   attributes["category"] = [...category];
-  logger.emit(
-    {
-      severityNumber,
-      severityText: level,
-      body: typeof options.messageType === "function"
+  logger.emit({
+    severityNumber,
+    severityText: level,
+    body:
+      typeof options.messageType === "function"
         ? convertMessageToCustomBodyFormat(
-          message,
-          objectRenderer,
-          exceptionMode,
-          options.messageType,
-        )
+            message,
+            objectRenderer,
+            exceptionMode,
+            options.messageType,
+          )
         : options.messageType === "array"
-        ? convertMessageToArray(message, objectRenderer, exceptionMode)
-        : convertMessageToString(message, objectRenderer, exceptionMode),
-      attributes,
-      timestamp: new Date(timestamp),
-    } satisfies OTLogRecord,
-  );
+          ? convertMessageToArray(message, objectRenderer, exceptionMode)
+          : convertMessageToString(message, objectRenderer, exceptionMode),
+    attributes,
+    timestamp: new Date(timestamp),
+  } satisfies OTLogRecord);
 }
 
 /**
@@ -487,7 +484,8 @@ export function getOpenTelemetrySink(
       (record: LogRecord) => {
         const { category } = record;
         if (
-          category[0] === "logtape" && category[1] === "meta" &&
+          category[0] === "logtape" &&
+          category[1] === "meta" &&
           category[2] === "otel"
         ) {
           return;
@@ -516,7 +514,8 @@ export function getOpenTelemetrySink(
     (record: LogRecord) => {
       const { category } = record;
       if (
-        category[0] === "logtape" && category[1] === "meta" &&
+        category[0] === "logtape" &&
+        category[1] === "meta" &&
         category[2] === "otel"
       ) {
         return;
@@ -621,7 +620,8 @@ function convertValueToAnyValue(
 
   // Preserve primitives as-is
   if (
-    typeof value === "string" || typeof value === "number" ||
+    typeof value === "string" ||
+    typeof value === "number" ||
     typeof value === "boolean"
   ) {
     return value;
@@ -642,7 +642,8 @@ function convertValueToAnyValue(
       if (item == null) continue;
       const itemType = typeof item;
       if (
-        itemType !== "string" && itemType !== "number" &&
+        itemType !== "string" &&
+        itemType !== "number" &&
         itemType !== "boolean"
       ) {
         isHomogeneous = false;
@@ -709,9 +710,9 @@ function convertValueToAnyValue(
 
     if (isPlainObject) {
       const converted: Record<string, AnyValue> = {};
-      for (
-        const [key, val] of Object.entries(value as Record<string, unknown>)
-      ) {
+      for (const [key, val] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
         const convertedVal = convertValueToAnyValue(
           val,
           objectRenderer,
@@ -881,7 +882,7 @@ function convertMessageToCustomBodyFormat(
   bodyFormatter: BodyFormatter,
 ): AnyValue {
   const body = message.map((msg) =>
-    convertToString(msg, objectRenderer, exceptionMode)
+    convertToString(msg, objectRenderer, exceptionMode),
   );
   return bodyFormatter(body);
 }

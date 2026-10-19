@@ -37,9 +37,7 @@ export function materializeLogRecord(record: LogRecord): LogRecord {
   ) as LogRecord;
 }
 
-function hasAccessorDescriptor(
-  descriptors: PropertyDescriptorMap,
-): boolean {
+function hasAccessorDescriptor(descriptors: PropertyDescriptorMap): boolean {
   for (const key of Reflect.ownKeys(descriptors)) {
     const descriptor = descriptors[key];
     if (descriptor != null && !isDataDescriptor(descriptor)) return true;
@@ -54,12 +52,14 @@ function isDataDescriptor(
 }
 
 function isLogRecordKey(key: PropertyKey): key is keyof LogRecord {
-  return key === "category" ||
+  return (
+    key === "category" ||
     key === "level" ||
     key === "message" ||
     key === "rawMessage" ||
     key === "timestamp" ||
-    key === "properties";
+    key === "properties"
+  );
 }
 
 function materializedDescriptor(

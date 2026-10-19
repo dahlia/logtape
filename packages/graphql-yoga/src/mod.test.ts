@@ -278,10 +278,13 @@ test("YogaLogger method: avoids additionalArgs property collisions", async () =>
     const executionArgs = { operationName: "Hello" };
     const existingAdditionalArgs = ["existing"];
 
-    logger.debug({
-      args: executionArgs,
-      additionalArgs: existingAdditionalArgs,
-    }, "execute-start");
+    logger.debug(
+      {
+        args: executionArgs,
+        additionalArgs: existingAdditionalArgs,
+      },
+      "execute-start",
+    );
 
     assert.strictEqual(logs.length, 1);
     assert.strictEqual(logs[0].rawMessage, "{*}");
@@ -353,9 +356,10 @@ test("getYogaLogger(): integrates with GraphQL Yoga logging option", async () =>
     assert.strictEqual(response.status, 200);
     assert.ok(logs.length > 0);
     assert.ok(
-      logs.some((record) =>
-        record.category.join(".") === "graphql-yoga" &&
-        record.properties.message === "Processing GraphQL Parameters"
+      logs.some(
+        (record) =>
+          record.category.join(".") === "graphql-yoga" &&
+          record.properties.message === "Processing GraphQL Parameters",
       ),
     );
   } finally {

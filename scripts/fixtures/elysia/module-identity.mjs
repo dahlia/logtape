@@ -8,7 +8,8 @@ const { Elysia: CommonJsElysia } = require("elysia");
 assert.notEqual(Elysia, CommonJsElysia);
 assert.throws(
   () =>
-    elysiaLogger({ scope: "local", context: true })
-      .use(new CommonJsElysia().get("/", () => "wrong module graph")),
+    elysiaLogger({ scope: "local", context: true }).use(
+      new CommonJsElysia().get("/", () => "wrong module graph"),
+    ),
   /same Elysia copy and module format/,
 );

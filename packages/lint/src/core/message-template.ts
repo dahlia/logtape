@@ -47,15 +47,20 @@ export function getUnreferencedKeys(
 function nestedRoot(path: string): string | null {
   if (
     !(path.includes(".") || path.includes("[") || path.includes("?.")) ||
-    path.length === 0 || path.endsWith(".")
-  ) return null;
+    path.length === 0 ||
+    path.endsWith(".")
+  )
+    return null;
   const root = firstSegment(path, path.startsWith("?.") ? 2 : 0);
   // Unquoted numeric bracket segments index arrays, not the properties bag.
   // Dot and quoted-bracket segments stay strings, even for a name like "0".
   if (
-    typeof root !== "string" || root === "__proto__" ||
-    root === "prototype" || root === "constructor"
-  ) return null;
+    typeof root !== "string" ||
+    root === "__proto__" ||
+    root === "prototype" ||
+    root === "constructor"
+  )
+    return null;
   return root;
 }
 
@@ -67,18 +72,21 @@ function firstSegment(path: string, fromIndex: number): string | number | null {
   if (path[i] !== "[") {
     const start = i;
     while (
-      i < len && path[i] !== "." && path[i] !== "[" && path[i] !== "?" &&
+      i < len &&
+      path[i] !== "." &&
+      path[i] !== "[" &&
+      path[i] !== "?" &&
       path[i] !== "]"
-    ) i++;
+    )
+      i++;
     return i === start ? null : path.slice(start, i);
   }
   i++;
   if (i >= len) return null;
   if (path[i] !== '"' && path[i] !== "'") {
     const start = i;
-    while (
-      i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"'
-    ) i++;
+    while (i < len && path[i] !== "]" && path[i] !== "'" && path[i] !== '"')
+      i++;
     if (i >= len || i === start) return null;
     const text = path.slice(start, i);
     const number = Number(text);
@@ -118,9 +126,8 @@ function firstSegment(path: string, fromIndex: number): string | number | null {
         break;
       case "u": {
         // Match the runtime's permissive parseInt, including partial hex.
-        const codePoint = i + 4 < len
-          ? Number.parseInt(path.slice(i + 1, i + 5), 16)
-          : NaN;
+        const codePoint =
+          i + 4 < len ? Number.parseInt(path.slice(i + 1, i + 5), 16) : NaN;
         if (Number.isNaN(codePoint)) segment += escaped;
         else {
           segment += String.fromCharCode(codePoint);

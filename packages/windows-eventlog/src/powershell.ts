@@ -82,17 +82,20 @@ function runPowerShellNode(command: string): Promise<string> {
  */
 async function runPowerShellBun(command: string): Promise<string> {
   // @ts-ignore - Bun global is not typed in Deno
-  const proc = Bun.spawn([
-    "powershell",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-NoProfile",
-    "-Command",
-    command,
-  ], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = Bun.spawn(
+    [
+      "powershell",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-NoProfile",
+      "-Command",
+      command,
+    ],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
 
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -124,10 +127,9 @@ export async function verifyEventsLogged(
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
     // Use a more direct PowerShell approach that properly extracts all fields
-    const command =
-      `Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime='${fiveMinutesAgo}'} -MaxEvents ${
-        maxEvents * 20
-      } | Where-Object { $_.ProviderName -eq '${sourceName}' } | ForEach-Object { [PSCustomObject]@{ Id = $_.Id; Level = $_.Level; Message = $_.Message; TimeCreated = $_.TimeCreated.ToString('o'); ProviderName = $_.ProviderName } } | Select-Object -First ${maxEvents} | ConvertTo-Json -Depth 3`;
+    const command = `Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime='${fiveMinutesAgo}'} -MaxEvents ${
+      maxEvents * 20
+    } | Where-Object { $_.ProviderName -eq '${sourceName}' } | ForEach-Object { [PSCustomObject]@{ Id = $_.Id; Level = $_.Level; Message = $_.Message; TimeCreated = $_.TimeCreated.ToString('o'); ProviderName = $_.ProviderName } } | Select-Object -First ${maxEvents} | ConvertTo-Json -Depth 3`;
 
     const output = await runPowerShell(command);
 
@@ -145,10 +147,9 @@ export async function verifyEventsLogged(
   try {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-    const fallbackCommand =
-      `Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime='${fiveMinutesAgo}'} -MaxEvents ${
-        maxEvents * 50
-      } | Where-Object { $_.Message -like '*${sourceName}*' } | ForEach-Object { [PSCustomObject]@{ Id = $_.Id; Level = $_.Level; Message = $_.Message; TimeCreated = $_.TimeCreated.ToString('o'); ProviderName = $_.ProviderName } } | Select-Object -First ${maxEvents} | ConvertTo-Json -Depth 3`;
+    const fallbackCommand = `Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime='${fiveMinutesAgo}'} -MaxEvents ${
+      maxEvents * 50
+    } | Where-Object { $_.Message -like '*${sourceName}*' } | ForEach-Object { [PSCustomObject]@{ Id = $_.Id; Level = $_.Level; Message = $_.Message; TimeCreated = $_.TimeCreated.ToString('o'); ProviderName = $_.ProviderName } } | Select-Object -First ${maxEvents} | ConvertTo-Json -Depth 3`;
 
     const output2 = await runPowerShell(fallbackCommand);
 

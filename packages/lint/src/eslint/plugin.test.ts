@@ -18,7 +18,7 @@ test("plugin: exports all six rules", () => {
 });
 
 test("plugin: recommended config includes plugin reference", () => {
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   assert.ok((recommended as any).plugins?.logtape === plugin);
 });
 
@@ -157,9 +157,12 @@ const logger = getLogger("test");
 logger.info("Ready", { id: 1 });`;
   const linter = new Linter();
   assert.deepStrictEqual(linter.verify(source, [recommended]), []);
-  const messages = linter.verify(source, [recommended, {
-    rules: { "logtape/no-unrendered-properties": "warn" },
-  }]);
+  const messages = linter.verify(source, [
+    recommended,
+    {
+      rules: { "logtape/no-unrendered-properties": "warn" },
+    },
+  ]);
   assert.strictEqual(messages.length, 1);
   assert.strictEqual(messages[0].ruleId, "logtape/no-unrendered-properties");
   assert.strictEqual(messages[0].severity, 1);

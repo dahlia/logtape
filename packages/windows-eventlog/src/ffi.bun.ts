@@ -9,7 +9,7 @@ import type { EventType } from "./types.ts";
  */
 export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
   private eventSource: number | null = null;
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   private lib: any = null;
   private sourceName: string = ""; // immediately overwritten in initialize
   private initialized = false;
@@ -61,16 +61,12 @@ export class WindowsEventLogBunFFI implements WindowsEventLogFFI {
       this.eventSource = typeof result === "number" ? result : null;
 
       if (!this.eventSource || this.eventSource === 0) {
-        throw new Error(
-          `Failed to register event source: ${this.sourceName}`,
-        );
+        throw new Error(`Failed to register event source: ${this.sourceName}`);
       }
 
       this.initialized = true;
     } catch (error) {
-      throw new Error(
-        `Failed to initialize Windows Event Log FFI: ${error}`,
-      );
+      throw new Error(`Failed to initialize Windows Event Log FFI: ${error}`);
     }
   }
 

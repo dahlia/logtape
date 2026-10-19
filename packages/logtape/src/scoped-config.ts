@@ -111,7 +111,8 @@ export function compileScopedConfig<
     const loggerConfig = logger as ScopedLoggerConfigLike<TSinkId, TFilterId>;
     const category = normalizeCategory(loggerConfig.category, createError);
     if (
-      loggerConfig.sinks !== undefined && !Array.isArray(loggerConfig.sinks)
+      loggerConfig.sinks !== undefined &&
+      !Array.isArray(loggerConfig.sinks)
     ) {
       throw createError("Logger sinks must be an array.");
     }
@@ -184,9 +185,10 @@ export function compileScopedConfig<
       // Copy the identifiers so that mutating the given configuration later
       // cannot change what inspectLogger() reports:
       filterIds: [...filterIds],
-      lowestLevel: loggerConfig.lowestLevel === undefined
-        ? "trace"
-        : loggerConfig.lowestLevel,
+      lowestLevel:
+        loggerConfig.lowestLevel === undefined
+          ? "trace"
+          : loggerConfig.lowestLevel,
       parentSinks: loggerConfig.parentSinks ?? "inherit",
       sinks,
       sinkIds: [...sinkIds],
@@ -249,13 +251,12 @@ export function compileScopedConfig<
 }
 
 export function getCurrentScopedConfig(
-  contextLocalStorage:
-    | ContextLocalStorage<Record<string, unknown>>
-    | undefined,
+  contextLocalStorage: ContextLocalStorage<Record<string, unknown>> | undefined,
 ): CompiledScopedConfig | undefined {
   const store = contextLocalStorage?.getStore();
-  const scopedConfig = (store as Record<ScopedConfigSymbol, unknown> | null)
-    ?.[scopedConfigSymbol];
+  const scopedConfig = (store as Record<ScopedConfigSymbol, unknown> | null)?.[
+    scopedConfigSymbol
+  ];
   return isCompiledScopedConfig(scopedConfig)
     ? getActiveScopedConfig(scopedConfig)
     : undefined;
@@ -268,10 +269,13 @@ export function runWithScopedConfig<R>(
 ): R {
   const parentStore = contextLocalStorage.getStore() ?? {};
   scopedConfig.parent = getCurrentScopedConfig(contextLocalStorage);
-  return contextLocalStorage.run({
-    ...parentStore,
-    [scopedConfigSymbol]: scopedConfig,
-  } as Record<string, unknown>, callback);
+  return contextLocalStorage.run(
+    {
+      ...parentStore,
+      [scopedConfigSymbol]: scopedConfig,
+    } as Record<string, unknown>,
+    callback,
+  );
 }
 
 /**
@@ -290,8 +294,9 @@ export function scopedConfigHasSink(
   category: readonly string[],
   level: LogLevel,
 ): boolean {
-  return getScopedSinkDispatchPlan(scopedConfig, category, level).kind !==
-    "none";
+  return (
+    getScopedSinkDispatchPlan(scopedConfig, category, level).kind !== "none"
+  );
 }
 
 /**
@@ -417,13 +422,17 @@ function isCompiledScopedConfig(value: unknown): value is CompiledScopedConfig {
 function isObjectLike(
   value: unknown,
 ): value is object | ((...args: never[]) => unknown) {
-  return value != null &&
-    (typeof value === "object" || typeof value === "function");
+  return (
+    value != null && (typeof value === "object" || typeof value === "function")
+  );
 }
 
 function isFilterLike(value: unknown): value is FilterLike {
-  return value == null || typeof value === "function" ||
-    (typeof value === "string" && isLogLevel(value));
+  return (
+    value == null ||
+    typeof value === "function" ||
+    (typeof value === "string" && isLogLevel(value))
+  );
 }
 
 function getActiveScopedConfig(
@@ -507,8 +516,8 @@ function getScopedSinkDispatchPlanForPrefix(
   level: LogLevel,
 ): ScopedSinkDispatchPlan {
   const prefix = category.slice(0, length);
-  const logger = scopedConfig.nodes.get(categoryKey(prefix)) ??
-    defaultScopedLogger;
+  const logger =
+    scopedConfig.nodes.get(categoryKey(prefix)) ?? defaultScopedLogger;
   if (
     logger.lowestLevel === null ||
     compareLogLevel(level, logger.lowestLevel) < 0
@@ -519,16 +528,16 @@ function getScopedSinkDispatchPlanForPrefix(
   const parentPlan: ScopedSinkDispatchPlan =
     length > 0 && logger.parentSinks === "inherit"
       ? getScopedSinkDispatchPlanForPrefix(
-        scopedConfig,
-        category,
-        length - 1,
-        level,
-      )
+          scopedConfig,
+          category,
+          length - 1,
+          level,
+        )
       : length > 0 && logger.parentSinks === "forward"
-      ? wrapScopedSinks(
-        collectScopedForwardSinks(scopedConfig, category, length - 1),
-      )
-      : { kind: "none" };
+        ? wrapScopedSinks(
+            collectScopedForwardSinks(scopedConfig, category, length - 1),
+          )
+        : { kind: "none" };
 
   let firstSink: Sink | undefined;
   let sinks: Sink[] | undefined;
@@ -561,12 +570,13 @@ function collectScopedForwardSinks(
   category: readonly string[],
   length: number,
 ): readonly Sink[] {
-  const logger = scopedConfig.nodes.get(
-    categoryKey(category.slice(0, length)),
-  ) ?? defaultScopedLogger;
-  const parentSinks = length > 0 && logger.parentSinks !== "override"
-    ? collectScopedForwardSinks(scopedConfig, category, length - 1)
-    : [];
+  const logger =
+    scopedConfig.nodes.get(categoryKey(category.slice(0, length))) ??
+    defaultScopedLogger;
+  const parentSinks =
+    length > 0 && logger.parentSinks !== "override"
+      ? collectScopedForwardSinks(scopedConfig, category, length - 1)
+      : [];
   if (logger.sinks.length < 1) return parentSinks;
   if (parentSinks.length < 1) return logger.sinks;
   return [...parentSinks, ...logger.sinks];
@@ -641,13 +651,14 @@ async function disposeAsyncDisposables(
   try {
     const results = await Promise.allSettled(
       disposableList.map((disposable) =>
-        Promise.resolve().then(() => disposable[asyncDisposeSymbol]())
+        Promise.resolve().then(() => disposable[asyncDisposeSymbol]()),
       ),
     );
     throwDisposeErrors(
       results
-        .filter((result): result is PromiseRejectedResult =>
-          result.status === "rejected"
+        .filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected",
         )
         .map((result) => result.reason),
     );
@@ -662,9 +673,9 @@ function filterRetainedDisposables<
   disposables: ReadonlySet<TDisposable>,
   retainedDisposables: ReadonlySet<Disposable | AsyncDisposable>,
 ): TDisposable[] {
-  return Array.from(
-    disposables,
-  ).filter((disposable) => !retainedDisposables.has(disposable));
+  return Array.from(disposables).filter(
+    (disposable) => !retainedDisposables.has(disposable),
+  );
 }
 
 function throwDisposeErrors(errors: readonly unknown[]): void {

@@ -452,9 +452,12 @@ function buildIncludedContext(
  * Check whether a value is a Promise object.
  */
 function isPromise<T>(value: unknown): value is Promise<T> {
-  return value != null && typeof value === "object" &&
+  return (
+    value != null &&
+    typeof value === "object" &&
     Object.prototype.toString.call(value) === "[object Promise]" &&
-    typeof (value as Promise<T>).then === "function";
+    typeof (value as Promise<T>).then === "function"
+  );
 }
 
 /**
@@ -466,11 +469,13 @@ function buildRequestContext(
   options: RequestContextOptions,
 ): Record<string, unknown> | Promise<Record<string, unknown>> {
   const requestIdOptions = normalizeRequestIdOptions(options.requestId);
-  const resolvedRequestId = requestIdOptions == null
-    ? undefined
-    : resolveRequestId(req, res, requestIdOptions);
-  const include = options.include ??
-    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const resolvedRequestId =
+    requestIdOptions == null
+      ? undefined
+      : resolveRequestId(req, res, requestIdOptions);
+  const include =
+    options.include ??
+    (resolvedRequestId == null ? [] : (["requestId"] as const));
   const context = buildIncludedContext(req, resolvedRequestId, include);
   if (options.enrich == null) return context;
   const enriched = options.enrich(req, res);
@@ -517,9 +522,9 @@ function formatClfDate(timestamp: number = Date.now()): string {
   const date = new Date(timestamp);
   return `${pad2(date.getUTCDate())}/${
     clfMonths[date.getUTCMonth()]
-  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${
-    pad2(date.getUTCMinutes())
-  }:${pad2(date.getUTCSeconds())} +0000`;
+  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${pad2(
+    date.getUTCMinutes(),
+  )}:${pad2(date.getUTCSeconds())} +0000`;
 }
 
 function escapeAccessLogValue(value: unknown, escapeSpaces: boolean): string {
@@ -646,15 +651,15 @@ function formatMorganCombined(
   req: ExpressRequest,
   res: ExpressResponse,
 ): string {
-  return `${formatAccessLogToken(getRemoteAddr(req))} - ${
-    formatAccessLogToken(getRemoteUser(req))
-  } [${formatClfDate()}] "${formatAccessLogToken(req.method)} ${
-    formatAccessLogToken(req.originalUrl || req.url)
-  } HTTP/${formatAccessLogToken(req.httpVersion)}" ${
-    formatAccessLogToken(res.statusCode)
-  } ${formatAccessLogToken(getContentLength(res))} ${
-    formatAccessLogQuotedToken(getReferrer(req))
-  } ${formatAccessLogQuotedToken(getUserAgent(req))}`;
+  return `${formatAccessLogToken(getRemoteAddr(req))} - ${formatAccessLogToken(
+    getRemoteUser(req),
+  )} [${formatClfDate()}] "${formatAccessLogToken(req.method)} ${formatAccessLogToken(
+    req.originalUrl || req.url,
+  )} HTTP/${formatAccessLogToken(req.httpVersion)}" ${formatAccessLogToken(
+    res.statusCode,
+  )} ${formatAccessLogToken(getContentLength(res))} ${formatAccessLogQuotedToken(
+    getReferrer(req),
+  )} ${formatAccessLogQuotedToken(getUserAgent(req))}`;
 }
 
 /**
@@ -662,17 +667,14 @@ function formatMorganCombined(
  * :remote-addr - :remote-user [:date[clf]]
  * ":method :url HTTP/:http-version" :status :res[content-length]
  */
-function formatMorganCommon(
-  req: ExpressRequest,
-  res: ExpressResponse,
-): string {
-  return `${formatAccessLogToken(getRemoteAddr(req))} - ${
-    formatAccessLogToken(getRemoteUser(req))
-  } [${formatClfDate()}] "${formatAccessLogToken(req.method)} ${
-    formatAccessLogToken(req.originalUrl || req.url)
-  } HTTP/${formatAccessLogToken(req.httpVersion)}" ${
-    formatAccessLogToken(res.statusCode)
-  } ${formatAccessLogToken(getContentLength(res))}`;
+function formatMorganCommon(req: ExpressRequest, res: ExpressResponse): string {
+  return `${formatAccessLogToken(getRemoteAddr(req))} - ${formatAccessLogToken(
+    getRemoteUser(req),
+  )} [${formatClfDate()}] "${formatAccessLogToken(req.method)} ${formatAccessLogToken(
+    req.originalUrl || req.url,
+  )} HTTP/${formatAccessLogToken(req.httpVersion)}" ${formatAccessLogToken(
+    res.statusCode,
+  )} ${formatAccessLogToken(getContentLength(res))}`;
 }
 
 /**
@@ -685,9 +687,9 @@ function formatDev(
   responseTime: number,
 ): string {
   const contentLength = getContentLength(res) ?? "-";
-  return `${req.method} ${req.originalUrl || req.url} ${res.statusCode} ${
-    responseTime.toFixed(3)
-  } ms - ${contentLength}`;
+  return `${req.method} ${req.originalUrl || req.url} ${res.statusCode} ${responseTime.toFixed(
+    3,
+  )} ms - ${contentLength}`;
 }
 
 /**
@@ -703,9 +705,9 @@ function formatShort(
   const contentLength = getContentLength(res) ?? "-";
   return `${remoteAddr} ${req.method} ${
     req.originalUrl || req.url
-  } HTTP/${req.httpVersion} ${res.statusCode} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  } HTTP/${req.httpVersion} ${res.statusCode} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
@@ -874,9 +876,10 @@ export function expressLogger(
   const contextOptions = normalizeRequestContextOptions(options.context);
 
   // Resolve format function
-  const formatFn: FormatFunction = typeof formatOption === "string"
-    ? predefinedFormats[formatOption]
-    : formatOption;
+  const formatFn: FormatFunction =
+    typeof formatOption === "string"
+      ? predefinedFormats[formatOption]
+      : formatOption;
 
   const logMethod = logger[level].bind(logger);
 
@@ -910,16 +913,19 @@ export function expressLogger(
         if (skip(req, res)) return;
 
         const responseTime = Date.now() - startTime;
-        const log = completionLevel == null ? logMethod : logger[
-          resolveCompletionLevel(
-            () =>
-              completionLevel(req, res, {
-                status: res.statusCode,
-                responseTime,
-              }),
-            level,
-          )
-        ].bind(logger);
+        const log =
+          completionLevel == null
+            ? logMethod
+            : logger[
+                resolveCompletionLevel(
+                  () =>
+                    completionLevel(req, res, {
+                      status: res.statusCode,
+                      responseTime,
+                    }),
+                  level,
+                )
+              ].bind(logger);
         const result = withRequestLogContext(
           formatFn(req, res, responseTime),
           requestContext,

@@ -34,7 +34,27 @@ jobs:
       with: &mise_options
         experimental: true
         install: true
-    - run: mise run check
+    - name: Check the default workflow without Deno
+      run: |
+        if command -v deno; then
+          echo "The default check job must not have Deno installed." >&2
+          exit 1
+        fi
+        mise run check
+        if command -v deno; then
+          echo "The default check installed Deno unexpectedly." >&2
+          exit 1
+        fi
+
+  check-deno:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@v4
+      with: *mise_options
+    - run: mise run check:deno
 
   test-deno:
     if: github.event_name != 'schedule'
@@ -60,21 +80,21 @@ jobs:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
       with: *mise_options
-    - run: deno task test --coverage=.cov --junit-path=.test-report.xml
+    - run: mise exec deno@2 -- deno task test --coverage=.cov/deno --junit-path=.test-report.xml
     - uses: EnricoMi/publish-unit-test-result-action@v2
       if: runner.os == 'Linux' && always()
       with:
-        check_name: "Test Results (Linux)"
+        check_name: "Deno Test Results (Linux)"
         files: .test-report.xml
     - uses: EnricoMi/publish-unit-test-result-action/macos@v2
       if: runner.os == 'macOS' && always()
       with:
-        check_name: "Test Results (macOS)"
+        check_name: "Deno Test Results (macOS)"
         files: .test-report.xml
     - uses: EnricoMi/publish-unit-test-result-action/windows@v2
       if: runner.os == 'Windows' && always()
       with:
-        check_name: "Test Results (Windows)"
+        check_name: "Deno Test Results (Windows)"
         files: .test-report.xml
     - if: runner.os == 'Linux' && !cancelled()
       uses: codecov/test-results-action@v1
@@ -82,13 +102,14 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: .test-report.xml
     - if: runner.os == 'Linux'
-      run: deno coverage --lcov .cov > .cov.lcov
+      run: mise exec deno@2 -- deno coverage --lcov --output=.cov.lcov .cov/deno
     - if: runner.os == 'Linux'
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: dahlia/logtape
-        file: .cov.lcov
+        files: .cov.lcov
+        flags: deno
 
   test-node:
     if: github.event_name != 'schedule'
@@ -96,6 +117,11 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
       fail-fast: false
+    permissions:
+      contents: read
+      issues: read
+      checks: write
+      pull-requests: write
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -105,8 +131,37 @@ jobs:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
       with: *mise_options
-    - run: mise run build
-    - run: mise run test:node
+    - if: runner.os == 'Linux'
+      run: mise run coverage
+    - if: runner.os != 'Linux'
+      run: mise run test:node:report
+    - uses: EnricoMi/publish-unit-test-result-action@v2
+      if: runner.os == 'Linux' && always()
+      with:
+        check_name: "Node.js Test Results (Linux)"
+        files: coverage/junit/*.xml
+    - uses: EnricoMi/publish-unit-test-result-action/macos@v2
+      if: runner.os == 'macOS' && always()
+      with:
+        check_name: "Node.js Test Results (macOS)"
+        files: coverage/junit/*.xml
+    - uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      if: runner.os == 'Windows' && always()
+      with:
+        check_name: "Node.js Test Results (Windows)"
+        files: coverage/junit/*.xml
+    - if: runner.os == 'Linux' && !cancelled()
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage/junit/*.xml
+    - if: runner.os == 'Linux'
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: dahlia/logtape
+        files: coverage/node/lcov.info
+        flags: node
 
   test-bun:
     if: github.event_name != 'schedule'
@@ -177,6 +232,7 @@ jobs:
     if: github.event_name == 'push'
     needs:
     - check
+    - check-deno
     - test-deno
     - test-node
     - test-bun
@@ -204,7 +260,7 @@ jobs:
             --arg commit "${GITHUB_SHA::8}" \
             '.version + "-dev." + $build + "+" + $commit' \
             packages/logtape/deno.json)"
-          deno run --allow-read --allow-write scripts/update_versions.ts "$v"
+          node scripts/update_versions.ts "$v"
           mise run check-versions
         fi
     - run: mise run build
@@ -217,12 +273,13 @@ jobs:
         fi
       env:
         NPM_CONFIG_PROVENANCE: "true"
+    - run: mise install deno@2
     # jsr.io is unstable these days and deno publish often hangs, so cap
     # each attempt at 1 minute and retry up to 30 times.
     - run: |
         set -x
         for i in $(seq 1 30); do
-          if timeout 1m deno publish --allow-dirty; then
+          if timeout 1m mise exec deno@2 -- deno publish --allow-dirty; then
             exit 0
           fi
           echo "deno publish failed or timed out (attempt $i/30); retrying..." >&2

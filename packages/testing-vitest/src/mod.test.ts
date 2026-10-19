@@ -10,15 +10,11 @@ const execFileAsync = promisify(execFile);
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const modUrl = pathToFileURL(join(packageRoot, "src", "mod.ts")).href;
-const autoloadUrl = pathToFileURL(join(packageRoot, "src", "autoload.ts"))
-  .href;
+const autoloadUrl = pathToFileURL(join(packageRoot, "src", "autoload.ts")).href;
 const logtapeSpecifier = "@logtape/logtape";
 const canRunVitest = await canRunVitestSubprocess();
 
-function test(
-  name: string,
-  fn: () => unknown | Promise<unknown>,
-): void {
+function test(name: string, fn: () => unknown | Promise<unknown>): void {
   nodeTest(name, { skip: !canRunVitest }, async () => {
     if (!canRunVitest) return;
     await fn();
@@ -679,9 +675,11 @@ async function runPnpm(
   args: readonly string[],
   cwd: string,
   env: Readonly<Record<string, string>> = {},
-): Promise<
-  { readonly code: number; readonly stdout: string; readonly stderr: string }
-> {
+): Promise<{
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}> {
   try {
     const { stdout, stderr } = await execFileAsync("pnpm", [...args], {
       cwd,
@@ -711,29 +709,36 @@ function assertSuccess(result: {
   assert.strictEqual(result.code, 0, result.output);
 }
 
-function isExecError(
-  error: unknown,
-): error is {
+function isExecError(error: unknown): error is {
   readonly code?: unknown;
   readonly stdout?: string;
   readonly stderr?: string;
 } {
-  return typeof error === "object" && error != null &&
-    ("stdout" in error || "stderr" in error);
+  return (
+    typeof error === "object" &&
+    error != null &&
+    ("stdout" in error || "stderr" in error)
+  );
 }
 
 function isNotFoundError(error: unknown): boolean {
-  return typeof error === "object" && error != null &&
-    "code" in error && error.code === "ENOENT";
+  return (
+    typeof error === "object" &&
+    error != null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
 }
 
 async function canRunVitestSubprocess(): Promise<boolean> {
   if (!("Deno" in globalThis)) return true;
   const deno = globalThis.Deno;
   if (
-    typeof deno !== "object" || deno == null ||
+    typeof deno !== "object" ||
+    deno == null ||
     !("permissions" in deno) ||
-    typeof deno.permissions !== "object" || deno.permissions == null ||
+    typeof deno.permissions !== "object" ||
+    deno.permissions == null ||
     !("query" in deno.permissions) ||
     typeof deno.permissions.query !== "function"
   ) {

@@ -18,19 +18,18 @@ import {
   US_SSN_PATTERN,
 } from "./pattern.ts";
 
-const emailPartArb: fc.Arbitrary<string> = fc.stringMatching(
-  /^[A-Za-z0-9_]*$/,
-).map((part) => `user${part}`);
-const domainPartArb: fc.Arbitrary<string> = fc.stringMatching(
-  /^[A-Za-z0-9-]*$/,
-).map((part) => `domain${part}x`);
-const digitArb: fc.Arbitrary<string> = fc.integer({ min: 0, max: 9 }).map(
-  String,
-);
-const luhnValidCardDigitsArb: fc.Arbitrary<readonly string[]> = fc.array(
-  digitArb,
-  { minLength: 15, maxLength: 15 },
-).map(appendLuhnCheckDigit);
+const emailPartArb: fc.Arbitrary<string> = fc
+  .stringMatching(/^[A-Za-z0-9_]*$/)
+  .map((part) => `user${part}`);
+const domainPartArb: fc.Arbitrary<string> = fc
+  .stringMatching(/^[A-Za-z0-9-]*$/)
+  .map((part) => `domain${part}x`);
+const digitArb: fc.Arbitrary<string> = fc
+  .integer({ min: 0, max: 9 })
+  .map(String);
+const luhnValidCardDigitsArb: fc.Arbitrary<readonly string[]> = fc
+  .array(digitArb, { minLength: 15, maxLength: 15 })
+  .map(appendLuhnCheckDigit);
 
 test("EMAIL_ADDRESS_PATTERN", () => {
   const { pattern, replacement } = EMAIL_ADDRESS_PATTERN;
@@ -85,20 +84,21 @@ test("EMAIL_ADDRESS_PATTERN", () => {
 
 test("EMAIL_ADDRESS_PATTERN redacts generated email addresses", () => {
   fc.assert(
-    fc.property(emailPartArb, domainPartArb, domainPartArb, (
-      localPart,
-      domain,
-      tld,
-    ) => {
-      const email = `${localPart}@${domain}.${tld}`;
-      const output = `Contact ${email}`.replaceAll(
-        EMAIL_ADDRESS_PATTERN.pattern,
-        EMAIL_ADDRESS_PATTERN.replacement as string,
-      );
+    fc.property(
+      emailPartArb,
+      domainPartArb,
+      domainPartArb,
+      (localPart, domain, tld) => {
+        const email = `${localPart}@${domain}.${tld}`;
+        const output = `Contact ${email}`.replaceAll(
+          EMAIL_ADDRESS_PATTERN.pattern,
+          EMAIL_ADDRESS_PATTERN.replacement as string,
+        );
 
-      assert.strictEqual(output.includes(email), false);
-      assert.strictEqual(output, "Contact REDACTED@EMAIL.ADDRESS");
-    }),
+        assert.strictEqual(output.includes(email), false);
+        assert.strictEqual(output, "Contact REDACTED@EMAIL.ADDRESS");
+      },
+    ),
   );
 });
 
@@ -133,10 +133,7 @@ test("CREDIT_CARD_NUMBER_PATTERN", () => {
   ];
 
   for (const number of validNumbers) {
-    assert.strictEqual(
-      redact(`Card: ${number}`),
-      "Card: XXXX-XXXX-XXXX-XXXX",
-    );
+    assert.strictEqual(redact(`Card: ${number}`), "Card: XXXX-XXXX-XXXX-XXXX");
   }
 
   assert.strictEqual(
@@ -184,20 +181,19 @@ test("CREDIT_CARD_NUMBER_PATTERN", () => {
 
 test("CREDIT_CARD_NUMBER_PATTERN redacts generated Luhn-valid cards", () => {
   fc.assert(
-    fc.property(
-      luhnValidCardDigitsArb,
-      (digits) => {
-        const card = `${digits.slice(0, 4).join("")}-${
-          digits.slice(4, 8).join("")
-        }-${digits.slice(8, 12).join("")}-${digits.slice(12).join("")}`;
-        const output = `Card ${card}`.replaceAll(
-          CREDIT_CARD_NUMBER_PATTERN.pattern,
-          CREDIT_CARD_NUMBER_PATTERN.replacement as string,
-        );
+    fc.property(luhnValidCardDigitsArb, (digits) => {
+      const card = `${digits.slice(0, 4).join("")}-${digits
+        .slice(4, 8)
+        .join(
+          "",
+        )}-${digits.slice(8, 12).join("")}-${digits.slice(12).join("")}`;
+      const output = `Card ${card}`.replaceAll(
+        CREDIT_CARD_NUMBER_PATTERN.pattern,
+        CREDIT_CARD_NUMBER_PATTERN.replacement as string,
+      );
 
-        assert.strictEqual(output, "Card XXXX-XXXX-XXXX-XXXX");
-      },
-    ),
+      assert.strictEqual(output, "Card XXXX-XXXX-XXXX-XXXX");
+    }),
   );
 });
 
@@ -227,9 +223,9 @@ test("US_SSN_PATTERN redacts generated Social Security numbers", () => {
     fc.property(
       fc.array(digitArb, { minLength: 9, maxLength: 9 }),
       (digits) => {
-        const ssn = `${digits.slice(0, 3).join("")}-${
-          digits.slice(3, 5).join("")
-        }-${digits.slice(5).join("")}`;
+        const ssn = `${digits.slice(0, 3).join("")}-${digits
+          .slice(3, 5)
+          .join("")}-${digits.slice(5).join("")}`;
         const output = `SSN ${ssn}`.replaceAll(
           US_SSN_PATTERN.pattern,
           US_SSN_PATTERN.replacement as string,
@@ -267,9 +263,9 @@ test("KR_RRN_PATTERN redacts generated resident registration numbers", () => {
     fc.property(
       fc.array(digitArb, { minLength: 13, maxLength: 13 }),
       (digits) => {
-        const rrn = `${digits.slice(0, 6).join("")}-${
-          digits.slice(6).join("")
-        }`;
+        const rrn = `${digits.slice(0, 6).join("")}-${digits
+          .slice(6)
+          .join("")}`;
         const output = `RRN ${rrn}`.replaceAll(
           KR_RRN_PATTERN.pattern,
           KR_RRN_PATTERN.replacement as string,
@@ -281,26 +277,25 @@ test("KR_RRN_PATTERN redacts generated resident registration numbers", () => {
   );
 });
 
-for (
-  const [name, redaction, value, longerValues] of [
-    [
-      "US_SSN_PATTERN",
-      US_SSN_PATTERN,
-      "123-45-6789",
-      ["1234-56-7890", "123-45-67890", "1234-56-78901"],
-    ],
-    [
-      "KR_RRN_PATTERN",
-      KR_RRN_PATTERN,
-      "123456-7890123",
-      ["1234567-8901234", "123456-78901234", "1234567-89012345"],
-    ],
-  ] as const
-) {
+for (const [name, redaction, value, longerValues] of [
+  [
+    "US_SSN_PATTERN",
+    US_SSN_PATTERN,
+    "123-45-6789",
+    ["1234-56-7890", "123-45-67890", "1234-56-78901"],
+  ],
+  [
+    "KR_RRN_PATTERN",
+    KR_RRN_PATTERN,
+    "123456-7890123",
+    ["1234567-8901234", "123456-78901234", "1234567-89012345"],
+  ],
+] as const) {
   test(`${name} preserves longer digit runs`, () => {
-    const redact = redactByPattern((record) => record.message.join(""), [
-      redaction,
-    ]);
+    const redact = redactByPattern(
+      (record) => record.message.join(""),
+      [redaction],
+    );
     for (const input of longerValues) {
       assert.strictEqual(
         input.replaceAll(redaction.pattern, redaction.replacement as string),
@@ -357,24 +352,26 @@ test("JWT_PATTERN redacts generated JSON Web Tokens", () => {
   const jwtPartArb = fc.stringMatching(/^[A-Za-z0-9_-]*$/);
 
   fc.assert(
-    fc.property(jwtPartArb, jwtPartArb, jwtPartArb, (
-      header,
-      payload,
-      signature,
-    ) => {
-      const jwt = `eyJ${header}.${payload}.${signature}`;
-      const output = `Token ${jwt}`.replaceAll(
-        JWT_PATTERN.pattern,
-        JWT_PATTERN.replacement as string,
-      );
+    fc.property(
+      jwtPartArb,
+      jwtPartArb,
+      jwtPartArb,
+      (header, payload, signature) => {
+        const jwt = `eyJ${header}.${payload}.${signature}`;
+        const output = `Token ${jwt}`.replaceAll(
+          JWT_PATTERN.pattern,
+          JWT_PATTERN.replacement as string,
+        );
 
-      assert.strictEqual(output, "Token [JWT REDACTED]");
-    }),
+        assert.strictEqual(output, "Token [JWT REDACTED]");
+      },
+    ),
   );
 });
 
 test("redactByPattern(TextFormatter)", () => {
-  { // redacts sensitive information in text output
+  {
+    // redacts sensitive information in text output
     // Create a simple TextFormatter that returns a string
     const formatter: TextFormatter = (record: LogRecord) => {
       return `[${record.level.toUpperCase()}] ${record.message.join(" ")}`;
@@ -409,7 +406,8 @@ test("redactByPattern(TextFormatter)", () => {
     );
   }
 
-  { // handles function-based replacements
+  {
+    // handles function-based replacements
     const formatter: TextFormatter = (record: LogRecord) => {
       return record.message.join(" ");
     };
@@ -432,13 +430,11 @@ test("redactByPattern(TextFormatter)", () => {
     const redactedFormatter = redactByPattern(formatter, [customPattern]);
     const output = redactedFormatter(record);
 
-    assert.strictEqual(
-      output,
-      "Credentials: password=[HIDDEN], pw=[HIDDEN]",
-    );
+    assert.strictEqual(output, "Credentials: password=[HIDDEN], pw=[HIDDEN]");
   }
 
-  { // throws error if global flag is not set
+  {
+    // throws error if global flag is not set
     const formatter: TextFormatter = (record: LogRecord) =>
       record.message.join(" ");
 
@@ -456,28 +452,27 @@ test("redactByPattern(TextFormatter)", () => {
 
 test("redactByPattern(TextFormatter) redacts generated text output", () => {
   fc.assert(
-    fc.property(emailPartArb, domainPartArb, domainPartArb, (
-      localPart,
-      domain,
-      tld,
-    ) => {
-      const email = `${localPart}@${domain}.${tld}`;
-      const formatter: TextFormatter = () => `Email: ${email}`;
-      const redacted = redactByPattern(formatter, [EMAIL_ADDRESS_PATTERN]);
+    fc.property(
+      emailPartArb,
+      domainPartArb,
+      domainPartArb,
+      (localPart, domain, tld) => {
+        const email = `${localPart}@${domain}.${tld}`;
+        const formatter: TextFormatter = () => `Email: ${email}`;
+        const redacted = redactByPattern(formatter, [EMAIL_ADDRESS_PATTERN]);
 
-      assert.strictEqual(redacted(record()), "Email: REDACTED@EMAIL.ADDRESS");
-    }),
+        assert.strictEqual(redacted(record()), "Email: REDACTED@EMAIL.ADDRESS");
+      },
+    ),
   );
 });
 
 test("redactByPattern(ConsoleFormatter)", async () => {
-  { // redacts sensitive information in console formatter arrays
+  {
+    // redacts sensitive information in console formatter arrays
     // Create a simple ConsoleFormatter that returns an array of values
     const formatter: ConsoleFormatter = (record: LogRecord) => {
-      return [
-        `[${record.level.toUpperCase()}]`,
-        ...record.message,
-      ];
+      return [`[${record.level.toUpperCase()}]`, ...record.message];
     };
 
     // Create test record with sensitive data
@@ -513,8 +508,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
       "John Doe",
     );
     assert.strictEqual(
-      (output[2] as { name: string; email: string; creditCard: string })
-        .email,
+      (output[2] as { name: string; email: string; creditCard: string }).email,
       "REDACTED@EMAIL.ADDRESS",
     );
     assert.strictEqual(
@@ -524,7 +518,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     );
   }
 
-  { // handles nested objects and arrays in console output
+  {
+    // handles nested objects and arrays in console output
     const formatter: ConsoleFormatter = (record: LogRecord) => {
       return [record.level, record.message];
     };
@@ -536,10 +531,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
           phone: "123-456-7890",
         },
         payment: {
-          cards: [
-            "4111-1111-1111-1111",
-            "5500-0055-5555-5559",
-          ],
+          cards: ["4111-1111-1111-1111", "5500-0055-5555-5559"],
         },
         documents: {
           ssn: "123-45-6789",
@@ -565,8 +557,9 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     const output = redactedFormatter(record);
 
     // Verify deep redaction in nested structures
-    const resultData =
-      (output[1] as unknown[])[1] as unknown as typeof nestedData;
+    const resultData = (
+      output[1] as unknown[]
+    )[1] as unknown as typeof nestedData;
     assert.strictEqual(resultData.user.contact.email, "REDACTED@EMAIL.ADDRESS");
     assert.strictEqual(resultData.user.contact.phone, "123-456-7890"); // Not redacted
     assert.strictEqual(resultData.user.payment.cards[0], "XXXX-XXXX-XXXX-XXXX");
@@ -574,7 +567,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.strictEqual(resultData.user.documents.ssn, "XXX-XX-XXXX");
   }
 
-  { // handles circular references to prevent stack overflow
+  {
+    // handles circular references to prevent stack overflow
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     const circularObj: Record<string, unknown> = {
@@ -604,11 +598,15 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     );
   }
 
-  { // redacts fields in class instances
+  {
+    // redacts fields in class instances
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     class User {
-      constructor(public email: string, public name: string) {}
+      constructor(
+        public email: string,
+        public name: string,
+      ) {}
     }
 
     const record: LogRecord = {
@@ -630,7 +628,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.strictEqual(resultUser.name, "Alice");
   }
 
-  { // preserves Error objects without modification
+  {
+    // preserves Error objects without modification
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     const err = new Error("test error");
@@ -654,7 +653,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.ok(resultErr === err, "Error should be the same instance");
   }
 
-  { // preserves Date objects without modification
+  {
+    // preserves Date objects without modification
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     const date = new Date("2024-01-01T00:00:00Z");
@@ -678,7 +678,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.ok(resultDate === date, "Date should be the same instance");
   }
 
-  { // preserves built-in objects in arrays
+  {
+    // preserves built-in objects in arrays
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     const err = new Error("array error");
@@ -708,7 +709,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     );
   }
 
-  { // truncates nested console output beyond the configured maximum depth
+  {
+    // truncates nested console output beyond the configured maximum depth
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
     const record: LogRecord = {
       level: "info",
@@ -745,7 +747,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     });
   }
 
-  { // omits console output properties beyond the configured maximum count
+  {
+    // omits console output properties beyond the configured maximum count
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
     const record: LogRecord = {
       level: "info",
@@ -770,18 +773,17 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     );
     const output = redactedFormatter(record);
 
-    const result =
-      ((output as readonly unknown[])[0] as unknown[])[1] as Record<
-        string,
-        unknown
-      >;
+    const result = (
+      (output as readonly unknown[])[0] as unknown[]
+    )[1] as Record<string, unknown>;
     assert.deepStrictEqual(result, {
       first: "visible",
       second: "also visible",
     });
   }
 
-  { // omits top-level console output elements beyond the configured maximum count
+  {
+    // omits top-level console output elements beyond the configured maximum count
     const formatter: ConsoleFormatter = () => [
       "first",
       "second",
@@ -797,7 +799,8 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.deepStrictEqual(redactedFormatter(record()), ["first", "second"]);
   }
 
-  { // reports traversal limit warnings to the meta logger
+  {
+    // reports traversal limit warnings to the meta logger
     const metaRecords: LogRecord[] = [];
 
     await configure({
@@ -853,5 +856,5 @@ function appendLuhnCheckDigit(digits: readonly string[]): readonly string[] {
     }
     checksum += digit;
   }
-  return [...digits, String((10 - checksum % 10) % 10)];
+  return [...digits, String((10 - (checksum % 10)) % 10)];
 }

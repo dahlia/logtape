@@ -6,14 +6,10 @@ experimental = true
 [tools]
 bun = "1"
 node = "24.14.0"
-deno = "2"
 pnpm = "10.33.1"
 "aqua:dahlia/hongdown" = "0.5.3"
 "aqua:nushell/nushell" = "0.114.0"
 "github:dahlia/sacho" = "0.3.2"
-
-[deps.deno]
-auto = true
 
 [deps.pnpm]
 auto = true
@@ -27,44 +23,87 @@ postinstall = [
 
 [tasks.check]
 description = "Check formatting, linting, types, and the changelog"
-depends = ["check-versions"]
-run = "deno check && deno lint && deno fmt --check && hongdown --check && sacho check && mise fmt --check"
+depends = ["check:node"]
+
+[tasks."check:node"]
+description = "Check formatting, linting, types, and the changelog using Node.js"
+depends = ["check-versions", "build", "test:tools"]
+run = "node scripts/check-types.ts && pnpm exec oxlint --deny-warnings --report-unused-disable-directives && pnpm exec oxfmt --check && hongdown --check && sacho check && mise fmt --check"
+
+[tasks."check:deno"]
+tools = { deno = "2" }
+description = "Check Deno source types and the complete Deno lint rule set"
+run = "deno check && deno lint"
+
+[tasks."test:tools"]
+description = "Test source type-resolution helpers"
+run = "node --test scripts/module-resolution.test.ts"
 
 [tasks.check-versions]
 description = "Check that all subpackages have matching versions"
-run = "deno task check:versions"
+run = "node scripts/check_versions.ts"
 
 [tasks.update-versions]
 description = "Update all subpackage versions to match"
-run = "deno task update-versions"
+run = "node scripts/update_versions.ts"
 
 [tasks.fmt]
 description = "Format code, documentation, and the changelog"
-run = "deno fmt && hongdown --write && sacho fmt && mise fmt"
+run = "pnpm exec oxfmt && hongdown --write && sacho fmt && mise fmt"
 
 [tasks."test:deno"]
+tools = { deno = "2" }
 description = "Run the test suite using Deno"
 run = "deno task test"
 
 [tasks."test:node"]
 description = "Run the test suite using Node.js"
-run = "deno task test:node"
+run = "pnpm run -r test"
 
 [tasks."test:bun"]
 description = "Run the test suite using Bun"
-run = "deno task test:bun"
+run = "pnpm run -r test:bun"
 
 [tasks.test]
-description = "Run the test suite across all environments"
+description = "Run quality checks and the Node.js test suite"
 depends = ["check"]
-# Node.js and Bun both rebuild the same dist directories before testing.
-run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
+run = "mise run test:node"
+
+[tasks."test:all"]
+description = "Run all checks and Deno, Node.js, and Bun tests sequentially"
+depends = ["check"]
+run = [
+  "mise run check:deno",
+  "mise run test:deno",
+  "mise run test:node",
+  "mise run test:bun",
+]
+
+[tasks."test:node:report"]
+description = "Run Node.js tests with per-package JUnit reports"
+depends = ["build"]
+run = "node scripts/run-node-tests.ts --report"
 
 [tasks.coverage]
-description = "Run tests with coverage and generate HTML report"
-run = "deno task coverage"
+description = "Run Node.js tests with HTML, LCOV, JSON and JUnit reports"
+depends = ["build"]
+run = [
+  "node -e \"require('node:fs').rmSync('coverage/node', { recursive: true, force: true })\"",
+  "pnpm exec c8 node scripts/run-node-tests.ts --report",
+  "node scripts/check-coverage.ts",
+]
+
+[tasks."coverage:deno"]
+tools = { deno = "2" }
+description = "Run Deno compatibility tests with an HTML coverage report"
+run = [
+  "node -e \"require('node:fs').rmSync('.cov/deno', { recursive: true, force: true })\"",
+  "deno task test --coverage=.cov/deno",
+  "deno coverage --html .cov/deno",
+]
 
 [tasks."bench:disabled"]
+tools = { deno = "2" }
 description = "Check that disabled logging calls stay cheap"
 dir = "benchmarks"
 run = [
@@ -75,9 +114,15 @@ run = [
 
 [tasks.build]
 description = "Build all packages for npm publishing"
-run = "deno task build"
+run = "node scripts/build.ts"
+
+[tasks."check:jsr"]
+tools = { deno = "2" }
+description = "Validate JSR publishing without publishing packages"
+run = "deno publish --dry-run --allow-dirty"
 
 [tasks.publish]
+tools = { deno = "2" }
 description = "Publish packages to JSR"
 run = "deno task publish"
 
@@ -97,19 +142,20 @@ mise run fmt
 description = "Install git hooks"
 shell = "nu -c"
 run = """
+let hooks_dir = (git rev-parse --git-path hooks | str trim)
 mise generate git-pre-commit --write --task=hooks:pre-commit
 mise generate git-pre-commit --write --task=hooks:pre-push --hook=pre-push
 '#!/bin/sh
-sacho hook-commit-msg "$1"' | save --force .git/hooks/commit-msg
+sacho hook-commit-msg "$1"' | save --force ($hooks_dir | path join commit-msg)
 '#!/bin/sh
 if test "$1" = prepared; then
   sacho_state=$(git rev-parse --git-path sacho-commit-state) || exit $?
   if test -f "$sacho_state"; then
     sacho hook-reference-transaction "$1"
   fi
-fi' | save --force .git/hooks/reference-transaction
+fi' | save --force ($hooks_dir | path join reference-transaction)
 if $nu.os-info.name != 'windows' {
-  chmod +x .git/hooks/commit-msg .git/hooks/reference-transaction
+  chmod +x ($hooks_dir | path join commit-msg) ($hooks_dir | path join reference-transaction)
 }
 """
 
@@ -119,8 +165,9 @@ depends = ["check"]
 
 [tasks."hooks:pre-push"]
 description = "Run pre-push checks"
-depends = ["check", "test:deno"]
+depends = ["test"]
 
 [tasks."test:elysia-compatibility"]
+tools = { deno = "2" }
 description = "Test Elysia 1 and 2 with packed npm artifacts and Deno source"
-run = "deno run --allow-all scripts/check_elysia_compatibility.ts"
+run = "node scripts/check_elysia_compatibility.ts"

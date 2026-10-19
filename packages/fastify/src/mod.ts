@@ -204,9 +204,8 @@ function createPinoLikeLogger(
   let _level: string = initialLevel;
 
   // If there are bindings, create a contextual logger
-  const contextLogger = Object.keys(bindings).length > 0
-    ? logger.with(bindings)
-    : logger;
+  const contextLogger =
+    Object.keys(bindings).length > 0 ? logger.with(bindings) : logger;
 
   /**
    * Create a log method for a specific level.

@@ -48,5 +48,8 @@ test("inspect() keeps shared references that are not cycles", () => {
 
 test("inspect() renders values JSON cannot represent", () => {
   assert.strictEqual(inspect(undefined, { compact: true }), "undefined");
-  assert.strictEqual(inspect(() => 0, { compact: true }), "undefined");
+  assert.strictEqual(
+    inspect(() => 0, { compact: true }),
+    "undefined",
+  );
 });

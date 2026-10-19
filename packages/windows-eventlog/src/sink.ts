@@ -11,8 +11,8 @@ import {
 } from "./types.ts";
 
 // Match transpiled resource management without changing the global Symbol.
-const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ??
-  Symbol.for("Symbol.dispose");
+const disposeSymbol: typeof Symbol.dispose =
+  Symbol.dispose ?? Symbol.for("Symbol.dispose");
 
 /**
  * Helper function to remove any trailing newline that the formatter may add
@@ -20,7 +20,7 @@ const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ??
  * end of the message.
  */
 function stripTrailingNewline(s: string): string {
-  if ((s.length > 0) && (s.at(s.length - 1) === "\n")) {
+  if (s.length > 0 && s.at(s.length - 1) === "\n") {
     return s.substring(0, s.length - 1);
   } else {
     return s;
@@ -54,10 +54,7 @@ export function getWindowsEventLogSinkForFFI(
   // Validate platform early
   validateWindowsPlatform();
 
-  const {
-    sourceName,
-    eventIdMapping = {},
-  } = options;
+  const { sourceName, eventIdMapping = {} } = options;
 
   // Merge with default event ID mapping
   const eventIds = { ...DEFAULT_EVENT_ID_MAPPING, ...eventIdMapping };
@@ -68,10 +65,9 @@ export function getWindowsEventLogSinkForFFI(
     try {
       ffi.initialize(sourceName);
     } catch (error) {
-      metaLogger.error(
-        "Failed to initialize Windows Event Log FFI: {error}",
-        { error },
-      );
+      metaLogger.error("Failed to initialize Windows Event Log FFI: {error}", {
+        error,
+      });
       return;
     }
 
@@ -88,18 +84,18 @@ export function getWindowsEventLogSinkForFFI(
     // remaining placeholders themselves will be rendered into the text. This
     // assumes that we are not using that particular event ID together with
     // another string resource library.
-    const parameters = (eventId === NELOG_OEM_Code)
-      ? [fullMessage, "", "", "", "", "", "", "", ""]
-      : [fullMessage];
+    const parameters =
+      eventId === NELOG_OEM_Code
+        ? [fullMessage, "", "", "", "", "", "", "", ""]
+        : [fullMessage];
 
     // Write to Event Log using FFI
     try {
       ffi.writeEvent(eventType, eventId, parameters);
     } catch (error) {
-      metaLogger.error(
-        "Failed to write to Windows Event Log: {error}",
-        { error },
-      );
+      metaLogger.error("Failed to write to Windows Event Log: {error}", {
+        error,
+      });
     }
   };
 

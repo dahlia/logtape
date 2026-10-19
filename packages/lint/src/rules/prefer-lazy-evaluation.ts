@@ -71,17 +71,19 @@ export const preferLazyEvaluation: Rule.RuleModule = {
           // Wrap the whole argument (fixTarget), including any `as const` /
           // `satisfies` wrapper, so the assertion ends up inside the callback
           // instead of dangling on it.
-          fix: hasAsyncSyntax ? undefined : (fixer) => {
-            const objectText = sourceCode.getText(fixTarget);
-            // The properties-only overload needs the "{*}" message inserted so
-            // the lazy callback is still read as properties, not as a message.
-            return fixer.replaceText(
-              fixTarget,
-              propertiesOnly
-                ? `"{*}", () => (${objectText})`
-                : `() => (${objectText})`,
-            );
-          },
+          fix: hasAsyncSyntax
+            ? undefined
+            : (fixer) => {
+                const objectText = sourceCode.getText(fixTarget);
+                // The properties-only overload needs the "{*}" message inserted so
+                // the lazy callback is still read as properties, not as a message.
+                return fixer.replaceText(
+                  fixTarget,
+                  propertiesOnly
+                    ? `"{*}", () => (${objectText})`
+                    : `() => (${objectText})`,
+                );
+              },
         });
       },
     };

@@ -35,7 +35,7 @@ export interface RedactionPattern {
    */
   readonly replacement:
     | string
-    // deno-lint-ignore no-explicit-any
+    /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
     | ((match: string, ...rest: readonly any[]) => string);
 }
 
@@ -70,21 +70,33 @@ function hasCommonCreditCardGrouping(groups: readonly string[]): boolean {
     return groups[0].length >= 13 && groups[0].length <= 19;
   }
   if (groups.length === 3) {
-    return groups[0].length === 4 &&
-      ((groups[1].length === 6 && groups[2].length >= 4 &&
+    return (
+      groups[0].length === 4 &&
+      ((groups[1].length === 6 &&
+        groups[2].length >= 4 &&
         groups[2].length <= 5) ||
         ((groups[1].length === 4 || groups[1].length === 5) &&
-          groups[2].length === 6));
+          groups[2].length === 6))
+    );
   }
   if (groups.length === 4) {
-    return groups[0].length === 4 && groups[1].length === 4 &&
-      groups[2].length === 4 && groups[3].length >= 1 &&
-      groups[3].length <= 4;
+    return (
+      groups[0].length === 4 &&
+      groups[1].length === 4 &&
+      groups[2].length === 4 &&
+      groups[3].length >= 1 &&
+      groups[3].length <= 4
+    );
   }
   if (groups.length === 5) {
-    return groups[0].length === 4 && groups[1].length === 4 &&
-      groups[2].length === 4 && groups[3].length === 4 &&
-      groups[4].length >= 1 && groups[4].length <= 3;
+    return (
+      groups[0].length === 4 &&
+      groups[1].length === 4 &&
+      groups[2].length === 4 &&
+      groups[3].length === 4 &&
+      groups[4].length >= 1 &&
+      groups[4].length <= 3
+    );
   }
   return false;
 }
@@ -151,11 +163,7 @@ function redactCreditCardNumber(match: string): string {
 
   const completeCover = completeCovers[0];
   const intervals = completeCover === undefined ? candidates : [];
-  for (
-    let cover = completeCover;
-    cover != null;
-    cover = cover.next
-  ) {
+  for (let cover = completeCover; cover != null; cover = cover.next) {
     intervals.push(cover.candidate);
   }
   const redacted: string[] = [];
@@ -252,7 +260,8 @@ export interface PatternRedactionOptions extends RedactionTraversalOptions {
  * @returns `true` if the value is a built-in object, `false` otherwise.
  */
 function isBuiltInObject(value: object): boolean {
-  return value instanceof Error ||
+  return (
+    value instanceof Error ||
     value instanceof Date ||
     value instanceof RegExp ||
     value instanceof Map ||
@@ -263,7 +272,8 @@ function isBuiltInObject(value: object): boolean {
     value instanceof ArrayBuffer ||
     (typeof SharedArrayBuffer !== "undefined" &&
       value instanceof SharedArrayBuffer) ||
-    ArrayBuffer.isView(value);
+    ArrayBuffer.isView(value)
+  );
 }
 
 /**
@@ -364,9 +374,10 @@ export function redactByPattern(
     for (const p of patterns) {
       // The following ternary operator may seem strange, but it's for
       // making TypeScript happy:
-      str = typeof p.replacement === "string"
-        ? str.replaceAll(p.pattern, p.replacement)
-        : str.replaceAll(p.pattern, p.replacement);
+      str =
+        typeof p.replacement === "string"
+          ? str.replaceAll(p.pattern, p.replacement)
+          : str.replaceAll(p.pattern, p.replacement);
     }
     return str;
   }
@@ -394,9 +405,7 @@ export function redactByPattern(
       for (let i = 0; i < length; i++) {
         if (!(i in object)) continue;
         const item = object[i];
-        if (
-          shouldTraverseValue(item) && depth + 1 > context.limits.maxDepth
-        ) {
+        if (shouldTraverseValue(item) && depth + 1 > context.limits.maxDepth) {
           reportLimitOnce(context, "maxDepth");
           copy[i] = redactionTruncatedValue;
         } else {
@@ -417,9 +426,7 @@ export function redactByPattern(
       }
       for (const key of keys.slice(0, context.limits.maxProperties)) {
         const value = (object as Record<string, unknown>)[key];
-        if (
-          shouldTraverseValue(value) && depth + 1 > context.limits.maxDepth
-        ) {
+        if (shouldTraverseValue(value) && depth + 1 > context.limits.maxDepth) {
           reportLimitOnce(context, "maxDepth");
           redacted[key] = redactionTruncatedValue;
         } else {
@@ -466,17 +473,13 @@ function reportRedactionLimitExceeded(
 }
 
 function shouldTraverseValue(value: unknown): boolean {
-  return (typeof value === "object" && value !== null) &&
-    !isBuiltInObject(value);
+  return typeof value === "object" && value !== null && !isBuiltInObject(value);
 }
 
 function createPatternRedactionContext(
   options: RedactionTraversalOptions,
 ): RedactionTraversalContext {
-  return createRedactionTraversalContext(
-    options,
-    reportRedactionLimitExceeded,
-  );
+  return createRedactionTraversalContext(options, reportRedactionLimitExceeded);
 }
 
 function reportLimitOnce(

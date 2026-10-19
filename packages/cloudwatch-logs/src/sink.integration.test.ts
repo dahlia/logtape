@@ -22,10 +22,11 @@ let test: Describe = _test as Describe;
 
 // Skip integration tests unless AWS credentials are provided
 // Also skip on Bun due to AWS SDK response parsing issues
-const skipIntegrationTests = !process.env.AWS_ACCESS_KEY_ID ||
+const skipIntegrationTests =
+  !process.env.AWS_ACCESS_KEY_ID ||
   !process.env.AWS_SECRET_ACCESS_KEY ||
   !process.env.AWS_REGION ||
-  ("Bun" in globalThis);
+  "Bun" in globalThis;
 
 if (skipIntegrationTests) {
   if ("Bun" in globalThis) {
@@ -388,10 +389,13 @@ test("Integration: CloudWatch Logs sink with JSON Lines formatter", async () => 
     const structuredLogRecord: LogRecord = {
       category: ["api", "auth"],
       level: "warning",
-      message: ["Failed login attempt for user ", {
-        email: "test@example.com",
-        id: 456,
-      }],
+      message: [
+        "Failed login attempt for user ",
+        {
+          email: "test@example.com",
+          id: 456,
+        },
+      ],
       rawMessage: "Failed login attempt for user {user}",
       timestamp: fixedTimestamp,
       properties: {

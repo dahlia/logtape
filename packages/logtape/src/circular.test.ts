@@ -144,7 +144,10 @@ test("stringifyWithoutCycles() matches JSON.stringify() without cycles", () => {
   }
 
   assert.strictEqual(stringifyWithoutCycles(undefined), undefined);
-  assert.strictEqual(stringifyWithoutCycles(() => 0), undefined);
+  assert.strictEqual(
+    stringifyWithoutCycles(() => 0),
+    undefined,
+  );
 });
 
 test("stringifyWithoutCycles() serializes cyclic values", () => {
@@ -204,7 +207,10 @@ test("stringifyKeyWithoutCycles() matches JSON.stringify() without cycles", () =
   }
 
   assert.strictEqual(stringifyKeyWithoutCycles(undefined), undefined);
-  assert.strictEqual(stringifyKeyWithoutCycles(() => 0), undefined);
+  assert.strictEqual(
+    stringifyKeyWithoutCycles(() => 0),
+    undefined,
+  );
   assert.strictEqual(
     stringifyKeyWithoutCycles({ toJSON: () => undefined }),
     undefined,
@@ -312,7 +318,10 @@ test("stringifyKeyWithoutCycles() records a reference spanning two values", () =
     key(
       '{"first":{"second":{"first":"[Circular]"}},' +
         '"second":{"first":{"second":"[Circular]"}}}',
-      [[["first", "second", "first"], 1], [["second", "first", "second"], 1]],
+      [
+        [["first", "second", "first"], 1],
+        [["second", "first", "second"], 1],
+      ],
     ),
   );
 });
@@ -337,10 +346,9 @@ test("stringifyKeyWithoutCycles() keeps shared references that are not cycles", 
 
   assert.strictEqual(
     stringifyKeyWithoutCycles(value),
-    key(
-      '{"a":{"id":1},"b":[{"id":1},0,{"c":{"id":1}}],"self":"[Circular]"}',
-      [[["self"], 0]],
-    ),
+    key('{"a":{"id":1},"b":[{"id":1},0,{"c":{"id":1}}],"self":"[Circular]"}', [
+      [["self"], 0],
+    ]),
   );
 });
 

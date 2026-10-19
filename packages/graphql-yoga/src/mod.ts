@@ -162,7 +162,7 @@ function getRestArgsKey(properties: Record<string, unknown>): string {
     if (!Object.hasOwn(properties, key)) return key;
   }
 
-  for (let i = 2;; i++) {
+  for (let i = 2; ; i++) {
     const key = `additionalArgs${i}`;
     if (!Object.hasOwn(properties, key)) return key;
   }

@@ -137,9 +137,7 @@ export class WindowsEventLogDenoFFI implements WindowsEventLogFFI {
       );
 
       if (result === 0) {
-        throw new WindowsEventLogError(
-          `Failed to write event to Event Log.`,
-        );
+        throw new WindowsEventLogError(`Failed to write event to Event Log.`);
       }
     } catch (error) {
       if (error instanceof WindowsEventLogError) {

@@ -16,9 +16,7 @@ summary(() => {
       sinks: {
         console: logtape.getConsoleSink({ nonBlocking: true }),
       },
-      loggers: [
-        { category: [], sinks: ["console"] },
-      ],
+      loggers: [{ category: [], sinks: ["console"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
@@ -28,9 +26,7 @@ summary(() => {
 
   bench("winston", function* () {
     const logger = winston.createLogger({
-      transports: [
-        new winston.transports.Console(),
-      ],
+      transports: [new winston.transports.Console()],
     });
     yield () => logger.info("Test log message.");
   });

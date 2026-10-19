@@ -215,16 +215,14 @@ test("parseSourceLocation() is not confused by function names", () => {
 });
 
 test("parseSourceLocation() returns undefined for ambiguous frames", () => {
-  for (
-    const frame of [
-      // A V8 method named "user (copy)":
-      "    at Object.user (copy) (file:///t/app.js:4:75)",
-      // A V8 method named "user (file:name)" in a node:vm script:
-      "    at user (file:name) (worker.js:4:46)",
-      // A path with parentheses in a named frame:
-      "    at user (/My Project (copy)/app.js:10:5)",
-    ]
-  ) {
+  for (const frame of [
+    // A V8 method named "user (copy)":
+    "    at Object.user (copy) (file:///t/app.js:4:75)",
+    // A V8 method named "user (file:name)" in a node:vm script:
+    "    at user (file:name) (worker.js:4:46)",
+    // A path with parentheses in a named frame:
+    "    at user (/My Project (copy)/app.js:10:5)",
+  ]) {
     assert.strictEqual(
       parseSourceLocation(
         `Error\n    at a (/x.js:1:2)\n    at b (/x.js:1:2)\n${frame}`,
@@ -234,14 +232,12 @@ test("parseSourceLocation() returns undefined for ambiguous frames", () => {
       frame,
     );
   }
-  for (
-    const frame of [
-      // A SpiderMonkey method named "https:alias":
-      "handler@https:alias@https://example.test/app.js:3:46",
-      // A frame that could be an anonymous one whose URL contains "@":
-      "https://example.test/@/app.js:10:2",
-    ]
-  ) {
+  for (const frame of [
+    // A SpiderMonkey method named "https:alias":
+    "handler@https:alias@https://example.test/app.js:3:46",
+    // A frame that could be an anonymous one whose URL contains "@":
+    "https://example.test/@/app.js:10:2",
+  ]) {
     assert.strictEqual(
       parseSourceLocation(
         `cap@http://h/a.js:1:2\ninfo@http://h/a.js:2:2\n${frame}`,
@@ -254,16 +250,14 @@ test("parseSourceLocation() returns undefined for ambiguous frames", () => {
 });
 
 test("parseSourceLocation() returns undefined for non-source frames", () => {
-  for (
-    const frame of [
-      "    at eval (eval at <anonymous> (file:///x.ts:1:1), <anonymous>:1:1)",
-      "    at Array.forEach (<anonymous>)",
-      "    at async Promise.all (index 0)",
-      "    at user (address at index.android.bundle:1:1234)",
-      "    at user (address at /My Project (copy)/bundle.hbc:1:1234)",
-      "    at user (/app.js:0:5)",
-    ]
-  ) {
+  for (const frame of [
+    "    at eval (eval at <anonymous> (file:///x.ts:1:1), <anonymous>:1:1)",
+    "    at Array.forEach (<anonymous>)",
+    "    at async Promise.all (index 0)",
+    "    at user (address at index.android.bundle:1:1234)",
+    "    at user (address at /My Project (copy)/bundle.hbc:1:1234)",
+    "    at user (/app.js:0:5)",
+  ]) {
     assert.strictEqual(
       parseSourceLocation(
         `Error\n    at a (/x.js:1:2)\n    at b (/x.js:1:2)\n${frame}`,
@@ -273,13 +267,11 @@ test("parseSourceLocation() returns undefined for non-source frames", () => {
       frame,
     );
   }
-  for (
-    const frame of [
-      "@http://h/main.js line 2 > eval:1:1",
-      "@http://h/main.js line 2 > Function:1:1",
-      "forEach@[native code]",
-    ]
-  ) {
+  for (const frame of [
+    "@http://h/main.js line 2 > eval:1:1",
+    "@http://h/main.js line 2 > Function:1:1",
+    "forEach@[native code]",
+  ]) {
     assert.strictEqual(
       parseSourceLocation(
         `cap@http://h/a.js:1:2\ninfo@http://h/a.js:2:2\n${frame}`,

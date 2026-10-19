@@ -19,12 +19,13 @@ export type { LogLevel } from "@logtape/logtape";
 
 type ElysiaRequestHeaders = Request extends {
   readonly headers: infer RequestHeaders;
-} ? RequestHeaders & {
-    get(name: string): string | null;
-  }
+}
+  ? RequestHeaders & {
+      get(name: string): string | null;
+    }
   : {
-    get(name: string): string | null;
-  };
+      get(name: string): string | null;
+    };
 
 /**
  * Web Request interface exposed to Elysia request hooks.
@@ -468,9 +469,11 @@ function resolveRequestId(
  * Get referrer from request headers.
  */
 function getReferrer(request: ElysiaRequest): string | undefined {
-  return request.headers.get("referrer") ??
+  return (
+    request.headers.get("referrer") ??
     request.headers.get("referer") ??
-    undefined;
+    undefined
+  );
 }
 
 /**
@@ -542,11 +545,13 @@ async function buildRequestContext(
   options: RequestContextOptions,
 ): Promise<ElysiaRequestContextState> {
   const requestIdOptions = normalizeRequestIdOptions(options.requestId);
-  const resolvedRequestId = requestIdOptions == null
-    ? undefined
-    : resolveRequestId(request, requestIdOptions);
-  const include = options.include ??
-    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const resolvedRequestId =
+    requestIdOptions == null
+      ? undefined
+      : resolveRequestId(request, requestIdOptions);
+  const include =
+    options.include ??
+    (resolvedRequestId == null ? [] : (["requestId"] as const));
   const context = buildIncludedContext(request, resolvedRequestId, include);
   let set: ElysiaContext["set"] | undefined;
   if (options.enrich != null) {
@@ -560,12 +565,13 @@ async function buildRequestContext(
       }),
     );
   }
-  const responseHeader = resolvedRequestId?.responseHeader == null
-    ? undefined
-    : {
-      name: resolvedRequestId.responseHeader,
-      value: resolvedRequestId.value,
-    };
+  const responseHeader =
+    resolvedRequestId?.responseHeader == null
+      ? undefined
+      : {
+          name: resolvedRequestId.responseHeader,
+          value: resolvedRequestId.value,
+        };
   return { context, responseHeader, set };
 }
 
@@ -634,9 +640,9 @@ function formatClfDate(timestamp: number = Date.now()): string {
   const date = new Date(timestamp);
   return `${pad2(date.getUTCDate())}/${
     clfMonths[date.getUTCMonth()]
-  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${
-    pad2(date.getUTCMinutes())
-  }:${pad2(date.getUTCSeconds())} +0000`;
+  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${pad2(
+    date.getUTCMinutes(),
+  )}:${pad2(date.getUTCSeconds())} +0000`;
 }
 
 function escapeAccessLogValue(value: unknown, escapeSpaces: boolean): string {
@@ -712,15 +718,15 @@ function formatCommon(
  * ":referrer" ":user-agent"
  */
 function formatMorganCombined(ctx: ElysiaContext): string {
-  return `${formatAccessLogToken(getRemoteAddr(ctx.request))} - ${
-    formatAccessLogToken(getRemoteUser(ctx.request))
-  } [${formatClfDate()}] "${formatAccessLogToken(ctx.request.method)} ${
-    formatAccessLogToken(getRequestTarget(ctx.request))
-  } HTTP/-" ${formatAccessLogToken(ctx.set.status)} ${
-    formatAccessLogToken(getContentLength(ctx.set.headers))
-  } ${formatAccessLogQuotedToken(getReferrer(ctx.request))} ${
-    formatAccessLogQuotedToken(getUserAgent(ctx.request))
-  }`;
+  return `${formatAccessLogToken(getRemoteAddr(ctx.request))} - ${formatAccessLogToken(
+    getRemoteUser(ctx.request),
+  )} [${formatClfDate()}] "${formatAccessLogToken(ctx.request.method)} ${formatAccessLogToken(
+    getRequestTarget(ctx.request),
+  )} HTTP/-" ${formatAccessLogToken(ctx.set.status)} ${formatAccessLogToken(
+    getContentLength(ctx.set.headers),
+  )} ${formatAccessLogQuotedToken(getReferrer(ctx.request))} ${formatAccessLogQuotedToken(
+    getUserAgent(ctx.request),
+  )}`;
 }
 
 /**
@@ -729,13 +735,13 @@ function formatMorganCombined(ctx: ElysiaContext): string {
  * ":method :url HTTP/:http-version" :status :res[content-length]
  */
 function formatMorganCommon(ctx: ElysiaContext): string {
-  return `${formatAccessLogToken(getRemoteAddr(ctx.request))} - ${
-    formatAccessLogToken(getRemoteUser(ctx.request))
-  } [${formatClfDate()}] "${formatAccessLogToken(ctx.request.method)} ${
-    formatAccessLogToken(getRequestTarget(ctx.request))
-  } HTTP/-" ${formatAccessLogToken(ctx.set.status)} ${
-    formatAccessLogToken(getContentLength(ctx.set.headers))
-  }`;
+  return `${formatAccessLogToken(getRemoteAddr(ctx.request))} - ${formatAccessLogToken(
+    getRemoteUser(ctx.request),
+  )} [${formatClfDate()}] "${formatAccessLogToken(ctx.request.method)} ${formatAccessLogToken(
+    getRequestTarget(ctx.request),
+  )} HTTP/-" ${formatAccessLogToken(ctx.set.status)} ${formatAccessLogToken(
+    getContentLength(ctx.set.headers),
+  )}`;
 }
 
 /**
@@ -744,9 +750,9 @@ function formatMorganCommon(ctx: ElysiaContext): string {
  */
 function formatDev(ctx: ElysiaContext, responseTime: number): string {
   const contentLength = getContentLength(ctx.set.headers) ?? "-";
-  return `${ctx.request.method} ${ctx.path} ${ctx.set.status} ${
-    responseTime.toFixed(3)
-  } ms - ${contentLength}`;
+  return `${ctx.request.method} ${ctx.path} ${ctx.set.status} ${responseTime.toFixed(
+    3,
+  )} ms - ${contentLength}`;
 }
 
 /**
@@ -756,9 +762,9 @@ function formatDev(ctx: ElysiaContext, responseTime: number): string {
 function formatShort(ctx: ElysiaContext, responseTime: number): string {
   const remoteAddr = getRemoteAddr(ctx.request) ?? "-";
   const contentLength = getContentLength(ctx.set.headers) ?? "-";
-  return `${remoteAddr} ${ctx.request.method} ${ctx.request.url} ${ctx.set.status} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  return `${remoteAddr} ${ctx.request.method} ${ctx.request.url} ${ctx.set.status} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
@@ -767,9 +773,9 @@ function formatShort(ctx: ElysiaContext, responseTime: number): string {
  */
 function formatTiny(ctx: ElysiaContext, responseTime: number): string {
   const contentLength = getContentLength(ctx.set.headers) ?? "-";
-  return `${ctx.request.method} ${ctx.path} ${ctx.set.status} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  return `${ctx.request.method} ${ctx.path} ${ctx.set.status} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
@@ -908,10 +914,7 @@ type ElysiaRouteContext = ElysiaContext & {
   readonly store: LoggerStore;
 };
 
-type ElysiaRequestCallback = (
-  this: unknown,
-  ...args: unknown[]
-) => unknown;
+type ElysiaRequestCallback = (this: unknown, ...args: unknown[]) => unknown;
 
 type ElysiaRouteRegistrar = (
   path: string,
@@ -919,10 +922,7 @@ type ElysiaRouteRegistrar = (
   hook?: unknown,
 ) => unknown;
 
-type ElysiaUseRegistrar = (
-  plugin: unknown,
-  ...options: unknown[]
-) => unknown;
+type ElysiaUseRegistrar = (plugin: unknown, ...options: unknown[]) => unknown;
 
 type ElysiaOnRegistrar = (...args: unknown[]) => unknown;
 
@@ -1009,8 +1009,8 @@ function getElysiaRouteEntries(
   const entries = Array.isArray(history)
     ? history
     : history == null
-    ? []
-    : Object.values(history);
+      ? []
+      : Object.values(history);
   return entries.concat(getElysiaRouteEntries(routePlugin.default, visited));
 }
 
@@ -1029,9 +1029,7 @@ function createElysiaRequestWrappers(
     ElysiaRequestCallback
   >();
 
-  const getRouteContext = (
-    value: unknown,
-  ): ElysiaRouteContext | undefined => {
+  const getRouteContext = (value: unknown): ElysiaRouteContext | undefined => {
     if (value == null || typeof value !== "object") return undefined;
     const context = value as { readonly request?: unknown };
     if (!(context.request instanceof Request)) return undefined;
@@ -1052,12 +1050,10 @@ function createElysiaRequestWrappers(
       if (ctx == null) return await requestCallback.apply(this, args);
       ctx.store.startTime = performance.now();
       const requestContext = await buildAndStoreRequestContext(ctx.request);
-      ctx.store.startTime = requestContext?.startTime ??
-        ctx.store.startTime;
+      ctx.store.startTime = requestContext?.startTime ?? ctx.store.startTime;
       applyRequestContextToSet(ctx.set, requestContext);
-      return await withContext(
-        requestContext?.context ?? {},
-        () => requestCallback.apply(this, args),
+      return await withContext(requestContext?.context ?? {}, () =>
+        requestCallback.apply(this, args),
       );
     };
     wrappedHandlers.add(wrapped);
@@ -1205,9 +1201,8 @@ function wrapLocalLifecycleHooks(
   };
 
   const on = plugin.on.bind(plugin);
-  plugin.on =
-    ((...args: unknown[]) =>
-      on(...wrapLifecycleHookArgs(args))) as ElysiaOnRegistrar;
+  plugin.on = ((...args: unknown[]) =>
+    on(...wrapLifecycleHookArgs(args))) as ElysiaOnRegistrar;
 }
 
 /**
@@ -1262,7 +1257,7 @@ function wrapLocalLifecycleHooks(
  * @returns Elysia plugin instance.
  * @since 2.0.0
  */
-// deno-lint-ignore no-explicit-any
+/* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
 export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const category = normalizeCategory(options.category ?? ["elysia"]);
   const logger = getLogger(category);
@@ -1281,9 +1276,10 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   const shouldWrapAllRoutes = contextOptions != null && scope !== "local";
 
   // Resolve format function
-  const formatFn: FormatFunction = typeof formatOption === "string"
-    ? predefinedFormats[formatOption]
-    : formatOption;
+  const formatFn: FormatFunction =
+    typeof formatOption === "string"
+      ? predefinedFormats[formatOption]
+      : formatOption;
 
   const logMethod = logger[level].bind(logger);
   const errorLogMethod = logger.error.bind(logger);
@@ -1296,7 +1292,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     if (existingContext != null) return existingContext;
     const startTime = performance.now();
     const requestContext = {
-      ...await buildRequestContext(request, contextOptions),
+      ...(await buildRequestContext(request, contextOptions)),
       startTime,
     };
     requestContextStates.set(request, requestContext);
@@ -1329,7 +1325,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     applyRequestContextToSet(set, requestContext);
   };
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   let plugin: Elysia<any> = new Elysia({
     name: "@logtape/elysia",
     seed: options,
@@ -1362,9 +1358,8 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     plugin = plugin.wrap((handle) => {
       return async (request: Request) => {
         const requestContext = await buildAndStoreRequestContext(request);
-        return await withContext(
-          requestContext?.context ?? {},
-          () => handle(request),
+        return await withContext(requestContext?.context ?? {}, () =>
+          handle(request),
         );
       };
     });
@@ -1390,8 +1385,8 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     compatibility.register("BeforeHandle", async (ctx) => {
       (ctx.store as LoggerStore).startTime = performance.now();
       const requestContext = await buildAndStoreRequestContext(ctx.request);
-      (ctx.store as LoggerStore).startTime = requestContext?.startTime ??
-        (ctx.store as LoggerStore).startTime;
+      (ctx.store as LoggerStore).startTime =
+        requestContext?.startTime ?? (ctx.store as LoggerStore).startTime;
       applyRequestContextToSet(ctx.set, requestContext);
       if (logRequest && !skip(ctx as unknown as ElysiaContext)) {
         const context = requestContext?.context ?? {};
@@ -1414,8 +1409,7 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
       compatibility.register("Request", (ctx) => {
         if (!skip(ctx as unknown as ElysiaContext)) {
           const requestContext =
-            requestContextStates.get(ctx.request)?.context ??
-              {};
+            requestContextStates.get(ctx.request)?.context ?? {};
           const result = withRequestLogContext(
             formatFn(ctx as unknown as ElysiaContext, 0),
             requestContext,
@@ -1435,20 +1429,23 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
 
       const store = ctx.store as LoggerStore;
       const responseTime = performance.now() - store.startTime;
-      const requestContext = requestContextStates.get(ctx.request)?.context ??
-        {};
+      const requestContext =
+        requestContextStates.get(ctx.request)?.context ?? {};
       // A callback failure is contained here: an exception escaping this hook
       // would turn the response into an error and add an error record.
-      const log = completionLevel == null ? logMethod : logger[
-        resolveCompletionLevel(
-          () =>
-            completionLevel(ctx as unknown as ElysiaContext, {
-              status: completionStatus(ctx, compatibility.v2),
-              responseTime,
-            }),
-          level,
-        )
-      ].bind(logger);
+      const log =
+        completionLevel == null
+          ? logMethod
+          : logger[
+              resolveCompletionLevel(
+                () =>
+                  completionLevel(ctx as unknown as ElysiaContext, {
+                    status: completionStatus(ctx, compatibility.v2),
+                    responseTime,
+                  }),
+                level,
+              )
+            ].bind(logger);
       const result = withRequestLogContext(
         formatFn(ctx as unknown as ElysiaContext, responseTime),
         requestContext,
@@ -1480,27 +1477,27 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
     // Extract error message safely
     const error = ctx.error as { message?: string } | undefined;
     const errorMessage = error?.message ?? "Unknown error";
-    const log = completionLevel == null ? errorLogMethod : logger[
-      resolveCompletionLevel(
-        () =>
-          completionLevel(elysiaCtx, {
-            status: numericStatus(status, 500),
-            responseTime,
-            error: ctx.error,
-          }),
-        "error",
-      )
-    ].bind(logger);
-    log(
-      "Error: {method} {url} {status} - {responseTime} ms - {errorMessage}",
-      {
-        ...props,
-        ...requestContext,
-        status,
-        errorMessage,
-        ...(errorCode === undefined ? {} : { errorCode }),
-      },
-    );
+    const log =
+      completionLevel == null
+        ? errorLogMethod
+        : logger[
+            resolveCompletionLevel(
+              () =>
+                completionLevel(elysiaCtx, {
+                  status: numericStatus(status, 500),
+                  responseTime,
+                  error: ctx.error,
+                }),
+              "error",
+            )
+          ].bind(logger);
+    log("Error: {method} {url} {status} - {responseTime} ms - {errorMessage}", {
+      ...props,
+      ...requestContext,
+      status,
+      errorMessage,
+      ...(errorCode === undefined ? {} : { errorCode }),
+    });
   });
 
   if (shouldWrapContext && scope === "local") {
@@ -1517,6 +1514,6 @@ export function elysiaLogger(options: ElysiaLogTapeOptions = {}): Elysia<any> {
   // Apply the native scope while keeping the public v1/v2 API identical.
   if (scope !== "local") compatibility.as(scope);
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   return plugin as unknown as Elysia<any>;
 }

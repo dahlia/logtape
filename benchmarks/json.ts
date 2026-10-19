@@ -15,9 +15,7 @@ summary(() => {
           formatter: logtape.jsonLinesFormatter,
         }),
       },
-      loggers: [
-        { category: [], sinks: ["file"] },
-      ],
+      loggers: [{ category: [], sinks: ["file"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
@@ -45,9 +43,7 @@ summary(() => {
   bench("bunyan", function* () {
     const logger = bunyan.createLogger({
       name: "benchmarks",
-      streams: [
-        { path: devNull },
-      ],
+      streams: [{ path: devNull }],
     });
     yield () => logger.info("Test log message: %s", { foo: 1, bar: 2 });
   });

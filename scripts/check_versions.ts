@@ -1,4 +1,5 @@
-import { dirname, join } from "@std/path";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import metadata from "../deno.json" with { type: "json" };
 
 const root = dirname(import.meta.dirname!);
@@ -6,7 +7,7 @@ const versions: Record<string, string> = {};
 
 for (const member of metadata.workspace) {
   const file = join(root, member, "deno.json");
-  const json = await Deno.readTextFile(file);
+  const json = await readFile(file, "utf8");
   const data = JSON.parse(json);
   if ("version" in data) {
     versions[join(member, "deno.json")] = data.version;
@@ -14,13 +15,17 @@ for (const member of metadata.workspace) {
 
   const packageJson = join(root, member, "package.json");
   try {
-    const json2 = await Deno.readTextFile(packageJson);
+    const json2 = await readFile(packageJson, "utf8");
     const data2 = JSON.parse(json2);
     if ("version" in data2) {
       versions[join(member, "package.json")] = data2.version;
     }
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (
+      !(error instanceof Error && "code" in error && error.code === "ENOENT")
+    ) {
+      throw error;
+    }
   }
 }
 let version: string | undefined;
@@ -31,7 +36,7 @@ for (const file in versions) {
     for (const file in versions) {
       console.error(`  ${file}: ${versions[file]}`);
     }
-    Deno.exit(1);
+    process.exit(1);
   }
   version = versions[file];
 }

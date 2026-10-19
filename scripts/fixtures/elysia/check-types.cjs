@@ -36,16 +36,19 @@ const native = new Set(diagnostics(["native.mts", "native.cts"]).map(key));
 const actual = diagnostics(["types.mts", "types.cts"]);
 const unexpected = actual.filter((diagnostic) => {
   const file = diagnostic.file?.fileName ?? "";
-  const dependency = file.includes(`${path.sep}node_modules${path.sep}`) &&
+  const dependency =
+    file.includes(`${path.sep}node_modules${path.sep}`) &&
     !file.includes(`${path.sep}@logtape${path.sep}`);
   return !dependency || !native.has(key(diagnostic));
 });
 if (unexpected.length) {
-  console.error(ts.formatDiagnosticsWithColorAndContext(unexpected, {
-    getCanonicalFileName: (file) => file,
-    getCurrentDirectory: () => process.cwd(),
-    getNewLine: () => "\n",
-  }));
+  console.error(
+    ts.formatDiagnosticsWithColorAndContext(unexpected, {
+      getCanonicalFileName: (file) => file,
+      getCurrentDirectory: () => process.cwd(),
+      getNewLine: () => "\n",
+    }),
+  );
 }
 assert.equal(unexpected.length, 0, "New consumer/declaration type errors");
 console.log(

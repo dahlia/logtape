@@ -506,16 +506,18 @@ async function buildRequestContext(
   options: RequestContextOptions,
 ): Promise<Record<string, unknown>> {
   const requestIdOptions = normalizeRequestIdOptions(options.requestId);
-  const resolvedRequestId = requestIdOptions == null
-    ? undefined
-    : resolveRequestId(ctx, requestIdOptions);
-  const include = options.include ??
-    (resolvedRequestId == null ? [] : ["requestId"] as const);
+  const resolvedRequestId =
+    requestIdOptions == null
+      ? undefined
+      : resolveRequestId(ctx, requestIdOptions);
+  const include =
+    options.include ??
+    (resolvedRequestId == null ? [] : (["requestId"] as const));
   const context = buildIncludedContext(ctx, resolvedRequestId, include);
   if (options.enrich == null) return context;
   return {
     ...context,
-    ...await options.enrich(ctx),
+    ...(await options.enrich(ctx)),
   };
 }
 
@@ -553,9 +555,9 @@ function formatClfDate(timestamp: number = Date.now()): string {
   const date = new Date(timestamp);
   return `${pad2(date.getUTCDate())}/${
     clfMonths[date.getUTCMonth()]
-  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${
-    pad2(date.getUTCMinutes())
-  }:${pad2(date.getUTCSeconds())} +0000`;
+  }/${date.getUTCFullYear()}:${pad2(date.getUTCHours())}:${pad2(
+    date.getUTCMinutes(),
+  )}:${pad2(date.getUTCSeconds())} +0000`;
 }
 
 function escapeAccessLogValue(value: unknown, escapeSpaces: boolean): string {
@@ -630,15 +632,15 @@ function formatCommon(
  * ":referrer" ":user-agent"
  */
 function formatMorganCombined(ctx: KoaContext): string {
-  return `${formatAccessLogToken(getRemoteAddr(ctx))} - ${
-    formatAccessLogToken(getRemoteUser(ctx))
-  } [${formatClfDate()}] "${formatAccessLogToken(ctx.method)} ${
-    formatAccessLogToken(ctx.url)
-  } HTTP/${formatAccessLogToken(getHttpVersion(ctx))}" ${
-    formatAccessLogToken(ctx.status)
-  } ${formatAccessLogToken(getContentLength(ctx))} ${
-    formatAccessLogQuotedToken(getReferrer(ctx))
-  } ${formatAccessLogQuotedToken(getUserAgent(ctx))}`;
+  return `${formatAccessLogToken(getRemoteAddr(ctx))} - ${formatAccessLogToken(
+    getRemoteUser(ctx),
+  )} [${formatClfDate()}] "${formatAccessLogToken(ctx.method)} ${formatAccessLogToken(
+    ctx.url,
+  )} HTTP/${formatAccessLogToken(getHttpVersion(ctx))}" ${formatAccessLogToken(
+    ctx.status,
+  )} ${formatAccessLogToken(getContentLength(ctx))} ${formatAccessLogQuotedToken(
+    getReferrer(ctx),
+  )} ${formatAccessLogQuotedToken(getUserAgent(ctx))}`;
 }
 
 /**
@@ -647,56 +649,47 @@ function formatMorganCombined(ctx: KoaContext): string {
  * ":method :url HTTP/:http-version" :status :res[content-length]
  */
 function formatMorganCommon(ctx: KoaContext): string {
-  return `${formatAccessLogToken(getRemoteAddr(ctx))} - ${
-    formatAccessLogToken(getRemoteUser(ctx))
-  } [${formatClfDate()}] "${formatAccessLogToken(ctx.method)} ${
-    formatAccessLogToken(ctx.url)
-  } HTTP/${formatAccessLogToken(getHttpVersion(ctx))}" ${
-    formatAccessLogToken(ctx.status)
-  } ${formatAccessLogToken(getContentLength(ctx))}`;
+  return `${formatAccessLogToken(getRemoteAddr(ctx))} - ${formatAccessLogToken(
+    getRemoteUser(ctx),
+  )} [${formatClfDate()}] "${formatAccessLogToken(ctx.method)} ${formatAccessLogToken(
+    ctx.url,
+  )} HTTP/${formatAccessLogToken(getHttpVersion(ctx))}" ${formatAccessLogToken(
+    ctx.status,
+  )} ${formatAccessLogToken(getContentLength(ctx))}`;
 }
 
 /**
  * Dev format (colored output for development).
  * :method :path :status :response-time ms - :res[content-length]
  */
-function formatDev(
-  ctx: KoaContext,
-  responseTime: number,
-): string {
+function formatDev(ctx: KoaContext, responseTime: number): string {
   const contentLength = getContentLength(ctx) ?? "-";
-  return `${ctx.method} ${ctx.path} ${ctx.status} ${
-    responseTime.toFixed(3)
-  } ms - ${contentLength}`;
+  return `${ctx.method} ${ctx.path} ${ctx.status} ${responseTime.toFixed(
+    3,
+  )} ms - ${contentLength}`;
 }
 
 /**
  * Short format.
  * :remote-addr :method :url :status :res[content-length] - :response-time ms
  */
-function formatShort(
-  ctx: KoaContext,
-  responseTime: number,
-): string {
+function formatShort(ctx: KoaContext, responseTime: number): string {
   const remoteAddr = getRemoteAddr(ctx) ?? "-";
   const contentLength = getContentLength(ctx) ?? "-";
-  return `${remoteAddr} ${ctx.method} ${ctx.url} ${ctx.status} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  return `${remoteAddr} ${ctx.method} ${ctx.url} ${ctx.status} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
  * Tiny format (minimal output).
  * :method :path :status :res[content-length] - :response-time ms
  */
-function formatTiny(
-  ctx: KoaContext,
-  responseTime: number,
-): string {
+function formatTiny(ctx: KoaContext, responseTime: number): string {
   const contentLength = getContentLength(ctx) ?? "-";
-  return `${ctx.method} ${ctx.path} ${ctx.status} ${contentLength} - ${
-    responseTime.toFixed(3)
-  } ms`;
+  return `${ctx.method} ${ctx.path} ${ctx.status} ${contentLength} - ${responseTime.toFixed(
+    3,
+  )} ms`;
 }
 
 /**
@@ -838,9 +831,7 @@ function normalizeCategory(
  * @returns Koa middleware function.
  * @since 1.3.0
  */
-export function koaLogger(
-  options: KoaLogTapeOptions = {},
-): KoaMiddleware {
+export function koaLogger(options: KoaLogTapeOptions = {}): KoaMiddleware {
   const category = normalizeCategory(options.category ?? ["koa"]);
   const logger = getLogger(category);
   const level = options.level ?? "info";
@@ -851,9 +842,10 @@ export function koaLogger(
   const contextOptions = normalizeRequestContextOptions(options.context);
 
   // Resolve format function
-  const formatFn: FormatFunction = typeof formatOption === "string"
-    ? predefinedFormats[formatOption]
-    : formatOption;
+  const formatFn: FormatFunction =
+    typeof formatOption === "string"
+      ? predefinedFormats[formatOption]
+      : formatOption;
 
   const logMethod = logger[level].bind(logger);
 
@@ -886,12 +878,16 @@ export function koaLogger(
       if (skip(ctx)) return;
 
       const responseTime = Date.now() - startTime;
-      const log = completionLevel == null ? logMethod : logger[
-        resolveCompletionLevel(
-          () => completionLevel(ctx, { status: ctx.status, responseTime }),
-          level,
-        )
-      ].bind(logger);
+      const log =
+        completionLevel == null
+          ? logMethod
+          : logger[
+              resolveCompletionLevel(
+                () =>
+                  completionLevel(ctx, { status: ctx.status, responseTime }),
+                level,
+              )
+            ].bind(logger);
       const result = withRequestLogContext(
         formatFn(ctx, responseTime),
         requestContext,

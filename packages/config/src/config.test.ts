@@ -277,11 +277,13 @@ test("configureFromObject() rejects a non-boolean captureSourceLocation", async 
   // E.g., "${LOG_CAPTURE}" expanded from an environment variable:
   const config = {
     sinks: { spy: { type: `${fixturesModule}#getSpySink()` } },
-    loggers: [{
-      category: "my-app",
-      sinks: ["spy"],
-      captureSourceLocation: "true" as unknown as boolean,
-    }],
+    loggers: [
+      {
+        category: "my-app",
+        sinks: ["spy"],
+        captureSourceLocation: "true" as unknown as boolean,
+      },
+    ],
   };
   await setup();
   try {

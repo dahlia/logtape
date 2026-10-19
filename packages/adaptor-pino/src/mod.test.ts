@@ -24,9 +24,12 @@ test("getPinoSink(): basic scenario", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
   const sink = getPinoSink(logger);
   const before = Date.now();
   sink({
@@ -61,9 +64,12 @@ test("getPinoSink(): log level mappings", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
   const sink = getPinoSink(logger);
 
   const logLevels = [
@@ -104,9 +110,12 @@ test("getPinoSink(): category option - false/undefined", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   // Test with category: false
   const sinkFalse = getPinoSink(logger, { category: false });
@@ -146,9 +155,12 @@ test("getPinoSink(): category option - true (default formatting)", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   const sink = getPinoSink(logger, { category: true });
   sink({
@@ -174,9 +186,12 @@ test("getPinoSink(): category decorators", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   const decorators = [
     { decorator: "[]", expected: "[test] Message" },
@@ -224,9 +239,12 @@ test("getPinoSink(): category position (start vs end)", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   // Test position: "start"
   const sinkStart = getPinoSink(logger, {
@@ -269,9 +287,12 @@ test("getPinoSink(): category separator", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   const separators = [
     { separator: ".", expected: "[app.service.logger] Message" },
@@ -314,9 +335,12 @@ test("getPinoSink(): empty category handling", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   const sink = getPinoSink(logger, {
     category: { decorator: "[]", position: "start" },
@@ -359,9 +383,12 @@ test("getPinoSink(): message interpolation", async () => {
       buffer.push(obj);
     }
   }, {});
-  const logger = pino({
-    useOnlyCustomLevels: false,
-  }, dest);
+  const logger = pino(
+    {
+      useOnlyCustomLevels: false,
+    },
+    dest,
+  );
 
   const sink = getPinoSink(logger, {
     category: { decorator: ":", position: "start" },
@@ -371,11 +398,7 @@ test("getPinoSink(): message interpolation", async () => {
   sink({
     category: ["app", "auth"],
     level: "info",
-    message: [
-      "User ",
-      { userId: 123, username: "johndoe" },
-      " logged in",
-    ],
+    message: ["User ", { userId: 123, username: "johndoe" }, " logged in"],
     properties: { sessionId: "sess_abc123", source: "web" },
     rawMessage: "User {user} logged in",
     timestamp: Date.now(),

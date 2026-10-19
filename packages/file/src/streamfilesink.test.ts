@@ -77,8 +77,7 @@ test("getStreamFileSink() with custom formatter", async () => {
   const content = fs.readFileSync(path, { encoding: "utf-8" });
   assert.deepStrictEqual(
     content,
-    "CUSTOM: Hello, 123 & 456!\n" +
-      "CUSTOM: Hello, 123 & 456!\n",
+    "CUSTOM: Hello, 123 & 456!\n" + "CUSTOM: Hello, 123 & 456!\n",
   );
 });
 

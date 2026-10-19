@@ -191,7 +191,7 @@ test("getLog4jsSink(): category mapper with dynamic logger creation", () => {
     },
   };
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   const sink = getLog4jsSink(mockLog4js as any, undefined, {
     categoryMapper: (cat) => cat.join("::"),
   });
@@ -360,7 +360,7 @@ test("getLog4jsSink(): empty category", () => {
     },
   };
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   const sink = getLog4jsSink(mockLog4js as any);
 
   sink({
@@ -392,7 +392,7 @@ test("getLog4jsSink(): logger caching", () => {
     },
   };
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   const sink = getLog4jsSink(mockLog4js as any);
 
   // Log to the same category multiple times
@@ -430,20 +430,21 @@ interface CapturedLog {
 
 function createCapturingAppender(buffer: CapturedLog[]) {
   return {
-    configure: () =>
-    (loggingEvent: {
-      categoryName: string;
-      level: { levelStr: string };
-      data: unknown[];
-      context: Record<string, unknown>;
-    }) => {
-      buffer.push({
-        categoryName: loggingEvent.categoryName,
-        level: loggingEvent.level,
-        data: loggingEvent.data,
-        context: loggingEvent.context,
-      });
-    },
+    configure:
+      () =>
+      (loggingEvent: {
+        categoryName: string;
+        level: { levelStr: string };
+        data: unknown[];
+        context: Record<string, unknown>;
+      }) => {
+        buffer.push({
+          categoryName: loggingEvent.categoryName,
+          level: loggingEvent.level,
+          data: loggingEvent.data,
+          context: loggingEvent.context,
+        });
+      },
   };
 }
 

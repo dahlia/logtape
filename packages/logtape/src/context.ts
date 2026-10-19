@@ -93,9 +93,7 @@ export function getImplicitContext(): Record<string, unknown> {
  * @returns The current implicit context without internal symbol keys, or
  *          `undefined` if there is no user-visible implicit context.
  */
-export function getImplicitContextIfAny():
-  | Record<string, unknown>
-  | undefined {
+export function getImplicitContextIfAny(): Record<string, unknown> | undefined {
   const rootLogger = LoggerImpl.getLogger();
   const store = rootLogger.contextLocalStorage?.getStore();
   if (store == null) return undefined;

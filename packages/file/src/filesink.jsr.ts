@@ -14,10 +14,9 @@ import {
 
 // Shared dependencies must be evaluated before awaiting the platform factory.
 // The factory receives them as arguments so its chunk cannot import this one.
-const factory =
-  await ("Deno" in globalThis
-    ? import("./filesink.factory.deno.ts")
-    : import("./filesink.factory.node.ts"));
+const factory = await ("Deno" in globalThis
+  ? import("./filesink.factory.deno.ts")
+  : import("./filesink.factory.node.ts"));
 const filesink: FileSinkFunctions = factory.createFileSinks({
   getBaseFileSink,
   getBaseRotatingFileSink,
@@ -48,9 +47,8 @@ export function getFileSink(
   path: string,
   options: FileSinkOptions = {},
 ): Sink & (Disposable | AsyncDisposable) {
-  return filesink.getFileSink(path, options) as
-    & Sink
-    & (Disposable | AsyncDisposable);
+  return filesink.getFileSink(path, options) as Sink &
+    (Disposable | AsyncDisposable);
 }
 
 /**
@@ -83,9 +81,8 @@ export function getRotatingFileSink(
   path: string,
   options: RotatingFileSinkOptions = {},
 ): Sink & (Disposable | AsyncDisposable) {
-  return filesink.getRotatingFileSink(path, options) as
-    & Sink
-    & (Disposable | AsyncDisposable);
+  return filesink.getRotatingFileSink(path, options) as Sink &
+    (Disposable | AsyncDisposable);
 }
 
 /**
@@ -112,9 +109,8 @@ export function getTimeRotatingFileSink(
 export function getTimeRotatingFileSink(
   options: TimeRotatingFileSinkOptions,
 ): Sink & (Disposable | AsyncDisposable) {
-  return filesink.getTimeRotatingFileSink(options) as
-    & Sink
-    & (Disposable | AsyncDisposable);
+  return filesink.getTimeRotatingFileSink(options) as Sink &
+    (Disposable | AsyncDisposable);
 }
 
 // cSpell: ignore filesink

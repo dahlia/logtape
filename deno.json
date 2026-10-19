@@ -1,4 +1,5 @@
 {
+  "nodeModulesDir": "none",
   "workspace": [
     "./packages/logtape",
     "./packages/adaptor-bunyan",
@@ -40,7 +41,6 @@
     "@opentelemetry/resources": "npm:@opentelemetry/resources@^2.2.0",
     "@opentelemetry/sdk-logs": "npm:@opentelemetry/sdk-logs@^0.208.0",
     "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.38.0",
-
     "@std/async": "jsr:@std/async@^1.0.13",
     "@std/collections": "jsr:@std/collections@^1.0.10",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
@@ -93,30 +93,25 @@
   "tasks": {
     "check": "mise run check",
     "fmt": "mise run fmt",
-    "check:versions": "deno run --allow-read scripts/check_versions.ts",
-    "update-versions": "deno run --allow-read --allow-write scripts/update_versions.ts",
-    "build": "deno install && pnpm install && pnpm run -r --filter './packages/*' build",
-    "coverage": "rm -rf coverage && deno task test --coverage && deno coverage --html coverage",
+    "check:versions": "mise run check-versions",
+    "update-versions": "mise run update-versions",
+    "build": "mise run build",
+    "coverage": "mise run coverage:deno",
     "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-sys --allow-ffi --allow-run=powershell,deno",
     "test:node": "pnpm run -r test",
     "test:bun": "pnpm run -r test:bun",
-    "test-all": {
-      "dependencies": [
-        "check",
-        "test",
-        "test:node",
-        "test:bun"
-      ]
-    },
+    "test-all": "mise run test:all",
     "publish": {
       "command": "deno publish",
       "dependencies": [
         "check",
+        "check:deno",
         "test"
       ]
     },
     "hooks:install": "mise run hooks:install",
     "hooks:pre-push": "mise run hooks:pre-push",
-    "hooks:pre-commit": "mise run hooks:pre-commit"
+    "hooks:pre-commit": "mise run hooks:pre-commit",
+    "check:deno": "mise run check:deno"
   }
 }

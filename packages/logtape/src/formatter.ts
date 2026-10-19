@@ -49,36 +49,39 @@ const platformInspect: (
   // @ts-ignore: Browser detection
   // dnt-shim-ignore
   typeof document !== "undefined" ||
-    // @ts-ignore: React Native detection
-    // dnt-shim-ignore
-    typeof navigator !== "undefined" && navigator.product === "ReactNative"
+  // @ts-ignore: React Native detection
+  // dnt-shim-ignore
+  (typeof navigator !== "undefined" && navigator.product === "ReactNative")
     ? (v) => stringifyWithoutCycles(v)
-    // @ts-ignore: Deno global
-    // dnt-shim-ignore
-    : "Deno" in globalThis && "inspect" in globalThis.Deno &&
+    : // @ts-ignore: Deno global
+      // dnt-shim-ignore
+      "Deno" in globalThis &&
+        // @ts-ignore: Deno global
+        // dnt-shim-ignore
+        "inspect" in globalThis.Deno &&
         // @ts-ignore: Deno global
         // dnt-shim-ignore
         typeof globalThis.Deno.inspect === "function"
-    ? (v, opts) =>
-      // @ts-ignore: Deno global
-      // dnt-shim-ignore
-      globalThis.Deno.inspect(v, {
-        strAbbreviateSize: Infinity,
-        iterableLimit: Infinity,
-        ...opts,
-      })
-    // @ts-ignore: Node.js global
-    // dnt-shim-ignore
-    : util != null && "inspect" in util && typeof util.inspect === "function"
-    ? (v, opts) =>
-      // @ts-ignore: Node.js global
-      // dnt-shim-ignore
-      util.inspect(v, {
-        maxArrayLength: Infinity,
-        maxStringLength: Infinity,
-        ...opts,
-      })
-    : (v) => stringifyWithoutCycles(v);
+      ? (v, opts) =>
+          // @ts-ignore: Deno global
+          // dnt-shim-ignore
+          globalThis.Deno.inspect(v, {
+            strAbbreviateSize: Infinity,
+            iterableLimit: Infinity,
+            ...opts,
+          })
+      : // @ts-ignore: Node.js global
+        // dnt-shim-ignore
+        util != null && "inspect" in util && typeof util.inspect === "function"
+        ? (v, opts) =>
+            // @ts-ignore: Node.js global
+            // dnt-shim-ignore
+            util.inspect(v, {
+              maxArrayLength: Infinity,
+              maxStringLength: Infinity,
+              ...opts,
+            })
+        : (v) => stringifyWithoutCycles(v);
 
 const inspect: (value: unknown, options?: { colors?: boolean }) => string = (
   value: unknown,
@@ -109,9 +112,9 @@ function getValueRenderer(
   if (typeof value === "function") return (v) => value(v, inspect);
   if (value !== "bare") {
     throw new TypeError(
-      `Invalid value option: ${
-        JSON.stringify(value)
-      }. It must be "bare" or a function.`,
+      `Invalid value option: ${JSON.stringify(
+        value,
+      )}. It must be "bare" or a function.`,
     );
   }
   // A bare string loses the escaping that inspect() would have applied, and
@@ -119,13 +122,16 @@ function getValueRenderer(
   // escaped as in categories, and newlines are escaped unless the caller
   // explicitly asks to preserve them: a carriage return could overwrite the
   // line on a terminal, and a line feed could forge a record.
-  const sanitizeBare = sanitize === false ? null : getSanitizer({
-    sgr: "escape",
-    newlines: sanitize?.newlines ?? "escape",
-  });
+  const sanitizeBare =
+    sanitize === false
+      ? null
+      : getSanitizer({
+          sgr: "escape",
+          newlines: sanitize?.newlines ?? "escape",
+        });
   return sanitizeBare == null
-    ? (v) => typeof v === "string" ? v : fallback(v)
-    : (v) => typeof v === "string" ? sanitizeBare(v) : fallback(v);
+    ? (v) => (typeof v === "string" ? v : fallback(v))
+    : (v) => (typeof v === "string" ? sanitizeBare(v) : fallback(v));
 }
 
 function renderMessageParts(
@@ -134,9 +140,10 @@ function renderMessageParts(
   sanitize?: ((text: string) => string) | null,
 ): string {
   const msgLen: number = msgParts.length;
-  const renderPart: (part: unknown) => string = sanitize == null
-    ? (part: unknown): string => part as string
-    : (part: unknown): string => sanitize(part as string);
+  const renderPart: (part: unknown) => string =
+    sanitize == null
+      ? (part: unknown): string => part as string
+      : (part: unknown): string => sanitize(part as string);
 
   if (msgLen === 1) {
     return renderPart(msgParts[0]);
@@ -145,18 +152,16 @@ function renderMessageParts(
   if (msgLen <= 6) {
     let message: string = "";
     for (let i = 0; i < msgLen; i++) {
-      message += (i % 2 === 0)
-        ? renderPart(msgParts[i])
-        : valueRenderer(msgParts[i]);
+      message +=
+        i % 2 === 0 ? renderPart(msgParts[i]) : valueRenderer(msgParts[i]);
     }
     return message;
   }
 
   const parts: string[] = new Array(msgLen);
   for (let i = 0; i < msgLen; i++) {
-    parts[i] = (i % 2 === 0)
-      ? renderPart(msgParts[i])
-      : valueRenderer(msgParts[i]);
+    parts[i] =
+      i % 2 === 0 ? renderPart(msgParts[i]) : valueRenderer(msgParts[i]);
   }
   return parts.join("");
 }
@@ -344,9 +349,9 @@ export interface TextFormatterOptions {
   value?:
     | "bare"
     | ((
-      value: unknown,
-      inspect: (value: unknown, options?: { colors?: boolean }) => string,
-    ) => string);
+        value: unknown,
+        inspect: (value: unknown, options?: { colors?: boolean }) => string,
+      ) => string);
 
   /**
    * Whether and how to show the source location of log records, i.e., where
@@ -567,12 +572,13 @@ function resolveTimeZone(timeZone: string | null | undefined): TimeZoneConfig {
   }
 
   if (
-    typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function"
+    typeof Intl === "undefined" ||
+    typeof Intl.DateTimeFormat !== "function"
   ) {
     throw new TypeError(
-      `Invalid timeZone option: ${
-        JSON.stringify(timeZone)
-      }. This environment does not support IANA time zones.`,
+      `Invalid timeZone option: ${JSON.stringify(
+        timeZone,
+      )}. This environment does not support IANA time zones.`,
     );
   }
 
@@ -593,9 +599,9 @@ function resolveTimeZone(timeZone: string | null | undefined): TimeZoneConfig {
     };
   } catch {
     throw new TypeError(
-      `Invalid timeZone option: ${
-        JSON.stringify(timeZone)
-      }. Expected an IANA time zone name (e.g., "Asia/Seoul") or a fixed UTC offset string (e.g., "+09:00").`,
+      `Invalid timeZone option: ${JSON.stringify(
+        timeZone,
+      )}. Expected an IANA time zone name (e.g., "Asia/Seoul") or a fixed UTC offset string (e.g., "+09:00").`,
     );
   }
 }
@@ -709,9 +715,11 @@ function bigintReplacer(_key: string, value: unknown): unknown {
 function stringifyJsonMessageValue(value: unknown): string | undefined {
   // Keep the fast path for primitives that cannot contain bigints or toJSON().
   if (
-    typeof value === "string" || typeof value === "number" ||
+    typeof value === "string" ||
+    typeof value === "number" ||
     typeof value === "boolean"
-  ) return JSON.stringify(value);
+  )
+    return JSON.stringify(value);
   // Unlike properties, message values retain ordinary JSON Error semantics.
   return stringifyWithoutCycles(value, bigintReplacer);
 }
@@ -750,21 +758,22 @@ function jsonReplacer(_key: string, value: unknown): unknown {
   return serialized;
 }
 
-function renderDefaultJsonLinesMessage(
-  message: readonly unknown[],
-): unknown {
+function renderDefaultJsonLinesMessage(message: readonly unknown[]): unknown {
   const messageLength = message.length;
   if (messageLength === 1) {
     return message[0];
   }
   if (messageLength === 3) {
-    return (message[0] as string) + stringifyJsonMessageValue(message[1]) +
-      (message[2] as string);
+    return (
+      (message[0] as string) +
+      stringifyJsonMessageValue(message[1]) +
+      (message[2] as string)
+    );
   }
 
   let rendered = message[0] as string;
   for (let i = 1; i < messageLength; i++) {
-    rendered += (i & 1) ? stringifyJsonMessageValue(message[i]) : message[i];
+    rendered += i & 1 ? stringifyJsonMessageValue(message[i]) : message[i];
   }
   return rendered;
 }
@@ -794,9 +803,8 @@ function formatDefaultJsonLinesRecord(
   record: LogRecord,
   lineEnding: string,
 ): string {
-  const level = record.level === "warning"
-    ? "WARN"
-    : record.level.toUpperCase();
+  const level =
+    record.level === "warning" ? "WARN" : record.level.toUpperCase();
   const messageJson: string | undefined = stringifyJsonLinesField(
     "message",
     renderDefaultJsonLinesMessage(record.message),
@@ -809,9 +817,9 @@ function formatDefaultJsonLinesRecord(
   // The default formatter always emits the same object shape, so build the
   // fixed JSON shell directly while preserving JSON.stringify() escaping,
   // toJSON field keys, Error serialization, and unsupported-value failures.
-  let line = `{"@timestamp":${
-    JSON.stringify(new Date(record.timestamp).toISOString())
-  },"level":${JSON.stringify(level)}`;
+  let line = `{"@timestamp":${JSON.stringify(
+    new Date(record.timestamp).toISOString(),
+  )},"level":${JSON.stringify(level)}`;
   if (messageJson !== undefined) {
     line += `,"message":${messageJson}`;
   }
@@ -852,8 +860,7 @@ export function getTextFormatter(
       return createTimestampFormatter("none", timeZone);
     } else if (
       typeof tsOption === "string" &&
-      (
-        tsOption === "date-time-timezone" ||
+      (tsOption === "date-time-timezone" ||
         tsOption === "date-time-tz" ||
         tsOption === "date-time" ||
         tsOption === "time-timezone" ||
@@ -861,8 +868,7 @@ export function getTextFormatter(
         tsOption === "time" ||
         tsOption === "date" ||
         tsOption === "rfc3339" ||
-        tsOption === "none"
-      )
+        tsOption === "none")
     ) {
       return createTimestampFormatter(tsOption, timeZone);
     } else {
@@ -907,17 +913,24 @@ export function getTextFormatter(
   const lineEnding = getLineEndingValue(options.lineEnding);
   const sourceLocationRenderer = getSourceLocationRenderer(
     options.sourceLocation,
-    options.sanitize === false ? null : getSanitizer({
-      ...options.sanitize,
-      sgr: "escape",
-      newlines: "escape",
-    }),
+    options.sanitize === false
+      ? null
+      : getSanitizer({
+          ...options.sanitize,
+          sgr: "escape",
+          newlines: "escape",
+        }),
   );
 
-  const formatter: (values: FormattedValues) => string = options.format ??
-    ((
-      { timestamp, level, category, message, sourceLocation }: FormattedValues,
-    ) =>
+  const formatter: (values: FormattedValues) => string =
+    options.format ??
+    (({
+      timestamp,
+      level,
+      category,
+      message,
+      sourceLocation,
+    }: FormattedValues) =>
       `${timestamp ? `${timestamp} ` : ""}[${level}] ${category}${
         sourceLocation == null ? "" : ` (${sourceLocation})`
       }: ${message}`);
@@ -931,12 +944,14 @@ export function getTextFormatter(
 
     const timestamp = timestampRenderer(record.timestamp);
     const level = levelRenderer(record.level);
-    const categoryParts = sanitizeCategory == null
-      ? record.category
-      : record.category.map(sanitizeCategory);
-    const category = typeof categorySeparator === "function"
-      ? categorySeparator(categoryParts)
-      : categoryParts.join(categorySeparator);
+    const categoryParts =
+      sanitizeCategory == null
+        ? record.category
+        : record.category.map(sanitizeCategory);
+    const category =
+      typeof categorySeparator === "function"
+        ? categorySeparator(categoryParts)
+        : categoryParts.join(categorySeparator);
 
     const values: FormattedValues = {
       timestamp,
@@ -946,9 +961,10 @@ export function getTextFormatter(
       record,
     };
     if (sourceLocationRenderer != null) {
-      values.sourceLocation = record.sourceLocation == null
-        ? null
-        : sourceLocationRenderer(record.sourceLocation);
+      values.sourceLocation =
+        record.sourceLocation == null
+          ? null
+          : sourceLocationRenderer(record.sourceLocation);
     }
     return `${formatter(values)}${lineEnding}`;
   };
@@ -967,10 +983,11 @@ function getSourceLocationRenderer(
   sanitize: ((text: string) => string) | null,
 ): ((location: SourceLocation) => string) | null {
   if (option == null || option === false) return null;
-  const render = option === true
-    ? (location: SourceLocation): string =>
-      `${location.file}:${location.line}:${location.column}`
-    : option;
+  const render =
+    option === true
+      ? (location: SourceLocation): string =>
+          `${location.file}:${location.line}:${location.column}`
+      : option;
   if (sanitize == null) return render;
   return (location: SourceLocation): string => sanitize(render(location));
 }
@@ -1135,30 +1152,29 @@ export function getAnsiColorFormatter(
   options: AnsiColorFormatterOptions = {},
 ): TextFormatter {
   const format = options.format;
-  const timestampStyle = typeof options.timestampStyle === "undefined"
-    ? "dim"
-    : options.timestampStyle;
+  const timestampStyle =
+    typeof options.timestampStyle === "undefined"
+      ? "dim"
+      : options.timestampStyle;
   const timestampColor = options.timestampColor ?? null;
   const timestampPrefix = `${
     timestampStyle == null ? "" : ansiStyles[timestampStyle]
   }${timestampColor == null ? "" : ansiColors[timestampColor]}`;
-  const timestampSuffix = timestampStyle == null && timestampColor == null
-    ? ""
-    : RESET;
-  const levelStyle = typeof options.levelStyle === "undefined"
-    ? "bold"
-    : options.levelStyle;
+  const timestampSuffix =
+    timestampStyle == null && timestampColor == null ? "" : RESET;
+  const levelStyle =
+    typeof options.levelStyle === "undefined" ? "bold" : options.levelStyle;
   const levelColors = options.levelColors ?? defaultLevelColors;
-  const categoryStyle = typeof options.categoryStyle === "undefined"
-    ? "dim"
-    : options.categoryStyle;
+  const categoryStyle =
+    typeof options.categoryStyle === "undefined"
+      ? "dim"
+      : options.categoryStyle;
   const categoryColor = options.categoryColor ?? null;
   const categoryPrefix = `${
     categoryStyle == null ? "" : ansiStyles[categoryStyle]
   }${categoryColor == null ? "" : ansiColors[categoryColor]}`;
-  const categorySuffix = categoryStyle == null && categoryColor == null
-    ? ""
-    : RESET;
+  const categorySuffix =
+    categoryStyle == null && categoryColor == null ? "" : RESET;
   return getTextFormatter({
     timestamp: "date-time-tz",
     value(value: unknown, fallbackInspect): string {
@@ -1169,20 +1185,24 @@ export function getAnsiColorFormatter(
     // colored like they are by default.
     ...(options.value === "bare"
       ? {
-        value: getValueRenderer(
-          "bare",
-          options.sanitize,
-          (v) => inspect(v, { colors: true }),
-        ),
-      }
+          value: getValueRenderer("bare", options.sanitize, (v) =>
+            inspect(v, { colors: true }),
+          ),
+        }
       : {}),
-    format(
-      { timestamp, level, category, message, sourceLocation, record },
-    ): string {
+    format({
+      timestamp,
+      level,
+      category,
+      message,
+      sourceLocation,
+      record,
+    }): string {
       const levelColor = levelColors[record.level];
-      timestamp = timestamp == null
-        ? null
-        : `${timestampPrefix}${timestamp}${timestampSuffix}`;
+      timestamp =
+        timestamp == null
+          ? null
+          : `${timestampPrefix}${timestamp}${timestampSuffix}`;
       level = `${levelStyle == null ? "" : ansiStyles[levelStyle]}${
         levelColor == null ? "" : ansiColors[levelColor]
       }${level}${levelStyle == null && levelColor == null ? "" : RESET}`;
@@ -1203,9 +1223,10 @@ export function getAnsiColorFormatter(
       // Like the category, the source location is styled, and the key is
       // only passed on when the sourceLocation option is enabled:
       if (sourceLocation !== undefined) {
-        values.sourceLocation = sourceLocation == null
-          ? null
-          : `${categoryPrefix}${sourceLocation}${categorySuffix}`;
+        values.sourceLocation =
+          sourceLocation == null
+            ? null
+            : `${categoryPrefix}${sourceLocation}${categorySuffix}`;
       }
       return format(values);
     },
@@ -1330,9 +1351,9 @@ export function getJsonLinesFormatter(
     const prefix = propertiesOption.substring(8);
     if (prefix === "") {
       throw new TypeError(
-        `Invalid properties option: ${
-          JSON.stringify(propertiesOption)
-        }. It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.`,
+        `Invalid properties option: ${JSON.stringify(
+          propertiesOption,
+        )}. It must be of the form "prepend:<prefix>" where <prefix> is a non-empty string.`,
       );
     }
     getProperties = (properties) => {
@@ -1347,9 +1368,9 @@ export function getJsonLinesFormatter(
     getProperties = (properties) => ({ [key]: properties });
   } else {
     throw new TypeError(
-      `Invalid properties option: ${
-        JSON.stringify(propertiesOption)
-      }. It must be "flatten", "prepend:<prefix>", or "nest:<key>".`,
+      `Invalid properties option: ${JSON.stringify(
+        propertiesOption,
+      )}. It must be "flatten", "prepend:<prefix>", or "nest:<key>".`,
     );
   }
 
@@ -1378,22 +1399,31 @@ export function getJsonLinesFormatter(
 
       let msg = "";
       for (let i = 0; i < msgLen; i++) {
-        msg += (i % 2 < 1)
-          ? record.message[i]
-          : stringifyJsonMessageValue(record.message[i]);
+        msg +=
+          i % 2 < 1
+            ? record.message[i]
+            : stringifyJsonMessageValue(record.message[i]);
       }
       return msg;
     };
   }
 
   return (record: LogRecord): string => {
-    return escapeJsonControlChars(JSON.stringify({
-      "@timestamp": new Date(record.timestamp).toISOString(),
-      level: record.level === "warning" ? "WARN" : record.level.toUpperCase(),
-      message: getMessage(record),
-      logger: joinCategory(record.category),
-      ...getProperties(record.properties),
-    }, createCircularReplacer(jsonReplacer))) + lineEnding;
+    return (
+      escapeJsonControlChars(
+        JSON.stringify(
+          {
+            "@timestamp": new Date(record.timestamp).toISOString(),
+            level:
+              record.level === "warning" ? "WARN" : record.level.toUpperCase(),
+            message: getMessage(record),
+            logger: joinCategory(record.category),
+            ...getProperties(record.properties),
+          },
+          createCircularReplacer(jsonReplacer),
+        ),
+      ) + lineEnding
+    );
   };
 }
 
@@ -1517,12 +1547,18 @@ function filterLogfmtKey(key: string): string | null {
  * whose members include the 8-bit `CSI` and `OSC` introducers.
  */
 function isTerminalControlCode(code: number): boolean {
-  return code === 0x7f || code >= 0x80 && code <= 0x9f;
+  return code === 0x7f || (code >= 0x80 && code <= 0x9f);
 }
 
 function shouldEscapeLogfmtKeyChar(char: string, code: number): boolean {
-  return code <= 0x20 || isTerminalControlCode(code) || code === 0xfffd ||
-    char === "=" || char === '"' || char === "%";
+  return (
+    code <= 0x20 ||
+    isTerminalControlCode(code) ||
+    code === 0xfffd ||
+    char === "=" ||
+    char === '"' ||
+    char === "%"
+  );
 }
 
 function encodeLogfmtKeyChar(char: string): string {
@@ -1537,9 +1573,12 @@ function stringifyLogfmtValue(value: unknown): string {
   if (typeof value === "string") return value;
   if (value === null) return "null";
   if (
-    typeof value === "number" || typeof value === "boolean" ||
-    typeof value === "bigint" || typeof value === "undefined" ||
-    typeof value === "symbol" || typeof value === "function"
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint" ||
+    typeof value === "undefined" ||
+    typeof value === "symbol" ||
+    typeof value === "function"
   ) {
     return String(value);
   }
@@ -1562,8 +1601,8 @@ function unwrapJsonStringLiteral(json: string): string {
 }
 
 function quoteLogfmtValue(value: string, isString: boolean): string {
-  let needsQuote: boolean = value === "" ||
-    isString && shouldQuoteStringLiteral(value);
+  let needsQuote: boolean =
+    value === "" || (isString && shouldQuoteStringLiteral(value));
 
   for (const char of value) {
     const code: number = char.codePointAt(0)!;
@@ -1583,13 +1622,23 @@ function quoteLogfmtValue(value: string, isString: boolean): string {
 }
 
 function shouldQuoteStringLiteral(value: string): boolean {
-  return value === "null" || value === "undefined" || value === "true" ||
-    value === "false";
+  return (
+    value === "null" ||
+    value === "undefined" ||
+    value === "true" ||
+    value === "false"
+  );
 }
 
 function shouldQuoteLogfmtValueChar(char: string, code: number): boolean {
-  return code <= 0x20 || isTerminalControlCode(code) || code === 0xfffd ||
-    char === "=" || char === '"' || char === "\\";
+  return (
+    code <= 0x20 ||
+    isTerminalControlCode(code) ||
+    code === 0xfffd ||
+    char === "=" ||
+    char === '"' ||
+    char === "\\"
+  );
 }
 
 function escapeLogfmtValueChar(char: string, code: number): string {
@@ -1616,11 +1665,7 @@ function formatLogfmtValue(value: unknown): string {
   return quoteLogfmtValue(stringified, typeof value === "string");
 }
 
-function pushLogfmtPair(
-  pairs: string[],
-  key: string,
-  value: unknown,
-): void {
+function pushLogfmtPair(pairs: string[], key: string, value: unknown): void {
   const filteredKey = filterLogfmtKey(key);
   if (filteredKey == null) return;
   pairs.push(`${filteredKey}=${formatLogfmtValue(value)}`);
@@ -1646,10 +1691,7 @@ export function getLogfmtFormatter(
   const prependPrefix: string = "prepend:";
   const lineEnding: string = getLineEndingValue(options.lineEnding);
   const timestampRenderer: (ts: number) => string | null =
-    createTimestampFormatter(
-      "rfc3339",
-      resolveTimeZone(options.timeZone),
-    );
+    createTimestampFormatter("rfc3339", resolveTimeZone(options.timeZone));
   const isTemplateMessage: boolean = options.message === "template";
   const propertiesOption: "flatten" | `prepend:${string}` =
     options.properties ?? "flatten";
@@ -1670,7 +1712,8 @@ export function getLogfmtFormatter(
     propertyPrefix = propertiesOption.substring(prependPrefix.length);
     if (propertyPrefix === "") {
       throw new TypeError(
-        "Invalid properties option: " + JSON.stringify(propertiesOption) +
+        "Invalid properties option: " +
+          JSON.stringify(propertiesOption) +
           ". " +
           'It must be of the form "prepend:<prefix>" where <prefix> is a ' +
           "non-empty string.",
@@ -1678,9 +1721,9 @@ export function getLogfmtFormatter(
     }
   } else {
     throw new TypeError(
-      `Invalid properties option: ${
-        JSON.stringify(propertiesOption)
-      }. It must be "flatten" or "prepend:<prefix>".`,
+      `Invalid properties option: ${JSON.stringify(
+        propertiesOption,
+      )}. It must be "flatten" or "prepend:<prefix>".`,
     );
   }
 
@@ -1692,10 +1735,7 @@ export function getLogfmtFormatter(
     pushLogfmtPair(
       pairs,
       "msg",
-      renderStructuredMessage(
-        record,
-        isTemplateMessage,
-      ),
+      renderStructuredMessage(record, isTemplateMessage),
     );
 
     for (const key in record.properties) {
@@ -1838,11 +1878,16 @@ function formatConsoleRecord(
     }
   }
   const date = new Date(record.timestamp);
-  const time = `${date.getUTCHours().toString().padStart(2, "0")}:${
-    date.getUTCMinutes().toString().padStart(2, "0")
-  }:${date.getUTCSeconds().toString().padStart(2, "0")}.${
-    date.getUTCMilliseconds().toString().padStart(3, "0")
-  }`;
+  const time = `${date.getUTCHours().toString().padStart(2, "0")}:${date
+    .getUTCMinutes()
+    .toString()
+    .padStart(
+      2,
+      "0",
+    )}:${date.getUTCSeconds().toString().padStart(2, "0")}.${date
+    .getUTCMilliseconds()
+    .toString()
+    .padStart(3, "0")}`;
   const category = record.category
     .map((c) => sanitizeControlSequences(c, { sgr: "escape" }))
     .join("\xb7");

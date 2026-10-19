@@ -8,7 +8,7 @@ const autoloadUrl = new URL("./autoload.ts", import.meta.url).href;
 const logtapeSpecifier = "@logtape/logtape";
 const hasDenoTestEach =
   typeof (Deno.test as unknown as { readonly each?: unknown }).each ===
-    "function";
+  "function";
 
 Deno.test("createTest(): reports logs from failed tests", async () => {
   const result = await runDenoTest(`
@@ -479,9 +479,7 @@ async function runDenoTest(
     }
     args.push(testFile);
     const command = new Deno.Command("deno", {
-      args: [
-        ...args,
-      ],
+      args: [...args],
       cwd: packageRoot,
       env: options.env,
       stdout: "piped",
@@ -496,7 +494,8 @@ async function runDenoTest(
     }
     return {
       code: output.code,
-      output: reportOutput +
+      output:
+        reportOutput +
         new TextDecoder().decode(output.stdout) +
         new TextDecoder().decode(output.stderr),
     };

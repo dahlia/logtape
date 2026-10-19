@@ -19,35 +19,39 @@ const isBun = "Bun" in globalThis;
 // exercise.
 const skipNestedNodeTest = isDeno || isBun;
 
-nodeTest("createTest(): reports logs from expected synchronous failures", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "createTest(): reports logs from expected synchronous failures",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  const reported: LogRecord[] = [];
-  await configureForTestingNode();
-  try {
-    const test = createTest({
-      lowestLevel: "debug",
-      sink: (record) => reported.push(record),
-    });
-
-    await test("expected failure", { expectFailure: true }, () => {
-      getLogger(["app"]).debug("Fixture state: {state}.", {
-        state: "ready",
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const test = createTest({
+        lowestLevel: "debug",
+        sink: (record) => reported.push(record),
       });
-      throw new Error("assertion failed");
-    });
 
-    assert.deepStrictEqual(
-      reported.map((record) => [record.level, record.rawMessage]),
-      [["debug", "Fixture state: {state}."]],
-    );
-    assert.deepStrictEqual(reported[0]?.properties, { state: "ready" });
-  } finally {
-    await reset();
-  }
-});
+      await test("expected failure", { expectFailure: true }, () => {
+        getLogger(["app"]).debug("Fixture state: {state}.", {
+          state: "ready",
+        });
+        throw new Error("assertion failed");
+      });
+
+      assert.deepStrictEqual(
+        reported.map((record) => [record.level, record.rawMessage]),
+        [["debug", "Fixture state: {state}."]],
+      );
+      assert.deepStrictEqual(reported[0]?.properties, { state: "ready" });
+    } finally {
+      await reset();
+    }
+  },
+);
 
 nodeTest(
   "createTest(): discards logs when a test passes by default",
@@ -74,125 +78,146 @@ nodeTest(
   },
 );
 
-nodeTest("createTest(): preserves node:test options", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "createTest(): preserves node:test options",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  const reported: LogRecord[] = [];
-  await configureForTestingNode();
-  try {
-    const test = createTest({
-      mode: "always",
-      sink: (record) => reported.push(record),
-    });
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const test = createTest({
+        mode: "always",
+        sink: (record) => reported.push(record),
+      });
 
-    await test("optioned test", {
-      concurrency: true,
-      timeout: 1_000,
-    }, (context: TestContext) => {
-      assert.strictEqual(context.name, "optioned test");
-      getLogger(["app"]).info("Optioned test.");
-    });
+      await test(
+        "optioned test",
+        {
+          concurrency: true,
+          timeout: 1_000,
+        },
+        (context: TestContext) => {
+          assert.strictEqual(context.name, "optioned test");
+          getLogger(["app"]).info("Optioned test.");
+        },
+      );
 
-    assert.deepStrictEqual(
-      reported.map((record) => record.rawMessage),
-      ["Optioned test."],
-    );
-  } finally {
-    await reset();
-  }
-});
+      assert.deepStrictEqual(
+        reported.map((record) => record.rawMessage),
+        ["Optioned test."],
+      );
+    } finally {
+      await reset();
+    }
+  },
+);
 
-nodeTest("createTest(): passes context to rest-parameter callbacks", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "createTest(): passes context to rest-parameter callbacks",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  const reported: LogRecord[] = [];
-  await configureForTestingNode();
-  try {
-    const test = createTest({
-      mode: "always",
-      sink: (record) => reported.push(record),
-    });
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const test = createTest({
+        mode: "always",
+        sink: (record) => reported.push(record),
+      });
 
-    await test("rest context", (...args: unknown[]) => {
-      const [context] = args;
-      assert.ok(context);
-      assert.strictEqual((context as TestContext).name, "rest context");
-      getLogger(["app"]).info("Rest callback diagnostic.");
-    });
+      await test("rest context", (...args: unknown[]) => {
+        const [context] = args;
+        assert.ok(context);
+        assert.strictEqual((context as TestContext).name, "rest context");
+        getLogger(["app"]).info("Rest callback diagnostic.");
+      });
 
-    assert.deepStrictEqual(
-      reported.map((record) => record.rawMessage),
-      ["Rest callback diagnostic."],
-    );
-  } finally {
-    await reset();
-  }
-});
+      assert.deepStrictEqual(
+        reported.map((record) => record.rawMessage),
+        ["Rest callback diagnostic."],
+      );
+    } finally {
+      await reset();
+    }
+  },
+);
 
-nodeTest("createTest(): supports callback-style tests", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "createTest(): supports callback-style tests",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  const reported: LogRecord[] = [];
-  await configureForTestingNode();
-  try {
-    const test = createTest({
-      mode: "always",
-      sink: (record) => reported.push(record),
-    });
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const test = createTest({
+        mode: "always",
+        sink: (record) => reported.push(record),
+      });
 
-    await test("callback test", (context, done) => {
-      assert.strictEqual(context.name, "callback test");
-      setTimeout(() => {
-        assert.ok(done);
-        getLogger(["app"]).info("Async callback diagnostic.");
-        done();
-      }, 0);
-    });
+      await test("callback test", (context, done) => {
+        assert.strictEqual(context.name, "callback test");
+        setTimeout(() => {
+          assert.ok(done);
+          getLogger(["app"]).info("Async callback diagnostic.");
+          done();
+        }, 0);
+      });
 
-    assert.deepStrictEqual(
-      reported.map((record) => record.rawMessage),
-      ["Async callback diagnostic."],
-    );
-  } finally {
-    await reset();
-  }
-});
+      assert.deepStrictEqual(
+        reported.map((record) => record.rawMessage),
+        ["Async callback diagnostic."],
+      );
+    } finally {
+      await reset();
+    }
+  },
+);
 
-nodeTest("createTest(): reports logs when callback-style tests fail", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "createTest(): reports logs when callback-style tests fail",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  const reported: LogRecord[] = [];
-  await configureForTestingNode();
-  try {
-    const test = createTest({
-      sink: (record) => reported.push(record),
-    });
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const test = createTest({
+        sink: (record) => reported.push(record),
+      });
 
-    await test("expected callback failure", { expectFailure: true }, (
-      _context,
-      done,
-    ) => {
-      assert.ok(done);
-      getLogger(["app"]).info("Before callback failure.");
-      done(new Error("callback failed"));
-    });
+      await test(
+        "expected callback failure",
+        { expectFailure: true },
+        (_context, done) => {
+          assert.ok(done);
+          getLogger(["app"]).info("Before callback failure.");
+          done(new Error("callback failed"));
+        },
+      );
 
-    assert.deepStrictEqual(
-      reported.map((record) => record.rawMessage),
-      ["Before callback failure."],
-    );
-  } finally {
-    await reset();
-  }
-});
+      assert.deepStrictEqual(
+        reported.map((record) => record.rawMessage),
+        ["Before callback failure."],
+      );
+    } finally {
+      await reset();
+    }
+  },
+);
 
 nodeTest(
   "createTest(): rejects callback-style tests that return promises",
@@ -207,15 +232,16 @@ nodeTest(
         sink: (record) => reported.push(record),
       });
 
-      await test("invalid callback completion", { expectFailure: true }, (
-        _context,
-        done,
-      ) => {
-        assert.ok(done);
-        getLogger(["app"]).info("Invalid completion diagnostic.");
-        done();
-        return Promise.resolve();
-      });
+      await test(
+        "invalid callback completion",
+        { expectFailure: true },
+        (_context, done) => {
+          assert.ok(done);
+          getLogger(["app"]).info("Invalid completion diagnostic.");
+          done();
+          return Promise.resolve();
+        },
+      );
 
       assert.deepStrictEqual(
         reported.map((record) => record.rawMessage),
@@ -293,46 +319,54 @@ nodeTest("createTest(): exposes node:test shorthand helpers", () => {
   assert.strictEqual(typeof test.test, "function");
 });
 
-nodeTest("createIt(): wraps the node:test it() alias", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "createIt(): wraps the node:test it() alias",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  const reported: LogRecord[] = [];
-  await configureForTestingNode();
-  try {
-    const wrappedIt = createIt({
-      mode: "always",
-      sink: (record) => reported.push(record),
-    });
+    const reported: LogRecord[] = [];
+    await configureForTestingNode();
+    try {
+      const wrappedIt = createIt({
+        mode: "always",
+        sink: (record) => reported.push(record),
+      });
 
-    await wrappedIt("aliased test", () => {
-      getLogger(["app"]).info("Alias diagnostic.");
-    });
+      await wrappedIt("aliased test", () => {
+        getLogger(["app"]).info("Alias diagnostic.");
+      });
 
-    assert.deepStrictEqual(
-      reported.map((record) => record.rawMessage),
-      ["Alias diagnostic."],
-    );
-  } finally {
-    await reset();
-  }
-});
+      assert.deepStrictEqual(
+        reported.map((record) => record.rawMessage),
+        ["Alias diagnostic."],
+      );
+    } finally {
+      await reset();
+    }
+  },
+);
 
-nodeTest("it: reports logs with default export-style alias", {
-  skip: skipNestedNodeTest,
-}, async () => {
-  if (skipNestedNodeTest) return;
+nodeTest(
+  "it: reports logs with default export-style alias",
+  {
+    skip: skipNestedNodeTest,
+  },
+  async () => {
+    if (skipNestedNodeTest) return;
 
-  await configureForTestingNode();
-  try {
-    await it("default alias", () => {
-      assert.ok(getLogger(["app"]));
-    });
-  } finally {
-    await reset();
-  }
-});
+    await configureForTestingNode();
+    try {
+      await it("default alias", () => {
+        assert.ok(getLogger(["app"]));
+      });
+    } finally {
+      await reset();
+    }
+  },
+);
 
 // Helpers
 
@@ -342,8 +376,6 @@ async function configureForTestingNode(): Promise<void> {
       Record<string, unknown>
     >,
     sinks: {},
-    loggers: [
-      { category: ["logtape", "meta"], sinks: [] },
-    ],
+    loggers: [{ category: ["logtape", "meta"], sinks: [] }],
   });
 }

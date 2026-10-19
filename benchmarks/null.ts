@@ -16,12 +16,9 @@ summary(() => {
   bench("LogTape", async function* () {
     await logtape.configure({
       sinks: {
-        null(_record: logtape.LogRecord) {
-        },
+        null(_record: logtape.LogRecord) {},
       },
-      loggers: [
-        { category: [], sinks: ["null"] },
-      ],
+      loggers: [{ category: [], sinks: ["null"] }],
       reset: true,
     });
     const logger = logtape.getLogger();
@@ -31,19 +28,17 @@ summary(() => {
 
   bench("winston", function* () {
     class NullTransport extends WinstonTransport {
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       constructor(opts: any) {
         super(opts);
       }
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       override log(_info: any, callback: () => void) {
         callback();
       }
     }
     const logger = winston.createLogger({
-      transports: [
-        new NullTransport({}),
-      ],
+      transports: [new NullTransport({})],
     });
     yield () => logger.info("Test log message.");
   });
@@ -108,27 +103,23 @@ summary(() => {
       | number
       | boolean
       | {
-        [key: string | number]: AttributeValue;
-      }
+          [key: string | number]: AttributeValue;
+        }
       | AttributeValue[]
-      // deno-lint-ignore ban-types
+      /* oxlint-disable-next-line typescript/ban-types */ // deno-lint-ignore ban-types
       | Object
       | null
       | undefined
-      // deno-lint-ignore no-explicit-any
+      /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
       | any;
-    type Attributes = AttributeValue[] | {
-      [key: string | number]: AttributeValue;
-    };
+    type Attributes =
+      | AttributeValue[]
+      | {
+          [key: string | number]: AttributeValue;
+        };
     class NullLogWriter implements hiveLogger.LogWriter {
-      write(
-        _level: hiveLogger.LogLevel,
-        _attrs: Attributes,
-        _msg: string,
-      ) {
-      }
-      flush() {
-      }
+      write(_level: hiveLogger.LogLevel, _attrs: Attributes, _msg: string) {}
+      flush() {}
     }
     const logger = new hiveLogger.Logger({ writers: [new NullLogWriter()] });
     yield () => logger.info("Test log message.");

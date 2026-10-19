@@ -4,6 +4,8 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+// @ts-types="npm:@types/cross-spawn@6.0.6"
+import spawn from "cross-spawn";
 import ts from "typescript";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -13,14 +15,18 @@ const work = await mkdtemp(join(tmpdir(), "logtape-elysia-"));
 
 async function run(command: string, args: string[], cwd = root): Promise<void> {
   console.log(`\n${command} ${args.join(" ")} (${cwd})`);
-  const status = await new Deno.Command(command, {
-    args,
+  const child = spawn(command, args, {
     cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-    env: { npm_config_ignore_scripts: "true" },
-  }).spawn().status;
-  if (!status.success) throw new Error(`${command} exited ${status.code}`);
+    stdio: "inherit",
+    env: { ...process.env, npm_config_ignore_scripts: "true" },
+  });
+  await new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} exited ${signal ?? code}`));
+    });
+  });
 }
 
 /**
@@ -28,10 +34,8 @@ async function run(command: string, args: string[], cwd = root): Promise<void> {
  * v2 fixture. Production compatibility helpers are never used by this port.
  */
 function portV2(source: string): string {
-  source = source.replaceAll(
-    '.onBeforeHandle({ as: "local" },',
-    '.beforeHandle("local",',
-  )
+  source = source
+    .replaceAll('.onBeforeHandle({ as: "local" },', '.beforeHandle("local",')
     .replaceAll(".onBeforeHandle(", ".beforeHandle(")
     .replaceAll(".onParse(", ".parse(");
   const tree = ts.createSourceFile(
@@ -40,58 +44,61 @@ function portV2(source: string): string {
     ts.ScriptTarget.Latest,
     true,
   );
-  const result = ts.transform(tree, [(context) => {
-    const visit: ts.Visitor = (node) => {
-      if (
-        ts.isCallExpression(node) && node.expression.getText() === "test" &&
-        ts.isStringLiteral(node.arguments[0]) &&
-        node.arguments[0].text ===
-          "elysiaLogger(): local scope fallback matches optional routes"
-      ) {
-        // This test deliberately pokes v1-only internals. Use an empty body
-        // as well as skip for runtimes which ignore node:test skip options.
-        return ts.factory.updateCallExpression(
-          node,
-          node.expression,
-          node.typeArguments,
-          [
-            node.arguments[0],
-            ts.factory.createObjectLiteralExpression([
-              ts.factory.createPropertyAssignment(
-                "skip",
-                ts.factory.createTrue(),
+  const result = ts.transform(tree, [
+    (context) => {
+      const visit: ts.Visitor = (node) => {
+        if (
+          ts.isCallExpression(node) &&
+          node.expression.getText() === "test" &&
+          ts.isStringLiteral(node.arguments[0]) &&
+          node.arguments[0].text ===
+            "elysiaLogger(): local scope fallback matches optional routes"
+        ) {
+          // This test deliberately pokes v1-only internals. Use an empty body
+          // as well as skip for runtimes which ignore node:test skip options.
+          return ts.factory.updateCallExpression(
+            node,
+            node.expression,
+            node.typeArguments,
+            [
+              node.arguments[0],
+              ts.factory.createObjectLiteralExpression([
+                ts.factory.createPropertyAssignment(
+                  "skip",
+                  ts.factory.createTrue(),
+                ),
+              ]),
+              ts.factory.createArrowFunction(
+                undefined,
+                undefined,
+                [],
+                undefined,
+                ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+                ts.factory.createBlock([]),
               ),
-            ]),
-            ts.factory.createArrowFunction(
-              undefined,
-              undefined,
-              [],
-              undefined,
-              ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
-              ts.factory.createBlock([]),
+            ],
+          );
+        }
+        if (
+          ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          ["get", "post", "all"].includes(node.expression.name.text) &&
+          node.arguments.length === 3
+        ) {
+          return ts.factory.updateCallExpression(
+            node,
+            node.expression,
+            node.typeArguments,
+            [node.arguments[0], node.arguments[2], node.arguments[1]].map(
+              (arg) => ts.visitNode(arg, visit) as ts.Expression,
             ),
-          ],
-        );
-      }
-      if (
-        ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ["get", "post", "all"].includes(node.expression.name.text) &&
-        node.arguments.length === 3
-      ) {
-        return ts.factory.updateCallExpression(
-          node,
-          node.expression,
-          node.typeArguments,
-          [node.arguments[0], node.arguments[2], node.arguments[1]].map((arg) =>
-            ts.visitNode(arg, visit) as ts.Expression
-          ),
-        );
-      }
-      return ts.visitEachChild(node, visit, context);
-    };
-    return (node) => ts.visitNode(node, visit) as ts.SourceFile;
-  }]);
+          );
+        }
+        return ts.visitEachChild(node, visit, context);
+      };
+      return (node) => ts.visitNode(node, visit) as ts.SourceFile;
+    },
+  ]);
   const printed = ts.createPrinter().printFile(result.transformed[0]);
   result.dispose();
   return printed;
@@ -123,9 +130,9 @@ try {
       join(root, "packages", name),
     );
   }
-  const baseline =
-    (await readFile(join(root, "packages/elysia/src/mod.test.ts"), "utf8"))
-      .replace('from "./mod.ts"', 'from "@logtape/elysia"');
+  const baseline = (
+    await readFile(join(root, "packages/elysia/src/mod.test.ts"), "utf8")
+  ).replace('from "./mod.ts"', 'from "@logtape/elysia"');
   const types = await readFile(join(fixtures, "types.ts.txt"), "utf8");
   const v2Tests = await readFile(join(fixtures, "v2.ts.txt"), "utf8");
   for (const version of versions) {
@@ -147,10 +154,10 @@ try {
             "@types/node": "22.15.30",
             ...(v2
               ? {
-                typebox: "1.3.27",
-                "exact-mirror": "1.2.4",
-                "openapi-types": "12.1.3",
-              }
+                  typebox: "1.3.27",
+                  "exact-mirror": "1.2.4",
+                  "openapi-types": "12.1.3",
+                }
               : { memoirist: "0.4.0" }),
           },
         },
@@ -226,10 +233,11 @@ try {
       recursive: true,
     });
     for (const file of ["mod.ts", "compat.ts"]) {
-      const source =
-        (await readFile(join(root, "packages/elysia/src", file), "utf8"))
-          .replaceAll('from "elysia"', 'from "npm:elysia@^1.4.0"')
-          .replaceAll('from "elysia/utils"', 'from "npm:elysia@^1.4.0/utils"');
+      const source = (
+        await readFile(join(root, "packages/elysia/src", file), "utf8")
+      )
+        .replaceAll('from "elysia"', 'from "npm:elysia@^1.4.0"')
+        .replaceAll('from "elysia/utils"', 'from "npm:elysia@^1.4.0/utils"');
       await writeFile(join(deno, file), source);
     }
     await writeFile(
@@ -254,13 +262,11 @@ try {
       await writeFile(join(deno, "v2.test.ts"), v2Tests);
     }
     await run("deno", ["check", "mod.ts", "types.ts", ...tests], deno);
-    await run("deno", [
-      "test",
-      "--allow-env",
-      "--allow-net",
-      "--allow-sys",
-      ...tests,
-    ], deno);
+    await run(
+      "deno",
+      ["test", "--allow-env", "--allow-net", "--allow-sys", ...tests],
+      deno,
+    );
   }
   console.log("Elysia compatibility matrix passed.");
   await rm(work, { recursive: true });

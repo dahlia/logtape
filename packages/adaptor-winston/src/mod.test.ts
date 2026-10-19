@@ -12,7 +12,7 @@ interface LogEvent extends Record<string, unknown> {
 class BufferTransport extends WinstonTransport {
   readonly logs: LogEvent[];
 
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   constructor(ops?: any) {
     super(ops);
     this.logs = [];

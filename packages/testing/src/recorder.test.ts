@@ -72,10 +72,13 @@ test("LogRecorder.waitFor() validates timeout before cancellation", async () => 
   controller.abort("cancelled");
   for (const timeout of [-1, 0.5, NaN, Infinity, 2147483648, "10", null]) {
     await assert.rejects(
-      recorder.waitFor({}, {
-        timeout: timeout as number,
-        signal: controller.signal,
-      }),
+      recorder.waitFor(
+        {},
+        {
+          timeout: timeout as number,
+          signal: controller.signal,
+        },
+      ),
       RangeError,
     );
   }
@@ -129,12 +132,15 @@ test("LogRecorder.waitFor() abort affects only its own waiter", async () => {
   const recorder = createLogRecorder();
   const controller = new AbortController();
   let checks = 0;
-  const cancelled = recorder.waitFor({
-    predicate: () => {
-      checks++;
-      return true;
+  const cancelled = recorder.waitFor(
+    {
+      predicate: () => {
+        checks++;
+        return true;
+      },
     },
-  }, { signal: controller.signal });
+    { signal: controller.signal },
+  );
   const remaining = recorder.waitFor({ message: "done" });
   controller.abort("cancelled");
   const expected = record("done");
@@ -209,19 +215,20 @@ test("LogRecorder.waitFor() restores matching after every predicate exit", async
         const controller = new AbortController();
         const failure = new Error("predicate failed");
         if (retained) recorder.sink(record("trigger"));
-        const failed = recorder.waitFor({
-          predicate: () => {
-            if (cancel) controller.abort("cancelled");
-            throw failure;
+        const failed = recorder.waitFor(
+          {
+            predicate: () => {
+              if (cancel) controller.abort("cancelled");
+              throw failure;
+            },
           },
-        }, { timeout, signal: controller.signal });
+          { timeout, signal: controller.signal },
+        );
         if (!retained) recorder.sink(record("trigger"));
-        await assert.rejects(
-          failed,
-          (error) =>
-            timeout === 0 && !retained
-              ? error instanceof Error && error.name === "TimeoutError"
-              : error === (cancel ? "cancelled" : failure),
+        await assert.rejects(failed, (error) =>
+          timeout === 0 && !retained
+            ? error instanceof Error && error.name === "TimeoutError"
+            : error === (cancel ? "cancelled" : failure),
         );
         recorder.clear();
         const healthy = recorder.waitFor({ message: "later" });
@@ -239,12 +246,15 @@ test("LogRecorder.waitFor() abort inside a predicate wins a matching result", as
     recorder.sink(record("done"));
     const controller = new AbortController();
     await assert.rejects(
-      recorder.waitFor({
-        predicate: () => {
-          controller.abort("cancelled");
-          return true;
+      recorder.waitFor(
+        {
+          predicate: () => {
+            controller.abort("cancelled");
+            return true;
+          },
         },
-      }, { timeout, signal: controller.signal }),
+        { timeout, signal: controller.signal },
+      ),
       (error) => error === "cancelled",
     );
   }
@@ -254,13 +264,16 @@ test("LogRecorder.waitFor() suppresses recursive matching while retaining logs",
   const recorder = createLogRecorder();
   const controller = new AbortController();
   let checks = 0;
-  const recursive = recorder.waitFor({
-    predicate: () => {
-      checks++;
-      recorder.sink(record("recursive"));
-      return false;
+  const recursive = recorder.waitFor(
+    {
+      predicate: () => {
+        checks++;
+        recorder.sink(record("recursive"));
+        return false;
+      },
     },
-  }, { signal: controller.signal });
+    { signal: controller.signal },
+  );
   const healthy = recorder.waitFor({ message: "first" });
   const expected = record("first");
   assert.doesNotThrow(() => recorder.sink(expected));
@@ -269,10 +282,10 @@ test("LogRecorder.waitFor() suppresses recursive matching while retaining logs",
   await assert.rejects(recursive, (error) => error === "finished");
   assert.strictEqual(await healthy, expected);
   assert.strictEqual(checks, 1);
-  assert.deepStrictEqual(recorder.records.map((r) => r.rawMessage), [
-    "first",
-    "recursive",
-  ]);
+  assert.deepStrictEqual(
+    recorder.records.map((r) => r.rawMessage),
+    ["first", "recursive"],
+  );
   assert.strictEqual(
     (await recorder.waitFor({ message: "recursive" })).rawMessage,
     "recursive",
@@ -356,13 +369,16 @@ test("LogRecorder.waitFor() cleans timer and listener on every outcome", async (
     let waiting!: Promise<LogRecord>;
     withTimers((timers) => {
       const options: LogRecorderWaitOptions = { signal: controller.signal };
-      waiting = recorder.waitFor({
-        predicate: () => {
-          checks++;
-          if (outcome === "throw") throw new Error("failed");
-          return true;
+      waiting = recorder.waitFor(
+        {
+          predicate: () => {
+            checks++;
+            if (outcome === "throw") throw new Error("failed");
+            return true;
+          },
         },
-      }, options);
+        options,
+      );
       assert.strictEqual(timers.delays[0], 1000);
       if (outcome === "future" || outcome === "throw") {
         recorder.sink(record("done"));
@@ -375,8 +391,11 @@ test("LogRecorder.waitFor() cleans timer and listener on every outcome", async (
       assert.strictEqual(checks, before);
     });
     if (outcome === "retained" || outcome === "future") await waiting;
-    else {await assert.rejects(waiting, (error) =>
-        outcome === "abort" ? error === "cancelled" : error instanceof Error);}
+    else {
+      await assert.rejects(waiting, (error) =>
+        outcome === "abort" ? error === "cancelled" : error instanceof Error,
+      );
+    }
   }
 });
 
@@ -406,12 +425,15 @@ test("LogRecorder.waitFor() setup failure releases earlier resources", async () 
     globalThis.setTimeout = (() => {
       throw failure;
     }) as unknown as typeof setTimeout;
-    waiting = recorder.waitFor({
-      predicate: () => {
-        checks++;
-        return true;
+    waiting = recorder.waitFor(
+      {
+        predicate: () => {
+          checks++;
+          return true;
+        },
       },
-    }, { signal: controller.signal });
+      { signal: controller.signal },
+    );
   } finally {
     globalThis.setTimeout = original;
   }
@@ -454,14 +476,19 @@ test("LogRecorder.waitFor() bounds and contains timeout formatting", async () =>
   const circular: Record<string, unknown> = { big: 1n };
   circular.self = circular;
   recorder.sink(record("x".repeat(10000), { circular }));
-  recorder.sink(record(
-    "second",
-    new Proxy({}, {
-      ownKeys() {
-        throw new Error("cannot enumerate");
-      },
-    }),
-  ));
+  recorder.sink(
+    record(
+      "second",
+      new Proxy(
+        {},
+        {
+          ownKeys() {
+            throw new Error("cannot enumerate");
+          },
+        },
+      ),
+    ),
+  );
   let waiting!: Promise<LogRecord>;
   withTimers((timers) => {
     waiting = recorder.waitFor({ rawMessage: "y".repeat(10000) });
@@ -511,9 +538,12 @@ test("LogRecorder.waitFor() settles timeout before diagnostic reentrancy", async
   let sibling!: Promise<LogRecord>;
   withTimers((timers) => {
     sibling = recorder.waitFor({ message: "done" });
-    waiting = recorder.waitFor({ rawMessage: "absent" }, {
-      signal: controller.signal,
-    });
+    waiting = recorder.waitFor(
+      { rawMessage: "absent" },
+      {
+        signal: controller.signal,
+      },
+    );
     timers.fire();
   });
   await assert.rejects(waiting, { name: "TimeoutError" });
@@ -539,9 +569,9 @@ test("LogRecorder.waitFor() observes background logger and lazy message", async 
     const failureObserved = assert.rejects(failed, /predicate failed/);
     let state = "completed";
     void Promise.resolve().then(() => {
-      getLogger(["app", "jobs"]).with({ jobId: 42 }).info(
-        (l) => l`Job ${state}`,
-      );
+      getLogger(["app", "jobs"])
+        .with({ jobId: 42 })
+        .info((l) => l`Job ${state}`);
       state = "changed";
     });
     const observed = await recorder.waitFor({

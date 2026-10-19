@@ -80,11 +80,14 @@ const groups: readonly Group[] = [
     name: "Capture disabled (default)",
     config: (sinks) => ({
       sinks,
-      loggers: [meta, {
-        category: "app",
-        lowestLevel: "info",
-        sinks: ["null"],
-      }],
+      loggers: [
+        meta,
+        {
+          category: "app",
+          lowestLevel: "info",
+          sinks: ["null"],
+        },
+      ],
     }),
     scenarios: scenariosFor("Default"),
   },
@@ -104,11 +107,14 @@ const groups: readonly Group[] = [
     name: "Capture enabled for another category by a scoped configuration",
     config: (sinks) => ({
       sinks,
-      loggers: [meta, {
-        category: "app",
-        lowestLevel: "info",
-        sinks: ["null"],
-      }],
+      loggers: [
+        meta,
+        {
+          category: "app",
+          lowestLevel: "info",
+          sinks: ["null"],
+        },
+      ],
       contextLocalStorage: new AsyncLocalStorage(),
     }),
     scope: {
@@ -141,7 +147,7 @@ const groups: readonly Group[] = [
 function measure(scenario: Scenario): number {
   const started = performance.now();
   scenario.run(iterations);
-  return (performance.now() - started) * 1e6 / iterations;
+  return ((performance.now() - started) * 1e6) / iterations;
 }
 
 function median(values: readonly number[]): number {
@@ -169,9 +175,10 @@ function measureGroup(group: Group): Map<Scenario, number> {
 const results: [string, Map<Scenario, number>][] = [];
 for (const group of groups) {
   logtape.configureSync({ ...group.config({ null() {} }), reset: true });
-  const result = group.scope == null
-    ? measureGroup(group)
-    : logtape.withConfigSync(group.scope, () => measureGroup(group));
+  const result =
+    group.scope == null
+      ? measureGroup(group)
+      : logtape.withConfigSync(group.scope, () => measureGroup(group));
   results.push([group.name, result]);
 }
 logtape.resetSync();

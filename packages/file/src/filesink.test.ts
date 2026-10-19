@@ -108,8 +108,7 @@ function makeAsyncRotatingMemoryFileDriver(): {
       statSync() {
         return { size: 0 };
       },
-      renameSync() {
-      },
+      renameSync() {},
     },
   };
 }
@@ -247,10 +246,7 @@ test("getBaseFileSink() with lazy option", () => {
     sink = getBaseFileSink(path, { ...driver, lazy: true });
   }
   if (isDeno) {
-    assert.throws(
-      () => Deno.lstatSync(path),
-      Deno.errors.NotFound,
-    );
+    assert.throws(() => Deno.lstatSync(path), Deno.errors.NotFound);
   } else {
     assert.strictEqual(fs.existsSync(path), false);
   }
@@ -891,15 +887,16 @@ for (const nonBlocking of [false, true]) {
               formatter: () => payload,
               rotatedFilePath: custom
                 ? (path: string, index: number): string =>
-                  path.replace(/(\.log)?$/, `.${index}$1`)
+                    path.replace(/(\.log)?$/, `.${index}$1`)
                 : undefined,
             });
             try {
               sink(info);
             } finally {
               if (nonBlocking) {
-                await (sink as unknown as Sink & AsyncDisposable)
-                  [Symbol.asyncDispose]();
+                await (sink as unknown as Sink & AsyncDisposable)[
+                  Symbol.asyncDispose
+                ]();
               } else {
                 sink[Symbol.dispose]();
               }
@@ -918,8 +915,10 @@ for (const nonBlocking of [false, true]) {
           }
           assert.deepStrictEqual(
             fs.readdirSync(directory).sort(),
-            (maxFiles === 2 ? ["app.log", first, second] : ["app.log", first])
-              .sort(),
+            (maxFiles === 2
+              ? ["app.log", first, second]
+              : ["app.log", first]
+            ).sort(),
           );
         } finally {
           fs.rmSync(directory, { recursive: true, force: true });
@@ -947,8 +946,9 @@ for (const nonBlocking of [false, true]) {
         sink(info);
       } finally {
         if (nonBlocking) {
-          await (sink as unknown as Sink & AsyncDisposable)
-            [Symbol.asyncDispose]();
+          await (sink as unknown as Sink & AsyncDisposable)[
+            Symbol.asyncDispose
+          ]();
         } else {
           sink[Symbol.dispose]();
         }
@@ -987,8 +987,9 @@ for (const nonBlocking of [false, true]) {
             sink(info);
           } finally {
             if (nonBlocking) {
-              await (sink as unknown as Sink & AsyncDisposable)
-                [Symbol.asyncDispose]();
+              await (sink as unknown as Sink & AsyncDisposable)[
+                Symbol.asyncDispose
+              ]();
             } else {
               sink[Symbol.dispose]();
             }
@@ -1002,34 +1003,35 @@ for (const nonBlocking of [false, true]) {
     });
   }
 
-  for (
-    const maxFiles of [
-      1001,
-      Number.MAX_SAFE_INTEGER,
-      Infinity,
-      2 ** 54,
-      Number.MAX_VALUE,
-      Number.MAX_SAFE_INTEGER + 1,
-      0.5,
-      1.5,
-    ]
-  ) {
+  for (const maxFiles of [
+    1001,
+    Number.MAX_SAFE_INTEGER,
+    Infinity,
+    2 ** 54,
+    Number.MAX_VALUE,
+    Number.MAX_SAFE_INTEGER + 1,
+    0.5,
+    1.5,
+  ]) {
     test(`getBaseRotatingFileSink() rejects maxFiles: ${maxFiles} before side effects with nonBlocking: ${nonBlocking}`, () => {
-      assert.throws(() =>
-        getBaseRotatingFileSink("app.log", {
-          ...makeNodeRotatingFileDriver(),
-          maxFiles,
-          nonBlocking,
-          rotatedFilePath(): string {
-            assert.fail("Must reject before generating backup paths.");
-          },
-          statSync(): never {
-            assert.fail("Must reject before reading file metadata.");
-          },
-          openSync(): never {
-            assert.fail("Must reject before opening a file.");
-          },
-        }), { name: "RangeError", message: /maxFiles/ });
+      assert.throws(
+        () =>
+          getBaseRotatingFileSink("app.log", {
+            ...makeNodeRotatingFileDriver(),
+            maxFiles,
+            nonBlocking,
+            rotatedFilePath(): string {
+              assert.fail("Must reject before generating backup paths.");
+            },
+            statSync(): never {
+              assert.fail("Must reject before reading file metadata.");
+            },
+            openSync(): never {
+              assert.fail("Must reject before opening a file.");
+            },
+          }),
+        { name: "RangeError", message: /maxFiles/ },
+      );
     });
   }
 
@@ -1064,16 +1066,19 @@ for (const nonBlocking of [false, true]) {
           fs.writeFileSync(path, "active\n");
           fs.writeFileSync(join(directory, "app.1.log"), "backup\n");
         }
-        assert.throws(() =>
-          getBaseRotatingFileSink(path, {
-            ...driver,
-            maxFiles: 2,
-            nonBlocking,
-            rotatedFilePath(path: string, index: number): string {
-              if (index === 2) throw failure;
-              return path.replace(/(\.log)?$/, `.${index}$1`);
-            },
-          }), (error: unknown) => error === failure);
+        assert.throws(
+          () =>
+            getBaseRotatingFileSink(path, {
+              ...driver,
+              maxFiles: 2,
+              nonBlocking,
+              rotatedFilePath(path: string, index: number): string {
+                if (index === 2) throw failure;
+                return path.replace(/(\.log)?$/, `.${index}$1`);
+              },
+            }),
+          (error: unknown) => error === failure,
+        );
         assert.deepStrictEqual(operations, []);
         if (existing) {
           assert.strictEqual(fs.readFileSync(path, "utf8"), "active\n");
@@ -1124,8 +1129,9 @@ for (const nonBlocking of [false, true]) {
         sink(info);
       } finally {
         if (nonBlocking) {
-          await (sink as unknown as Sink & AsyncDisposable)
-            [Symbol.asyncDispose]();
+          await (sink as unknown as Sink & AsyncDisposable)[
+            Symbol.asyncDispose
+          ]();
         } else {
           sink[Symbol.dispose]();
         }
@@ -1588,7 +1594,8 @@ test("getFileSink() with nonBlocking high-volume logging", async () => {
   // Add enough records to trigger buffer flush (50 chars per record roughly)
   let totalChars = 0;
   let recordCount = 0;
-  while (totalChars < 100) { // Exceed buffer size
+  while (totalChars < 100) {
+    // Exceed buffer size
     sink(debug);
     totalChars += 67; // Approximate length of each debug record
     recordCount++;

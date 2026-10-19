@@ -34,6 +34,7 @@
  * @module
  */
 
+/* oxlint-disable typescript/no-explicit-any */
 // deno-lint-ignore-file no-explicit-any
 
 import {
@@ -178,9 +179,10 @@ function classTypeParameterNames(node: any, sourceText: string): string[] {
   const parameters = node?.typeParameters?.params ?? [];
   if (parameters.length > 0) {
     return parameters.flatMap((parameter: any) => {
-      const name = typeof parameter.name === "string"
-        ? parameter.name
-        : parameter.name?.name;
+      const name =
+        typeof parameter.name === "string"
+          ? parameter.name
+          : parameter.name?.name;
       return typeof name === "string" ? [name] : [];
     });
   }
@@ -193,7 +195,8 @@ function classTypeParameterNames(node: any, sourceText: string): string[] {
   if (node?.type !== "ClassDeclaration") return [];
   const declarationStart = node.range?.[0];
   const end = node.range?.[1];
-  const start = node.id?.range?.[1] ??
+  const start =
+    node.id?.range?.[1] ??
     (typeof declarationStart === "number" && typeof end === "number"
       ? findAnonymousClassKeywordEnd(sourceText, declarationStart, end)
       : undefined);
@@ -226,8 +229,10 @@ function findAnonymousClassKeywordEnd(
       const tokenEnd = index + identifier[0].length;
       const next = skipTypeTrivia(source, tokenEnd);
       if (
-        identifier[0] === "class" && braceDepth === 0 &&
-        bracketDepth === 0 && parenDepth === 0 &&
+        identifier[0] === "class" &&
+        braceDepth === 0 &&
+        bracketDepth === 0 &&
+        parenDepth === 0 &&
         previousToken !== "." &&
         source[next] === "<"
       ) {
@@ -296,8 +301,11 @@ function parseLeadingTypeParameterNames(source: string): string[] {
     else if (char === ">" && source[index - 1] !== "=") {
       angleDepth--;
     } else if (
-      char === "," && angleDepth === 1 && braceDepth === 0 &&
-      bracketDepth === 0 && parenDepth === 0
+      char === "," &&
+      angleDepth === 1 &&
+      braceDepth === 0 &&
+      bracketDepth === 0 &&
+      parenDepth === 0
     ) {
       needsName = true;
     }
@@ -306,10 +314,7 @@ function parseLeadingTypeParameterNames(source: string): string[] {
   return names;
 }
 
-function constInferenceDependencyName(
-  node: any,
-  depth = 0,
-): string | null {
+function constInferenceDependencyName(node: any, depth = 0): string | null {
   if (!node || depth > 16) return null;
   node = unwrapTypeAssertion(node);
   if (node.type === "Identifier") return node.name ?? null;
@@ -437,8 +442,8 @@ function makeLoggerScope(sourceText = ""): {
   }
 
   function isScopeVisible(index: number): boolean {
-    return !functionScopeStack.some((state) =>
-      state.activeDefaultCount > 0 && state.bodyScopeIndex === index
+    return !functionScopeStack.some(
+      (state) => state.activeDefaultCount > 0 && state.bodyScopeIndex === index,
     );
   }
 
@@ -485,7 +490,8 @@ function makeLoggerScope(sourceText = ""): {
 
   function classifyLogArgument(node: any): LogArgumentKind {
     if (
-      node?.type === "TSAsExpression" || node?.type === "TSTypeAssertion" ||
+      node?.type === "TSAsExpression" ||
+      node?.type === "TSTypeAssertion" ||
       node?.type === "TSSatisfiesExpression"
     ) {
       const expression = classifyLogArgument(node.expression);
@@ -597,9 +603,7 @@ function makeLoggerScope(sourceText = ""): {
         node.type === "TSDeclareFunction"
       ) {
         predeclareFunction(node, index);
-      } else if (
-        node.type === "VariableDeclaration" && node.kind !== "var"
-      ) {
+      } else if (node.type === "VariableDeclaration" && node.kind !== "var") {
         for (const declaration of node.declarations ?? []) {
           const names = new Set<string>();
           extractIdentifiers(declaration.id, names);
@@ -632,9 +636,7 @@ function makeLoggerScope(sourceText = ""): {
           const name = specifier.local?.name;
           if (typeof name !== "string") continue;
           typeShadowStack[index].add(name);
-          if (
-            node.importKind !== "type" && specifier.importKind !== "type"
-          ) {
+          if (node.importKind !== "type" && specifier.importKind !== "type") {
             valueShadowStack[index].add(name);
           }
         }
@@ -718,10 +720,7 @@ function makeLoggerScope(sourceText = ""): {
     // the new scope: `async function props() {}`, or a non-async
     // `function props() { return p.then(...) }`, makes `props` a promise
     // callback.
-    if (
-      node.type === "FunctionDeclaration" &&
-      node.id?.type === "Identifier"
-    ) {
+    if (node.type === "FunctionDeclaration" && node.id?.type === "Identifier") {
       predeclareFunction(node, argumentKindStack.length - 1);
     }
     pushScope();
@@ -742,9 +741,10 @@ function makeLoggerScope(sourceText = ""): {
       predeclareVars(node.body);
     }
     for (const parameter of node.typeParameters?.params ?? []) {
-      const name = typeof parameter.name === "string"
-        ? parameter.name
-        : parameter.name?.name;
+      const name =
+        typeof parameter.name === "string"
+          ? parameter.name
+          : parameter.name?.name;
       if (typeof name === "string") {
         predeclareType(name, typeShadowStack.length - 1);
       }
@@ -764,9 +764,8 @@ function makeLoggerScope(sourceText = ""): {
     for (const param of node.params ?? []) {
       const parameterNames = new Set<string>();
       extractIdentifiers(param, parameterNames);
-      const kind = parameterIdentifier(param) == null
-        ? "unknown"
-        : annotationKind(param);
+      const kind =
+        parameterIdentifier(param) == null ? "unknown" : annotationKind(param);
       for (const name of parameterNames) {
         names.add(name);
         parameterKinds.set(name, kind);
@@ -839,8 +838,8 @@ function makeLoggerScope(sourceText = ""): {
   // on entry and record those shadows before any statement is visited.
   function handleBlockEnter(node: any): void {
     const functionState = functionScopeStack[functionScopeStack.length - 1];
-    const isFunctionBody = functionState?.separateBodyScope === true &&
-      functionState.body === node;
+    const isFunctionBody =
+      functionState?.separateBodyScope === true && functionState.body === node;
     pushScope();
     functionBodyBlockStack.push(isFunctionBody ? functionState : null);
     if (isFunctionBody) {
@@ -863,7 +862,7 @@ function makeLoggerScope(sourceText = ""): {
   function handleVarScopedBlockEnter(node: any): void {
     pushScope();
     varScopeIndices.push(argumentKindStack.length - 1);
-    const body = Array.isArray(node.body) ? node.body : node.body?.body ?? [];
+    const body = Array.isArray(node.body) ? node.body : (node.body?.body ?? []);
     predeclareStatements(body);
     predeclareVars(node.body);
   }
@@ -945,7 +944,8 @@ function makeLoggerScope(sourceText = ""): {
       node.callee?.type === "Identifier" &&
       getterNames.has(node.callee.name) &&
       !isGetterShadowed(node.callee.name)
-    ) return true;
+    )
+      return true;
     // logger.with(...) / logger.getChild(...) — these return a Logger, so the
     // whole call expression is itself a logger expression.
     if (
@@ -984,11 +984,13 @@ function makeLoggerScope(sourceText = ""): {
       VariableDeclarator(node: any) {
         // Deno 2.2 exposes a numeric parent reference instead of the enclosing
         // VariableDeclaration node, so recover its kind from the visitor stack.
-        const declarationKind = node.parent?.kind ??
+        const declarationKind =
+          node.parent?.kind ??
           variableDeclarationKindStack[variableDeclarationKindStack.length - 1];
-        const targetIndex = declarationKind === "var"
-          ? varScopeIndices[varScopeIndices.length - 1]
-          : argumentKindStack.length - 1;
+        const targetIndex =
+          declarationKind === "var"
+            ? varScopeIndices[varScopeIndices.length - 1]
+            : argumentKindStack.length - 1;
         if (node.id?.type === "Identifier") {
           const name = node.id.name;
           const init = node.init;
@@ -1008,9 +1010,10 @@ function makeLoggerScope(sourceText = ""): {
             isAsyncFunctionExpr(init) || isPromiseReturningCallback(init),
           );
           const annotated = annotationKind(node.id);
-          const initialized = declarationKind === "const"
-            ? classifyConstInitializer(init)
-            : "unknown";
+          const initialized =
+            declarationKind === "const"
+              ? classifyConstInitializer(init)
+              : "unknown";
           const inferred = initialized !== "unknown" ? initialized : annotated;
           argumentKindStack[targetIndex].set(name, inferred);
         } else {
@@ -1027,10 +1030,7 @@ function makeLoggerScope(sourceText = ""): {
             // A destructured binding is not a known async function and shadows
             // any outer async binding of the same name.
             asyncFnStack[targetIndex].set(name, false);
-            argumentKindStack[targetIndex].set(
-              name,
-              "unknown",
-            );
+            argumentKindStack[targetIndex].set(name, "unknown");
           }
         }
       },
@@ -1134,15 +1134,19 @@ export const strictPlugin: {
             if (direct === "interpolated-message") return;
             const kind = scope.classifyLogArgument(firstArg);
             if (
-              kind === "static-message" || kind === "properties" ||
-              kind === "callback" || kind === "non-message" ||
+              kind === "static-message" ||
+              kind === "properties" ||
+              kind === "callback" ||
+              kind === "non-message" ||
               (kind === "error" && ERROR_LOG_METHODS.has(methodName))
-            ) return;
+            )
+              return;
 
             const messageReceiver = ERROR_LOG_METHODS.has(methodName)
               ? messageAccessReceiver(firstArg)
               : null;
-            const passError = messageReceiver != null &&
+            const passError =
+              messageReceiver != null &&
               scope.classifyLogArgument(messageReceiver) === "error";
 
             ctx.report({
@@ -1210,22 +1214,30 @@ export const strictPlugin: {
               // Wrap the whole argument (fixTarget), including any `as const` /
               // `satisfies` wrapper, so the assertion ends up inside the
               // callback instead of dangling on it.
-              fix: hasAsyncSyntax ? undefined : (fixer: any) => {
-                const sourceCode = ctx.sourceCode ?? ctx.getSourceCode?.();
-                // Only slice by range when the source is a raw string and the
-                // node actually carries a range; otherwise fall back to
-                // getText so a missing range cannot throw.
-                const text = typeof sourceCode === "string" && fixTarget.range
-                  ? sourceCode.slice(fixTarget.range[0], fixTarget.range[1])
-                  : sourceCode?.getText?.(fixTarget);
-                if (!text) return null;
-                // The properties-only overload needs the "{*}" message inserted
-                // so the lazy callback is still read as properties.
-                return fixer.replaceText(
-                  fixTarget,
-                  propertiesOnly ? `"{*}", () => (${text})` : `() => (${text})`,
-                );
-              },
+              fix: hasAsyncSyntax
+                ? undefined
+                : (fixer: any) => {
+                    const sourceCode = ctx.sourceCode ?? ctx.getSourceCode?.();
+                    // Only slice by range when the source is a raw string and the
+                    // node actually carries a range; otherwise fall back to
+                    // getText so a missing range cannot throw.
+                    const text =
+                      typeof sourceCode === "string" && fixTarget.range
+                        ? sourceCode.slice(
+                            fixTarget.range[0],
+                            fixTarget.range[1],
+                          )
+                        : sourceCode?.getText?.(fixTarget);
+                    if (!text) return null;
+                    // The properties-only overload needs the "{*}" message inserted
+                    // so the lazy callback is still read as properties.
+                    return fixer.replaceText(
+                      fixTarget,
+                      propertiesOnly
+                        ? `"{*}", () => (${text})`
+                        : `() => (${text})`,
+                    );
+                  },
             });
           },
         };
@@ -1244,7 +1256,8 @@ export const strictPlugin: {
             if (!methodName || !LOG_METHODS.has(methodName)) return;
             const secondArg = unwrapTypeAssertion(node.arguments?.[1]);
             if (!secondArg) return;
-            const isAsyncCallback = isAsyncFunctionExpr(secondArg) ||
+            const isAsyncCallback =
+              isAsyncFunctionExpr(secondArg) ||
               isPromiseReturningCallback(secondArg) ||
               (secondArg.type === "Identifier" &&
                 scope.isAsyncFunctionName(secondArg.name));
@@ -1309,7 +1322,8 @@ export const strictPlugin: {
           // A named function expression binds its own name inside its body,
           // shadowing an imported configure/configureSync of the same name.
           if (
-            node.type === "FunctionExpression" && node.id?.type === "Identifier"
+            node.type === "FunctionExpression" &&
+            node.id?.type === "Identifier"
           ) {
             names.add(node.id.name);
           }
@@ -1369,9 +1383,7 @@ export const strictPlugin: {
             for (const specifier of node.specifiers ?? []) {
               if (specifier.type !== "ImportSpecifier") continue;
               const imported = specifier.imported?.name;
-              if (
-                imported === "configure" || imported === "configureSync"
-              ) {
+              if (imported === "configure" || imported === "configureSync") {
                 configFns.add(specifier.local?.name);
               }
             }
@@ -1414,9 +1426,8 @@ export const strictPlugin: {
           CallExpression(node: any) {
             if (configFns.size === 0) return;
             const { callee } = node;
-            const calleeName = callee.type === "Identifier"
-              ? callee.name
-              : null;
+            const calleeName =
+              callee.type === "Identifier" ? callee.name : null;
             if (!calleeName || !configFns.has(calleeName)) return;
             if (isConfigShadowed(calleeName)) return;
             // Unwrap a TypeScript type assertion (e.g. configure({ ... } as T)).

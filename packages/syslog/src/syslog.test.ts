@@ -13,9 +13,10 @@ import {
   type SyslogFacility,
 } from "./syslog.ts";
 
-type TestSink = Sink & AsyncDisposable & {
-  readonly _internal_lastPromise: Promise<void>;
-};
+type TestSink = Sink &
+  AsyncDisposable & {
+    readonly _internal_lastPromise: Promise<void>;
+  };
 
 // RFC 5424 syslog message parser for testing
 interface ParsedSyslogMessage {
@@ -295,12 +296,14 @@ if (typeof Deno !== "undefined") {
       });
 
       // Send a log record with properties
-      const logRecord = createMockLogRecord("error", [
-        "Critical error occurred",
-      ], {
-        errorCode: 500,
-        component: "auth",
-      });
+      const logRecord = createMockLogRecord(
+        "error",
+        ["Critical error occurred"],
+        {
+          errorCode: 500,
+          component: "auth",
+        },
+      );
       sink(logRecord);
 
       // Wait for message transmission and disposal
@@ -360,12 +363,14 @@ if (typeof Deno !== "undefined") {
       });
 
       // Send a log record with properties
-      const logRecord = createMockLogRecord("error", [
-        "Critical error occurred",
-      ], {
-        errorCode: 500,
-        component: "auth",
-      });
+      const logRecord = createMockLogRecord(
+        "error",
+        ["Critical error occurred"],
+        {
+          errorCode: 500,
+          component: "auth",
+        },
+      );
       sink(logRecord);
 
       // Wait for message transmission
@@ -496,12 +501,14 @@ if (typeof Deno !== "undefined") {
         errorCode: 500,
         component: "auth",
       });
-      const warningRecord = createMockLogRecord("warning", [
-        "Warning: disk space low",
-      ], {
-        diskUsage: "85%",
-        partition: "/var",
-      });
+      const warningRecord = createMockLogRecord(
+        "warning",
+        ["Warning: disk space low"],
+        {
+          diskUsage: "85%",
+          partition: "/var",
+        },
+      );
 
       sink(infoRecord);
       sink(errorRecord);
@@ -518,7 +525,7 @@ if (typeof Deno !== "undefined") {
 
       // Parse and validate each message structure
       const parsedMessages = receivedMessages.map((msg) =>
-        parseSyslogMessage(msg)
+        parseSyslogMessage(msg),
       );
 
       for (const parsed of parsedMessages) {
@@ -541,14 +548,14 @@ if (typeof Deno !== "undefined") {
       }
 
       // Find specific messages and validate their content
-      const infoMessage = parsedMessages.find((p) =>
-        p.message === "Info message"
+      const infoMessage = parsedMessages.find(
+        (p) => p.message === "Info message",
       );
-      const errorMessage = parsedMessages.find((p) =>
-        p.message === "Error occurred"
+      const errorMessage = parsedMessages.find(
+        (p) => p.message === "Error occurred",
       );
-      const warningMessage = parsedMessages.find((p) =>
-        p.message === "Warning: disk space low"
+      const warningMessage = parsedMessages.find(
+        (p) => p.message === "Warning: disk space low",
       );
 
       // Validate priorities: daemon (3) * 8 + severity
@@ -618,12 +625,14 @@ if (typeof Deno !== "undefined") {
         errorCode: 500,
         component: "auth",
       });
-      const warningRecord = createMockLogRecord("warning", [
-        "Warning: disk space low",
-      ], {
-        diskUsage: "85%",
-        partition: "/var",
-      });
+      const warningRecord = createMockLogRecord(
+        "warning",
+        ["Warning: disk space low"],
+        {
+          diskUsage: "85%",
+          partition: "/var",
+        },
+      );
 
       sink(infoRecord);
       sink(errorRecord);
@@ -667,13 +676,13 @@ if (typeof Deno !== "undefined") {
 
       // Check specific priorities: daemon (3) * 8 + level
       const infoMessage = receivedMessages.find((m) =>
-        m.includes("Info message")
+        m.includes("Info message"),
       );
       const errorMessage = receivedMessages.find((m) =>
-        m.includes("Error occurred")
+        m.includes("Error occurred"),
       );
       const warningMessage = receivedMessages.find((m) =>
-        m.includes("Warning: disk space low")
+        m.includes("Warning: disk space low"),
       );
 
       // Info: daemon (3) * 8 + info (6) = 30
@@ -873,7 +882,8 @@ if (typeof Deno !== "undefined") {
 }
 
 // MSG Field Escaping Tests
-const forgedRecord = "<13>1 2030-01-01T00:00:00.000Z gateway sshd 4242 - - " +
+const forgedRecord =
+  "<13>1 2030-01-01T00:00:00.000Z gateway sshd 4242 - - " +
   "Accepted password for root";
 const attackerInput = `alice\r\n${forgedRecord}`;
 const c0Characters = String.fromCharCode(
@@ -906,9 +916,9 @@ test("getSyslogSink() escapes control characters in the message", async () => {
     });
 
     // A raw message part carries the attacker-controlled text verbatim...
-    sink(createMockLogRecord("info", [
-      `login failed for user ${attackerInput}`,
-    ]));
+    sink(
+      createMockLogRecord("info", [`login failed for user ${attackerInput}`]),
+    );
     // ...while interpolated values pass through JSON.stringify().
     sink(
       createMockLogRecord("info", [
@@ -926,9 +936,8 @@ test("getSyslogSink() escapes control characters in the message", async () => {
 
     assert.strictEqual(receivedMessages.length, 3);
 
-    const [raw, interpolated, control] = receivedMessages.map(
-      parseSyslogMessage,
-    );
+    const [raw, interpolated, control] =
+      receivedMessages.map(parseSyslogMessage);
     assert.strictEqual(
       raw.message,
       `login failed for user alice#013#010${forgedRecord}`,
@@ -978,9 +987,9 @@ test("getSyslogSink() keeps one TCP frame per log record", async () => {
       timeout: 5000,
     });
 
-    sink(createMockLogRecord("info", [
-      `login failed for user ${attackerInput}`,
-    ]));
+    sink(
+      createMockLogRecord("info", [`login failed for user ${attackerInput}`]),
+    );
 
     await delay(200);
     await sink[Symbol.asyncDispose]();
@@ -1189,27 +1198,27 @@ if (typeof Deno !== "undefined") {
 
       // Parse all messages and verify priorities
       const parsedMessages = receivedMessages.map((msg) =>
-        parseSyslogMessage(msg)
+        parseSyslogMessage(msg),
       );
 
       // Find and verify each facility message
-      const kernelMsg = parsedMessages.find((p) =>
-        p.message === "kernel error message"
+      const kernelMsg = parsedMessages.find(
+        (p) => p.message === "kernel error message",
       );
-      const userMsg = parsedMessages.find((p) =>
-        p.message === "user error message"
+      const userMsg = parsedMessages.find(
+        (p) => p.message === "user error message",
       );
-      const daemonMsg = parsedMessages.find((p) =>
-        p.message === "daemon error message"
+      const daemonMsg = parsedMessages.find(
+        (p) => p.message === "daemon error message",
       );
-      const local0Msg = parsedMessages.find((p) =>
-        p.message === "local0 error message"
+      const local0Msg = parsedMessages.find(
+        (p) => p.message === "local0 error message",
       );
-      const local7Msg = parsedMessages.find((p) =>
-        p.message === "local7 error message"
+      const local7Msg = parsedMessages.find(
+        (p) => p.message === "local7 error message",
       );
-      const mailMsg = parsedMessages.find((p) =>
-        p.message === "mail warning message"
+      const mailMsg = parsedMessages.find(
+        (p) => p.message === "mail warning message",
       );
 
       // Verify exact priority calculations
@@ -1444,10 +1453,7 @@ if (typeof Deno !== "undefined") {
     ); // Very short timeout
 
     try {
-      await assert.rejects(
-        () => connection.connect(),
-        Error,
-      );
+      await assert.rejects(() => connection.connect(), Error);
     } finally {
       // Ensure cleanup
       connection.close();
@@ -1659,10 +1665,7 @@ if (typeof Deno === "undefined") {
     ); // Very short timeout
 
     try {
-      await assert.rejects(
-        () => connection.connect(),
-        Error,
-      );
+      await assert.rejects(() => connection.connect(), Error);
     } finally {
       // Ensure cleanup
       connection.close();

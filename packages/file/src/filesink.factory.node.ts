@@ -21,10 +21,11 @@ import type {
 // Keep this module free of runtime imports from shared code. A dynamic import
 // must not depend on the chunk that is waiting for it to finish loading.
 /** Creates platform sinks using shared functions supplied by the caller. */
-export function createFileSinks(
-  { getBaseFileSink, getBaseRotatingFileSink, getBaseTimeRotatingFileSink }:
-    FileSinkDependencies,
-): FileSinkFactoryResult<number | void> {
+export function createFileSinks({
+  getBaseFileSink,
+  getBaseRotatingFileSink,
+  getBaseTimeRotatingFileSink,
+}: FileSinkDependencies): FileSinkFactoryResult<number | void> {
   /**
    * A Node.js-specific file sink driver.
    */
@@ -85,9 +86,7 @@ export function createFileSinks(
    * A Node.js-specific async time-rotating file sink driver.
    * @since 2.0.0
    */
-  const nodeAsyncTimeDriver: AsyncTimeRotatingFileSinkDriver<
-    number | void
-  > = {
+  const nodeAsyncTimeDriver: AsyncTimeRotatingFileSinkDriver<number | void> = {
     ...nodeAsyncDriver,
     readdirSync: fs.readdirSync as (path: string) => string[],
     statSync: fs.statSync,

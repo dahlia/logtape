@@ -32,7 +32,7 @@ function lintTypeScript(code: string): Linter.LintMessage[] {
       },
       rules: { [qualifiedName]: "error" },
       languageOptions: {
-        // deno-lint-ignore no-explicit-any
+        /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
         parser: tsParser as any,
         parserOptions: { ecmaVersion: 2022, sourceType: "module" },
       },
@@ -40,9 +40,7 @@ function lintTypeScript(code: string): Linter.LintMessage[] {
   ]);
 }
 
-function lintTypeScriptWithTypeInformation(
-  code: string,
-): Linter.LintMessage[] {
+function lintTypeScriptWithTypeInformation(code: string): Linter.LintMessage[] {
   const linter = new Linter();
   return linter.verify(
     code,
@@ -54,7 +52,7 @@ function lintTypeScriptWithTypeInformation(
         },
         rules: { [qualifiedName]: "error" },
         languageOptions: {
-          // deno-lint-ignore no-explicit-any
+          /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
           parser: tsParser as any,
           parserOptions: {
             projectService: { allowDefaultProject: ["typed-rule-test.ts"] },
@@ -87,17 +85,15 @@ logger.debug(prefix + suffix);`,
 });
 
 test("no-dynamic-message: flags dynamic expressions for every log method", () => {
-  for (
-    const method of [
-      "trace",
-      "debug",
-      "info",
-      "warn",
-      "warning",
-      "error",
-      "fatal",
-    ]
-  ) {
+  for (const method of [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "warning",
+    "error",
+    "fatal",
+  ]) {
     const messages = lint(
       `import { getLogger } from "@logtape/logtape";
 const logger = getLogger(["test"]);

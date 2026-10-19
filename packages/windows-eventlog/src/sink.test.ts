@@ -30,7 +30,7 @@ if (skipWindowsTests) {
 // Helper function to create test log records
 function createLogRecord(
   level: LogLevel = "info",
-  // deno-lint-ignore no-explicit-any
+  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
   message: any[] = ["Test message"],
   properties: Record<string, unknown> = {},
 ): LogRecord {
@@ -38,9 +38,10 @@ function createLogRecord(
     level: level,
     category: ["test"],
     message,
-    rawMessage: message.length === 1 && typeof message[0] === "string"
-      ? message[0]
-      : "Test message",
+    rawMessage:
+      message.length === 1 && typeof message[0] === "string"
+        ? message[0]
+        : "Test message",
     timestamp: Date.now(),
     properties,
   };
@@ -372,9 +373,9 @@ test(
     assert.deepStrictEqual(
       eventLevels,
       expectedLevels,
-      `Expected levels ${expectedLevels.join(", ")}, but got ${
-        eventLevels.join(", ")
-      }`,
+      `Expected levels ${expectedLevels.join(", ")}, but got ${eventLevels.join(
+        ", ",
+      )}`,
     );
 
     // Verify all events have correct provider and recent timestamps

@@ -36,9 +36,9 @@ export interface DenoTestOptions {
  *
  * @since 2.3.0
  */
-export type DenoTestCallback = (context: Deno.TestContext) =>
-  | void
-  | Promise<void>;
+export type DenoTestCallback = (
+  context: Deno.TestContext,
+) => void | Promise<void>;
 
 /**
  * A Deno `Deno.test()`-compatible definition object.
@@ -223,9 +223,8 @@ function createOptionalWrappedTest(
   options: FailureLogReporterOptions,
 ): DenoTestFunction & DenoParameterizedTestFactory {
   if (typeof baseTest !== "function") {
-    return undefined as unknown as
-      & DenoTestFunction
-      & DenoParameterizedTestFactory;
+    return undefined as unknown as DenoTestFunction &
+      DenoParameterizedTestFactory;
   }
 
   const wrapped = ((...args: unknown[]) =>
@@ -260,9 +259,7 @@ function createWrappedEach(
   }) as DenoEachFunction;
 }
 
-function copyOptionalFunction<
-  const TKey extends keyof BaseDenoTestFunction,
->(
+function copyOptionalFunction<const TKey extends keyof BaseDenoTestFunction>(
   target: DenoTestFunction,
   key: TKey,
   value: BaseDenoTestFunction[TKey],
@@ -307,7 +304,8 @@ function wrapDenoTestArguments(
 
   const optionsArgument = args.at(-2);
   if (
-    args.length === 2 && isDenoTestOptions(optionsArgument) &&
+    args.length === 2 &&
+    isDenoTestOptions(optionsArgument) &&
     !("name" in optionsArgument)
   ) {
     return [
@@ -362,7 +360,7 @@ function wrapDenoEachCallback(
         callback,
         this,
         wrapDenoEachCallbackArguments(args, options),
-      )
+      ),
     );
   };
 }
@@ -373,10 +371,7 @@ function wrapDenoEachCallbackArguments(
 ): unknown[] {
   const lastArgument = args.at(-1);
   if (!isDenoTestContext(lastArgument)) return [...args];
-  return [
-    ...args.slice(0, -1),
-    wrapDenoTestContext(lastArgument, options),
-  ];
+  return [...args.slice(0, -1), wrapDenoTestContext(lastArgument, options)];
 }
 
 function wrapDenoTestCallback(
@@ -386,7 +381,7 @@ function wrapDenoTestCallback(
   const reporter = createFailureLogReporter(options);
   return function (this: unknown, context: Deno.TestContext) {
     return reporter.run(() =>
-      Reflect.apply(callback, this, [wrapDenoTestContext(context, options)])
+      Reflect.apply(callback, this, [wrapDenoTestContext(context, options)]),
     );
   };
 }
@@ -401,11 +396,7 @@ function wrapDenoTestContext(
       const step = Reflect.get(target, property);
       if (typeof step !== "function") return step;
       return (...args: unknown[]) =>
-        Reflect.apply(
-          step,
-          target,
-          wrapDenoStepArguments(args, options),
-        );
+        Reflect.apply(step, target, wrapDenoStepArguments(args, options));
     },
   });
 }
@@ -441,36 +432,46 @@ function wrapDenoStepCallback(
   return function (this: unknown, ...args: never[]) {
     return reporter.run(() =>
       Reflect.apply(callback, this, [
-        wrapDenoTestContext(
-          args[0] as Deno.TestContext,
-          options,
-        ),
+        wrapDenoTestContext(args[0] as Deno.TestContext, options),
         ...args.slice(1),
-      ])
+      ]),
     );
   };
 }
 
 function isDenoTestDefinition(value: unknown): value is DenoTestDefinition {
-  return typeof value === "object" && value != null &&
-    "fn" in value && typeof value.fn === "function";
+  return (
+    typeof value === "object" &&
+    value != null &&
+    "fn" in value &&
+    typeof value.fn === "function"
+  );
 }
 
 function isDenoTestOptions(value: unknown): value is DenoTestOptions {
-  return typeof value === "object" && value != null &&
-    !isDenoTestDefinition(value);
+  return (
+    typeof value === "object" && value != null && !isDenoTestDefinition(value)
+  );
 }
 
 function isDenoStepDefinition(
   value: unknown,
 ): value is { readonly fn: AnyFunction } {
-  return typeof value === "object" && value != null &&
-    "fn" in value && typeof value.fn === "function";
+  return (
+    typeof value === "object" &&
+    value != null &&
+    "fn" in value &&
+    typeof value.fn === "function"
+  );
 }
 
 function isDenoTestContext(value: unknown): value is Deno.TestContext {
-  return typeof value === "object" && value != null &&
-    "step" in value && typeof value.step === "function";
+  return (
+    typeof value === "object" &&
+    value != null &&
+    "step" in value &&
+    typeof value.step === "function"
+  );
 }
 
 /**

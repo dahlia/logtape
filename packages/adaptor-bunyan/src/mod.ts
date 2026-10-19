@@ -227,14 +227,16 @@ export function getBunyanSink(
   const categoryOptions: CategoryOptions | undefined = !options.category
     ? undefined
     : typeof options.category === "object"
-    ? options.category
-    : {};
+      ? options.category
+      : {};
   const category: Required<CategoryOptions> | undefined =
-    categoryOptions === undefined ? undefined : {
-      separator: categoryOptions.separator ?? "·",
-      position: categoryOptions.position ?? "start",
-      decorator: categoryOptions.decorator ?? ":",
-    };
+    categoryOptions === undefined
+      ? undefined
+      : {
+          separator: categoryOptions.separator ?? "·",
+          position: categoryOptions.position ?? "start",
+          decorator: categoryOptions.decorator ?? ":",
+        };
   const valueFormatter = options.valueFormatter ?? defaultValueFormatter;
   return (record: LogRecord) => {
     let message = renderMessage(record.message, valueFormatter);

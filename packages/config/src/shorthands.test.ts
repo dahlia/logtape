@@ -4,9 +4,8 @@ import fc from "fast-check";
 import { DEFAULT_SHORTHANDS, mergeShorthands } from "./shorthands.ts";
 import type { ShorthandRegistry } from "./types.ts";
 
-const shorthandKeyArb: fc.Arbitrary<string> = fc.stringMatching(
-  /^k[A-Za-z0-9_]*$/,
-);
+const shorthandKeyArb: fc.Arbitrary<string> =
+  fc.stringMatching(/^k[A-Za-z0-9_]*$/);
 const shorthandMapArb: fc.Arbitrary<Record<string, string>> = fc.dictionary(
   shorthandKeyArb,
   fc.string(),

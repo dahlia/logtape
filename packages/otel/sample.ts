@@ -11,9 +11,7 @@ await configure({
     }),
   },
   filters: {},
-  loggers: [
-    { category: [], sinks: ["console", "otel"], lowestLevel: "debug" },
-  ],
+  loggers: [{ category: [], sinks: ["console", "otel"], lowestLevel: "debug" }],
 });
 
 getLogger(["test", "app"]).debug("hello {world} at {timestamp}", {

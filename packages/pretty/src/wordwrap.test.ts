@@ -108,7 +108,10 @@ test("wrapText() should break at word boundaries", () => {
   // Should break at spaces, not in the middle of words
   for (const line of lines) {
     const words = line.trim().split(" ");
-    assert.ok(words.every((word) => word.length > 0), "Should not break words");
+    assert.ok(
+      words.every((word) => word.length > 0),
+      "Should not break words",
+    );
   }
 });
 

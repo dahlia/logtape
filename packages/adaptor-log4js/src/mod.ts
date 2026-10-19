@@ -254,9 +254,7 @@ export interface Log4jsSinkOptionsArgs extends Log4jsSinkOptionsBase {
  *
  * @since 2.0.0
  */
-export type Log4jsSinkOptions =
-  | Log4jsSinkOptionsMdc
-  | Log4jsSinkOptionsArgs;
+export type Log4jsSinkOptions = Log4jsSinkOptionsMdc | Log4jsSinkOptionsArgs;
 
 const DEFAULT_LEVELS_MAP: Readonly<Record<LogLevel, Log4jsLevel>> = {
   "trace": "trace",
@@ -345,7 +343,7 @@ export function getLog4jsSink(
   const contextStrategy = options.contextStrategy ?? "mdc";
   const contextPreservation =
     contextStrategy === "mdc" && "contextPreservation" in options
-      ? options.contextPreservation ?? "preserve"
+      ? (options.contextPreservation ?? "preserve")
       : "preserve"; // Default value, won't be used for "args" strategy
 
   // Cache for loggers by category
