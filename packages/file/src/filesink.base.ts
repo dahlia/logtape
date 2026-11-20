@@ -827,7 +827,9 @@ export function getBaseRotatingFileSink<TFile>(
   } catch {
     // Continue as the offset is already 0.
   }
-  let fd = options.openSync(path);
+  // Null while the sink holds no descriptor, e.g. after a failed reopen, so a
+  // closed descriptor number is never written to or closed again.
+  let fd: TFile | null = options.openSync(path);
   let lastFlushTimestamp: number = Date.now();
   let buffer: string = "";
 
@@ -839,7 +841,7 @@ export function getBaseRotatingFileSink<TFile>(
       const unlinkSync = options.unlinkSync;
       if (unlinkSync == null) return;
 
-      options.closeSync(fd);
+      closeFd();
       try {
         unlinkSync(path);
       } catch (error) {
@@ -858,18 +860,39 @@ export function getBaseRotatingFileSink<TFile>(
       return;
     }
 
-    options.closeSync(fd);
-
-    for (const [oldPath, newPath] of rotation.backupTuples) {
-      try {
-        options.renameSync(oldPath, newPath);
-      } catch (_) {
-        // Continue if the file does not exist.
+    closeFd();
+    try {
+      for (const [oldPath, newPath] of rotation.backupTuples) {
+        try {
+          options.renameSync(oldPath, newPath);
+        } catch (_) {
+          // Continue if the file does not exist.
+        }
       }
+      try {
+        options.renameSync(path, rotation.activeDestination);
+      } catch (error) {
+        // A deleted active file leaves nothing to rotate.
+        if (!isFileNotFoundError(error)) throw error;
+      }
+    } finally {
+      try {
+        offset = options.statSync(path).size;
+      } catch {
+        offset = 0;
+      }
+      fd = options.openSync(path);
     }
-    options.renameSync(path, rotation.activeDestination);
-    offset = 0;
-    fd = options.openSync(path);
+  }
+  function closeFd(): void {
+    if (fd == null) return;
+    const closing = fd;
+    fd = null;
+    options.closeSync(closing);
+  }
+  function openFd(): TFile {
+    if (fd == null) fd = options.openSync(path);
+    return fd;
   }
 
   if (!options.nonBlocking) {
@@ -880,8 +903,9 @@ export function getBaseRotatingFileSink<TFile>(
         const bytes = encoder.encode(buffer);
         buffer = "";
         if (shouldRollover(bytes)) performRollover();
-        options.writeSync(fd, bytes);
-        options.flushSync(fd);
+        const file = openFd();
+        options.writeSync(file, bytes);
+        options.flushSync(file);
         offset += bytes.length;
         lastFlushTimestamp = Date.now();
       }
@@ -901,7 +925,7 @@ export function getBaseRotatingFileSink<TFile>(
     };
     sink[disposeSymbol] = () => {
       flushBuffer();
-      options.closeSync(fd);
+      closeFd();
     };
     return markSinkAsImmediate(sink);
   }
@@ -934,8 +958,9 @@ export function getBaseRotatingFileSink<TFile>(
     try {
       const bytes = encoder.encode(data);
       if (shouldRollover(bytes)) performRollover();
-      asyncOptions.writeSync(fd, bytes);
-      await asyncOptions.flush(fd);
+      const file = openFd();
+      asyncOptions.writeSync(file, bytes);
+      await asyncOptions.flush(file);
       offset += bytes.length;
       lastFlushTimestamp = Date.now();
     } catch (error) {
@@ -986,7 +1011,11 @@ export function getBaseRotatingFileSink<TFile>(
     if (activeFlush !== null) await activeFlush;
     await flushBuffer();
     try {
-      await asyncOptions.close(fd);
+      if (fd != null) {
+        const closing = fd;
+        fd = null;
+        await asyncOptions.close(closing);
+      }
     } catch {
       // Writer might already be closed or errored
     }

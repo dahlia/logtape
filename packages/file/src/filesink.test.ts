@@ -1244,6 +1244,85 @@ test("getBaseRotatingFileSink() propagates deletion failures", () => {
   );
 });
 
+test("getBaseRotatingFileSink() reopens a deleted active file", () => {
+  const path = makeTempFileSync();
+  const sink: Sink & Disposable = getBaseRotatingFileSink(path, {
+    ...makeNodeRotatingFileDriver(),
+    maxSize: 100,
+    maxFiles: 3,
+    bufferSize: 0,
+  });
+  const probePath = `${path}.probe`;
+  let probe: number | null = null;
+  try {
+    sink(debug);
+    fs.unlinkSync(path);
+    sink(info);
+    // Takes the descriptor number a stale sink would still hold.
+    probe = fs.openSync(probePath, "a");
+    sink(warning);
+    sink[Symbol.dispose]();
+
+    fs.fstatSync(probe);
+    assert.strictEqual(fs.readFileSync(probePath, "utf-8"), "");
+    assert.deepStrictEqual(
+      fs.readFileSync(`${path}.1`, "utf-8"),
+      "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+    );
+    assert.deepStrictEqual(
+      fs.readFileSync(path, "utf-8"),
+      "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!\n",
+    );
+  } finally {
+    if (probe != null) fs.closeSync(probe);
+  }
+});
+
+test("getBaseRotatingFileSink() non-blocking reopens a deleted active file", async () => {
+  const path = makeTempFileSync();
+  const driver = makeNodeRotatingFileDriver();
+  const sink = getBaseRotatingFileSink(path, {
+    ...driver,
+    flush(fd: number) {
+      driver.flushSync(fd);
+      return Promise.resolve();
+    },
+    close(fd: number) {
+      driver.closeSync(fd);
+      return Promise.resolve();
+    },
+    maxSize: 100,
+    maxFiles: 3,
+    bufferSize: 0,
+    nonBlocking: true,
+  });
+  const probePath = `${path}.probe`;
+  let probe: number | null = null;
+  try {
+    sink(debug);
+    await delay(20);
+    fs.unlinkSync(path);
+    sink(info);
+    await delay(20);
+    probe = fs.openSync(probePath, "a");
+    sink(warning);
+    await sink[Symbol.asyncDispose]();
+
+    fs.fstatSync(probe);
+    assert.strictEqual(fs.readFileSync(probePath, "utf-8"), "");
+    assert.deepStrictEqual(
+      fs.readFileSync(`${path}.1`, "utf-8"),
+      "2023-11-14 22:13:20.000 +00:00 [INF] my-app·junk: Hello, 123 & 456!\n",
+    );
+    assert.deepStrictEqual(
+      fs.readFileSync(path, "utf-8"),
+      "2023-11-14 22:13:20.000 +00:00 [WRN] my-app·junk: Hello, 123 & 456!\n",
+    );
+  } finally {
+    if (probe != null) fs.closeSync(probe);
+  }
+});
+
 test("getBaseFileSink() with buffer edge cases", () => {
   // Test negative bufferSize (should behave like bufferSize: 0)
   const path1 = makeTempFileSync();
