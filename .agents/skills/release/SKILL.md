@@ -51,6 +51,8 @@ Before starting any release:
 
     Do not call `sacho next` and `mise run update-versions` separately.  The
     task keeps the Sacho next-version file and package versions together.
+    For a version-only commit, add the `Changelog: none` trailer to exempt
+    the package manifest edits from Sacho's fragment requirement.
 
 4.  Review the release notes as a user would, then run the full test suite:
 
@@ -117,8 +119,8 @@ mise run check
 
 Review and commit *changes.d/next.txt*, the materialized *CHANGES.md* region,
 and all package version changes together.  Use `Version bump` as the subject,
-retain the existing `[ci skip]` body, and include the AI disclosure trailer
-when applicable.
+retain the existing `[ci skip]` body, and include `Changelog: none` and any
+applicable AI disclosure trailer.
 
 Push the tag and maintenance branch to the verified remote:
 
@@ -219,7 +221,7 @@ patch version 0.
     ~~~~
 
     Commit the next-version file, materialized changelog region, and package
-    version changes together as the version bump.
+    version changes together as the version bump, with `Changelog: none`.
 
 5.  Push `main` and the release tag to the verified remote:
 
@@ -240,8 +242,9 @@ sacho check
 mise run check
 ~~~~
 
-Commit the first patch cycle's next-version file, materialized changelog region,
-and package version changes together, then push the branch:
+Commit the first patch cycle's next-version file, materialized changelog
+region, and package version changes together with `Changelog: none`, then
+push the branch:
 
 ~~~~ bash
 git push origin 1.3-maintenance

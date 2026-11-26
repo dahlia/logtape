@@ -81,12 +81,17 @@ run = "deno task publish"
 [tasks.bump-version]
 description = "Bump the version of all packages in the monorepo"
 usage = """
-arg "<version>" help="New version (e.g., 1.2.3, major, minor, patch)"
+arg "<version>" help="Explicit semantic version (e.g., 1.2.3)"
 """
 shell = "nu -c"
 run = """
-sacho next $env.usage_version
-mise run update-versions $env.usage_version
+let version = $env.usage_version
+let validation = (deno eval --quiet 'import { format, parse } from "@std/semver"; if (format(parse(Deno.args[0])) !== Deno.args[0]) Deno.exit(1);' $version | complete)
+if $validation.exit_code != 0 {
+  error make {msg: $"Expected an explicit semantic version, e.g. 1.2.3; got ($version)."}
+}
+sacho next $version
+mise run update-versions $version
 mise run fmt
 """
 
