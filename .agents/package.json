@@ -1,0 +1,7 @@
+{
+  "name": "logtape-agent-skills",
+  "private": true,
+  "devDependencies": {
+    "@dahlia/sacho": "github:dahlia/sacho#0.3.2"
+  }
+}

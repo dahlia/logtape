@@ -2,6 +2,7 @@ import { getFileSink, getRotatingFileSink } from "#filesink";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
+import { platform } from "node:process";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { isDeno } from "@david/which-runtime";
@@ -97,6 +98,64 @@ function makeAsyncRotatingMemoryFileDriver(): {
       },
     },
   };
+}
+
+function makeRecoverableRotatingDriver() {
+  const files = new Map<string, { text: string }>();
+  const handles: { file: { text: string }; closed: boolean }[] = [];
+  const renames: string[] = [];
+  const closedFileCalls: string[] = [];
+  function check(file: typeof handles[number], operation: string): void {
+    if (!file.closed) return;
+    closedFileCalls.push(operation);
+    throw new Error(`${operation} on a closed file`);
+  }
+  const driver: AsyncRotatingFileSinkDriver<typeof handles[number]> = {
+    openSync(path) {
+      const file = files.get(path) ?? { text: "" };
+      files.set(path, file);
+      const handle = { file, closed: false };
+      handles.push(handle);
+      return handle;
+    },
+    writeSync(handle, bytes) {
+      check(handle, "write");
+      handle.file.text += new TextDecoder().decode(bytes);
+    },
+    writeManySync(handle, chunks) {
+      for (const chunk of chunks) driver.writeSync(handle, chunk);
+    },
+    flushSync(handle) {
+      check(handle, "flush");
+    },
+    closeSync(handle) {
+      check(handle, "close");
+      handle.closed = true;
+    },
+    flush(handle) {
+      driver.flushSync(handle);
+      return Promise.resolve();
+    },
+    close(handle) {
+      driver.closeSync(handle);
+      return Promise.resolve();
+    },
+    statSync(path) {
+      const file = files.get(path);
+      if (file == null) throw new Error("File not found");
+      return { size: new TextEncoder().encode(file.text).length };
+    },
+    renameSync(oldPath, newPath) {
+      renames.push(oldPath);
+      const file = files.get(oldPath);
+      if (file == null) {
+        throw Object.assign(new Error("File not found"), { code: "ENOENT" });
+      }
+      files.set(newPath, file);
+      files.delete(oldPath);
+    },
+  };
+  return { driver, files, handles, renames, closedFileCalls };
 }
 
 function captureMetaWarnings(): {
@@ -630,6 +689,444 @@ test("getBaseRotatingFileSink() non-blocking drains records queued during a flus
   );
 
   await sink[Symbol.asyncDispose]();
+});
+
+for (const nonBlocking of [false, true]) {
+  test(
+    `getRotatingFileSink() recreates a deleted log (nonBlocking: ${nonBlocking})`,
+    { skip: platform === "win32" },
+    async () => {
+      if (platform === "win32") return;
+      const path = makeTempFileSync();
+      const config = {
+        bufferSize: 0,
+        flushInterval: 0,
+        maxSize: 6,
+        formatter: (record: LogRecord) => String(record.rawMessage),
+      };
+      try {
+        if (nonBlocking) {
+          await using sink = getRotatingFileSink(path, {
+            ...config,
+            nonBlocking: true,
+          });
+          sink({ ...debug, rawMessage: "first" });
+          fs.unlinkSync(path);
+          sink({ ...info, rawMessage: "next" });
+        } else {
+          using sink = getRotatingFileSink(path, config);
+          sink({ ...debug, rawMessage: "first" });
+          fs.unlinkSync(path);
+          sink({ ...info, rawMessage: "next" });
+          assert.strictEqual(fs.readFileSync(path, "utf8"), "next");
+          sink({ ...warning, rawMessage: "later" });
+          assert.strictEqual(fs.readFileSync(`${path}.1`, "utf8"), "next");
+        }
+        assert.strictEqual(
+          fs.readFileSync(path, "utf8"),
+          nonBlocking ? "next" : "later",
+        );
+      } finally {
+        fs.rmSync(join(path, ".."), { recursive: true, force: true });
+      }
+    },
+  );
+}
+
+test("getBaseRotatingFileSink() retries rename without aging backups twice", () => {
+  const { driver, files, handles, renames, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  files.set("memory.log", { text: "first" });
+  files.set("memory.log.1", { text: "backup" });
+  files.set("memory.log.2", { text: "older" });
+  const backupError = new Error("Cannot move backup");
+  const renameError = Object.assign(new Error("Permission denied"), {
+    name: "NotFound",
+    code: "EACCES",
+  });
+  let failBackup = true;
+  let failActive = true;
+  const sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 6,
+    maxFiles: 3,
+    formatter: (record) => String(record.rawMessage),
+    renameSync(from, to) {
+      if (from === "memory.log.1" && failBackup) {
+        failBackup = false;
+        throw backupError;
+      }
+      if (from === "memory.log" && failActive) {
+        failActive = false;
+        throw renameError;
+      }
+      driver.renameSync(from, to);
+    },
+  });
+
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "drop" }),
+    (error) => error === backupError,
+  );
+  assert.strictEqual(handles.length, 1, "no reopen in the failed flush");
+  assert.strictEqual(files.get("memory.log.1")?.text, "backup");
+  assert.strictEqual(files.get("memory.log.3")?.text, "older");
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "skip" }),
+    (error) => error === renameError,
+  );
+  assert.strictEqual(handles.length, 2, "no reopen in the failed retry");
+  sink({ ...info, rawMessage: "next" });
+  assert.deepStrictEqual(renames, [
+    "memory.log.2",
+    "memory.log.1",
+    "memory.log",
+  ]);
+  assert.strictEqual(files.get("memory.log")?.text, "next");
+  assert.strictEqual(files.get("memory.log.1")?.text, "first");
+  assert.strictEqual(files.get("memory.log.2")?.text, "backup");
+  assert.strictEqual(files.get("memory.log.3")?.text, "older");
+  sink[Symbol.dispose]();
+  sink(info);
+  sink[Symbol.dispose]();
+  assert.strictEqual(handles.length, 4);
+  assert.ok(handles.every((handle) => handle.closed));
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("getBaseRotatingFileSink() recovers from a failed reopen without rotating an empty file", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  files.set("memory.log", { text: "first" });
+  const openError = new Error("Cannot reopen");
+  let opens = 0;
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 6,
+    formatter: () => "oversize",
+    openSync(path) {
+      if (++opens === 2) throw openError;
+      return driver.openSync(path);
+    },
+    renameSync(from, to) {
+      if (from === "memory.log") {
+        throw Object.assign(new Error("File not found"), { name: "NotFound" });
+      }
+      driver.renameSync(from, to);
+    },
+  });
+
+  files.delete("memory.log");
+  assert.throws(() => sink(debug), (error) => error === openError);
+  assert.strictEqual(handles.length, 1);
+  sink(info);
+  assert.strictEqual(files.get("memory.log")?.text, "oversize");
+  assert.ok(!files.has("memory.log.1"));
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("getBaseRotatingFileSink() checks the size of a reopened log before appending", () => {
+  const { driver, files, handles } = makeRecoverableRotatingDriver();
+  files.set("memory.log", { text: "first" });
+  const renameError = new Error("Cannot rename");
+  const statError = new Error("Cannot stat");
+  let failStat = true;
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 6,
+    formatter: (record) => String(record.rawMessage),
+    renameSync(from, to) {
+      if (from === "memory.log" && handles.length === 1) throw renameError;
+      driver.renameSync(from, to);
+    },
+    statSync(path) {
+      if (handles.length === 2 && failStat) {
+        failStat = false;
+        throw statError;
+      }
+      return driver.statSync(path);
+    },
+  });
+
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "drop" }),
+    (error) => error === renameError,
+  );
+  assert.throws(
+    () => sink({ ...info, rawMessage: "skip" }),
+    (error) => error === statError,
+  );
+  assert.strictEqual(files.get("memory.log")?.text, "first");
+  sink({ ...info, rawMessage: "x" });
+  assert.strictEqual(files.get("memory.log")?.text, "firstx");
+  sink({ ...warning, rawMessage: "last" });
+  assert.strictEqual(files.get("memory.log")?.text, "last");
+  assert.strictEqual(files.get("memory.log.1")?.text, "firstx");
+});
+
+test("getBaseRotatingFileSink() recovers when a reopened log disappears before stat", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  files.set("memory.log", { text: "first" });
+  const missing = Object.assign(new Error("File not found"), {
+    code: "ENOENT",
+  });
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 6,
+    formatter: (record) => String(record.rawMessage),
+    statSync(path) {
+      if (handles.length === 2) {
+        files.delete(path);
+        throw missing;
+      }
+      return driver.statSync(path);
+    },
+    closeSync(handle) {
+      driver.closeSync(handle);
+      if (handle === handles[1]) throw new Error("Cannot close");
+    },
+  });
+
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "drop" }),
+    (error) => error === missing,
+  );
+  assert.ok(handles[1].closed);
+  assert.ok(!files.has("memory.log"));
+  sink({ ...info, rawMessage: "next" });
+  assert.strictEqual(files.get("memory.log")?.text, "next");
+  assert.strictEqual(files.get("memory.log.1")?.text, "first");
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("getBaseRotatingFileSink() does not close again after a failed rollover close", () => {
+  const { driver, handles, renames, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  const closeError = new Error("Cannot close");
+  const sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 1,
+    formatter: () => "next",
+    closeSync(handle) {
+      driver.closeSync(handle);
+      throw closeError;
+    },
+  });
+  assert.throws(() => sink(debug), (error) => error === closeError);
+  assert.deepStrictEqual(renames, []);
+  assert.doesNotThrow(() => sink[Symbol.dispose]());
+  assert.strictEqual(handles.length, 1);
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("getBaseRotatingFileSink() does not reopen if its formatter disposes it", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    formatter() {
+      sink[Symbol.dispose]();
+      return "discarded";
+    },
+  });
+
+  sink(debug);
+  assert.strictEqual(handles.length, 1);
+  assert.ok(handles[0].closed);
+  assert.strictEqual(files.get("memory.log")?.text, "");
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("getBaseRotatingFileSink() recovers during the final drain", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  const closeError = new Error("Cannot close");
+  const sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 4,
+    flushInterval: 0,
+    maxSize: 3,
+    formatter: (record) => String(record.rawMessage),
+    closeSync(handle) {
+      driver.closeSync(handle);
+      if (handle === handles[0]) throw closeError;
+    },
+  });
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "first" }),
+    (error) => error === closeError,
+  );
+  sink({ ...info, rawMessage: "end" });
+  assert.strictEqual(handles.length, 1);
+  sink[Symbol.dispose]();
+  assert.strictEqual(files.get("memory.log")?.text, "end");
+  assert.strictEqual(handles.length, 2);
+  assert.ok(handles.every((handle) => handle.closed));
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+for (const failDrain of [false, true]) {
+  test(`getBaseRotatingFileSink() closes after final flush (failDrain: ${failDrain})`, () => {
+    const { driver, handles, closedFileCalls } =
+      makeRecoverableRotatingDriver();
+    const closeError = new Error("Cannot close");
+    const sink = getBaseRotatingFileSink("memory.log", {
+      ...driver,
+      bufferSize: 1024,
+      flushInterval: 0,
+      flushSync() {
+        if (failDrain) throw 0;
+      },
+      closeSync(handle) {
+        driver.closeSync(handle);
+        throw closeError;
+      },
+    });
+    sink(debug);
+    assert.throws(
+      () => sink[Symbol.dispose](),
+      (error) => error === (failDrain ? 0 : closeError),
+    );
+    assert.ok(handles[0].closed);
+    assert.doesNotThrow(() => sink[Symbol.dispose]());
+    assert.deepStrictEqual(closedFileCalls, []);
+  });
+}
+
+for (const failClose of [false, true]) {
+  test(`getBaseRotatingFileSink() queues warning records (failClose: ${failClose})`, async () => {
+    const { driver, files, handles, renames, closedFileCalls } =
+      makeRecoverableRotatingDriver();
+    const flushError = new Error("Cannot flush");
+    const flushStarted = Promise.withResolvers<void>();
+    const releaseFlush = Promise.withResolvers<void>();
+    let inWarning = false;
+    let wroteInWarning = false;
+    const sink = getBaseRotatingFileSink("memory.log", {
+      ...driver,
+      nonBlocking: true,
+      bufferSize: 0,
+      flushInterval: 0,
+      maxSize: failClose ? 3 : 1024,
+      formatter: (record) =>
+        record.category[0] === "logtape" ? "meta" : "first",
+      writeSync(handle, bytes) {
+        wroteInWarning ||= inWarning;
+        if (new TextDecoder().decode(bytes) === "first") throw flushError;
+        driver.writeSync(handle, bytes);
+      },
+      closeSync(handle) {
+        driver.closeSync(handle);
+        throw flushError;
+      },
+      async flush(handle: typeof handles[number]) {
+        await driver.flush(handle);
+        flushStarted.resolve();
+        await releaseFlush.promise;
+        driver.flushSync(handle);
+      },
+    });
+    const meta = captureMetaWarnings();
+    const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+    const routedWarning: Sink = (record) => {
+      inWarning = true;
+      try {
+        sink(record);
+      } finally {
+        inWarning = false;
+      }
+    };
+    metaLogger.sinks.push(routedWarning);
+
+    try {
+      sink(debug);
+      assert.ok(
+        await Promise.race([
+          flushStarted.promise.then(() => true),
+          delay(1000).then(() => false),
+        ]),
+        "queued warning was not flushed",
+      );
+      assert.strictEqual(wroteInWarning, false);
+      assert.strictEqual(handles.length, failClose ? 2 : 1);
+      assert.strictEqual(handles.at(-1)?.closed, false);
+      assert.strictEqual(meta.records.length, 1);
+      assert.strictEqual(meta.records[0].properties.error, flushError);
+    } finally {
+      metaLogger.sinks.splice(metaLogger.sinks.indexOf(routedWarning), 1);
+      meta.dispose();
+      const disposing = sink[Symbol.asyncDispose]();
+      releaseFlush.resolve();
+      await disposing;
+    }
+    assert.strictEqual(files.get("memory.log")?.text, "meta");
+    assert.ok(handles.every((handle) => handle.closed));
+    assert.deepStrictEqual(renames, []);
+    assert.deepStrictEqual(closedFileCalls, []);
+  });
+}
+
+test("getBaseRotatingFileSink() reopens on the non-blocking final drain", async () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  const openError = new Error("Cannot reopen");
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let opens = 0;
+  const meta = captureMetaWarnings();
+  try {
+    await using sink = getBaseRotatingFileSink("memory.log", {
+      ...driver,
+      nonBlocking: true,
+      bufferSize: 4,
+      flushInterval: 0,
+      maxSize: 4,
+      formatter: (record) => String(record.rawMessage),
+      openSync(path) {
+        if (++opens === 2) throw openError;
+        return driver.openSync(path);
+      },
+      async flush(handle: typeof handles[number]) {
+        started.resolve();
+        await release.promise;
+        driver.flushSync(handle);
+      },
+    });
+    files.delete("memory.log");
+    sink({ ...debug, rawMessage: "first" });
+    sink({ ...info, rawMessage: "end" });
+    assert.strictEqual(handles.length, 1);
+    const first = sink[Symbol.asyncDispose]();
+    try {
+      assert.ok(
+        await Promise.race([
+          started.promise.then(() => true),
+          delay(1000).then(() => false),
+        ]),
+        "final drain did not start",
+      );
+      assert.strictEqual(sink[Symbol.asyncDispose](), first);
+      assert.strictEqual(handles[1].closed, false);
+    } finally {
+      release.resolve();
+      await first;
+    }
+  } finally {
+    meta.dispose();
+  }
+  assert.strictEqual(meta.records.length, 1);
+  assert.strictEqual(meta.records[0].properties.error, openError);
+  assert.strictEqual(files.get("memory.log")?.text, "end");
+  assert.strictEqual(handles.length, 2);
+  assert.ok(handles.every((handle) => handle.closed));
+  assert.deepStrictEqual(closedFileCalls, []);
 });
 
 test("getRotatingFileSink() with bufferSize: 0 (no buffering)", () => {

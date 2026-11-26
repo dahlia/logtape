@@ -13,6 +13,13 @@ function isMetaLoggerRecord(record: LogRecord): boolean {
     record.category[1] === "meta";
 }
 
+function isMissingFile(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = "code" in error ? error.code : undefined;
+  return code === "ENOENT" ||
+    (code === undefined && error.name === "NotFound");
+}
+
 /**
  * Adaptive flush strategy that dynamically adjusts buffer thresholds
  * based on recent flush patterns for optimal performance.
@@ -741,36 +748,87 @@ export function getBaseRotatingFileSink<TFile>(
   const maxFiles = options.maxFiles ?? 5;
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
   const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
-  let offset: number = 0;
+  const noFile = Symbol();
+  let offset = 0;
+  let needsSize = false;
   try {
-    const stat = options.statSync(path);
-    offset = stat.size;
+    offset = options.statSync(path).size;
   } catch {
-    // Continue as the offset is already 0.
+    // Preserve the initial fallback for a file that may not exist yet.
   }
-  let fd = options.openSync(path);
+  let fd: TFile | typeof noFile = options.openSync(path);
+  let nextBackup = maxFiles - 1;
   let lastFlushTimestamp: number = Date.now();
   let buffer: string = "";
 
-  function shouldRollover(bytes: Uint8Array): boolean {
-    return offset + bytes.length > maxSize;
-  }
-  function performRollover(): void {
-    options.closeSync(fd);
-    for (let i = maxFiles - 1; i > 0; i--) {
-      const oldPath = `${path}.${i}`;
-      const newPath = `${path}.${i + 1}`;
-      try {
-        options.renameSync(oldPath, newPath);
-      } catch (_) {
-        // Continue if the file does not exist.
-      }
-    }
-    options.renameSync(path, `${path}.1`);
-    offset = 0;
-    fd = options.openSync(path);
+  function detachFile(): TFile | typeof noFile {
+    const file = fd;
+    fd = noFile;
+    return file;
   }
 
+  function reopenFile(): TFile {
+    needsSize = true;
+    return fd = options.openSync(path);
+  }
+
+  function refreshSize(): void {
+    try {
+      offset = options.statSync(path).size;
+    } catch (error) {
+      if (isMissingFile(error)) {
+        const file = detachFile();
+        if (file !== noFile) {
+          try {
+            options.closeSync(file);
+          } catch {
+            // Keep the size-check error if closing also failed.
+          }
+        }
+      }
+      throw error;
+    }
+    needsSize = false;
+  }
+
+  function performRollover(file: TFile): TFile {
+    // Stop owning the old handle even if closing it throws.
+    detachFile();
+    options.closeSync(file);
+    // Resume at the failed move without shifting any older backups twice.
+    for (; nextBackup > 0; nextBackup--) {
+      try {
+        options.renameSync(
+          `${path}.${nextBackup}`,
+          `${path}.${nextBackup + 1}`,
+        );
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
+      }
+    }
+    try {
+      options.renameSync(path, `${path}.1`);
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+      // The active file was removed; there is nothing left to rename.
+    }
+    nextBackup = maxFiles - 1;
+    return reopenFile();
+  }
+
+  function fileForWrite(bytes: Uint8Array): TFile {
+    let file = fd === noFile ? reopenFile() : fd;
+    const recovering = needsSize;
+    if (needsSize) refreshSize();
+    // Do not immediately rotate an empty file opened during error recovery.
+    if ((!recovering || offset !== 0) && offset + bytes.length > maxSize) {
+      file = performRollover(file);
+      refreshSize();
+    }
+    return file;
+  }
+
+  let disposed = false;
   if (!options.nonBlocking) {
     // Blocking mode implementation
     // deno-lint-ignore no-inner-declarations
@@ -778,16 +836,19 @@ export function getBaseRotatingFileSink<TFile>(
       if (buffer.length > 0) {
         const bytes = encoder.encode(buffer);
         buffer = "";
-        if (shouldRollover(bytes)) performRollover();
-        options.writeSync(fd, bytes);
-        options.flushSync(fd);
+        const file = fileForWrite(bytes);
+        options.writeSync(file, bytes);
+        options.flushSync(file);
         offset += bytes.length;
         lastFlushTimestamp = Date.now();
       }
     }
 
     const sink: Sink & Disposable = (record: LogRecord) => {
-      buffer += formatter(record);
+      if (disposed) return;
+      const formatted = formatter(record);
+      if (disposed) return;
+      buffer += formatted;
 
       const shouldFlushBySize = buffer.length >= bufferSize;
       const shouldFlushByTime = flushInterval > 0 &&
@@ -798,15 +859,30 @@ export function getBaseRotatingFileSink<TFile>(
       }
     };
     sink[disposeSymbol] = () => {
-      flushBuffer();
-      options.closeSync(fd);
+      if (disposed) return;
+      disposed = true;
+      let failure: { error: unknown } | undefined;
+      try {
+        flushBuffer();
+      } catch (error) {
+        failure = { error };
+      }
+      const file = detachFile();
+      if (file !== noFile) {
+        try {
+          options.closeSync(file);
+        } catch (error) {
+          // Keep the original flush error if closing also failed.
+          failure ??= { error };
+        }
+      }
+      if (failure != null) throw failure.error;
     };
     return sink;
   }
 
   // Non-blocking mode implementation
   const asyncOptions = options as AsyncRotatingFileSinkDriver<TFile>;
-  let disposed = false;
   let activeFlush: Promise<void> | null = null;
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let bufferedNonMetaRecord = false;
@@ -831,13 +907,17 @@ export function getBaseRotatingFileSink<TFile>(
     bufferedNonMetaRecord = false;
     try {
       const bytes = encoder.encode(data);
-      if (shouldRollover(bytes)) performRollover();
-      asyncOptions.writeSync(fd, bytes);
-      await asyncOptions.flush(fd);
+      const file = fileForWrite(bytes);
+      asyncOptions.writeSync(file, bytes);
+      await asyncOptions.flush(file);
       offset += bytes.length;
       lastFlushTimestamp = Date.now();
     } catch (error) {
-      if (!suppressErrorReport) reportFlushError(error);
+      if (!suppressErrorReport) {
+        // Publish activeFlush before a warning can start a nested flush.
+        await Promise.resolve();
+        reportFlushError(error);
+      }
     }
   }
 
@@ -874,20 +954,28 @@ export function getBaseRotatingFileSink<TFile>(
     }
   };
 
-  nonBlockingSink[asyncDisposeSymbol] = async () => {
+  let disposal: Promise<void> | undefined;
+  nonBlockingSink[asyncDisposeSymbol] = () => {
+    if (disposal != null) return disposal;
     disposed = true;
-    if (flushTimer !== null) {
-      clearInterval(flushTimer);
-      flushTimer = null;
-    }
+    if (flushTimer !== null) clearInterval(flushTimer);
+    flushTimer = null;
+    // Publish the shared promise before calling the driver in the final drain.
+    disposal = Promise.resolve().then(disposeFile);
+    return disposal;
+  };
+
+  async function disposeFile(): Promise<void> {
     if (activeFlush !== null) await activeFlush;
     await flushBuffer();
+    const file = detachFile();
+    if (file === noFile) return;
     try {
-      await asyncOptions.close(fd);
+      await asyncOptions.close(file);
     } catch {
       // Writer might already be closed or errored
     }
-  };
+  }
 
   return nonBlockingSink;
 }

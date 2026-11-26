@@ -1,15 +1,11 @@
-// TODO: Add substantial tests for OpenTelemetry integration.
-// Current tests only verify basic browser compatibility and that the sink
-// can be created without errors. Future tests should include:
-// - Actual log record processing and OpenTelemetry output verification
-// - Integration with real OpenTelemetry collectors
-// - Message formatting and attribute handling
-// - Error handling scenarios
-// - Performance testing
-
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { createServer } from "node:http";
+import process from "node:process";
 import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
+import type { LogRecord as OTLogRecord } from "@opentelemetry/api-logs";
+import { CompressionAlgorithm } from "@opentelemetry/otlp-exporter-base";
 import {
   getOpenTelemetrySink,
   type OpenTelemetrySink,
@@ -125,15 +121,18 @@ test("getOpenTelemetrySink() with custom bodyFormatter", () => {
   assert.strictEqual(typeof sink, "function");
 });
 
-test("getOpenTelemetrySink() with custom loggerProvider", () => {
-  const { provider } = createMockLoggerProvider();
-
+test("getOpenTelemetrySink() accepts an emit-only logger provider", () => {
+  const emitted: OTLogRecord[] = [];
   const options: OpenTelemetrySinkProviderOptions = {
-    loggerProvider: provider as never,
+    loggerProvider: {
+      getLogger: () => ({ emit: (record) => emitted.push(record) }),
+    },
   };
   const sink = getOpenTelemetrySink(options);
 
-  assert.strictEqual(typeof sink, "function");
+  sink(createMockLogRecord());
+  assert.strictEqual(emitted.length, 1);
+  assert.strictEqual(emitted[0].severityNumber, 9);
   assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
 });
 
@@ -150,6 +149,69 @@ test("getOpenTelemetrySink() exporter options type check", () => {
   assert.strictEqual(typeof sink, "function");
   // Lazy initialization means async dispose should be available
   assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
+});
+
+test("getOpenTelemetrySink() exports a log over OTLP HTTP/JSON", {
+  timeout: 5000,
+}, async () => {
+  const requests: { method?: string; url?: string; body: string }[] = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk: string) => body += chunk);
+    request.on("end", () => {
+      requests.push({ method: request.method, url: request.url, body });
+      response.writeHead(200, {
+        "Connection": "close",
+        "Content-Type": "application/json",
+      }).end("{}");
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+
+  const protocolKey = "OTEL_EXPORTER_OTLP_LOGS_PROTOCOL";
+  const previousProtocol = process.env[protocolKey];
+  try {
+    process.env[protocolKey] = "http/json";
+    const address = server.address();
+    assert.ok(address != null && typeof address !== "string");
+    const sink = getOpenTelemetrySink({
+      serviceName: "logtape-otel-test",
+      otlpExporterConfig: {
+        url: `http://127.0.0.1:${address.port}/v1/logs`,
+        compression: CompressionAlgorithm.NONE,
+        timeoutMillis: 2000,
+      },
+    });
+    try {
+      sink(createMockLogRecord({ message: ["loopback log"] }));
+    } finally {
+      await sink[Symbol.asyncDispose]();
+    }
+
+    assert.strictEqual(requests.length, 1);
+    assert.strictEqual(requests[0].method, "POST");
+    assert.strictEqual(requests[0].url, "/v1/logs");
+    const payload = JSON.parse(requests[0].body);
+    const entry = payload.resourceLogs[0];
+    assert.deepStrictEqual(
+      entry.resource.attributes.find(
+        (attribute: { key: string }) => attribute.key === "service.name",
+      )?.value,
+      { stringValue: "logtape-otel-test" },
+    );
+    const record = entry.scopeLogs[0].logRecords[0];
+    assert.deepStrictEqual(record.body, { stringValue: "loopback log" });
+    assert.strictEqual(record.severityNumber, 9);
+  } finally {
+    if (previousProtocol === undefined) delete process.env[protocolKey];
+    else process.env[protocolKey] = previousProtocol;
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+      server.closeAllConnections?.();
+    });
+  }
 });
 
 test("getOpenTelemetrySink() sink has async dispose", () => {

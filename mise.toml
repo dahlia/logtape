@@ -1,8 +1,15 @@
+min_version = "2026.6.12"
+
+[settings]
+experimental = true
+
 [tools]
 bun = "1"
-node = "24"
+node = "24.14.0"
 deno = "2"
-pnpm = "10.33.1"
+pnpm = "12.23.0"
+"aqua:nushell/nushell" = "0.114.0"
+"github:dahlia/sacho" = "0.3.2"
 
 [tools."github:dahlia/hongdown"]
 version = "0.3.11"
@@ -11,18 +18,23 @@ version = "0.3.11"
 linux-x64 = "hongdown-*-x86_64-unknown-linux-musl.tar.bz2"
 linux-arm64 = "hongdown-*-aarch64-unknown-linux-musl.tar.bz2"
 
-[hooks]
-postinstall = "deno install && pnpm install"
+[deps.deno]
+auto = true
 
-[tasks.deps]
-alias = "install"
-description = "Install all dependencies and update the lockfiles"
-run = "deno install && pnpm install"
+[deps.pnpm]
+auto = true
+
+[hooks]
+postinstall = [
+  "mise deps",
+  "sacho init --no-interactive",
+  { task = "hooks:install" },
+]
 
 [tasks.check]
-description = "Check code formatting, linting, and type checking"
+description = "Check formatting, linting, types, and the changelog"
 depends = ["check-versions"]
-run = "deno check && deno lint && deno fmt --check && hongdown --check && mise fmt --check"
+run = "deno check && deno lint && deno fmt --check && hongdown --check && sacho check && mise fmt --check"
 
 [tasks.check-versions]
 description = "Check that all subpackages have matching versions"
@@ -33,8 +45,8 @@ description = "Update all subpackage versions to match"
 run = "deno task update-versions"
 
 [tasks.fmt]
-description = "Format code"
-run = "deno fmt && hongdown --write && mise fmt"
+description = "Format code, documentation, and the changelog"
+run = "deno fmt && hongdown --write && sacho fmt && mise fmt"
 
 [tasks."test:deno"]
 description = "Run the test suite using Deno"
@@ -50,7 +62,9 @@ run = "deno task test:bun"
 
 [tasks.test]
 description = "Run the test suite across all environments"
-depends = ["check", "test:*"]
+depends = ["check"]
+# Node.js and Bun both rebuild the same dist directories before testing.
+run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
 
 [tasks.coverage]
 description = "Run tests with coverage and generate HTML report"
@@ -64,11 +78,44 @@ run = "deno task build"
 description = "Publish packages to JSR"
 run = "deno task publish"
 
+[tasks.bump-version]
+description = "Bump the version of all packages in the monorepo"
+usage = """
+arg "<version>" help="Explicit semantic version (e.g., 1.2.3)"
+"""
+shell = "nu -c"
+run = """
+let version = $env.usage_version
+let validation = (deno eval --quiet 'import { format, parse } from "@std/semver"; if (format(parse(Deno.args[0])) !== Deno.args[0]) Deno.exit(1);' $version | complete)
+if $validation.exit_code != 0 {
+  error make {msg: $"Expected an explicit semantic version, e.g. 1.2.3; got ($version)."}
+}
+sacho next $version
+mise run update-versions $version
+mise run fmt
+"""
+
 [tasks."hooks:install"]
 description = "Install git hooks"
+shell = "nu -c"
 run = """
+let hooks_dir = (git rev-parse --git-path hooks | str trim)
 mise generate git-pre-commit --write --task=hooks:pre-commit
 mise generate git-pre-commit --write --task=hooks:pre-push --hook=pre-push
+'#!/bin/sh
+if test -f sacho.toml; then
+  exec mise exec -- sacho hook-commit-msg "$1"
+fi' | save --force ($hooks_dir | path join commit-msg)
+'#!/bin/sh
+if test "$1" = prepared && test -f sacho.toml; then
+  sacho_state=$(git rev-parse --git-path sacho-commit-state) || exit $?
+  if test -f "$sacho_state"; then
+    exec mise exec -- sacho hook-reference-transaction "$1"
+  fi
+fi' | save --force ($hooks_dir | path join reference-transaction)
+if $nu.os-info.name != 'windows' {
+  chmod +x ($hooks_dir | path join commit-msg) ($hooks_dir | path join reference-transaction)
+}
 """
 
 [tasks."hooks:pre-commit"]

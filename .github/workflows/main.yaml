@@ -34,7 +34,6 @@ jobs:
       with: &mise_options
         experimental: true
         install: true
-    - run: mise run deps
     - run: mise run check
 
   test-deno:
@@ -106,7 +105,6 @@ jobs:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
       with: *mise_options
-    - run: mise run deps
     - run: mise run build
     - run: mise run test:node
 
@@ -125,7 +123,6 @@ jobs:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
       with: *mise_options
-    - run: mise run deps
     - run: mise run build
     - run: mise run test:bun
 
@@ -142,10 +139,8 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     # Unlike pnpm add, pnpm update resolves the newest release in the range
     # instead of reusing a version the lockfile already has.
     - run: pnpm --filter @logtape/sentry update "@sentry/core@$SENTRY_VERSION"
@@ -168,7 +163,6 @@ jobs:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
       with: *mise_options
-    - run: mise run deps
     - run: |
         set -ex
         if [[ "$GITHUB_REF_TYPE" == tag ]]; then
@@ -224,7 +218,6 @@ jobs:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
       with: *mise_options
-    - run: mise run deps
     - run: mise run build
     - run: |
         set -ex
