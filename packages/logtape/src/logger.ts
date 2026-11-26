@@ -1662,6 +1662,7 @@ export class LoggerImpl implements Logger {
   readonly sinks: Sink[];
   readonly filters: Filter[];
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
+  timestamp?: () => number;
   /**
    * Whether to capture source locations for this logger and its
    * descendants.  `undefined` inherits the setting from the parent.
@@ -2344,7 +2345,7 @@ export class LoggerImpl implements Logger {
         level,
         message: [rawMessage],
         rawMessage,
-        timestamp: Date.now(),
+        timestamp: getRecordTimestamp(),
         properties: {},
       };
       attachSourceLocation(record, sourceLocation);
@@ -2360,7 +2361,7 @@ export class LoggerImpl implements Logger {
         ? {
             category: this.category,
             level,
-            timestamp: Date.now(),
+            timestamp: getRecordTimestamp(),
             get message() {
               if (cachedMessage == null) {
                 cachedMessage = parseMessageTemplate(
@@ -2384,7 +2385,7 @@ export class LoggerImpl implements Logger {
         : {
             category: this.category,
             level,
-            timestamp: Date.now(),
+            timestamp: getRecordTimestamp(),
             get message() {
               if (cachedMessage == null) {
                 cachedMessage = parseMessageTemplate(
@@ -2439,7 +2440,7 @@ export class LoggerImpl implements Logger {
       get rawMessage() {
         return realizeMessage()[1];
       },
-      timestamp: Date.now(),
+      timestamp: getRecordTimestamp(),
       properties: { ...(implicitContext ?? {}), ...properties },
     };
     attachSourceLocation(record, sourceLocation);
@@ -2460,7 +2461,7 @@ export class LoggerImpl implements Logger {
       level,
       message: renderMessage(messageTemplate, values),
       rawMessage: messageTemplate,
-      timestamp: Date.now(),
+      timestamp: getRecordTimestamp(),
       properties: { ...(implicitContext ?? {}), ...properties },
     };
     attachSourceLocation(record, sourceLocation);
@@ -2945,6 +2946,11 @@ export class LoggerImpl implements Logger {
       );
     }
   }
+}
+
+export function getRecordTimestamp(): number {
+  const timestamp = LoggerImpl.getLogger().timestamp;
+  return timestamp === undefined ? Date.now() : timestamp();
 }
 
 /**

@@ -61,6 +61,79 @@ function quietConfig(): Config<string, string> {
   };
 }
 
+test("configure() uses the configured timestamp for each log record", async () => {
+  const timestamps: number[] = [];
+  let timestamp = 1_700_000_000_000;
+  const logger = getLogger("my-app");
+
+  await configure({
+    timestamp: () => timestamp++,
+    sinks: { capture: (record) => timestamps.push(record.timestamp) },
+    loggers: [
+      { category: "my-app", sinks: ["capture"], lowestLevel: "warning" },
+      { category: ["logtape", "meta"], sinks: [], lowestLevel: "fatal" },
+    ],
+  });
+  try {
+    logger.debug("Dropped");
+    logger.warn("Plain message");
+    logger.warn("Hello, {name}", { name: "Ada" });
+    logger.warn("Hello, {name}", () => ({ name: "Ada" }));
+    logger.warn((l) => l`Hello, ${"Ada"}`);
+    logger.warn`Hello, ${"Ada"}`;
+    assert.deepStrictEqual(
+      timestamps,
+      [
+        1_700_000_000_000, 1_700_000_000_001, 1_700_000_000_002,
+        1_700_000_000_003, 1_700_000_000_004,
+      ],
+    );
+  } finally {
+    await reset();
+  }
+});
+
+test("configureSync() without a timestamp restores the default clock", () => {
+  const timestamps: number[] = [];
+  const config = {
+    sinks: {
+      capture: (record: LogRecord) => timestamps.push(record.timestamp),
+    },
+    loggers: [
+      { category: "my-app", sinks: ["capture" as const] },
+      {
+        category: ["logtape", "meta"],
+        sinks: [],
+        lowestLevel: "fatal" as const,
+      },
+    ],
+  };
+  const logger = getLogger("my-app");
+  const originalNow = Date.now;
+  try {
+    configureSync({ ...config, timestamp: () => 1_700_000_000_000 });
+    logger.warn("Custom clock");
+    configureSync({ ...config, reset: true });
+    Date.now = () => 1_800_000_000_000;
+    logger.warn("Default clock");
+    assert.deepStrictEqual(timestamps, [1_700_000_000_000, 1_800_000_000_000]);
+  } finally {
+    Date.now = originalNow;
+    resetSync();
+  }
+});
+
+test("configureSync() rejects a non-function timestamp", () => {
+  assert.throws(
+    () => configureSync({ ...quietConfig(), timestamp: 0 as never }),
+    {
+      name: "ConfigError",
+      message: "The timestamp option must be a function.",
+    },
+  );
+  assert.strictEqual(getConfig(), null);
+});
+
 function stubGlobalEventHooks(): {
   activeListeners: Map<string, Set<unknown>>;
   removedListeners: unknown[];
