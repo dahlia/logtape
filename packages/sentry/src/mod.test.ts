@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { LogRecord } from "@logtape/logtape";
 import * as SentryCore from "@sentry/core";
-import { getSentrySink, type SentryNamespace } from "./mod.ts";
+import {
+  getSentrySink,
+  type SentryNamespace,
+  type SentrySinkOptions,
+} from "./mod.ts";
 
 // Resolved per runtime so expectations match the sink's own formatting
 // (util.inspect on Node/Bun, Deno.inspect on Deno, JSON.stringify elsewhere).
@@ -432,6 +436,137 @@ test("logs level filters records sent through Sentry Logs API", () => {
   assert.deepStrictEqual(logs, ["Warning"]);
 });
 
+test("events controls error events independently of Sentry Logs", () => {
+  const cases = [
+    { events: undefined, expected: ["exception", "message"] },
+    { events: true, expected: ["exception", "message"] },
+    { events: {}, expected: ["exception", "message"] },
+    { events: { exceptions: true }, expected: ["exception", "message"] },
+    { events: false, expected: [] },
+    { events: { exceptions: false }, expected: ["message"] },
+  ] as const;
+  for (const { events, expected } of cases) {
+    for (const level of ["error", "fatal"] as const) {
+      const captures: string[] = [];
+      const logs: string[] = [];
+      const log = (message: unknown) => logs.push(String(message));
+      const sentry = createMockSentryNamespace({
+        getClient: () => ({ getOptions: () => ({}) }),
+        logger: { error: log, fatal: log },
+        captureException: () => {
+          captures.push("exception");
+          return "exception-id";
+        },
+        captureMessage: () => {
+          captures.push("message");
+          return "message-id";
+        },
+      });
+      const sink = getSentrySink(
+        events === undefined
+          ? { sentry }
+          : {
+              sentry,
+              events,
+            },
+      );
+      sink(
+        createMockLogRecord({
+          level,
+          message: ["Matched error"],
+          properties: { err: new Error("timeout") },
+        }),
+      );
+      sink(
+        createMockLogRecord({
+          level,
+          message: ["Unmatched error"],
+          properties: { error: "timeout" },
+        }),
+      );
+      const context = `${level}, events: ${JSON.stringify(events)}`;
+      assert.deepStrictEqual(captures, expected, context);
+      assert.deepStrictEqual(
+        logs,
+        ["Matched error", "Unmatched error"],
+        context,
+      );
+    }
+  }
+});
+
+test("getSentrySink rejects invalid event options at creation", () => {
+  for (const invalid of [
+    null,
+    [],
+    0,
+    "none",
+    { exceptions: "false" },
+    Promise.resolve(false),
+    new Map([["exceptions", false]]),
+    Object.create({ exeptions: false }),
+    Object.create(Object.assign(Object.create(null), { exceptions: false })),
+    Object.assign(Object.create(null), { [Symbol.toStringTag]: "Module" }),
+  ]) {
+    const events = invalid as SentrySinkOptions["events"];
+    assert.throws(() => getSentrySink({ events }), TypeError);
+  }
+  const typo = { exceptions: false, exeptions: false };
+  assert.throws(() => getSentrySink({ events: typo }), /Invalid events option/);
+});
+
+test("exception suppression uses the transformed record and configured names", () => {
+  const captures: string[] = [];
+  const breadcrumbs: unknown[] = [];
+  const sentry = createMockSentryNamespace({
+    captureException: () => {
+      captures.push("exception");
+      return "exception-id";
+    },
+    captureMessage: (message) => {
+      captures.push(String(message));
+      return "message-id";
+    },
+    getIsolationScope: () => ({
+      addBreadcrumb: (breadcrumb) => breadcrumbs.push(breadcrumb),
+    }),
+  });
+  const sink = getSentrySink({
+    sentry,
+    events: { exceptions: false },
+    errorPropertyNames: ["cause"],
+    breadcrumbs: { maxLevel: "fatal" },
+    beforeSend: (record) =>
+      record.level === "warning"
+        ? {
+            ...record,
+            level: "error",
+            properties: { cause: new Error("timeout") },
+          }
+        : record.level === "fatal"
+          ? null
+          : record,
+  });
+  sink(createMockLogRecord({ level: "warning" }));
+  sink(createMockLogRecord({ level: "fatal" }));
+  sink(createMockLogRecord({ level: "info" }));
+  const noNames = getSentrySink({
+    sentry,
+    events: { exceptions: false },
+    errorPropertyNames: [],
+  });
+  noNames(
+    createMockLogRecord({
+      level: "error",
+      message: ["Not classified as an exception"],
+      properties: { error: new Error("timeout") },
+    }),
+  );
+
+  assert.deepStrictEqual(captures, ["Not classified as an exception"]);
+  assert.strictEqual(breadcrumbs.length, 1);
+});
+
 test("breadcrumbs level filters records below the minimum level", () => {
   const breadcrumbs: unknown[] = [];
   const sentry = createMockSentryNamespace({
@@ -857,6 +992,53 @@ test("@sentry/core provides a Logs API on SDK 9.41.0 or later", () => {
 });
 
 const skipDisabledLogs = !hasLogsApi || sdkMajorVersion >= 11;
+
+test(
+  "event suppression preserves structured logs in SDK envelopes",
+  { skip: !hasLogsApi },
+  async () => {
+    if (!hasLogsApi) return;
+    for (const events of [false, { exceptions: false }] as const) {
+      const client = installSentryTestClient(
+        sdkMajorVersion < 11 ? { enableLogs: true } : {},
+      );
+      try {
+        const sink = getSentrySink({ events });
+        sink(
+          createMockLogRecord({
+            level: "error",
+            message: ["Exception record"],
+            properties: { error: new Error("timeout") },
+          }),
+        );
+        sink(
+          createMockLogRecord({
+            level: "fatal",
+            message: ["Message record"],
+          }),
+        );
+        await client.flush();
+
+        assert.deepStrictEqual(
+          getLogs(client.items).map((log) => log.body),
+          ["Exception record", "Message record"],
+        );
+        const errorEvents = client.items.filter(
+          (item) => item.type === "event",
+        );
+        assert.strictEqual(errorEvents.length, events === false ? 0 : 1);
+        if (events !== false) {
+          assert.strictEqual(
+            (errorEvents[0].payload as { message: string }).message,
+            "Message record",
+          );
+        }
+      } finally {
+        client.close();
+      }
+    }
+  },
+);
 
 test(
   "sink leaves dropping logs to SDKs that have enableLogs: false",
