@@ -372,9 +372,10 @@ and installs the Git hooks.  pnpm links the Sacho skill into *.agents/skills/*.
 
 Before merging a patch release tag into a branch that already uses Sacho, run
 `sacho init --no-interactive` on the receiving branch.  The merge driver
-imports the frozen release section and preserves the receiving branch's next
-changelog version.  For a branch without Sacho, follow that branch's release
-workflow and merge its changelog manually.
+imports the frozen release section.  Follow the `release` skill to verify
+that *changes.d/next.txt* still holds the receiving branch's next version
+before committing the merge.  For a branch without Sacho, follow that
+branch's release workflow and merge its changelog manually.
 
 The `release` skill refers to LogTape's [AI usage policy], which is available
 on `main`.
