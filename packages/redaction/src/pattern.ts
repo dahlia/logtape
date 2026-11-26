@@ -4,6 +4,7 @@ import {
   type LogRecord,
   type TextFormatter,
 } from "@logtape/logtape";
+import { copyStructured, defineField } from "./structured.ts";
 import {
   createRedactionTraversalContext,
   type RedactionLimit,
@@ -255,17 +256,14 @@ export interface PatternRedactionOptions extends RedactionTraversalOptions {
 
 /**
  * Checks if a value is a built-in object that should not be recursively
- * processed (e.g., Error, Date, RegExp, Map, Set, etc.).
+ * processed (e.g., Date, RegExp, and weak collections).
  * @param value The value to check.
  * @returns `true` if the value is a built-in object, `false` otherwise.
  */
 function isBuiltInObject(value: object): boolean {
   return (
-    value instanceof Error ||
     value instanceof Date ||
     value instanceof RegExp ||
-    value instanceof Map ||
-    value instanceof Set ||
     value instanceof WeakMap ||
     value instanceof WeakSet ||
     value instanceof Promise ||
@@ -388,6 +386,11 @@ export function redactByPattern(
     depth: number,
   ): unknown {
     if (typeof object === "object" && object !== null) {
+      if (isBuiltInObject(object)) return object;
+      if (depth > context.limits.maxDepth) {
+        reportLimitOnce(context, "maxDepth");
+        return redactionTruncatedValue;
+      }
       if (context.visited.has(object)) {
         return context.visited.get(object)!; // Circular reference detected
       }
@@ -404,20 +407,19 @@ export function redactByPattern(
       }
       for (let i = 0; i < length; i++) {
         if (!(i in object)) continue;
-        const item = object[i];
-        if (shouldTraverseValue(item) && depth + 1 > context.limits.maxDepth) {
-          reportLimitOnce(context, "maxDepth");
-          copy[i] = redactionTruncatedValue;
-        } else {
-          copy[i] = replaceObject(item, context, depth + 1);
-        }
+        copy[i] = replaceObject(object[i], context, depth + 1);
       }
       return copy;
     }
     if (typeof object === "object" && object !== null) {
-      if (isBuiltInObject(object)) {
-        return object;
-      }
+      const structured = copyStructured(
+        object,
+        context,
+        (value) => replaceObject(value, context, depth + 1),
+        (_key, value) => replaceObject(value, context, depth + 1),
+        true,
+      );
+      if (structured != null) return structured;
       const redacted: Record<string, unknown> = {};
       context.visited.set(object, redacted);
       const keys = Object.keys(object);
@@ -425,13 +427,15 @@ export function redactByPattern(
         reportLimitOnce(context, "maxProperties");
       }
       for (const key of keys.slice(0, context.limits.maxProperties)) {
-        const value = (object as Record<string, unknown>)[key];
-        if (shouldTraverseValue(value) && depth + 1 > context.limits.maxDepth) {
-          reportLimitOnce(context, "maxDepth");
-          redacted[key] = redactionTruncatedValue;
-        } else {
-          redacted[key] = replaceObject(value, context, depth + 1);
-        }
+        defineField(
+          redacted,
+          key,
+          replaceObject(
+            (object as Record<string, unknown>)[key],
+            context,
+            depth + 1,
+          ),
+        );
       }
       return redacted;
     }
@@ -445,9 +449,13 @@ export function redactByPattern(
     if (output.length > context.limits.maxProperties) {
       reportLimitOnce(context, "maxProperties");
     }
-    return output
-      .slice(0, context.limits.maxProperties)
-      .map((obj) => replaceObject(obj, context, 0));
+    return output.slice(0, context.limits.maxProperties).map((obj) => {
+      try {
+        return replaceObject(obj, context, 0);
+      } catch {
+        return "[Redaction failed]";
+      }
+    });
   };
 }
 
@@ -470,10 +478,6 @@ function reportRedactionLimitExceeded(
   } finally {
     reportingRedactionLimit = false;
   }
-}
-
-function shouldTraverseValue(value: unknown): boolean {
-  return typeof value === "object" && value !== null && !isBuiltInObject(value);
 }
 
 function createPatternRedactionContext(

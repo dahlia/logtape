@@ -45,6 +45,48 @@ To be released.
 [#264]: https://github.com/dahlia/logtape/pull/264
 
 
+Version 2.4.3
+-------------
+
+Released on November 27, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where `getRotatingFileSink()` could stop logging after the
+    active log file was deleted.  The sink now recreates the file on the next
+    rotation.  It also no longer reuses a closed file handle if rotation fails.
+    [[#268], [#274]]
+
+[#268]: https://github.com/dahlia/logtape/issues/268
+[#274]: https://github.com/dahlia/logtape/pull/274
+
+### @logtape/otel
+
+ -  Updated the OpenTelemetry dependencies so that installing *@logtape/otel*
+    no longer pulls in versions of *@opentelemetry/core* affected by
+    [GHSA-8988-4f7v-96qf].
+    [[#266], [#271]]
+
+[GHSA-8988-4f7v-96qf]: https://github.com/advisories/GHSA-8988-4f7v-96qf
+[#266]: https://github.com/dahlia/logtape/issues/266
+[#271]: https://github.com/dahlia/logtape/pull/271
+
+### @logtape/redaction
+
+ -  Fixed redaction of sensitive data inside `Error`, `Map`, and `Set` values.
+    [[GHSA-f9j8-mv7v-85gr]]
+
+[GHSA-f9j8-mv7v-85gr]: https://github.com/dahlia/logtape/security/advisories/GHSA-f9j8-mv7v-85gr
+
+### @logtape/syslog
+
+ -  Fixed syslog output for invalid header fields and structured data IDs.
+    Invalid header fields use the RFC 5424 nil value, and an invalid ID causes
+    structured data to be omitted.  \[[GHSA-2qxc-5xj9-7342]]
+
+[GHSA-2qxc-5xj9-7342]: https://github.com/dahlia/logtape/security/advisories/GHSA-2qxc-5xj9-7342
+
+
 Version 2.4.2
 -------------
 
@@ -431,6 +473,48 @@ Released on October 7, 2026.
 
 [#244]: https://github.com/dahlia/logtape/issues/244
 [#252]: https://github.com/dahlia/logtape/pull/252
+
+
+Version 2.3.14
+--------------
+
+Released on November 27, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where `getRotatingFileSink()` could stop logging after the
+    active log file was deleted.  The sink now recreates the file on the next
+    rotation.  It also no longer reuses a closed file handle if rotation fails.
+    [[#268], [#274]]
+
+[#268]: https://github.com/dahlia/logtape/issues/268
+[#274]: https://github.com/dahlia/logtape/pull/274
+
+### @logtape/otel
+
+ -  Updated the OpenTelemetry dependencies so that installing *@logtape/otel*
+    no longer pulls in versions of *@opentelemetry/core* affected by
+    [GHSA-8988-4f7v-96qf].
+    [[#266], [#271]]
+
+[GHSA-8988-4f7v-96qf]: https://github.com/advisories/GHSA-8988-4f7v-96qf
+[#266]: https://github.com/dahlia/logtape/issues/266
+[#271]: https://github.com/dahlia/logtape/pull/271
+
+### @logtape/redaction
+
+ -  Fixed redaction of sensitive data inside `Error`, `Map`, and `Set` values.
+    [[GHSA-f9j8-mv7v-85gr]]
+
+[GHSA-f9j8-mv7v-85gr]: https://github.com/dahlia/logtape/security/advisories/GHSA-f9j8-mv7v-85gr
+
+### @logtape/syslog
+
+ -  Fixed syslog output for invalid header fields and structured data IDs.
+    Invalid header fields use the RFC 5424 nil value, and an invalid ID causes
+    structured data to be omitted.  \[[GHSA-2qxc-5xj9-7342]]
+
+[GHSA-2qxc-5xj9-7342]: https://github.com/dahlia/logtape/security/advisories/GHSA-2qxc-5xj9-7342
 
 
 Version 2.3.13
@@ -1061,6 +1145,48 @@ Released on July 30, 2026.
     `npx skills add dahlia/logtape`.  The skill remains available through the
     *@logtape/logtape* npm package, and the repository can also be added as a
     Claude Code plugin marketplace.
+
+
+Version 2.2.17
+--------------
+
+Released on November 27, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where `getRotatingFileSink()` could stop logging after the
+    active log file was deleted.  The sink now recreates the file on the next
+    rotation.  It also no longer reuses a closed file handle if rotation fails.
+    [[#268], [#274]]
+
+[#268]: https://github.com/dahlia/logtape/issues/268
+[#274]: https://github.com/dahlia/logtape/pull/274
+
+### @logtape/otel
+
+ -  Updated the OpenTelemetry dependencies so that installing *@logtape/otel*
+    no longer pulls in versions of *@opentelemetry/core* affected by
+    [GHSA-8988-4f7v-96qf].
+    [[#266], [#271]]
+
+[GHSA-8988-4f7v-96qf]: https://github.com/advisories/GHSA-8988-4f7v-96qf
+[#266]: https://github.com/dahlia/logtape/issues/266
+[#271]: https://github.com/dahlia/logtape/pull/271
+
+### @logtape/redaction
+
+ -  Fixed redaction of sensitive data inside `Error`, `Map`, and `Set` values.
+    [[GHSA-f9j8-mv7v-85gr]]
+
+[GHSA-f9j8-mv7v-85gr]: https://github.com/dahlia/logtape/security/advisories/GHSA-f9j8-mv7v-85gr
+
+### @logtape/syslog
+
+ -  Fixed syslog output for invalid header fields and structured data IDs.
+    Invalid header fields use the RFC 5424 nil value, and an invalid ID causes
+    structured data to be omitted.  \[[GHSA-2qxc-5xj9-7342]]
+
+[GHSA-2qxc-5xj9-7342]: https://github.com/dahlia/logtape/security/advisories/GHSA-2qxc-5xj9-7342
 
 
 Version 2.2.16
@@ -1712,6 +1838,48 @@ Released on June 22, 2026.
 [#176]: https://github.com/dahlia/logtape/issues/176
 
 
+Version 2.1.21
+--------------
+
+Released on November 27, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where `getRotatingFileSink()` could stop logging after the
+    active log file was deleted.  The sink now recreates the file on the next
+    rotation.  It also no longer reuses a closed file handle if rotation fails.
+    [[#268], [#274]]
+
+[#268]: https://github.com/dahlia/logtape/issues/268
+[#274]: https://github.com/dahlia/logtape/pull/274
+
+### @logtape/otel
+
+ -  Updated the OpenTelemetry dependencies so that installing *@logtape/otel*
+    no longer pulls in versions of *@opentelemetry/core* affected by
+    [GHSA-8988-4f7v-96qf].
+    [[#266], [#271]]
+
+[GHSA-8988-4f7v-96qf]: https://github.com/advisories/GHSA-8988-4f7v-96qf
+[#266]: https://github.com/dahlia/logtape/issues/266
+[#271]: https://github.com/dahlia/logtape/pull/271
+
+### @logtape/redaction
+
+ -  Fixed redaction of sensitive data inside `Error`, `Map`, and `Set` values.
+    [[GHSA-f9j8-mv7v-85gr]]
+
+[GHSA-f9j8-mv7v-85gr]: https://github.com/dahlia/logtape/security/advisories/GHSA-f9j8-mv7v-85gr
+
+### @logtape/syslog
+
+ -  Fixed syslog output for invalid header fields and structured data IDs.
+    Invalid header fields use the RFC 5424 nil value, and an invalid ID causes
+    structured data to be omitted.  \[[GHSA-2qxc-5xj9-7342]]
+
+[GHSA-2qxc-5xj9-7342]: https://github.com/dahlia/logtape/security/advisories/GHSA-2qxc-5xj9-7342
+
+
 Version 2.1.20
 --------------
 
@@ -2289,6 +2457,48 @@ Released on May 17, 2026.
 [#155]: https://github.com/dahlia/logtape/pull/155
 [#160]: https://github.com/dahlia/logtape/issues/160
 [#164]: https://github.com/dahlia/logtape/pull/164
+
+
+Version 2.0.30
+--------------
+
+Released on November 27, 2026.
+
+### @logtape/file
+
+ -  Fixed a bug where `getRotatingFileSink()` could stop logging after the
+    active log file was deleted.  The sink now recreates the file on the next
+    rotation.  It also no longer reuses a closed file handle if rotation fails.
+    [[#268], [#274]]
+
+[#268]: https://github.com/dahlia/logtape/issues/268
+[#274]: https://github.com/dahlia/logtape/pull/274
+
+### @logtape/otel
+
+ -  Updated the OpenTelemetry dependencies so that installing *@logtape/otel*
+    no longer pulls in versions of *@opentelemetry/core* affected by
+    [GHSA-8988-4f7v-96qf].
+    [[#266], [#271]]
+
+[GHSA-8988-4f7v-96qf]: https://github.com/advisories/GHSA-8988-4f7v-96qf
+[#266]: https://github.com/dahlia/logtape/issues/266
+[#271]: https://github.com/dahlia/logtape/pull/271
+
+### @logtape/redaction
+
+ -  Fixed redaction of sensitive data inside `Error`, `Map`, and `Set` values.
+    [[GHSA-f9j8-mv7v-85gr]]
+
+[GHSA-f9j8-mv7v-85gr]: https://github.com/dahlia/logtape/security/advisories/GHSA-f9j8-mv7v-85gr
+
+### @logtape/syslog
+
+ -  Fixed syslog output for invalid header fields and structured data IDs.
+    Invalid header fields use the RFC 5424 nil value, and an invalid ID causes
+    structured data to be omitted.  \[[GHSA-2qxc-5xj9-7342]]
+
+[GHSA-2qxc-5xj9-7342]: https://github.com/dahlia/logtape/security/advisories/GHSA-2qxc-5xj9-7342
 
 
 Version 2.0.29

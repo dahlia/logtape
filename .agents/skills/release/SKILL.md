@@ -51,6 +51,8 @@ Before starting any release:
 
     Do not call `sacho next` and `mise run update-versions` separately.  The
     task keeps the Sacho next-version file and package versions together.
+    For a version-only commit, add the `Changelog: none` trailer to exempt
+    the package manifest edits from Sacho's fragment requirement.
 
 4.  Review the release notes as a user would, then run the full test suite:
 
@@ -117,8 +119,8 @@ mise run check
 
 Review and commit *changes.d/next.txt*, the materialized *CHANGES.md* region,
 and all package version changes together.  Use `Version bump` as the subject,
-retain the existing `[ci skip]` body, and include the AI disclosure trailer
-when applicable.
+retain the existing `[ci skip]` body, and include `Changelog: none` and any
+applicable AI disclosure trailer.
 
 Push the tag and maintenance branch to the verified remote:
 
@@ -141,16 +143,37 @@ work.
 
 When merging an already released tag, the release commit contains a frozen
 changelog section but no fragments.  The Sacho merge driver places the frozen
-section in *CHANGES.md* and preserves the receiving branch's
-*changes.d/next.txt*.
+section in *CHANGES.md*.  The `merge=ours` rule for *changes.d/next.txt* only
+applies to content conflicts.  If the release deleted a file that existed in
+the merge base, Git may delete it without a conflict or report a modify/delete
+conflict.
+
+On a receiving branch that uses Sacho, register the local merge driver with
+`sacho init --no-interactive` before merging.  Use
+`git merge --no-commit --no-ff <tag>` so you can check the index before creating
+the merge commit.  If the receiving branch had a next-version file and the
+merge changed or removed it, restore and stage its original contents:
+
+~~~~ bash
+if git cat-file -e HEAD:changes.d/next.txt &&
+   ! git diff --cached --quiet -- changes.d/next.txt; then
+  git restore --source=HEAD --staged --worktree -- changes.d/next.txt
+fi
+~~~~
+
+During the pending merge, `HEAD` is still the receiving branch's pre-merge
+commit.  After restoring the file, run the changelog checks below before
+committing the merge.
 
 ### Newer maintenance branches
 
-1.  Check out the newer branch and merge the released tag:
+1.  Check out the newer branch and begin merging the released tag.  Before
+    continuing, check and restore the next-version file as described above:
 
     ~~~~ bash
     git checkout 1.3-maintenance
-    git merge 1.2.3
+    sacho init --no-interactive
+    git merge --no-commit --no-ff 1.2.3
     ~~~~
 
 2.  If this branch's next release should repeat the patch notes, first check
@@ -179,8 +202,8 @@ section in *CHANGES.md* and preserves the receiving branch's
 
 ### Main branch
 
-Merge the last released tag into `main`, resolve conflicts, and run the same
-checks.  Do *not* run `sacho carry` for this merge: LogTape does not duplicate
+Follow the same merge procedure on `main`, including the next-version file
+check.  Do *not* run `sacho carry` for this merge: LogTape does not duplicate
 patch-release notes in the next major/minor release.
 
 
@@ -219,7 +242,7 @@ patch version 0.
     ~~~~
 
     Commit the next-version file, materialized changelog region, and package
-    version changes together as the version bump.
+    version changes together as the version bump, with `Changelog: none`.
 
 5.  Push `main` and the release tag to the verified remote:
 
@@ -240,8 +263,9 @@ sacho check
 mise run check
 ~~~~
 
-Commit the first patch cycle's next-version file, materialized changelog region,
-and package version changes together, then push the branch:
+Commit the first patch cycle's next-version file, materialized changelog
+region, and package version changes together with `Changelog: none`, then
+push the branch:
 
 ~~~~ bash
 git push origin 1.3-maintenance

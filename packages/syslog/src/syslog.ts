@@ -161,6 +161,8 @@ export interface SyslogSinkOptions {
 
   /**
    * The application name to include in syslog messages.
+   * Must be 1–48 printable US-ASCII characters, excluding spaces.
+   * Invalid values are emitted as `-` (NILVALUE).
    * @default "logtape"
    */
   readonly appName?: string;
@@ -168,12 +170,16 @@ export interface SyslogSinkOptions {
   /**
    * The hostname to include in syslog messages.
    * If not provided, the system hostname will be used.
+   * Must be 1–255 printable US-ASCII characters, excluding spaces.
+   * Invalid values are emitted as `-` (NILVALUE).
    */
   readonly syslogHostname?: string;
 
   /**
    * The process ID to include in syslog messages.
    * If not provided, the current process ID will be used.
+   * Must be 1–128 printable US-ASCII characters, excluding spaces.
+   * Invalid values are emitted as `-` (NILVALUE).
    */
   readonly processId?: string;
 
@@ -228,6 +234,8 @@ export interface SyslogSinkOptions {
   /**
    * The structured data ID to use for log properties.
    * Should follow the format "name@private-enterprise-number".
+   * Must be 1–32 printable US-ASCII characters, excluding spaces, `"`,
+   * `=`, and `]`.  If the ID is invalid, structured data is omitted.
    * @default "logtape@32473"
    */
   readonly structuredDataId?: string;
@@ -298,10 +306,24 @@ function escapeMessageText(text: string): string {
 }
 
 /**
+ * Returns an RFC 5424 header token or NILVALUE if it cannot be emitted.
+ */
+function normalizeHeaderField(value: unknown, maxLength: number): string {
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxLength &&
+    !/[^!-~]/.test(value)
+    ? value
+    : "-";
+}
+
+/**
  * Validates an RFC 5424 SD-NAME value.
  */
-function isStructuredDataName(name: string): boolean {
-  if (name.length < 1 || name.length > 32) return false;
+function isStructuredDataName(name: unknown): name is string {
+  if (typeof name !== "string" || name.length < 1 || name.length > 32) {
+    return false;
+  }
 
   for (const char of name) {
     const charCode = char.charCodeAt(0);
@@ -350,29 +372,28 @@ function formatStructuredData(
  */
 function formatSyslogMessage(
   record: LogRecord,
-  options: Required<
-    Pick<
-      SyslogSinkOptions,
-      | "facility"
-      | "appName"
-      | "syslogHostname"
-      | "processId"
-      | "includeStructuredData"
-      | "structuredDataId"
-    >
-  >,
+  options: {
+    readonly facility: SyslogFacility;
+    readonly appName: string;
+    readonly syslogHostname: string;
+    readonly processId: string;
+    readonly structuredDataId: string | undefined;
+  },
 ): string {
   const severity = SEVERITY_LEVELS[record.level];
   const priority = calculatePriority(options.facility, severity);
   const timestamp = formatTimestamp(record.timestamp);
-  const hostname = options.syslogHostname || "-";
-  const appName = options.appName || "-";
-  const processId = options.processId || "-";
+  const {
+    syslogHostname: hostname,
+    appName,
+    processId,
+    structuredDataId,
+  } = options;
   const msgId = "-"; // Could be enhanced to include message ID
 
   let structuredData = "-";
-  if (options.includeStructuredData) {
-    structuredData = formatStructuredData(record, options.structuredDataId);
+  if (structuredDataId !== undefined) {
+    structuredData = formatStructuredData(record, structuredDataId);
   }
 
   // Format the message text.  Interpolated values are already escaped by
@@ -918,9 +939,15 @@ export function getSyslogSink(
   const secure = options.secure ?? false;
   const tlsOptions = options.tlsOptions;
   const facility = options.facility ?? "local0";
-  const appName = options.appName ?? "logtape";
-  const syslogHostname = options.syslogHostname ?? getSystemHostname();
-  const processId = options.processId ?? getProcessId();
+  const appName = normalizeHeaderField(options.appName ?? "logtape", 48);
+  const syslogHostname = normalizeHeaderField(
+    options.syslogHostname ?? getSystemHostname(),
+    255,
+  );
+  const processId = normalizeHeaderField(
+    options.processId ?? getProcessId(),
+    128,
+  );
   const timeout = options.timeout ?? 5000;
   const dropQueuedOnError = options.dropQueuedOnError ?? false;
   const includeStructuredData = options.includeStructuredData ?? false;
@@ -931,8 +958,10 @@ export function getSyslogSink(
     appName,
     syslogHostname,
     processId,
-    includeStructuredData,
-    structuredDataId,
+    structuredDataId:
+      includeStructuredData && isStructuredDataName(structuredDataId)
+        ? structuredDataId
+        : undefined,
   };
 
   // Create connection based on protocol and runtime

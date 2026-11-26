@@ -7,10 +7,10 @@ import {
 import { diag, type DiagLogger, DiagLogLevel } from "@opentelemetry/api";
 import {
   type AnyValue,
+  createNoopLogger,
   type Logger as OTLogger,
   type LoggerProvider as LoggerProviderBase,
   type LogRecord as OTLogRecord,
-  NOOP_LOGGER,
   SeverityNumber,
 } from "@opentelemetry/api-logs";
 import type { OTLPExporterNodeConfigBase } from "@opentelemetry/otlp-exporter-base";
@@ -21,6 +21,7 @@ import {
 } from "@opentelemetry/resources";
 import {
   LoggerProvider,
+  type LogRecordExporter,
   SimpleLogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
@@ -150,8 +151,7 @@ const _importModule = (specifier: string): Promise<any> =>
  */
 async function createOtlpExporter(
   config?: OTLPExporterNodeConfigBase,
-  /* oxlint-disable-next-line typescript/no-explicit-any */ // deno-lint-ignore no-explicit-any
-): Promise<any> {
+): Promise<LogRecordExporter> {
   const protocol = detectOtlpProtocol();
 
   switch (protocol) {
@@ -177,10 +177,15 @@ async function createOtlpExporter(
   }
 }
 
+// The sink only emits records; older providers need not implement enabled().
+type EmitLogger = Pick<OTLogger, "emit">;
+
 /**
  * The OpenTelemetry logger provider.
  */
-type ILoggerProvider = LoggerProviderBase & {
+interface ILoggerProvider {
+  getLogger(...args: Parameters<LoggerProviderBase["getLogger"]>): EmitLogger;
+
   /**
    * Flush all buffered data and shut down the LoggerProvider and all registered
    * LogRecordProcessor.
@@ -188,7 +193,7 @@ type ILoggerProvider = LoggerProviderBase & {
    * Returns a promise which is resolved when all flushes are complete.
    */
   shutdown?: () => Promise<void>;
-};
+}
 
 /**
  * The way to render the object in the log record.  If `"json"`,
@@ -335,8 +340,9 @@ export interface OpenTelemetrySinkExporterOptions extends OpenTelemetrySinkOptio
  * import { LoggerProvider, SimpleLogRecordProcessor } from "@opentelemetry/sdk-logs";
  * import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-grpc";
  *
- * const provider = new LoggerProvider();
- * provider.addLogRecordProcessor(new SimpleLogRecordProcessor(new OTLPLogExporter()));
+ * const provider = new LoggerProvider({
+ *   processors: [new SimpleLogRecordProcessor(new OTLPLogExporter())],
+ * });
  *
  * const sink = getOpenTelemetrySink({ loggerProvider: provider });
  * ```
@@ -353,12 +359,14 @@ export type OpenTelemetrySinkOptions =
   | OpenTelemetrySinkProviderOptions
   | OpenTelemetrySinkExporterOptions;
 
+const noopLogger = createNoopLogger();
+
 /**
- * A no-op logger provider that returns NOOP_LOGGER for all requests.
+ * A no-op logger provider that returns the same no-op logger for all requests.
  * Used when no OTLP endpoint is configured to avoid repeated connection errors.
  */
 const noopLoggerProvider: ILoggerProvider = {
-  getLogger: () => NOOP_LOGGER,
+  getLogger: () => noopLogger,
 };
 
 /**
@@ -389,10 +397,7 @@ async function initializeLoggerProvider(
   const otlpExporter = await createOtlpExporter(options.otlpExporterConfig);
   const loggerProvider = new LoggerProvider({
     resource,
-    processors: [
-      // @ts-ignore: it works anyway...
-      new SimpleLogRecordProcessor(otlpExporter),
-    ],
+    processors: [new SimpleLogRecordProcessor(otlpExporter)],
   });
   return loggerProvider;
 }
@@ -404,7 +409,7 @@ async function initializeLoggerProvider(
  * @param options The sink options.
  */
 function emitLogRecord(
-  logger: OTLogger,
+  logger: EmitLogger,
   record: LogRecord,
   options: OpenTelemetrySinkOptions,
 ): void {
@@ -504,7 +509,7 @@ export function getOpenTelemetrySink(
 
   // Lazy initialization for automatic exporter creation
   let loggerProvider: ILoggerProvider | null = null;
-  let logger: OTLogger | null = null;
+  let logger: EmitLogger | null = null;
   let initPromise: Promise<void> | null = null;
   let initError: Error | null = null;
   // Buffer for log records that arrive during initialization

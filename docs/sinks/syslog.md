@@ -75,6 +75,11 @@ await configure({
 });
 ~~~~
 
+`appName`, `syslogHostname`, and `processId` must be nonempty strings of
+printable US-ASCII characters without spaces.  Their limits are 48, 255,
+and 128 characters, respectively.  An invalid value is sent as `-` (the
+RFC 5424 nil value) without dropping the log message.
+
 [RFC 5424]: https://tools.ietf.org/html/rfc5424
 
 
@@ -232,6 +237,10 @@ keys must be 1 to 32 printable US-ASCII characters and must not contain spaces,
 `=`, `]`, or `"`.  Properties with invalid keys are skipped.  Control
 characters in structured data values are replaced with printable `#NNN`
 sequences before the message is sent.
+
+`structuredDataId` follows the same character and length rules as `SD-NAME`.
+If the ID is invalid, the sink omits the entire structured data block but
+still sends the log message.
 
 
 Message escaping

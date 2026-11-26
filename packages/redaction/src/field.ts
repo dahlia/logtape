@@ -1,5 +1,11 @@
 import { getLogger, type LogRecord, type Sink } from "@logtape/logtape";
 import {
+  copyStructured,
+  copyStructuredAsync,
+  defineField,
+  omit,
+} from "./structured.ts";
+import {
   createRedactionTraversalContext,
   type RedactionLimit,
   type RedactionTraversalContext,
@@ -218,6 +224,10 @@ export function redactByField(
       0,
       context,
     );
+    const redactArgument = (value: unknown): unknown =>
+      context.exceededLimits.size > 0
+        ? redactionTruncatedValue
+        : redactValue(value, opts, context, 0);
     let redactedMessage = record.message;
 
     if (typeof record.rawMessage === "string") {
@@ -232,21 +242,20 @@ export function redactByField(
         wildcardIndices,
         redactedProperties,
         opts.action,
-        context.exceededLimits.size > 0,
+        redactArgument,
       );
     } else {
       // Tagged template: redact by comparing values
       const redactedValues = getRedactedValues(
         record.properties,
         redactedProperties,
+        context.limits.maxProperties,
       );
-      if (redactedValues.size > 0 || context.exceededLimits.size > 0) {
-        redactedMessage = redactMessageByValues(
-          record.message,
-          redactedValues,
-          context.exceededLimits.size > 0,
-        );
-      }
+      redactedMessage = redactMessageByValues(
+        record.message,
+        redactedValues,
+        redactArgument,
+      );
     }
 
     sink({
@@ -362,6 +371,10 @@ async function redactLogRecordAsync(
     0,
     context,
   );
+  const redactArgument = (value: unknown): Promise<unknown> =>
+    context.exceededLimits.size > 0
+      ? Promise.resolve(redactionTruncatedValue)
+      : redactValueAsync(value, options, context, 0);
 
   if (typeof record.rawMessage === "string") {
     const placeholders = extractPlaceholderNames(record.rawMessage);
@@ -377,25 +390,23 @@ async function redactLogRecordAsync(
         wildcardIndices,
         redactedProperties,
         options.action,
-        context.exceededLimits.size > 0,
+        redactArgument,
       ),
       properties: redactedProperties,
     };
   }
 
-  let redactedMessage = record.message;
   const redactedValues = getRedactedValues(
     record.properties,
     redactedProperties,
+    context.limits.maxProperties,
   );
-  if (redactedValues.size > 0 || context.exceededLimits.size > 0) {
-    redactedMessage = redactMessageByValues(
-      record.message,
-      redactedValues,
-      context.exceededLimits.size > 0,
-    );
-  }
-  return { message: redactedMessage, properties: redactedProperties };
+  return {
+    message: await Promise.all(
+      redactMessageByValues(record.message, redactedValues, redactArgument),
+    ),
+    properties: redactedProperties,
+  };
 }
 
 function reportRedactionFailure(error: unknown): void {
@@ -535,45 +546,16 @@ export function redactProperties(
   for (const field of fields.slice(0, context.limits.maxProperties)) {
     if (shouldFieldRedacted(field, options.fieldPatterns)) {
       if (typeof options.action === "function") {
-        setProperty(copy, field, options.action(properties[field]));
+        defineField(copy, field, options.action(properties[field]));
       }
       continue;
     }
 
-    const value = properties[field];
-    if (Array.isArray(value)) {
-      if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        setProperty(copy, field, redactionTruncatedValue);
-      } else {
-        setProperty(
-          copy,
-          field,
-          redactArray(value, options, visited, depth + 1, context),
-        );
-      }
-    } else if (typeof value === "object" && value !== null) {
-      if (isBuiltInObject(value)) {
-        setProperty(copy, field, value);
-      } else if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        setProperty(copy, field, redactionTruncatedValue);
-      } else {
-        setProperty(
-          copy,
-          field,
-          redactProperties(
-            value as Record<string, unknown>,
-            options,
-            visited,
-            depth + 1,
-            context,
-          ),
-        );
-      }
-    } else {
-      setProperty(copy, field, value);
-    }
+    defineField(
+      copy,
+      field,
+      redactValue(properties[field], options, context, depth + 1),
+    );
   }
   return copy;
 }
@@ -613,189 +595,132 @@ export async function redactPropertiesAsync(
       continue;
     }
 
-    const value = properties[field];
-    if (Array.isArray(value)) {
-      if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        values.push(Promise.resolve(redactionTruncatedValue));
-      } else {
-        values.push(
-          redactArrayAsync(value, options, visited, depth + 1, context),
-        );
-      }
-    } else if (typeof value === "object" && value !== null) {
-      if (isBuiltInObject(value)) {
-        values.push(Promise.resolve(value));
-      } else if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        values.push(Promise.resolve(redactionTruncatedValue));
-      } else {
-        values.push(
-          redactPropertiesAsync(
-            value as Record<string, unknown>,
-            options,
-            visited,
-            depth + 1,
-            context,
-          ),
-        );
-      }
-    } else {
-      values.push(Promise.resolve(value));
-    }
+    values.push(
+      redactValueAsync(properties[field], options, context, depth + 1),
+    );
   }
   const redactedValues = await Promise.all(values);
   for (let i = 0; i < fields.length; i++) {
-    setProperty(copy, fields[i], redactedValues[i]);
+    defineField(copy, fields[i], redactedValues[i]);
   }
   return copy;
 }
 
-function setProperty(
-  object: Record<string, unknown>,
-  field: string,
+function redactValue(
   value: unknown,
-): void {
-  if (field === "__proto__") {
-    Object.defineProperty(object, field, {
-      value,
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    });
-  } else {
-    object[field] = value;
-  }
-}
-
-/**
- * Redacts sensitive fields in an array recursively.
- * @param array The array to process.
- * @param options The redaction options.
- * @param visited Map of visited objects to prevent circular reference issues.
- * @returns A new array with redacted values.
- */
-function redactArray(
-  array: unknown[],
   options: FieldRedactionOptions,
-  visited: Map<object, object>,
-  depth: number,
   context: RedactionTraversalContext,
-): unknown[] {
-  if (visited.has(array)) return visited.get(array) as unknown[];
-
-  const copy: unknown[] = [];
-  const length = Math.min(array.length, context.limits.maxProperties);
-  copy.length = length;
-  visited.set(array, copy);
-  if (array.length > context.limits.maxProperties) {
-    reportLimitOnce(context, "maxProperties");
+  depth: number,
+): unknown {
+  if (typeof value !== "object" || value == null) return value;
+  if (isBuiltInObject(value)) return value;
+  if (depth > context.limits.maxDepth) {
+    reportLimitOnce(context, "maxDepth");
+    return redactionTruncatedValue;
   }
-  for (let i = 0; i < length; i++) {
-    if (!(i in array)) continue;
-    const item = array[i];
-    if (Array.isArray(item)) {
-      if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        copy[i] = redactionTruncatedValue;
-      } else {
-        copy[i] = redactArray(item, options, visited, depth + 1, context);
-      }
-    } else if (typeof item === "object" && item !== null) {
-      if (isBuiltInObject(item)) {
-        copy[i] = item;
-      } else if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        copy[i] = redactionTruncatedValue;
-      } else {
-        copy[i] = redactProperties(
-          item as Record<string, unknown>,
-          options,
-          visited,
-          depth + 1,
-          context,
-        );
-      }
-    } else {
-      copy[i] = item;
+  const { visited } = context;
+  if (visited.has(value)) return visited.get(value);
+  const transform = (item: unknown): unknown =>
+    redactValue(item, options, context, depth + 1);
+  if (Array.isArray(value)) {
+    const length = Math.min(value.length, context.limits.maxProperties);
+    if (length < value.length) reportLimitOnce(context, "maxProperties");
+    const copy: unknown[] = new Array(length);
+    visited.set(value, copy);
+    for (let i = 0; i < length; i++) {
+      if (i in value) copy[i] = transform(value[i]);
     }
+    return copy;
   }
-  return copy;
+  const structured = copyStructured(
+    value,
+    context,
+    transform,
+    (key, item) => {
+      if (!shouldFieldRedacted(key, options.fieldPatterns)) {
+        return transform(item);
+      }
+      if (typeof options.action !== "function") return omit;
+      try {
+        return options.action(item);
+      } catch {
+        return omit;
+      }
+    },
+    false,
+  );
+  if (structured != null) return structured;
+  return redactProperties(
+    value as Record<string, unknown>,
+    options,
+    visited,
+    depth,
+    context,
+  );
 }
 
-async function redactArrayAsync(
-  array: unknown[],
+async function redactValueAsync(
+  value: unknown,
   options: AsyncFieldRedactionOptions,
-  visited: Map<object, object>,
-  depth: number,
   context: RedactionTraversalContext,
-): Promise<unknown[]> {
-  if (visited.has(array)) return visited.get(array) as unknown[];
-
-  const copy: unknown[] = [];
-  const length = Math.min(array.length, context.limits.maxProperties);
-  copy.length = length;
-  visited.set(array, copy);
-  const itemPromises: Promise<unknown>[] = [];
-  if (array.length > context.limits.maxProperties) {
-    reportLimitOnce(context, "maxProperties");
+  depth: number,
+): Promise<unknown> {
+  if (typeof value !== "object" || value == null) return value;
+  if (isBuiltInObject(value)) return value;
+  if (depth > context.limits.maxDepth) {
+    reportLimitOnce(context, "maxDepth");
+    return redactionTruncatedValue;
   }
-  for (let i = 0; i < length; i++) {
-    if (!(i in array)) {
-      itemPromises.push(Promise.resolve(undefined));
-      continue;
+  const { visited } = context;
+  if (visited.has(value)) return visited.get(value);
+  const transform = (item: unknown): Promise<unknown> =>
+    redactValueAsync(item, options, context, depth + 1);
+  if (Array.isArray(value)) {
+    const length = Math.min(value.length, context.limits.maxProperties);
+    if (length < value.length) reportLimitOnce(context, "maxProperties");
+    const copy: unknown[] = new Array(length);
+    const pending: Promise<void>[] = [];
+    visited.set(value, copy);
+    for (let i = 0; i < length; i++) {
+      if (!(i in value)) continue;
+      pending.push(
+        transform(value[i]).then((member) => {
+          copy[i] = member;
+        }),
+      );
     }
-    const item = array[i];
-    if (Array.isArray(item)) {
-      if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        itemPromises.push(Promise.resolve(redactionTruncatedValue));
-      } else {
-        itemPromises.push(
-          redactArrayAsync(item, options, visited, depth + 1, context),
-        );
-      }
-    } else if (typeof item === "object" && item !== null) {
-      if (isBuiltInObject(item)) {
-        itemPromises.push(Promise.resolve(item));
-      } else if (depth + 1 > context.limits.maxDepth) {
-        reportLimitOnce(context, "maxDepth");
-        itemPromises.push(Promise.resolve(redactionTruncatedValue));
-      } else {
-        itemPromises.push(
-          redactPropertiesAsync(
-            item as Record<string, unknown>,
-            options,
-            visited,
-            depth + 1,
-            context,
-          ),
-        );
-      }
-    } else {
-      itemPromises.push(Promise.resolve(item));
-    }
+    await Promise.all(pending);
+    return copy;
   }
-  const redactedItems = await Promise.all(itemPromises);
-  for (let i = 0; i < redactedItems.length; i++) {
-    if (i in array) copy[i] = redactedItems[i];
-  }
-  return copy;
+  const structured = copyStructuredAsync(
+    value,
+    context,
+    transform,
+    async (key, item) =>
+      shouldFieldRedacted(key, options.fieldPatterns)
+        ? await options.action(item)
+        : await transform(item),
+  );
+  if (structured != null) return structured;
+  return redactPropertiesAsync(
+    value as Record<string, unknown>,
+    options,
+    visited,
+    depth,
+    context,
+  );
 }
 
 /**
  * Checks if a value is a built-in object that should not be recursively
- * processed (e.g., Error, Date, RegExp, Map, Set, etc.).
+ * processed (e.g., Date, RegExp, and weak collections).
  * @param value The value to check.
  * @returns `true` if the value is a built-in object, `false` otherwise.
  */
 function isBuiltInObject(value: object): boolean {
   return (
-    value instanceof Error ||
     value instanceof Date ||
     value instanceof RegExp ||
-    value instanceof Map ||
-    value instanceof Set ||
     value instanceof WeakMap ||
     value instanceof WeakSet ||
     value instanceof Promise ||
@@ -979,6 +904,7 @@ function getRedactedPlaceholderIndices(
  * @param wildcardIndices Set of wildcard placeholder indices.
  * @param redactedProperties The redacted properties object.
  * @param action The redaction action.
+ * @param redactArgument Transforms an argument without a matching field.
  * @returns New message array with redacted values.
  */
 function redactMessageArray(
@@ -988,7 +914,7 @@ function redactMessageArray(
   wildcardIndices: Set<number>,
   redactedProperties: Record<string, unknown>,
   action: "delete" | ((value: unknown) => unknown) | undefined,
-  truncateUnmappedValues = false,
+  redactArgument: (value: unknown) => unknown,
 ): readonly unknown[] {
   const result: unknown[] = [];
   let placeholderIndex = 0;
@@ -1011,14 +937,12 @@ function redactMessageArray(
       } else {
         // For non-redacted placeholders, use value from redactedProperties
         // to ensure nested sensitive fields are redacted
-        const placeholderName = placeholders[placeholderIndex];
+        const placeholderName = placeholders[placeholderIndex] ?? "";
         const redactedValue = getPathValue(redactedProperties, placeholderName);
         if (redactedValue.found) {
           result.push(redactedValue.value);
-        } else if (truncateUnmappedValues) {
-          result.push(redactionTruncatedValue);
         } else {
-          result.push(message[i]);
+          result.push(redactArgument(message[i]));
         }
       }
       placeholderIndex++;
@@ -1034,7 +958,7 @@ async function redactMessageArrayAsync(
   wildcardIndices: Set<number>,
   redactedProperties: Record<string, unknown>,
   action: AsyncFieldRedactionAction,
-  truncateUnmappedValues = false,
+  redactArgument: (value: unknown) => Promise<unknown>,
 ): Promise<readonly unknown[]> {
   const result: unknown[] = [];
   const tasks: Promise<void>[] = [];
@@ -1055,14 +979,18 @@ async function redactMessageArrayAsync(
           }),
         );
       } else {
-        const placeholderName = placeholders[placeholderIndex];
+        const placeholderName = placeholders[placeholderIndex] ?? "";
         const redactedValue = getPathValue(redactedProperties, placeholderName);
         if (redactedValue.found) {
           result.push(redactedValue.value);
-        } else if (truncateUnmappedValues) {
-          result.push(redactionTruncatedValue);
         } else {
-          result.push(message[i]);
+          const index = result.length;
+          result.push(undefined);
+          tasks.push(
+            redactArgument(message[i]).then((redacted) => {
+              result[index] = redacted;
+            }),
+          );
         }
       }
       placeholderIndex++;
@@ -1098,15 +1026,21 @@ function getPathValue(
  * @param original The original properties.
  * @param redacted The redacted properties.
  * @param map The map to populate with original -> redacted value pairs.
+ * @param ancestors Original objects on the current traversal path.
+ * @param maxProperties Maximum fields visited per object.
  */
 function collectRedactedValues(
   original: Record<string, unknown>,
   redacted: Record<string, unknown>,
   map: Map<unknown, unknown>,
+  ancestors: Set<object>,
+  maxProperties: number,
 ): void {
-  for (const key of Object.keys(redacted)) {
+  if (ancestors.has(original)) return;
+  ancestors.add(original);
+  for (const key of Object.keys(original).slice(0, maxProperties)) {
     const origVal = original[key];
-    const redVal = redacted[key];
+    const redVal = Object.hasOwn(redacted, key) ? redacted[key] : undefined;
 
     if (origVal !== redVal) {
       map.set(origVal, redVal);
@@ -1118,15 +1052,19 @@ function collectRedactedValues(
       origVal !== null &&
       typeof redVal === "object" &&
       redVal !== null &&
-      !Array.isArray(origVal)
+      !Array.isArray(origVal) &&
+      Object.getPrototypeOf(redVal) === Object.prototype
     ) {
       collectRedactedValues(
         origVal as Record<string, unknown>,
         redVal as Record<string, unknown>,
         map,
+        ancestors,
+        maxProperties,
       );
     }
   }
+  ancestors.delete(original);
 }
 
 /**
@@ -1138,9 +1076,10 @@ function collectRedactedValues(
 function getRedactedValues(
   original: Record<string, unknown>,
   redacted: Record<string, unknown>,
+  maxProperties: number,
 ): Map<unknown, unknown> {
   const map = new Map<unknown, unknown>();
-  collectRedactedValues(original, redacted, map);
+  collectRedactedValues(original, redacted, map, new Set(), maxProperties);
   return map;
 }
 
@@ -1149,15 +1088,14 @@ function getRedactedValues(
  * Used for tagged template literals where placeholder names are not available.
  * @param message The original message array.
  * @param redactedValues Map of original -> redacted values.
+ * @param redactArgument Transforms an argument without a matching field.
  * @returns New message array with redacted values.
  */
 function redactMessageByValues(
   message: readonly unknown[],
   redactedValues: Map<unknown, unknown>,
-  truncateUnmappedValues = false,
+  redactArgument: (value: unknown) => unknown,
 ): readonly unknown[] {
-  if (redactedValues.size === 0 && !truncateUnmappedValues) return message;
-
   const result: unknown[] = [];
   for (let i = 0; i < message.length; i++) {
     if (i % 2 === 0) {
@@ -1166,10 +1104,8 @@ function redactMessageByValues(
       const val = message[i];
       if (redactedValues.has(val)) {
         result.push(redactedValues.get(val));
-      } else if (truncateUnmappedValues) {
-        result.push(redactionTruncatedValue);
       } else {
-        result.push(val);
+        result.push(redactArgument(val));
       }
     }
   }
