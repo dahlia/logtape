@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { LogRecord, Sink } from "@logtape/logtape";
 import { createSocket } from "node:dgram";
+import { once } from "node:events";
 import { createServer } from "node:net";
+import { hostname } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   DenoTcpSyslogConnection,
@@ -11,6 +13,7 @@ import {
   NodeTcpSyslogConnection,
   NodeUdpSyslogConnection,
   type SyslogFacility,
+  type SyslogSinkOptions,
 } from "./syslog.ts";
 
 type TestSink = Sink & AsyncDisposable & {
@@ -171,6 +174,168 @@ test("getSyslogSink() creates a sink function", () => {
 test("getSyslogSink() creates an AsyncDisposable sink", () => {
   const sink = getSyslogSink();
   assert.strictEqual(typeof sink[Symbol.asyncDispose], "function");
+});
+
+async function receiveSyslogMessage(
+  options: SyslogSinkOptions,
+  record: LogRecord = createMockLogRecord(),
+): Promise<string> {
+  const server = createSocket("udp4");
+  const listening = once(server, "listening");
+  server.bind(0, "127.0.0.1");
+  await listening;
+  try {
+    await using sink = getSyslogSink({
+      ...options,
+      hostname: "127.0.0.1",
+      port: server.address().port,
+    });
+    const [[message]] = await Promise.all([
+      once(server, "message", { signal: AbortSignal.timeout(2000) }),
+      Promise.resolve().then(() => sink(record)),
+    ]);
+    return message.toString();
+  } finally {
+    server.close();
+  }
+}
+
+test("getSyslogSink() validates syslog header tokens", async () => {
+  const maxLengths = [255, 48, 128];
+  const limits = maxLengths.map((length) => "a".repeat(length - 2) + "!~");
+  const cases = [
+    { values: limits, expected: limits },
+    { values: limits.map((value) => value + "a"), expected: ["-", "-", "-"] },
+    ...["", "has space", "has-tab\t", "del\u007f", "café"].map((value) => ({
+      values: [value, value, value],
+      expected: ["-", "-", "-"],
+    })),
+    { values: ["bad host", "my-app", "12"], expected: ["-", "my-app", "12"] },
+  ];
+  for (const { values, expected } of cases) {
+    const message = await receiveSyslogMessage({
+      syslogHostname: values[0],
+      appName: values[1],
+      processId: values[2],
+    });
+    assert.strictEqual(
+      message,
+      `<134>1 2024-01-01T12:00:00.000Z ${expected.join(" ")} - - Test message`,
+      JSON.stringify(values),
+    );
+  }
+});
+
+test("getSyslogSink() preserves nullish header and SD defaults", async () => {
+  const nil = null as unknown as string;
+  const message = await receiveSyslogMessage({
+    syslogHostname: nil,
+    appName: nil,
+    processId: nil,
+    structuredDataId: nil,
+    includeStructuredData: true,
+  }, createMockLogRecord("info", ["Test message"], { user: "test" }));
+  const defaultHostname = hostname();
+  const expectedHostname = defaultHostname.length > 0 &&
+      defaultHostname.length <= 255 &&
+      !/[^!-~]/.test(defaultHostname)
+    ? defaultHostname
+    : "-";
+  const expectedProcessId = typeof Deno === "undefined"
+    ? process.pid
+    : Deno.pid;
+  assert.strictEqual(
+    message,
+    `<134>1 2024-01-01T12:00:00.000Z ${expectedHostname} logtape ${expectedProcessId} - [logtape@32473 user="test"] Test message`,
+  );
+});
+
+test("getSyslogSink() does not coerce non-string tokens", async () => {
+  const invalid = {
+    toString(): never {
+      assert.fail("Unexpected token coercion");
+    },
+  } as unknown as string;
+  const message = await receiveSyslogMessage({
+    syslogHostname: Object("hostname") as unknown as string,
+    appName: invalid,
+    processId: 42 as unknown as string,
+    structuredDataId: invalid,
+    includeStructuredData: true,
+  }, createMockLogRecord("info", ["Test message"], { user: "test" }));
+  assert.strictEqual(
+    message,
+    "<134>1 2024-01-01T12:00:00.000Z - - - - - Test message",
+  );
+});
+
+test("getSyslogSink() validates the structured data ID", async () => {
+  const record = createMockLogRecord("info", ["Test message"], {
+    user: "test",
+  });
+  const base = { appName: "test", syslogHostname: "test", processId: "12" };
+  const prefix = "<134>1 2024-01-01T12:00:00.000Z test test 12 - ";
+  for (const id of ["-", "test\\@32473", "a".repeat(32)]) {
+    const message = await receiveSyslogMessage({
+      ...base,
+      includeStructuredData: true,
+      structuredDataId: id,
+    }, record);
+    assert.strictEqual(message, `${prefix}[${id} user="test"] Test message`);
+  }
+  for (
+    const id of [
+      "",
+      "a".repeat(33),
+      "a ",
+      "a\t",
+      "a\u007f",
+      "é",
+      "a]",
+      'a"',
+      "a=",
+    ]
+  ) {
+    const message = await receiveSyslogMessage({
+      ...base,
+      includeStructuredData: true,
+      structuredDataId: id,
+    }, record);
+    assert.strictEqual(message, `${prefix}- Test message`, JSON.stringify(id));
+  }
+  const empty = await receiveSyslogMessage({
+    ...base,
+    includeStructuredData: true,
+    structuredDataId: "test@32473",
+  });
+  assert.strictEqual(empty, `${prefix}- Test message`);
+});
+
+test("getSyslogSink() does not serialize omitted structured data", async () => {
+  const record = createMockLogRecord("info", ["Test message"], {
+    get user(): never {
+      return assert.fail("Unexpected structured data serialization");
+    },
+  });
+  for (
+    const [includeStructuredData, structuredDataId] of [
+      [false, "test@32473"],
+      [false, "invalid id"],
+      [true, "invalid id"],
+    ] as const
+  ) {
+    const message = await receiveSyslogMessage({
+      appName: "test",
+      syslogHostname: "test",
+      processId: "12",
+      includeStructuredData,
+      structuredDataId,
+    }, record);
+    assert.strictEqual(
+      message,
+      "<134>1 2024-01-01T12:00:00.000Z test test 12 - - Test message",
+    );
+  }
 });
 
 // Deno-specific UDP test
