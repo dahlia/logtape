@@ -190,6 +190,21 @@ const customSink = redactByField(getConsoleSink(), {
 Field redaction is recursive and will redact sensitive fields in nested objects
 and arrays as well.
 
+For structured values, field redaction also checks error properties and string
+keys in maps. It visits values in maps and sets for further named fields, but
+does not scan free-form strings such as error messages. Pattern redaction of
+structured console output instead checks strings in errors, map keys and values,
+and set members.
+
+Structured redaction copies errors without reading their captured stacks. The
+copy retains supported diagnostic fields such as the message and cause, but
+does not have the original stack frames or the native error brand. A field
+replacement callback is not called for the omitted error stack. To include
+stack frames, pass an already obtained stack string separately and apply
+pattern redaction to it. Only obtain the stack where you trust its source
+and formatter. A formatter that already returns text still uses pattern
+redaction on its entire output.
+
 
 Comparing redaction approaches
 ------------------------------
