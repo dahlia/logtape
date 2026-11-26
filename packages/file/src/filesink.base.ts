@@ -13,6 +13,13 @@ function isMetaLoggerRecord(record: LogRecord): boolean {
     record.category[1] === "meta";
 }
 
+function isMissingFile(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = "code" in error ? error.code : undefined;
+  return code === "ENOENT" ||
+    (code === undefined && error.name === "NotFound");
+}
+
 /**
  * Adaptive flush strategy that dynamically adjusts buffer thresholds
  * based on recent flush patterns for optimal performance.
@@ -750,7 +757,7 @@ export function getBaseRotatingFileSink<TFile>(
     // Preserve the initial fallback for a file that may not exist yet.
   }
   let fd: TFile | typeof noFile = options.openSync(path);
-  let backupsShifted = false;
+  let nextBackup = maxFiles - 1;
   let lastFlushTimestamp: number = Date.now();
   let buffer: string = "";
 
@@ -774,33 +781,24 @@ export function getBaseRotatingFileSink<TFile>(
     // Stop owning the old handle even if closing it throws.
     detachFile();
     options.closeSync(file);
-    if (!backupsShifted) {
-      for (let i = maxFiles - 1; i > 0; i--) {
-        const oldPath = `${path}.${i}`;
-        const newPath = `${path}.${i + 1}`;
-        try {
-          options.renameSync(oldPath, newPath);
-        } catch {
-          // Preserve best-effort backup moves.
-        }
+    // Resume at the failed move without shifting any older backups twice.
+    for (; nextBackup > 0; nextBackup--) {
+      try {
+        options.renameSync(
+          `${path}.${nextBackup}`,
+          `${path}.${nextBackup + 1}`,
+        );
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
       }
-      // A retry of the active rename must not age the backups again.
-      backupsShifted = true;
     }
     try {
       options.renameSync(path, `${path}.1`);
     } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      const code = "code" in error ? error.code : undefined;
-      if (
-        code !== "ENOENT" &&
-        !(code === undefined && error.name === "NotFound")
-      ) {
-        throw error;
-      }
+      if (!isMissingFile(error)) throw error;
       // The active file was removed; there is nothing left to rename.
     }
-    backupsShifted = false;
+    nextBackup = maxFiles - 1;
     return reopenFile();
   }
 

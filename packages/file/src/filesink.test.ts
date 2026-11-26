@@ -738,28 +738,46 @@ test("getBaseRotatingFileSink() retries rename without aging backups twice", () 
     makeRecoverableRotatingDriver();
   files.set("memory.log", { text: "first" });
   files.set("memory.log.1", { text: "backup" });
+  files.set("memory.log.2", { text: "older" });
+  const backupError = new Error("Cannot move backup");
   const renameError = Object.assign(new Error("Permission denied"), {
     name: "NotFound",
     code: "EACCES",
   });
-  let failures = 2;
+  let failBackup = true;
+  let failActive = true;
   const sink = getBaseRotatingFileSink("memory.log", {
     ...driver,
     bufferSize: 0,
     maxSize: 6,
     maxFiles: 3,
-    formatter: () => "next",
+    formatter: (record) => String(record.rawMessage),
     renameSync(from, to) {
-      if (from === "memory.log" && failures-- > 0) throw renameError;
+      if (from === "memory.log.1" && failBackup) {
+        failBackup = false;
+        throw backupError;
+      }
+      if (from === "memory.log" && failActive) {
+        failActive = false;
+        throw renameError;
+      }
       driver.renameSync(from, to);
     },
   });
 
-  assert.throws(() => sink(debug), (error) => error === renameError);
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "drop" }),
+    (error) => error === backupError,
+  );
   assert.strictEqual(handles.length, 1, "no reopen in the failed flush");
-  assert.throws(() => sink(debug), (error) => error === renameError);
+  assert.strictEqual(files.get("memory.log.1")?.text, "backup");
+  assert.strictEqual(files.get("memory.log.3")?.text, "older");
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "skip" }),
+    (error) => error === renameError,
+  );
   assert.strictEqual(handles.length, 2, "no reopen in the failed retry");
-  sink(info);
+  sink({ ...info, rawMessage: "next" });
   assert.deepStrictEqual(renames, [
     "memory.log.2",
     "memory.log.1",
@@ -768,6 +786,7 @@ test("getBaseRotatingFileSink() retries rename without aging backups twice", () 
   assert.strictEqual(files.get("memory.log")?.text, "next");
   assert.strictEqual(files.get("memory.log.1")?.text, "first");
   assert.strictEqual(files.get("memory.log.2")?.text, "backup");
+  assert.strictEqual(files.get("memory.log.3")?.text, "older");
   sink[Symbol.dispose]();
   sink(info);
   sink[Symbol.dispose]();
