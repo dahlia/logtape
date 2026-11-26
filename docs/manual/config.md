@@ -652,8 +652,38 @@ configureSync({
 For server-side logging, use the standard [`instrumentation.js`] file with
 the `register()` function.
 
+With [Cache Components] enabled, Next.js can stop prerendering when LogTape
+calls `Date.now()` to create a log record. If you log during prerendering, set
+`timestamp` in your server configuration to use the
+[clock Next.js recommends for telemetry]. Make sure the configuration runs
+before the first log call, including during `next build`. The module below
+configures LogTape and exports a logger. Import the logger from the server
+components that use it:
+
+~~~~ typescript twoslash [lib/logging.ts]
+import { configureSync, getConsoleSink, getLogger } from "@logtape/logtape";
+
+configureSync({
+  timestamp: () => Math.floor(performance.timeOrigin + performance.now()),
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: "my-app", lowestLevel: "info", sinks: ["console"] },
+  ],
+});
+
+export const logger = getLogger("my-app");
+~~~~
+
+Both `configure()` and `configureSync()` accept `timestamp`, a synchronous
+callback that returns milliseconds since the Unix epoch. If omitted, LogTape
+calls `Date.now()`. The example uses the same clock for prerendering and for
+ordinary server requests. Its timestamps do not reflect later adjustments to
+the system clock. The option does not change timers used internally by sinks.
+
 [`instrumentation-client.js`]: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
 [`instrumentation.js`]: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
+[Cache Components]: https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheComponents
+[clock Next.js recommends for telemetry]: https://nextjs.org/docs/messages/blocking-prerender-current-time#for-telemetry-use-a-timing-api
 
 ### Common mistakes to avoid
 

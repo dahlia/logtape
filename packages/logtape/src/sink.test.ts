@@ -1107,11 +1107,15 @@ test("fromAsyncSink() - empty async sink", async () => {
 });
 
 test("fromAsyncSink() - errors are logged to meta logger", async () => {
+  const rootLogger = LoggerImpl.getLogger();
+  const originalTimestamp = rootLogger.timestamp;
+  const timestamp = 1_700_000_000_000;
   const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
   const metaBuffer: LogRecord[] = [];
   metaLogger.sinks.push(metaBuffer.push.bind(metaBuffer));
   const originalLowestLevel = metaLogger.lowestLevel;
   metaLogger.lowestLevel = "error";
+  rootLogger.timestamp = () => timestamp;
 
   try {
     const asyncSink: AsyncSink = async (_record) => {
@@ -1130,6 +1134,7 @@ test("fromAsyncSink() - errors are logged to meta logger", async () => {
     const metaRecord = metaBuffer[0];
     assert.deepStrictEqual(metaRecord.category, ["logtape", "meta"]);
     assert.strictEqual(metaRecord.level, "error");
+    assert.strictEqual(metaRecord.timestamp, timestamp);
     const errorProp = metaRecord.properties.error as Error;
     assert.strictEqual(errorProp.message, "Async sink error");
     assert.strictEqual(metaRecord.properties.sink, asyncSink);
@@ -1137,6 +1142,7 @@ test("fromAsyncSink() - errors are logged to meta logger", async () => {
   } finally {
     metaLogger.sinks.pop();
     metaLogger.lowestLevel = originalLowestLevel;
+    rootLogger.timestamp = originalTimestamp;
   }
 });
 

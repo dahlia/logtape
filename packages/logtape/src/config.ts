@@ -42,6 +42,13 @@ export interface Config<TSinkId extends string, TFilterId extends string> {
   contextLocalStorage?: ContextLocalStorage<Record<string, unknown>>;
 
   /**
+   * A synchronous function that returns the timestamp for a new log record
+   * in milliseconds since the Unix epoch.  Defaults to calling `Date.now()`.
+   * @since 2.5.0
+   */
+  timestamp?: () => number;
+
+  /**
    * Whether to reset the configuration before applying this one.
    */
   reset?: boolean;
@@ -623,6 +630,10 @@ function configureInternal<TSinkId extends string, TFilterId extends string>(
   config: Config<TSinkId, TFilterId>,
   allowAsync: boolean,
 ): void {
+  const timestamp = config.timestamp;
+  if (timestamp !== undefined && typeof timestamp !== "function") {
+    throw new ConfigError("The timestamp option must be a function.");
+  }
   currentConfig = config;
   getInspectionState().configured = true;
 
@@ -684,7 +695,9 @@ function configureInternal<TSinkId extends string, TFilterId extends string>(
     strongRefs.add(logger);
   }
 
-  LoggerImpl.getLogger().contextLocalStorage = config.contextLocalStorage;
+  const rootLogger = LoggerImpl.getLogger();
+  rootLogger.contextLocalStorage = config.contextLocalStorage;
+  rootLogger.timestamp = timestamp;
   getSourceLocationRoot().setGlobalSourceLocationCapture?.(
     capturesSourceLocation,
   );
@@ -775,6 +788,7 @@ function resetInternal(): void {
   rootLogger.resetDescendants();
   getSourceLocationRoot().setGlobalSourceLocationCapture?.(false);
   delete rootLogger.contextLocalStorage;
+  delete rootLogger.timestamp;
   strongRefs.clear();
   installedSinks.clear();
   const inspectionState = getInspectionState();

@@ -8,7 +8,7 @@ import {
   type TextFormatter,
 } from "./formatter.ts";
 import { compareLogLevel, type LogLevel } from "./level.ts";
-import { LoggerImpl } from "./logger.ts";
+import { getRecordTimestamp, LoggerImpl } from "./logger.ts";
 import type { LogRecord } from "./record.ts";
 
 const immediateSinkSymbol = Symbol.for("LogTape.sinkSnapshotPolicy.immediate");
@@ -989,7 +989,7 @@ export function fromAsyncSink(
       const errorRecord = {
         category: ["logtape", "meta"],
         level: "error",
-        timestamp: Date.now(),
+        timestamp: getRecordTimestamp(),
         rawMessage,
         message,
         properties,
