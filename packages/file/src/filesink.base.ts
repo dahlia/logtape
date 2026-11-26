@@ -14,6 +14,13 @@ function isMetaLoggerRecord(record: LogRecord): boolean {
     record.category[1] === "meta";
 }
 
+function isMissingFile(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = "code" in error ? error.code : undefined;
+  return code === "ENOENT" ||
+    (code === undefined && error.name === "NotFound");
+}
+
 /**
  * Adaptive flush strategy that dynamically adjusts buffer thresholds
  * based on recent flush patterns for optimal performance.
@@ -746,12 +753,6 @@ export interface AsyncRotatingFileSinkDriver<TFile>
   unlinkSync?(path: string): void;
 }
 
-function isFileNotFoundError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const errorWithCode = error as Error & { code?: unknown };
-  return errorWithCode.code === "ENOENT" || error.name === "NotFound";
-}
-
 /**
  * Get a platform-independent rotating file sink.
  *
@@ -791,7 +792,8 @@ export function getBaseRotatingFileSink<TFile>(
   }
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
   const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
-  if (maxFiles <= 0 && options.unlinkSync == null) {
+  const unlink = options.unlinkSync;
+  if (maxFiles <= 0 && unlink == null) {
     throw new TypeError("maxFiles <= 0 requires unlinkSync support.");
   }
   // Finish all user callback calls before acquiring a file handle.
@@ -812,58 +814,94 @@ export function getBaseRotatingFileSink<TFile>(
     }
     return { backupTuples, activeDestination: getPath(1) };
   })();
-  let offset: number = 0;
+  const noFile = Symbol();
+  let offset = 0;
+  let needsSize = false;
   try {
-    const stat = options.statSync(path);
-    offset = stat.size;
+    offset = options.statSync(path).size;
   } catch {
-    // Continue as the offset is already 0.
+    // Preserve the initial fallback for a file that may not exist yet.
   }
-  let fd = options.openSync(path);
+  let fd: TFile | typeof noFile = options.openSync(path);
+  let nextBackup = 0;
   let lastFlushTimestamp: number = Date.now();
   let buffer: string = "";
 
-  function shouldRollover(bytes: Uint8Array): boolean {
-    return offset + bytes.length > maxSize;
+  function detachFile(): TFile | typeof noFile {
+    const file = fd;
+    fd = noFile;
+    return file;
   }
-  function performRollover(): void {
-    if (rotation == null) {
-      const unlinkSync = options.unlinkSync;
-      if (unlinkSync == null) return;
 
-      options.closeSync(fd);
-      try {
-        unlinkSync(path);
-      } catch (error) {
-        if (!isFileNotFoundError(error)) {
+  function reopenFile(): TFile {
+    needsSize = true;
+    return fd = options.openSync(path);
+  }
+
+  function refreshSize(): void {
+    try {
+      offset = options.statSync(path).size;
+    } catch (error) {
+      if (isMissingFile(error)) {
+        const file = detachFile();
+        if (file !== noFile) {
           try {
-            offset = options.statSync(path).size;
+            options.closeSync(file);
           } catch {
-            offset = 0;
+            // Keep the size-check error if closing also failed.
           }
-          fd = options.openSync(path);
-          throw error;
         }
       }
-      offset = 0;
-      fd = options.openSync(path);
-      return;
+      throw error;
     }
-
-    options.closeSync(fd);
-
-    for (const [oldPath, newPath] of rotation.backupTuples) {
-      try {
-        options.renameSync(oldPath, newPath);
-      } catch (_) {
-        // Continue if the file does not exist.
-      }
-    }
-    options.renameSync(path, rotation.activeDestination);
-    offset = 0;
-    fd = options.openSync(path);
+    needsSize = false;
   }
 
+  function performRollover(file: TFile): TFile {
+    // Stop owning the old handle even if closing it throws.
+    detachFile();
+    options.closeSync(file);
+    if (rotation == null) {
+      try {
+        // The no-backup mode requires unlink support at initialization.
+        unlink!.call(options, path);
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
+      }
+      return reopenFile();
+    }
+    // Resume at the failed move without shifting any older backups twice.
+    for (; nextBackup < rotation.backupTuples.length; nextBackup++) {
+      const [oldPath, newPath] = rotation.backupTuples[nextBackup];
+      try {
+        options.renameSync(oldPath, newPath);
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
+      }
+    }
+    try {
+      options.renameSync(path, rotation.activeDestination);
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+      // The active file was removed; there is nothing left to rename.
+    }
+    nextBackup = 0;
+    return reopenFile();
+  }
+
+  function fileForWrite(bytes: Uint8Array): TFile {
+    let file = fd === noFile ? reopenFile() : fd;
+    const recovering = needsSize;
+    if (needsSize) refreshSize();
+    // Do not immediately rotate an empty file opened during error recovery.
+    if ((!recovering || offset !== 0) && offset + bytes.length > maxSize) {
+      file = performRollover(file);
+      refreshSize();
+    }
+    return file;
+  }
+
+  let disposed = false;
   if (!options.nonBlocking) {
     // Blocking mode implementation
     // deno-lint-ignore no-inner-declarations
@@ -871,16 +909,19 @@ export function getBaseRotatingFileSink<TFile>(
       if (buffer.length > 0) {
         const bytes = encoder.encode(buffer);
         buffer = "";
-        if (shouldRollover(bytes)) performRollover();
-        options.writeSync(fd, bytes);
-        options.flushSync(fd);
+        const file = fileForWrite(bytes);
+        options.writeSync(file, bytes);
+        options.flushSync(file);
         offset += bytes.length;
         lastFlushTimestamp = Date.now();
       }
     }
 
     const sink: Sink & Disposable = (record: LogRecord) => {
-      buffer += formatter(record);
+      if (disposed) return;
+      const formatted = formatter(record);
+      if (disposed) return;
+      buffer += formatted;
 
       const shouldFlushBySize = buffer.length >= bufferSize;
       const shouldFlushByTime = flushInterval > 0 &&
@@ -891,15 +932,30 @@ export function getBaseRotatingFileSink<TFile>(
       }
     };
     sink[disposeSymbol] = () => {
-      flushBuffer();
-      options.closeSync(fd);
+      if (disposed) return;
+      disposed = true;
+      let failure: { error: unknown } | undefined;
+      try {
+        flushBuffer();
+      } catch (error) {
+        failure = { error };
+      }
+      const file = detachFile();
+      if (file !== noFile) {
+        try {
+          options.closeSync(file);
+        } catch (error) {
+          // Keep the original flush error if closing also failed.
+          failure ??= { error };
+        }
+      }
+      if (failure != null) throw failure.error;
     };
     return markSinkAsImmediate(sink);
   }
 
   // Non-blocking mode implementation
   const asyncOptions = options as AsyncRotatingFileSinkDriver<TFile>;
-  let disposed = false;
   let activeFlush: Promise<void> | null = null;
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let bufferedNonMetaRecord = false;
@@ -924,13 +980,17 @@ export function getBaseRotatingFileSink<TFile>(
     bufferedNonMetaRecord = false;
     try {
       const bytes = encoder.encode(data);
-      if (shouldRollover(bytes)) performRollover();
-      asyncOptions.writeSync(fd, bytes);
-      await asyncOptions.flush(fd);
+      const file = fileForWrite(bytes);
+      asyncOptions.writeSync(file, bytes);
+      await asyncOptions.flush(file);
       offset += bytes.length;
       lastFlushTimestamp = Date.now();
     } catch (error) {
-      if (!suppressErrorReport) reportFlushError(error);
+      if (!suppressErrorReport) {
+        // Publish activeFlush before a warning can start a nested flush.
+        await Promise.resolve();
+        reportFlushError(error);
+      }
     }
   }
 
@@ -967,20 +1027,28 @@ export function getBaseRotatingFileSink<TFile>(
     }
   };
 
-  nonBlockingSink[asyncDisposeSymbol] = async () => {
+  let disposal: Promise<void> | undefined;
+  nonBlockingSink[asyncDisposeSymbol] = () => {
+    if (disposal != null) return disposal;
     disposed = true;
-    if (flushTimer !== null) {
-      clearInterval(flushTimer);
-      flushTimer = null;
-    }
+    if (flushTimer !== null) clearInterval(flushTimer);
+    flushTimer = null;
+    // Publish the shared promise before calling the driver in the final drain.
+    disposal = Promise.resolve().then(disposeFile);
+    return disposal;
+  };
+
+  async function disposeFile(): Promise<void> {
     if (activeFlush !== null) await activeFlush;
     await flushBuffer();
+    const file = detachFile();
+    if (file === noFile) return;
     try {
-      await asyncOptions.close(fd);
+      await asyncOptions.close(file);
     } catch {
       // Writer might already be closed or errored
     }
-  };
+  }
 
   return markSinkAsImmediate(nonBlockingSink);
 }

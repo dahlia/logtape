@@ -390,6 +390,21 @@ mise run hooks:install
 This generates the hook scripts in *.git/hooks/* using
 `mise generate git-pre-commit`.
 
+In a new checkout, `mise install` also registers Sacho's local merge driver
+and installs the Git hooks.  pnpm links the Sacho skill into *.agents/skills/*.
+
+Before merging a patch release tag into a branch that already uses Sacho, run
+`sacho init --no-interactive` on the receiving branch.  The merge driver
+imports the frozen release section.  Follow the `release` skill to verify
+that *changes.d/next.txt* still holds the receiving branch's next version
+before committing the merge.  For a branch without Sacho, follow that
+branch's release workflow and merge its changelog manually.
+
+The `release` skill refers to LogTape's [AI usage policy], which is available
+on `main`.
+
+[AI usage policy]: https://github.com/dahlia/logtape/blob/main/AI_POLICY.md
+
 ### CI/CD
 
 The project uses GitHub Actions with [jdx/mise-action] to manage all tool

@@ -7,7 +7,7 @@ experimental = true
 bun = "1"
 node = "24.14.0"
 deno = "2"
-pnpm = "10.33.1"
+pnpm = "12.23.0"
 "aqua:dahlia/hongdown" = "0.5.3"
 "aqua:nushell/nushell" = "0.114.0"
 "github:dahlia/sacho" = "0.3.2"
@@ -84,12 +84,17 @@ run = "deno task publish"
 [tasks.bump-version]
 description = "Bump the version of all packages in the monorepo"
 usage = """
-arg "<version>" help="New version (e.g., 1.2.3, major, minor, patch)"
+arg "<version>" help="Explicit semantic version (e.g., 1.2.3)"
 """
 shell = "nu -c"
 run = """
-sacho next $env.usage_version
-mise run update-versions $env.usage_version
+let version = $env.usage_version
+let validation = (deno eval --quiet 'import { format, parse } from "@std/semver"; if (format(parse(Deno.args[0])) !== Deno.args[0]) Deno.exit(1);' $version | complete)
+if $validation.exit_code != 0 {
+  error make {msg: $"Expected an explicit semantic version, e.g. 1.2.3; got ($version)."}
+}
+sacho next $version
+mise run update-versions $version
 mise run fmt
 """
 
@@ -97,19 +102,22 @@ mise run fmt
 description = "Install git hooks"
 shell = "nu -c"
 run = """
+let hooks_dir = (git rev-parse --git-path hooks | str trim)
 mise generate git-pre-commit --write --task=hooks:pre-commit
 mise generate git-pre-commit --write --task=hooks:pre-push --hook=pre-push
 '#!/bin/sh
-sacho hook-commit-msg "$1"' | save --force .git/hooks/commit-msg
+if test -f sacho.toml; then
+  exec mise exec -- sacho hook-commit-msg "$1"
+fi' | save --force ($hooks_dir | path join commit-msg)
 '#!/bin/sh
-if test "$1" = prepared; then
+if test "$1" = prepared && test -f sacho.toml; then
   sacho_state=$(git rev-parse --git-path sacho-commit-state) || exit $?
   if test -f "$sacho_state"; then
-    sacho hook-reference-transaction "$1"
+    exec mise exec -- sacho hook-reference-transaction "$1"
   fi
-fi' | save --force .git/hooks/reference-transaction
+fi' | save --force ($hooks_dir | path join reference-transaction)
 if $nu.os-info.name != 'windows' {
-  chmod +x .git/hooks/commit-msg .git/hooks/reference-transaction
+  chmod +x ($hooks_dir | path join commit-msg) ($hooks_dir | path join reference-transaction)
 }
 """
 
