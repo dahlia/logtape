@@ -103,12 +103,14 @@ let hooks_dir = (git rev-parse --git-path hooks | str trim)
 mise generate git-pre-commit --write --task=hooks:pre-commit
 mise generate git-pre-commit --write --task=hooks:pre-push --hook=pre-push
 '#!/bin/sh
-sacho hook-commit-msg "$1"' | save --force ($hooks_dir | path join commit-msg)
+if test -f sacho.toml; then
+  exec mise exec -- sacho hook-commit-msg "$1"
+fi' | save --force ($hooks_dir | path join commit-msg)
 '#!/bin/sh
-if test "$1" = prepared; then
+if test "$1" = prepared && test -f sacho.toml; then
   sacho_state=$(git rev-parse --git-path sacho-commit-state) || exit $?
   if test -f "$sacho_state"; then
-    sacho hook-reference-transaction "$1"
+    exec mise exec -- sacho hook-reference-transaction "$1"
   fi
 fi' | save --force ($hooks_dir | path join reference-transaction)
 if $nu.os-info.name != 'windows' {
