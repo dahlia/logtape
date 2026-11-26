@@ -211,8 +211,12 @@ await configure({
 ~~~~
 
 The sink automatically detects when the Logs API is available (SDK 9.41.0+)
-and uses it for structured logging. When unavailable, logs are sent as events
-and breadcrumbs only.
+and uses it for structured logging. Without the Logs API, the sink can still
+send error events and add breadcrumbs according to their own settings.
+
+To keep `error` and `fatal` records in Sentry Logs without sending them to
+Sentry Issues, set `events: false` in `getSentrySink()`. See
+[Event capture](#event-capture) for the options and their effect on routing.
 
 Whether the Logs API actually captures logs is up to the Sentry SDK.  Sentry
 SDK 9.41.0 through 10.x capture them only when `enableLogs: true` is passed to
@@ -288,7 +292,8 @@ await configure({
 
 In this configuration, `trace`, `debug`, and `info` records become breadcrumbs.
 `warning`, `error`, and `fatal` records are sent through Sentry's Logs API.
-Error-level records still create Sentry issues as described below.
+By default, `error` and `fatal` records also go to Sentry Issues. The `events`
+option controls that output independently.
 
 
 Filtering and transformation
@@ -342,7 +347,8 @@ Event capture
 
 *This feature is available since LogTape 1.3.0.*
 
-All `error` and `fatal` level logs create Sentry Issues. If the log contains
+By default, the sink sends `error` and `fatal` logs as error events to Sentry
+Issues. If the log contains
 an `Error` instance in its `error` property or Pino-style `err` property,
 `captureException` is used for better stack traces. Otherwise,
 `captureMessage` is used:
@@ -353,20 +359,40 @@ import { getLogger } from "@logtape/logtape";
 
 const logger = getLogger(["my-app"]);
 
-// Creates Issue with stack trace (uses captureException)
+// Sends an exception event with a stack trace (uses captureException)
 logger.error("Database connection failed", { error: new Error("timeout") });
 logger.error("Job failed", { err: new Error("timeout") });
 
-// Creates Issue without stack trace (uses captureMessage)
+// Sends a message event (uses captureMessage)
 logger.error("User not found: {userId}", { userId: 123 });
 
-// Does NOT create Issue - goes to structured logs and/or breadcrumbs only
+// Does not send an error event (goes to structured logs and/or breadcrumbs)
 logger.info("Request received", { path: "/api/users" });
 ~~~~
 
+*The `events` option is available since LogTape 2.5.0.*
+
+Set `events: false` to turn off both kinds of error event. To turn off only
+exception events, set `events: { exceptions: false }`:
+
+~~~~ typescript
+// Keep Sentry Logs, but do not send any error events from this sink.
+getSentrySink({ events: false });
+
+// Keep message events, but do not send exception events from this sink.
+getSentrySink({ events: { exceptions: false } });
+~~~~
+
+The second setting skips records that would have gone to `captureException()`;
+it does not send them through `captureMessage()` instead. Neither setting
+changes Logs routing, adds breadcrumbs for suppressed error events, or affects
+errors captured outside this sink. If the Logs API is unavailable, the SDK is
+not configured to capture logs, or `logs.level` excludes a record, a record
+whose error event is suppressed will not be sent to Sentry by this sink.
+
 You can customize which property names are checked for an `Error` instance with
 the `errorPropertyNames` option. Names are checked in order, and the first
-matching `Error` is sent to `captureException`:
+matching `Error` determines whether the record takes the exception path:
 
 ~~~~ typescript twoslash
 // @noErrors: 2305 2307

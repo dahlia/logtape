@@ -109,6 +109,22 @@ export interface SentryBreadcrumbOptions {
   maxLevel?: LogLevel;
 }
 
+/**
+ * Options for error events sent from the sink to Sentry Issues.
+ *
+ * @since 2.5.0
+ */
+export interface SentryEventOptions {
+  /**
+   * Whether to send records with a matching `Error` through
+   * `captureException()`. When `false`, those records are not sent as
+   * message events instead. See {@link SentrySinkOptions.errorPropertyNames}.
+   *
+   * @default `true`
+   */
+  exceptions?: boolean;
+}
+
 type CaptureLog = (
   level: LogSeverityLevel,
   message: ParameterizedString,
@@ -321,12 +337,29 @@ export interface SentrySinkOptions {
   logs?: SentryLogsOptions;
 
   /**
+   * Controls error events sent by this sink through `captureException()` and
+   * `captureMessage()`. Set to `false` to disable both, or pass an options
+   * object to control exception capture. This does not affect Sentry Logs,
+   * breadcrumbs, or error events captured outside this sink.
+   *
+   * The options object must be a plain object. Invalid values and unknown
+   * own enumerable string keys cause {@link getSentrySink} to throw a
+   * `TypeError` at creation.
+   *
+   * @default `true`
+   * @since 2.5.0
+   */
+  events?: boolean | SentryEventOptions;
+
+  /**
    * Property names to inspect for an `Error` instance when deciding whether
    * error-level records should be sent through Sentry's `captureException()`.
    *
    * Names are checked in order, and the first property containing an `Error`
    * instance is used as the captured exception.  Set this to a custom list when
    * your application or logger stores the primary exception under another name.
+   * When `events.exceptions` is `false`, a match suppresses the error event
+   * instead of sending it through `captureException()`.
    *
    * @default `["error", "err"]`
    * @since 2.3.0
@@ -466,6 +499,8 @@ export function getSentrySink(
     );
   }
 
+  const events = options.events;
+  const captureExceptions = shouldCaptureExceptions(events);
   const sentry = options.sentry ?? SentryCore;
   const captureLog = getCaptureLog(sentry);
 
@@ -544,27 +579,27 @@ export function getSentrySink(
 
       // Capture as Sentry event (Issue) based on level and error presence
       // Use compareLogLevel() to handle future severity level additions
-      const isErrorLevel = compareLogLevel(transformed.level, "error") >= 0;
-      const errorProperty = getErrorProperty(
-        transformed.properties,
-        options.errorPropertyNames ?? defaultErrorPropertyNames,
-      );
-
-      if (isErrorLevel && errorProperty != null) {
-        // Error instance at error/fatal level -> captureException for stack trace
-        const [property, error] = errorProperty;
-        const rest = { ...attributes };
-        delete rest[property];
-        captureException(error, {
-          level: eventLevel,
-          extra: { message, ...rest },
-        });
-      } else if (isErrorLevel) {
-        // Error/fatal level without Error instance -> captureMessage as Issue
-        captureMessage(paramMessage, {
-          level: eventLevel,
-          extra: attributes,
-        });
+      if (compareLogLevel(transformed.level, "error") >= 0) {
+        if (events === false) return;
+        const errorProperty = getErrorProperty(
+          transformed.properties,
+          options.errorPropertyNames ?? defaultErrorPropertyNames,
+        );
+        if (errorProperty != null) {
+          if (!captureExceptions) return;
+          const [property, error] = errorProperty;
+          const rest = { ...attributes };
+          delete rest[property];
+          captureException(error, {
+            level: eventLevel,
+            extra: { message, ...rest },
+          });
+        } else {
+          captureMessage(paramMessage, {
+            level: eventLevel,
+            extra: attributes,
+          });
+        }
       } else if (shouldAddBreadcrumb(transformed, options)) {
         // Non-error levels -> breadcrumbs only (if enabled)
         const isolationScope = sentry.getIsolationScope();
@@ -583,6 +618,46 @@ export function getSentrySink(
       );
     }
   };
+}
+
+function shouldCaptureExceptions(events: unknown): boolean {
+  if (events === undefined) return true;
+  if (typeof events === "boolean") return events;
+  if (
+    isPlainEventOptions(events) &&
+    Object.keys(events).every((key) => key === "exceptions")
+  ) {
+    const { exceptions } = Object.hasOwn(events, "exceptions") ? events : {};
+    if (exceptions === undefined || typeof exceptions === "boolean") {
+      return exceptions !== false;
+    }
+  }
+  throw new TypeError(
+    "[@logtape/sentry] Invalid events option: expected a boolean or " +
+      "an object with only an optional boolean exceptions property.",
+  );
+}
+
+function isPlainEventOptions(value: unknown): value is Record<string, unknown> {
+  if (value == null || typeof value !== "object") return false;
+  const prototype: object | null = Object.getPrototypeOf(value);
+  if (prototype !== null && prototype !== Object.prototype) {
+    // Accept plain objects from other realms, but not custom prototypes.
+    const constructor: unknown = Object.getOwnPropertyDescriptor(
+      prototype,
+      "constructor",
+    )?.value;
+    if (
+      Object.getPrototypeOf(prototype) !== null ||
+      typeof constructor !== "function" ||
+      constructor.prototype !== prototype ||
+      Function.prototype.toString.call(constructor) !==
+        Function.prototype.toString.call(Object)
+    ) {
+      return false;
+    }
+  }
+  return Object.prototype.toString.call(value) === "[object Object]";
 }
 
 function shouldSendToLogs(
