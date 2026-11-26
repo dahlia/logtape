@@ -87,6 +87,12 @@ overrides:
 
 importers:
 
+  .agents:
+    devDependencies:
+      '@dahlia/sacho':
+        specifier: github:dahlia/sacho#0.3.2
+        version: https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c
+
   benchmarks:
     dependencies:
       '@graphql-hive/logger':
@@ -989,6 +995,10 @@ packages:
 
   '@dabh/diagnostics@2.0.3':
     resolution: {integrity: sha512-hrlQOIi7hAfzsMqlGSFyVucrx38O+j6wiGOf//H2ecvIEqYN4ADBSS2iLMh5UFyDunCNniUIPk/q3riFv45xRA==}
+
+  '@dahlia/sacho@https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c':
+    resolution: {gitHosted: true, integrity: sha512-ADLBhiFs/R18uDVRCZtsyZqhgXkZgvVp1eOX1LVsiOLHasvFh/6QpO6WQoeJmMd0ZZZMUeXIcJgbY2XXioX6Rw==, tarball: https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c}
+    version: 0.0.0
 
   '@deno/shim-deno-test@0.5.0':
     resolution: {integrity: sha512-4nMhecpGlPi0cSzT67L+Tm+GOJqvuk8gqHBziqcUQOarnuIax1z96/gJHCSIz2Z0zhxE6Rzwb3IZXPtFh51j+w==}
@@ -4871,6 +4881,8 @@ snapshots:
       colorspace: 1.1.4
       enabled: 2.0.0
       kuler: 2.0.0
+
+  '@dahlia/sacho@https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c': {}
 
   '@deno/shim-deno-test@0.5.0': {}
 

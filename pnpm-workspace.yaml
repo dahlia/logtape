@@ -20,6 +20,15 @@ packages:
 - packages/windows-eventlog
 - docs
 - benchmarks
+- .agents
+
+skills:
+  dirs:
+    - .agents/skills
+
+permissions:
+  "@dahlia/sacho@https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c":
+    skills: [sacho]
 
 allowBuilds:
   '@biomejs/biome': true
