@@ -3,6 +3,7 @@ import type {
   LogRecord,
   TextFormatter,
 } from "@logtape/logtape";
+import { copyStructured, defineField } from "./structured.ts";
 
 /**
  * A redaction pattern, which is a pair of regular expression and replacement
@@ -222,11 +223,8 @@ export type RedactionPatterns = readonly RedactionPattern[];
  * @returns `true` if the value is a built-in object, `false` otherwise.
  */
 function isBuiltInObject(value: object): boolean {
-  return value instanceof Error ||
-    value instanceof Date ||
+  return value instanceof Date ||
     value instanceof RegExp ||
-    value instanceof Map ||
-    value instanceof Set ||
     value instanceof WeakMap ||
     value instanceof WeakSet ||
     value instanceof Promise ||
@@ -354,6 +352,14 @@ export function redactByPattern(
       return copy;
     }
     if (typeof object === "object" && object !== null) {
+      const structured = copyStructured(
+        object,
+        visited,
+        (value) => replaceObject(value, visited),
+        (_key, value) => replaceObject(value, visited),
+        true,
+      );
+      if (structured != null) return structured;
       if (isBuiltInObject(object)) {
         return object;
       }
@@ -361,9 +367,10 @@ export function redactByPattern(
       visited.set(object, redacted);
       for (const key in object) {
         if (Object.prototype.hasOwnProperty.call(object, key)) {
-          redacted[key] = replaceObject(
-            (object as Record<string, unknown>)[key],
-            visited,
+          defineField(
+            redacted,
+            key,
+            replaceObject((object as Record<string, unknown>)[key], visited),
           );
         }
       }
@@ -375,6 +382,13 @@ export function redactByPattern(
   return (record: LogRecord) => {
     const output = formatter(record);
     if (typeof output === "string") return replaceString(output);
-    return output.map((obj) => replaceObject(obj, new Map()));
+    const visited = new Map<object, object>();
+    return output.map((obj) => {
+      try {
+        return replaceObject(obj, visited);
+      } catch {
+        return "[Redaction failed]";
+      }
+    });
   };
 }

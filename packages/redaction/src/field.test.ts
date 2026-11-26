@@ -8,6 +8,70 @@ import {
   shouldFieldRedacted,
 } from "./field.ts";
 
+test("redactByField() sanitizes structured diagnostics and arguments", () => {
+  const error = Object.assign(
+    new AggregateError([new Error("retry pending")], "request failed"),
+    { token: "fixture", status: 503 },
+  );
+  const details = new Map<string, unknown>([
+    ["token", "fixture"],
+    ["items", new Set([error])],
+  ]);
+  const cycle: unknown[] = [details];
+  cycle.push(cycle);
+  const records: LogRecord[] = [];
+  const sink = redactByField((record) => records.push(record), ["token"]);
+  const tagged = (template: TemplateStringsArray, _value: unknown) => template;
+  sink({
+    category: ["test"],
+    level: "error",
+    timestamp: 0,
+    rawMessage: tagged`details: ${cycle}`,
+    message: ["details: ", cycle, ""],
+    properties: { error },
+  });
+
+  const record = records[0];
+  const output = record.message[1] as unknown[];
+  assert.strictEqual(output[1], output);
+  const map = output[0] as Map<string, unknown>;
+  assert.ok(!map.has("token"));
+  const [copy] = map.get("items") as Set<AggregateError & { status: number }>;
+  assert.strictEqual(copy, record.properties.error);
+  assert.ok(copy instanceof AggregateError);
+  assert.ok(!Object.hasOwn(copy, "token"));
+  assert.strictEqual(copy.status, 503);
+  assert.strictEqual(copy.message, "request failed");
+  assert.strictEqual(copy.errors[0].message, "retry pending");
+  assert.strictEqual(error.token, "fixture");
+});
+
+test("redactProperties() does not read captured error stacks", () => {
+  let reads = 0;
+  let calls = 0;
+  const error = new Error("request failed");
+  Object.defineProperty(error, "stack", {
+    get: () => {
+      reads++;
+      return "source frame";
+    },
+    enumerable: true,
+  });
+  const result = redactProperties({ error, stack: "explicit source frame" }, {
+    fieldPatterns: ["stack"],
+    action(value) {
+      calls++;
+      assert.strictEqual(value, "explicit source frame");
+      return "masked";
+    },
+  });
+  assert.strictEqual(reads, 0);
+  assert.strictEqual(calls, 1);
+  assert.strictEqual(result.stack, "masked");
+  assert.strictEqual((result.error as Error).message, "request failed");
+  assert.ok(!Object.hasOwn(result.error as Error, "stack"));
+});
+
 test("shouldFieldRedacted()", () => {
   { // matches string pattern
     const fieldPatterns: FieldPatterns = ["password", "secret"];
@@ -252,7 +316,7 @@ test("redactProperties()", () => {
     assert.strictEqual(redactedUser.password, "REDACTED");
   }
 
-  { // preserves Error objects without modification
+  { // preserves useful Error diagnostics in a copy
     const err = new Error("test error");
     const properties = {
       err,
@@ -266,7 +330,7 @@ test("redactProperties()", () => {
 
     assert.ok(result.err instanceof Error);
     assert.strictEqual((result.err as Error).message, "test error");
-    assert.ok(result.err === err, "Error should be the same instance");
+    assert.notStrictEqual(result.err, err);
     assert.strictEqual(
       (result.data as { password: string }).password,
       "[REDACTED]",
@@ -324,7 +388,7 @@ test("redactProperties()", () => {
 
     const items = result.items as unknown[];
     assert.ok(items[0] instanceof Error);
-    assert.ok(items[0] === err, "Error in array should be same instance");
+    assert.notStrictEqual(items[0], err);
     assert.ok(items[1] instanceof Date);
     assert.ok(items[1] === date, "Date in array should be same instance");
     assert.strictEqual(
