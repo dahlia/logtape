@@ -944,79 +944,85 @@ for (const failDrain of [false, true]) {
   });
 }
 
-test("getBaseRotatingFileSink() queues records logged by a recovery warning", async () => {
-  const { driver, files, handles, renames, closedFileCalls } =
-    makeRecoverableRotatingDriver();
-  const closeError = new Error("Cannot close");
-  const flushStarted = Promise.withResolvers<void>();
-  const releaseFlush = Promise.withResolvers<void>();
-  let inWarning = false;
-  let openedInWarning = false;
-  const sink = getBaseRotatingFileSink("memory.log", {
-    ...driver,
-    nonBlocking: true,
-    bufferSize: 0,
-    flushInterval: 0,
-    maxSize: 3,
-    formatter: (record) => record.category[0] === "logtape" ? "meta" : "first",
-    openSync(path) {
-      openedInWarning ||= inWarning;
-      return driver.openSync(path);
-    },
-    closeSync(handle) {
-      driver.closeSync(handle);
-      throw closeError;
-    },
-    async flush(handle: typeof handles[number]) {
-      await driver.flush(handle);
-      flushStarted.resolve();
-      await releaseFlush.promise;
-      driver.flushSync(handle);
-    },
-  });
-  const meta = captureMetaWarnings();
-  const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
-  const routedWarning: Sink = (record) => {
-    inWarning = true;
-    try {
-      sink(record);
-    } finally {
-      inWarning = false;
-    }
-  };
-  metaLogger.sinks.push(routedWarning);
+for (const failClose of [false, true]) {
+  test(`getBaseRotatingFileSink() queues warning records (failClose: ${failClose})`, async () => {
+    const { driver, files, handles, renames, closedFileCalls } =
+      makeRecoverableRotatingDriver();
+    const flushError = new Error("Cannot flush");
+    const flushStarted = Promise.withResolvers<void>();
+    const releaseFlush = Promise.withResolvers<void>();
+    let inWarning = false;
+    let wroteInWarning = false;
+    const sink = getBaseRotatingFileSink("memory.log", {
+      ...driver,
+      nonBlocking: true,
+      bufferSize: 0,
+      flushInterval: 0,
+      maxSize: failClose ? 3 : 1024,
+      formatter: (record) =>
+        record.category[0] === "logtape" ? "meta" : "first",
+      writeSync(handle, bytes) {
+        wroteInWarning ||= inWarning;
+        if (new TextDecoder().decode(bytes) === "first") throw flushError;
+        driver.writeSync(handle, bytes);
+      },
+      closeSync(handle) {
+        driver.closeSync(handle);
+        throw flushError;
+      },
+      async flush(handle: typeof handles[number]) {
+        await driver.flush(handle);
+        flushStarted.resolve();
+        await releaseFlush.promise;
+        driver.flushSync(handle);
+      },
+    });
+    const meta = captureMetaWarnings();
+    const metaLogger = LoggerImpl.getLogger(["logtape", "meta"]);
+    const routedWarning: Sink = (record) => {
+      inWarning = true;
+      try {
+        sink(record);
+      } finally {
+        inWarning = false;
+      }
+    };
+    metaLogger.sinks.push(routedWarning);
 
-  try {
-    sink(debug);
-    assert.ok(
-      await Promise.race([
-        flushStarted.promise.then(() => true),
-        delay(1000).then(() => false),
-      ]),
-      "queued warning was not flushed",
-    );
-    assert.strictEqual(openedInWarning, false);
-    assert.strictEqual(handles.length, 2);
-    assert.strictEqual(handles[1].closed, false);
-    assert.strictEqual(meta.records.length, 1);
-    assert.strictEqual(meta.records[0].properties.error, closeError);
-  } finally {
-    metaLogger.sinks.splice(metaLogger.sinks.indexOf(routedWarning), 1);
-    meta.dispose();
-    const disposing = sink[Symbol.asyncDispose]();
-    releaseFlush.resolve();
-    await disposing;
-  }
-  assert.strictEqual(files.get("memory.log")?.text, "meta");
-  assert.ok(handles.every((handle) => handle.closed));
-  assert.deepStrictEqual(renames, []);
-  assert.deepStrictEqual(closedFileCalls, []);
-});
+    try {
+      sink(debug);
+      assert.ok(
+        await Promise.race([
+          flushStarted.promise.then(() => true),
+          delay(1000).then(() => false),
+        ]),
+        "queued warning was not flushed",
+      );
+      assert.strictEqual(wroteInWarning, false);
+      assert.strictEqual(handles.length, failClose ? 2 : 1);
+      assert.strictEqual(handles.at(-1)?.closed, false);
+      assert.strictEqual(meta.records.length, 1);
+      assert.strictEqual(meta.records[0].properties.error, flushError);
+    } finally {
+      metaLogger.sinks.splice(metaLogger.sinks.indexOf(routedWarning), 1);
+      meta.dispose();
+      const disposing = sink[Symbol.asyncDispose]();
+      releaseFlush.resolve();
+      await disposing;
+    }
+    assert.strictEqual(files.get("memory.log")?.text, "meta");
+    assert.ok(handles.every((handle) => handle.closed));
+    assert.deepStrictEqual(renames, []);
+    assert.deepStrictEqual(closedFileCalls, []);
+  });
+}
 
 test("getBaseRotatingFileSink() reopens on the non-blocking final drain", async () => {
   const { driver, files, handles, closedFileCalls } =
     makeRecoverableRotatingDriver();
   const openError = new Error("Cannot reopen");
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
   let opens = 0;
   const meta = captureMetaWarnings();
   try {
@@ -1031,11 +1037,31 @@ test("getBaseRotatingFileSink() reopens on the non-blocking final drain", async 
         if (++opens === 2) throw openError;
         return driver.openSync(path);
       },
+      async flush(handle: typeof handles[number]) {
+        started.resolve();
+        await release.promise;
+        driver.flushSync(handle);
+      },
     });
     files.delete("memory.log");
     sink({ ...debug, rawMessage: "first" });
     sink({ ...info, rawMessage: "end" });
     assert.strictEqual(handles.length, 1);
+    const first = sink[Symbol.asyncDispose]();
+    try {
+      assert.ok(
+        await Promise.race([
+          started.promise.then(() => true),
+          delay(1000).then(() => false),
+        ]),
+        "final drain did not start",
+      );
+      assert.strictEqual(sink[Symbol.asyncDispose](), first);
+      assert.strictEqual(handles[1].closed, false);
+    } finally {
+      release.resolve();
+      await first;
+    }
   } finally {
     meta.dispose();
   }

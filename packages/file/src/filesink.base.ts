@@ -898,9 +898,8 @@ export function getBaseRotatingFileSink<TFile>(
       lastFlushTimestamp = Date.now();
     } catch (error) {
       if (!suppressErrorReport) {
-        // Publish activeFlush before a warning can log back into this sink
-        // and try to reopen the file in a nested flush.
-        if (fd === noFile) await Promise.resolve();
+        // Publish activeFlush before a warning can start a nested flush.
+        await Promise.resolve();
         reportFlushError(error);
       }
     }
@@ -939,12 +938,18 @@ export function getBaseRotatingFileSink<TFile>(
     }
   };
 
-  nonBlockingSink[asyncDisposeSymbol] = async () => {
+  let disposal: Promise<void> | undefined;
+  nonBlockingSink[asyncDisposeSymbol] = () => {
+    if (disposal != null) return disposal;
     disposed = true;
-    if (flushTimer !== null) {
-      clearInterval(flushTimer);
-      flushTimer = null;
-    }
+    if (flushTimer !== null) clearInterval(flushTimer);
+    flushTimer = null;
+    // Publish the shared promise before calling the driver in the final drain.
+    disposal = Promise.resolve().then(disposeFile);
+    return disposal;
+  };
+
+  async function disposeFile(): Promise<void> {
     if (activeFlush !== null) await activeFlush;
     await flushBuffer();
     const file = detachFile();
@@ -954,7 +959,7 @@ export function getBaseRotatingFileSink<TFile>(
     } catch {
       // Writer might already be closed or errored
     }
-  };
+  }
 
   return nonBlockingSink;
 }
