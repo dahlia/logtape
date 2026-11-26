@@ -30,10 +30,10 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: &mise_options
+        experimental: true
+        install: true
     - run: mise run check
 
   test-deno:
@@ -58,9 +58,8 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: deno task test --coverage=.cov --junit-path=.test-report.xml
     - uses: EnricoMi/publish-unit-test-result-action@v2
       if: runner.os == 'Linux' && always()
@@ -104,10 +103,8 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run build
     - run: mise run test:node
 
@@ -124,10 +121,8 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run build
     - run: mise run test:bun
 
@@ -144,10 +139,8 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     # Unlike pnpm add, pnpm update resolves the newest release in the range
     # instead of reusing a version the lockfile already has.
     - run: pnpm --filter @logtape/sentry update "@sentry/core@$SENTRY_VERSION"
@@ -168,10 +161,8 @@ jobs:
     timeout-minutes: 60
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: |
         set -ex
         if [[ "$GITHUB_REF_TYPE" == tag ]]; then
@@ -225,10 +216,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4
-    - uses: jdx/mise-action@v2
-      with:
-        version: 2025.12.12
-    - run: mise run deps
+    - uses: jdx/mise-action@v4
+      with: *mise_options
     - run: mise run build
     - run: |
         set -ex

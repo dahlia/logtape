@@ -1,0 +1,30 @@
+[changelog]
+path = "CHANGES.md"
+title = "LogTape changelog"
+unreleased-heading = "To be released."
+materialize = true
+region-detection = "heading"
+
+[fragments]
+directory = "changes.d"
+next-file = "next.txt"
+
+[links]
+"#" = "https://github.com/dahlia/logtape/issues/{n}"
+
+[vcs]
+preset = "git"
+
+[check]
+paths = []
+
+[[sections]]
+id = "@logtape/logtape"
+directory = "logtape"
+paths = ["packages/logtape/**"]
+
+[[section-patterns]]
+source = "packages/{name}"
+id = "@logtape/{name}"
+directory = "{name}"
+paths = ["packages/{name}/**"]
