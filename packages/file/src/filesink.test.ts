@@ -867,6 +867,43 @@ test("getBaseRotatingFileSink() checks the size of a reopened log before appendi
   assert.strictEqual(files.get("memory.log.1")?.text, "firstx");
 });
 
+test("getBaseRotatingFileSink() recovers when a reopened log disappears before stat", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  files.set("memory.log", { text: "first" });
+  const missing = Object.assign(new Error("File not found"), {
+    code: "ENOENT",
+  });
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 6,
+    formatter: (record) => String(record.rawMessage),
+    statSync(path) {
+      if (handles.length === 2) {
+        files.delete(path);
+        throw missing;
+      }
+      return driver.statSync(path);
+    },
+    closeSync(handle) {
+      driver.closeSync(handle);
+      if (handle === handles[1]) throw new Error("Cannot close");
+    },
+  });
+
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "drop" }),
+    (error) => error === missing,
+  );
+  assert.ok(handles[1].closed);
+  assert.ok(!files.has("memory.log"));
+  sink({ ...info, rawMessage: "next" });
+  assert.strictEqual(files.get("memory.log")?.text, "next");
+  assert.strictEqual(files.get("memory.log.1")?.text, "first");
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
 test("getBaseRotatingFileSink() does not close again after a failed rollover close", () => {
   const { driver, handles, renames, closedFileCalls } =
     makeRecoverableRotatingDriver();

@@ -773,7 +773,21 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   function refreshSize(): void {
-    offset = options.statSync(path).size;
+    try {
+      offset = options.statSync(path).size;
+    } catch (error) {
+      if (isMissingFile(error)) {
+        const file = detachFile();
+        if (file !== noFile) {
+          try {
+            options.closeSync(file);
+          } catch {
+            // Keep the size-check error if closing also failed.
+          }
+        }
+      }
+      throw error;
+    }
     needsSize = false;
   }
 
