@@ -741,15 +741,14 @@ export function getBaseRotatingFileSink<TFile>(
   const maxFiles = options.maxFiles ?? 5;
   const bufferSize = options.bufferSize ?? 1024 * 8; // Default buffer size of 8192 chars
   const flushInterval = options.flushInterval ?? 5000; // Default flush interval of 5 seconds
-  function getOffset(): number {
-    try {
-      return options.statSync(path).size;
-    } catch {
-      return 0;
-    }
-  }
   const noFile = Symbol();
-  let offset = getOffset();
+  let offset = 0;
+  let needsSize = false;
+  try {
+    offset = options.statSync(path).size;
+  } catch {
+    // Preserve the initial fallback for a file that may not exist yet.
+  }
   let fd: TFile | typeof noFile = options.openSync(path);
   let backupsShifted = false;
   let lastFlushTimestamp: number = Date.now();
@@ -762,10 +761,13 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   function reopenFile(): TFile {
-    const file = options.openSync(path);
-    fd = file;
-    offset = getOffset();
-    return file;
+    needsSize = true;
+    return fd = options.openSync(path);
+  }
+
+  function refreshSize(): void {
+    offset = options.statSync(path).size;
+    needsSize = false;
   }
 
   function performRollover(file: TFile): TFile {
@@ -803,11 +805,13 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   function fileForWrite(bytes: Uint8Array): TFile {
-    const recovering = fd === noFile;
-    const file = fd === noFile ? reopenFile() : fd;
+    let file = fd === noFile ? reopenFile() : fd;
+    const recovering = needsSize;
+    if (needsSize) refreshSize();
     // Do not immediately rotate an empty file opened during error recovery.
     if ((!recovering || offset !== 0) && offset + bytes.length > maxSize) {
-      return performRollover(file);
+      file = performRollover(file);
+      refreshSize();
     }
     return file;
   }

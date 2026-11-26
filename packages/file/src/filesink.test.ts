@@ -797,9 +797,6 @@ test("getBaseRotatingFileSink() recovers from a failed reopen without rotating a
       }
       driver.renameSync(from, to);
     },
-    statSync() {
-      throw new Error("Cannot stat");
-    },
   });
 
   files.delete("memory.log");
@@ -809,6 +806,46 @@ test("getBaseRotatingFileSink() recovers from a failed reopen without rotating a
   assert.strictEqual(files.get("memory.log")?.text, "oversize");
   assert.ok(!files.has("memory.log.1"));
   assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("getBaseRotatingFileSink() checks the size of a reopened log before appending", () => {
+  const { driver, files, handles } = makeRecoverableRotatingDriver();
+  files.set("memory.log", { text: "first" });
+  const renameError = new Error("Cannot rename");
+  const statError = new Error("Cannot stat");
+  let failStat = true;
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    maxSize: 6,
+    formatter: (record) => String(record.rawMessage),
+    renameSync(from, to) {
+      if (from === "memory.log" && handles.length === 1) throw renameError;
+      driver.renameSync(from, to);
+    },
+    statSync(path) {
+      if (handles.length === 2 && failStat) {
+        failStat = false;
+        throw statError;
+      }
+      return driver.statSync(path);
+    },
+  });
+
+  assert.throws(
+    () => sink({ ...debug, rawMessage: "drop" }),
+    (error) => error === renameError,
+  );
+  assert.throws(
+    () => sink({ ...info, rawMessage: "skip" }),
+    (error) => error === statError,
+  );
+  assert.strictEqual(files.get("memory.log")?.text, "first");
+  sink({ ...info, rawMessage: "x" });
+  assert.strictEqual(files.get("memory.log")?.text, "firstx");
+  sink({ ...warning, rawMessage: "last" });
+  assert.strictEqual(files.get("memory.log")?.text, "last");
+  assert.strictEqual(files.get("memory.log.1")?.text, "firstx");
 });
 
 test("getBaseRotatingFileSink() does not close again after a failed rollover close", () => {
