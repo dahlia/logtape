@@ -1,6 +1,6 @@
 {
   "name": "@logtape/lint",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "license": "MIT",
   "imports": {
     "@typescript-eslint/parser": "npm:@typescript-eslint/parser@^8.67.0",
