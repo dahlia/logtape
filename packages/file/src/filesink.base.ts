@@ -846,7 +846,9 @@ export function getBaseRotatingFileSink<TFile>(
 
     const sink: Sink & Disposable = (record: LogRecord) => {
       if (disposed) return;
-      buffer += formatter(record);
+      const formatted = formatter(record);
+      if (disposed) return;
+      buffer += formatted;
 
       const shouldFlushBySize = buffer.length >= bufferSize;
       const shouldFlushByTime = flushInterval > 0 &&

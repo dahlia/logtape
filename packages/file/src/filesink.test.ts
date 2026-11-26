@@ -925,6 +925,25 @@ test("getBaseRotatingFileSink() does not close again after a failed rollover clo
   assert.deepStrictEqual(closedFileCalls, []);
 });
 
+test("getBaseRotatingFileSink() does not reopen if its formatter disposes it", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  using sink = getBaseRotatingFileSink("memory.log", {
+    ...driver,
+    bufferSize: 0,
+    formatter() {
+      sink[Symbol.dispose]();
+      return "discarded";
+    },
+  });
+
+  sink(debug);
+  assert.strictEqual(handles.length, 1);
+  assert.ok(handles[0].closed);
+  assert.strictEqual(files.get("memory.log")?.text, "");
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
 test("getBaseRotatingFileSink() recovers during the final drain", () => {
   const { driver, files, handles, closedFileCalls } =
     makeRecoverableRotatingDriver();
