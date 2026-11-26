@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { formatWithOptions } from "node:util";
+import { defaultConsoleFormatter } from "@logtape/logtape";
 import fc from "fast-check";
 import {
   configure,
@@ -8,6 +10,7 @@ import {
   reset,
   type TextFormatter,
 } from "@logtape/logtape";
+import { redactProperties } from "./field.ts";
 import {
   CREDIT_CARD_NUMBER_PATTERN,
   EMAIL_ADDRESS_PATTERN,
@@ -630,7 +633,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.strictEqual(resultUser.name, "Alice");
   }
 
-  { // preserves Error objects without modification
+  { // preserves the error type and useful diagnostics in a copy
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     const err = new Error("test error");
@@ -651,7 +654,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     const resultErr = (output[0] as unknown[])[1] as Error;
     assert.ok(resultErr instanceof Error);
     assert.strictEqual(resultErr.message, "test error");
-    assert.ok(resultErr === err, "Error should be the same instance");
+    assert.notStrictEqual(resultErr, err);
   }
 
   { // preserves Date objects without modification
@@ -678,7 +681,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
     assert.ok(resultDate === date, "Date should be the same instance");
   }
 
-  { // preserves built-in objects in arrays
+  { // redacts supported built-in objects in arrays
     const formatter: ConsoleFormatter = (record: LogRecord) => [record.message];
 
     const err = new Error("array error");
@@ -699,7 +702,7 @@ test("redactByPattern(ConsoleFormatter)", async () => {
 
     const items = (output[0] as unknown[])[1] as unknown[];
     assert.ok(items[0] instanceof Error);
-    assert.ok(items[0] === err, "Error in array should be same instance");
+    assert.notStrictEqual(items[0], err);
     assert.ok(items[1] instanceof Date);
     assert.ok(items[1] === date, "Date in array should be same instance");
     assert.strictEqual(
@@ -855,3 +858,65 @@ function appendLuhnCheckDigit(digits: readonly string[]): readonly string[] {
   }
   return [...digits, String((10 - checksum % 10) % 10)];
 }
+
+test("redactByPattern() formats sanitized structured diagnostics", () => {
+  const note = "private@example.com";
+  const error = new TypeError(`failed for ${note}`, {
+    cause: new Error(`could not load ${note}`),
+  });
+  const entries = new Map<unknown, unknown>([
+    [note, new Set([note, "retry pending"])],
+    ["error", error],
+  ]);
+  entries.set("again", entries);
+  const format = redactByPattern(defaultConsoleFormatter, [
+    EMAIL_ADDRESS_PATTERN,
+  ]);
+  const output = format({
+    category: ["test"],
+    level: "error",
+    timestamp: 0,
+    rawMessage: "{data}",
+    message: ["data: ", entries, ""],
+    properties: { data: entries },
+  });
+  const [message, ...args] = output;
+  const rendered = formatWithOptions({ colors: false }, message, ...args);
+  assert.ok(!rendered.includes(note));
+  assert.match(rendered, /TypeError: failed for REDACTED@EMAIL\.ADDRESS/);
+  assert.match(rendered, /could not load REDACTED@EMAIL\.ADDRESS/);
+  assert.match(rendered, /retry pending/);
+  const copy = output.at(-1) as Map<unknown, unknown>;
+  assert.strictEqual(copy.get("again"), copy);
+  assert.ok(!Object.hasOwn(copy.get("error") as Error, "stack"));
+  assert.strictEqual(error.message, `failed for ${note}`);
+});
+
+test("redactByPattern() retains diagnostics after field redaction", () => {
+  const address = "private@example.com";
+  const input = Object.assign(
+    new TypeError(`unavailable for ${address}`, {
+      cause: new Error("retry pending"),
+    }),
+    { token: "fixture" },
+  );
+  const properties = redactProperties({ error: input }, {
+    fieldPatterns: ["token"],
+  });
+  const format = redactByPattern(defaultConsoleFormatter, [
+    EMAIL_ADDRESS_PATTERN,
+  ]);
+  const [message, ...args] = format({
+    category: ["test"],
+    level: "error",
+    timestamp: 0,
+    rawMessage: "{error}",
+    message: ["error: ", properties.error, ""],
+    properties,
+  });
+  const rendered = formatWithOptions({ colors: false }, message, ...args);
+  assert.match(rendered, /TypeError: unavailable for REDACTED@EMAIL\.ADDRESS/);
+  assert.match(rendered, /retry pending/);
+  assert.ok(!rendered.includes(address));
+  assert.ok(!Object.hasOwn(args.at(-1) as object, "token"));
+});

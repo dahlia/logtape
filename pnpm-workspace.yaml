@@ -23,6 +23,15 @@ packages:
 - packages/windows-eventlog
 - docs
 - benchmarks
+- .agents
+
+skills:
+  dirs:
+    - .agents/skills
+
+permissions:
+  "@dahlia/sacho@https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c":
+    skills: [sacho]
 
 allowBuilds:
   '@biomejs/biome': true
@@ -38,14 +47,14 @@ overrides:
 catalog:
   "@alinea/suite": ^0.6.3
   "@david/which-runtime": jsr:^0.2.1
-  "@opentelemetry/api": ^1.9.0
-  "@opentelemetry/api-logs": ^0.208.0
-  "@opentelemetry/exporter-logs-otlp-grpc": ^0.208.0
-  "@opentelemetry/exporter-logs-otlp-http": ^0.208.0
-  "@opentelemetry/exporter-logs-otlp-proto": ^0.208.0
-  "@opentelemetry/otlp-exporter-base": ^0.208.0
-  "@opentelemetry/resources": ^2.2.0
-  "@opentelemetry/sdk-logs": ^0.208.0
+  "@opentelemetry/api": ~1.9.0
+  "@opentelemetry/api-logs": ^0.219.0
+  "@opentelemetry/exporter-logs-otlp-grpc": ^0.219.0
+  "@opentelemetry/exporter-logs-otlp-http": ^0.219.0
+  "@opentelemetry/exporter-logs-otlp-proto": ^0.219.0
+  "@opentelemetry/otlp-exporter-base": ^0.219.0
+  "@opentelemetry/resources": ~2.8.0
+  "@opentelemetry/sdk-logs": ^0.219.0
   "@opentelemetry/semantic-conventions": ^1.38.0
   "@std/assert": jsr:^1.0.13
   "@std/async": jsr:^1.0.13

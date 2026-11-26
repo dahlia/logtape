@@ -306,7 +306,7 @@ tasks are available through `mise run`:
 mise tasks
 
 # Install dependencies
-mise run deps
+mise deps
 
 # Check code (formatting, linting, type checking)
 mise run check
@@ -386,6 +386,21 @@ mise run hooks:install
 
 This generates the hook scripts in *.git/hooks/* using
 `mise generate git-pre-commit`.
+
+In a new checkout, `mise install` also registers Sacho's local merge driver
+and installs the Git hooks.  pnpm links the Sacho skill into *.agents/skills/*.
+
+Before merging a patch release tag into a branch that already uses Sacho, run
+`sacho init --no-interactive` on the receiving branch.  The merge driver
+imports the frozen release section.  Follow the `release` skill to verify
+that *changes.d/next.txt* still holds the receiving branch's next version
+before committing the merge.  For a branch without Sacho, follow that
+branch's release workflow and merge its changelog manually.
+
+The `release` skill refers to LogTape's [AI usage policy], which is available
+on `main`.
+
+[AI usage policy]: https://github.com/dahlia/logtape/blob/main/AI_POLICY.md
 
 ### CI/CD
 
@@ -589,39 +604,42 @@ Use pipe tables with proper alignment markers:
 Changelog guidelines
 --------------------
 
-The project maintains a detailed changelog in *CHANGES.md* that follows specific
-principles and formatting:
+The project uses [Sacho] to keep unreleased changelog entries as Markdown
+fragments under *changes.d/*.  Sacho compiles those fragments into the
+materialized unreleased region of *CHANGES.md* and freezes that region at
+release time.
+
+Do not edit the unreleased region of *CHANGES.md* by hand.  Add or edit its
+source fragment, then let Sacho update the changelog.
+
+[Sacho]: https://sacho.dev/
 
 ### Changelog principles
 
-1.  *User-focused changes*: Document changes from the user's perspective, not
-    implementation details. Focus on what users of the library will experience,
-    not how it was implemented.
-
-2.  *API documentation*: Clearly document all API changes, including:
-     -  Additions of new functions, types, interfaces, or constants
-     -  Changes to existing API types or signatures (include both old and new
-        types)
-     -  Deprecation notices
-     -  Removals or relocations of APIs between packages
-
-3.  *Attribution*: Include attribution to contributors where applicable, with
-    links to their PRs or issues.
-
-4.  *Versioning*: Each version has its own section with release date (when
-    applicable).
+ -  Write for someone upgrading LogTape.  Describe public behavior and any
+    action the reader must take, not implementation details or commit history.
+ -  Keep one entry per user-visible change.  If the implementation changes
+    before release, revise the existing fragment instead of documenting an
+    intermediate state that never shipped.
+ -  Start entries with a past-tense verb such as “Added,” “Changed,”
+    “Deprecated,” “Fixed,” “Removed,” or “Security.”
+ -  Document public API additions, signature changes, deprecations, removals,
+    and moves precisely.  Include full old and new signatures when a type
+    changes.
+ -  Put issue and pull request references at the end of the first paragraph,
+    using `[[#XX]]` or `[[#XX] by Contributor Name]`.
 
 ### When to update the changelog
 
-Update the changelog when:
+Create or update a fragment when a change:
 
- -  Adding, changing, or removing public APIs
- -  Fixing bugs that affect user behavior
- -  Making performance improvements that users would notice
- -  Changing behavior of existing functionality
- -  Moving code between packages
+ -  Adds, changes, or removes public APIs
+ -  Fixes bugs that affect user behavior
+ -  Makes performance improvements that users would notice
+ -  Changes the behavior of existing functionality
+ -  Moves code between packages
 
-Do NOT update the changelog for:
+Do not create a fragment for:
 
  -  Internal implementation changes that don't affect users
  -  Documentation-only changes
@@ -630,30 +648,21 @@ Do NOT update the changelog for:
 
 ### Changelog format
 
-1.  *Structure*:
-     -  Top-level heading for the project name
-     -  Second-level heading for each version number
-     -  Version status (“To be released” or “Released on DATE”)
-     -  Bulleted list of changes
+Each fragment contains exactly one top-level unordered list.  It has no heading
+or top-level prose.  Related changes may be separate items in the same
+fragment, and nested content may explain details of one item.
 
-2.  *Entry format*:
-     -  Use `-` for list items
-     -  Nest related sub-items with indentation
-     -  Link issue/PR numbers using `[[#XX]]` or `[[#XX] by Contributor Name]`
-     -  For API changes, include the full type signature changes
+Use a short topic name that describes the change, not an issue number.  Select
+the affected package section:
 
-3.  *Order*:
-     -  Group related changes together
-     -  List additions first, then changes, then fixes
-
-### Example entry
-
+~~~~ bash
+sacho add --section @logtape/logtape scoped-configuration
 ~~~~
-Version X.Y.Z
--------------
 
-Released on Month Day, Year.
+This creates a fragment under the matching package directory in *changes.d/*.
+Edit that file using the repository's Markdown conventions:
 
+~~~~ markdown
  -  Added `newFunction()` function to perform X.  [[#42]]
 
  -  Changed the type of the `existingFunction()` function to
@@ -661,6 +670,32 @@ Released on Month Day, Year.
 
  -  Fixed a bug where X happened when Y was expected.  [[#43], [#44] by Contributor]
 ~~~~
+
+When drafting changelog prose for a maintainer, show the proposed entry for
+approval before writing it into the fragment.
+
+### Changelog workflow
+
+Keep the fragment in the same branch and commit series as the implementation.
+Before committing, run:
+
+~~~~ bash
+sacho fmt
+sacho preview
+sacho check
+~~~~
+
+Review both the source fragment and the materialized *CHANGES.md* diff.  If
+*CHANGES.md* has drifted, change the fragment and run `sacho sync`; do not fix
+the generated region directly.
+
+Use `mise run bump-version <VERSION>` when starting the next development cycle.
+This task updates *changes.d/next.txt*, all package versions, and the
+materialized changelog together.  During a release, follow the repository's
+`release` skill; `sacho release` is the only command that turns fragments into
+a dated, frozen section.  See the [Sacho everyday workflow] for more details.
+
+[Sacho everyday workflow]: https://sacho.dev/guide/everyday-workflow
 
 
 Cross-runtime compatibility
