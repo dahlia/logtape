@@ -21,6 +21,7 @@ const jsrRefPackages: readonly (readonly [string, string])[] = [
   ["@logtape/adaptor-log4js", ".jsr-cache-adaptor-log4js.json"],
   ["@logtape/adaptor-pino", ".jsr-cache-adaptor-pino.json"],
   ["@logtape/adaptor-winston", ".jsr-cache-adaptor-winston.json"],
+  ["@logtape/cloudflare-workers", ".jsr-cache-cloudflare-workers.json"],
   ["@logtape/cloudwatch-logs", ".jsr-cache-cloudwatch-logs.json"],
   ["@logtape/config", ".jsr-cache-config.json"],
   ["@logtape/drizzle-orm", ".jsr-cache-drizzle-orm.json"],
@@ -140,6 +141,7 @@ const SINKS = {
     { text: "OpenTelemetry", link: "/sinks/otel" },
     { text: "Sentry", link: "/sinks/sentry" },
     { text: "Syslog", link: "/sinks/syslog" },
+    { text: "Cloudflare Workers", link: "/sinks/cloudflare-workers" },
     { text: "CloudWatch Logs", link: "/sinks/cloudwatch-logs" },
     { text: "Windows Event Log", link: "/sinks/windows-eventlog" },
   ],
@@ -188,6 +190,10 @@ const REFERENCES = {
     {
       text: "@logtape/adaptor-winston",
       link: "https://jsr.io/@logtape/adaptor-winston/doc",
+    },
+    {
+      text: "@logtape/cloudflare-workers",
+      link: "https://jsr.io/@logtape/cloudflare-workers/doc",
     },
     {
       text: "@logtape/cloudwatch-logs",

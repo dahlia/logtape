@@ -18,6 +18,15 @@ To be released.
 [#267]: https://github.com/dahlia/logtape/issues/267
 [#273]: https://github.com/dahlia/logtape/pull/273
 
+### @logtape/cloudflare-workers
+
+ -  Added the *@logtape/cloudflare-workers* package with a console sink for
+    structured Workers Logs and handled errors in Workers Issues.
+    [[#279], [#281]]
+
+[#279]: https://github.com/dahlia/logtape/issues/279
+[#281]: https://github.com/dahlia/logtape/pull/281
+
 ### @logtape/file
 
  -  Added `fileMode` and `fileModePolicy` to `getRotatingFileSink()`.  Set a
