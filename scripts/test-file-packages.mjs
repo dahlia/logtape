@@ -14,7 +14,7 @@ const work = fs.realpathSync(
 );
 const windows = process.platform === "win32";
 
-function run(executable, args, cwd = work) {
+function run(executable, args, cwd = work, { windowsVerbatimArguments } = {}) {
   return execFileSync(executable, args, {
     cwd,
     env: {
@@ -26,6 +26,7 @@ function run(executable, args, cwd = work) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
     timeout: 30_000,
+    windowsVerbatimArguments,
   });
 }
 
@@ -72,7 +73,8 @@ try {
   for (const name of packages) {
     const cwd = join(root, "packages", name);
     // Run pack in the workspace so pnpm resolves workspace peer versions.
-    // On Windows the pnpm shim may be a batch file; the command is fixed.
+    // The Windows shim may be a batch file. Let cmd.exe parse the fixed
+    // command so Node does not escape the quotes around the destination.
     const pack = windows
       ? run(
           "cmd.exe",
@@ -82,6 +84,7 @@ try {
             'pnpm pack --pack-destination "%LOGTAPE_FILE_PACK_DEST%"',
           ],
           cwd,
+          { windowsVerbatimArguments: true },
         )
       : run("pnpm", ["pack", "--pack-destination", work], cwd);
     const tarball = pack.trim().split(/\r?\n/).at(-1);
