@@ -12,6 +12,7 @@
 export {
   noDynamicMessage,
   noMessageInterpolation,
+  noQuotedPlaceholder,
   noUnawaitedLog,
   noUnrenderedProperties,
   plugin,

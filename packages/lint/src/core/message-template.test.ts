@@ -1,6 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getUnreferencedKeys } from "./message-template.ts";
+import {
+  getUnreferencedKeys,
+  hasQuotedInterpolation,
+  hasQuotedMessageSlot,
+} from "./message-template.ts";
+
+test("hasQuotedMessageSlot follows the runtime's brace boundaries", () => {
+  for (const template of [
+    '"{name}"',
+    "'{ user?.name }'",
+    "'{items[0].name}'",
+    "'{*}'",
+    "'{}'",
+    `'{["name"]}'`,
+    "'{a{b}'",
+  ])
+    assert.strictEqual(hasQuotedMessageSlot(template), true, template);
+  for (const template of [
+    '"{{name}}"',
+    '"{{{name}}}"',
+    "'{name}}'",
+    "'{name",
+    "'{name}\"",
+    '"prefix {name}"',
+    '"{first} {last}"',
+    "‘{name}’",
+  ])
+    assert.strictEqual(hasQuotedMessageSlot(template), false, template);
+});
+
+test("hasQuotedInterpolation checks adjacent cooked chunks", () => {
+  assert.ok(hasQuotedInterpolation(["Name: '", "'"]));
+  assert.ok(hasQuotedInterpolation([null, ' and "', '"']));
+  assert.ok(!hasQuotedInterpolation(["'", "", "'"]));
+  assert.ok(!hasQuotedInterpolation(["'", null]));
+  assert.ok(!hasQuotedInterpolation(['"', "'"]));
+  assert.ok(!hasQuotedInterpolation(["' ", "'"]));
+});
 
 interface TemplateCase {
   readonly name: string;

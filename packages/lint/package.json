@@ -68,6 +68,22 @@
       "import": "./dist/deno/strict-plugin.js",
       "require": "./dist/deno/strict-plugin.cjs"
     },
+    "./deno/quoted-placeholder": {
+      "types": {
+        "import": "./dist/deno/quoted-placeholder-plugin.d.ts",
+        "require": "./dist/deno/quoted-placeholder-plugin.d.cts"
+      },
+      "import": "./dist/deno/quoted-placeholder-plugin.js",
+      "require": "./dist/deno/quoted-placeholder-plugin.cjs"
+    },
+    "./deno/strict/quoted-placeholder": {
+      "types": {
+        "import": "./dist/deno/strict-quoted-placeholder-plugin.d.ts",
+        "require": "./dist/deno/strict-quoted-placeholder-plugin.d.cts"
+      },
+      "import": "./dist/deno/strict-quoted-placeholder-plugin.js",
+      "require": "./dist/deno/strict-quoted-placeholder-plugin.cjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [

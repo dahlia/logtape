@@ -160,6 +160,10 @@ const LINT = {
       text: "no-unrendered-properties",
       link: "/lint/no-unrendered-properties",
     },
+    {
+      text: "no-quoted-placeholder",
+      link: "/lint/no-quoted-placeholder",
+    },
     { text: "require-meta-sink", link: "/lint/require-meta-sink" },
   ],
 };

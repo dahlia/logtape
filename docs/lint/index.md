@@ -16,6 +16,7 @@ Available rules
 | ---------------------------- | ---------------- | ----------------- |
 | [`no-dynamic-message`]       | off              | no                |
 | [`no-message-interpolation`] | error            | no                |
+| [`no-quoted-placeholder`]    | off              | no                |
 | [`prefer-lazy-evaluation`]   | warn             | yes               |
 | [`no-unawaited-log`]         | error            | yes (conditional) |
 | [`no-unrendered-properties`] | off              | no                |
@@ -23,6 +24,7 @@ Available rules
 
 [`no-dynamic-message`]: /lint/no-dynamic-message
 [`no-message-interpolation`]: /lint/no-message-interpolation
+[`no-quoted-placeholder`]: /lint/no-quoted-placeholder
 [`prefer-lazy-evaluation`]: /lint/prefer-lazy-evaluation
 [`no-unawaited-log`]: /lint/no-unawaited-log
 [`no-unrendered-properties`]: /lint/no-unrendered-properties
@@ -74,8 +76,8 @@ export default [
 ~~~~
 
 The preset activates the four rules with a default severity of `error` or
-`warn` (see the table above).  The `no-dynamic-message` and
-`no-unrendered-properties` rules remain off unless you enable them explicitly.
+`warn` (see the table above).  The other rules remain off unless you enable
+them explicitly.
 
 For manual configuration, import the plugin and wire rules yourself:
 
@@ -126,14 +128,14 @@ Deno Lint configuration
 -----------------------
 
 > [!WARNING]
-> The Deno Lint plugin API is experimental (unstable).  This plugin requires
-> Deno 2.2.0 or later with the `"unstable": ["lint"]` option in `deno.json`.
+> The Deno Lint plugin API is experimental.  This plugin requires Deno 2.2.0
+> or later.  No unstable flag is needed.
 
-Add the strict plugin to your `deno.json` to enable all LogTape rules:
+Add the strict plugin to your `deno.json` to enable `no-dynamic-message`
+and `no-unrendered-properties` alongside the recommended rules:
 
 ~~~~ json
 {
-  "unstable": ["lint"],
   "lint": {
     "plugins": ["jsr:@logtape/lint/deno/strict"],
     "rules": {
@@ -153,6 +155,9 @@ Add the strict plugin to your `deno.json` to enable all LogTape rules:
 Use the `/deno/strict` entry point only when enabling opt-in rules.  It enables
 both `no-dynamic-message` and `no-unrendered-properties`.  The default `/deno`
 entry point contains only the four recommended rules.
+
+To enable [`no-quoted-placeholder`], replace the plugin entry point with
+its `/quoted-placeholder` variant.  The other rules stay enabled as before.
 
 An `include` list does not disable other plugin rules.  To disable either
 opt-in rule while using `/deno/strict`, put its qualified name in

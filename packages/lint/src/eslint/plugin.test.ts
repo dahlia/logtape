@@ -7,10 +7,11 @@ test("plugin: exports meta.name", () => {
   assert.strictEqual(plugin.meta.name, "@logtape/lint");
 });
 
-test("plugin: exports all six rules", () => {
+test("plugin: exports all seven rules", () => {
   assert.ok("no-dynamic-message" in rules);
   assert.ok("no-unrendered-properties" in rules);
-  assert.strictEqual(Object.keys(rules).length, 6);
+  assert.ok("no-quoted-placeholder" in rules);
+  assert.strictEqual(Object.keys(rules).length, 7);
   assert.ok("no-message-interpolation" in rules);
   assert.ok("prefer-lazy-evaluation" in rules);
   assert.ok("no-unawaited-log" in rules);
@@ -30,6 +31,7 @@ test("plugin: recommended config specifies all rules", () => {
   assert.strictEqual(r["logtape/require-meta-sink"], "warn");
   assert.strictEqual(r["logtape/no-dynamic-message"], undefined);
   assert.strictEqual(r["logtape/no-unrendered-properties"], undefined);
+  assert.strictEqual(r["logtape/no-quoted-placeholder"], undefined);
 });
 
 test("plugin: configs.recommended matches exported recommended", () => {

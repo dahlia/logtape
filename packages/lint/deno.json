@@ -11,7 +11,9 @@
     ".": "./src/mod.ts",
     "./eslint": "./src/eslint/plugin.ts",
     "./deno": "./src/deno/plugin.ts",
-    "./deno/strict": "./src/deno/strict-plugin.ts"
+    "./deno/strict": "./src/deno/strict-plugin.ts",
+    "./deno/quoted-placeholder": "./src/deno/quoted-placeholder-plugin.ts",
+    "./deno/strict/quoted-placeholder": "./src/deno/strict-quoted-placeholder-plugin.ts"
   },
   "tasks": {
     "build": "pnpm build",
