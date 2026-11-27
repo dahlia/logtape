@@ -125,17 +125,42 @@ test("getWorkersConsoleSink() keeps the explicit error when the value budget run
   error.stack = "known stack\n" + "frame\n".repeat(2048);
   const [, entry] = capture({
     level: "error",
-    message: ["Details: ", Array.from({ length: 5000 }, () => 1), ""],
+    message: [
+      "Details: ",
+      Array.from({ length: 5000 }, () => 1),
+      " for ",
+      "catalog.loaded",
+      "",
+    ],
     properties: { error },
   });
   assert.equal(entry.level, "error");
   assert.equal(entry.category, "app.catalog");
-  assert.match(String(entry.message), /^Details: \[/);
+  assert.equal(entry.message, "Details: [unserializable] for catalog.loaded");
   assert.deepEqual(entry.error, {
     name: "Error",
     message: "Failure",
     stack: error.stack,
   });
+});
+
+test("getWorkersConsoleSink() keeps scalar fields after truncating a nested value", () => {
+  const details: unknown[] = [];
+  for (let i = 0; i < 1024; i++) details.push(details);
+
+  const [, entry] = capture({
+    properties: {
+      details,
+      event: "catalog.loaded",
+      count: 3,
+      extra: { nested: true },
+    },
+  });
+
+  assert.equal(entry.event, "catalog.loaded");
+  assert.equal(entry.count, 3);
+  assert.equal(entry.details, "[unserializable]");
+  assert.equal(entry.extra, "[unserializable]");
 });
 
 function capture(

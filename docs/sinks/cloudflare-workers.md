@@ -43,9 +43,10 @@ original LogTape timestamp.
 
 Use plain objects, arrays, or primitive values for custom fields. Convert
 objects such as `URL` and `Headers` to strings or plain data before logging
-them. Unsupported values can appear as `[unserializable]`. Very large
-records can lose some custom fields; the sink still writes the message,
-level, category, and any stack on the explicit `error` property.
+them. Unsupported values can appear as `[unserializable]`. The sink also
+uses this placeholder for objects and arrays it cannot finish processing within
+its traversal limit. Reaching the limit does not drop top-level scalar
+fields or the stack on the explicit `error` property.
 
 
 Enable Workers Logs and Workers Issues

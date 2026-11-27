@@ -56,10 +56,8 @@ function formatError(error: Error, state: Budget, depth: number): Entry {
   return entry;
 }
 
-function normalize(value: unknown, state: Budget, depth: number): Value {
-  if (state.remaining <= 0) return unavailable;
-  state.remaining--;
-  if (depth > maxDepth) return unavailable;
+// Objects need traversal; all other values can be handled without a budget.
+function normalizeScalar(value: unknown): Value {
   if (value === null) return null;
   switch (typeof value) {
     case "boolean":
@@ -69,11 +67,17 @@ function normalize(value: unknown, state: Budget, depth: number): Value {
       return Number.isFinite(value) ? value : null;
     case "bigint":
       return String(value);
-    case "object":
-      break;
     default:
       return unavailable;
   }
+}
+
+function normalize(value: unknown, state: Budget, depth: number): Value {
+  if (state.remaining <= 0) return unavailable;
+  state.remaining--;
+  if (depth > maxDepth) return unavailable;
+  if (value === null || typeof value !== "object")
+    return normalizeScalar(value);
   if (state.ancestors.has(value)) return unavailable;
   state.ancestors.add(value);
   try {
@@ -86,7 +90,8 @@ function normalize(value: unknown, state: Budget, depth: number): Value {
       )?.value;
       if (typeof length !== "number") return unavailable;
       const result: Value[] = [];
-      for (let i = 0; i < length && state.remaining > 0; i++) {
+      for (let i = 0; i < length; i++) {
+        if (state.remaining <= 0) return unavailable;
         const item = Object.getOwnPropertyDescriptor(value, String(i));
         result.push(
           normalize(item == null ? null : item.value, state, depth + 1),
@@ -99,7 +104,7 @@ function normalize(value: unknown, state: Budget, depth: number): Value {
       return unavailable;
     const entry: Entry = {};
     for (const key of Object.keys(value)) {
-      if (state.remaining <= 0) break;
+      if (state.remaining <= 0) return unavailable;
       const property = Object.getOwnPropertyDescriptor(value, key);
       if (property != null) {
         set(entry, key, normalize(property.value, state, depth + 1));
@@ -113,6 +118,12 @@ function normalize(value: unknown, state: Budget, depth: number): Value {
   }
 }
 
+function normalizeTopLevel(value: unknown, state: Budget): Value {
+  return value !== null && typeof value === "object"
+    ? normalize(value, state, 0)
+    : normalizeScalar(value);
+}
+
 export function formatEntry(record: LogRecord, level: string): Entry {
   const state = budget();
   let message = "";
@@ -122,7 +133,7 @@ export function formatEntry(record: LogRecord, level: string): Entry {
     } else if (typeof part === "number" && !Number.isFinite(part)) {
       message += String(part);
     } else {
-      message += render(normalize(part, state, 0));
+      message += render(normalizeTopLevel(part, state));
     }
   }
   const entry: Entry = { level, message, category: record.category.join(".") };
@@ -146,7 +157,6 @@ export function formatEntry(record: LogRecord, level: string): Entry {
   }
   try {
     for (const key of Object.keys(record.properties)) {
-      if (state.remaining <= 0) break;
       if (
         key === "level" ||
         key === "message" ||
@@ -160,9 +170,9 @@ export function formatEntry(record: LogRecord, level: string): Entry {
           key,
         );
         if (property != null)
-          set(entry, key, normalize(property.value, state, 0));
+          set(entry, key, normalizeTopLevel(property.value, state));
       } catch {
-        set(entry, key, normalize(undefined, state, 0));
+        set(entry, key, unavailable);
       }
     }
   } catch {
