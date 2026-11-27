@@ -52,7 +52,7 @@ test("createTest(): reports logs from failed tests", async () => {
     });
   `);
 
-  assert.notStrictEqual(result.code, 0);
+  assert.notStrictEqual(result.code, 0, result.diagnostics);
   assert.match(result.output, /reported:Before failure\./);
 });
 
@@ -172,7 +172,7 @@ test("createTest(): reports asynchronous rejected failures", async () => {
     });
   `);
 
-  assert.notStrictEqual(result.code, 0);
+  assert.notStrictEqual(result.code, 0, result.diagnostics);
   assert.match(result.output, /reported:Async diagnostic\./);
 });
 
@@ -630,6 +630,18 @@ test("createTest(): exposes Vitest test helpers", async () => {
   assertSuccess(result);
 });
 
+test("runPnpm(): preserves a launch error", async () => {
+  const directory = await mkdtemp(join(packageRoot, ".tmp-test-"));
+  try {
+    const result = await runPnpm(["--version"], join(directory, "missing"), {});
+    assert.strictEqual(result.code, null);
+    assert.ok(isExecError(result.error));
+    assert.strictEqual(result.error.code, "ENOENT");
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 // Helpers
 
 async function runVitestTest(
@@ -638,6 +650,7 @@ async function runVitestTest(
 ): Promise<{
   readonly code: number;
   readonly output: string;
+  readonly diagnostics: string;
 }> {
   const directory = await mkdtemp(join(packageRoot, ".tmp-test-"));
   try {
@@ -666,22 +679,43 @@ async function runVitestTest(
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
     }
+    const diagnostics = [
+      `pnpm ${output.status} after ${output.elapsedMs.toFixed(1)} ms`,
+      `stdout:\n${output.stdout}`,
+      `stderr:\n${output.stderr}`,
+      `fixture report:\n${reportOutput}`,
+    ].join("\n");
+    if (output.code == null) {
+      throw new Error(diagnostics, { cause: output.error });
+    }
     return {
       code: output.code,
       output: reportOutput + output.stdout + output.stderr,
+      diagnostics,
     };
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
 }
 
+type PnpmResult =
+  & {
+    readonly status: string;
+    readonly elapsedMs: number;
+    readonly stdout: string;
+    readonly stderr: string;
+  }
+  & ({ readonly code: number } | {
+    readonly code: null;
+    readonly error: unknown;
+  });
+
 async function runPnpm(
   args: readonly string[],
   cwd: string,
   env: Readonly<Record<string, string>> = {},
-): Promise<
-  { readonly code: number; readonly stdout: string; readonly stderr: string }
-> {
+): Promise<PnpmResult> {
+  const startedAt = performance.now();
   try {
     const { stdout, stderr } = await execFileAsync("pnpm", [...args], {
       cwd,
@@ -691,35 +725,53 @@ async function runPnpm(
         ...env,
       },
     });
-    return { code: 0, stdout, stderr };
+    return {
+      code: 0,
+      status: "exited with code 0",
+      elapsedMs: performance.now() - startedAt,
+      stdout,
+      stderr,
+    };
   } catch (error) {
-    if (isExecError(error)) {
-      return {
-        code: typeof error.code === "number" ? error.code : 1,
-        stdout: error.stdout ?? "",
-        stderr: error.stderr ?? "",
-      };
+    const failure = isExecError(error) ? error : {};
+    const { code, signal, killed } = failure;
+    const details = {
+      elapsedMs: performance.now() - startedAt,
+      stdout: failure.stdout ?? "",
+      stderr: failure.stderr ?? "",
+    };
+    if (typeof code === "number" && code !== 0 && signal == null && !killed) {
+      return { ...details, code, status: `exited with code ${code}` };
     }
-    throw error;
+    return {
+      ...details,
+      code: null,
+      status: `failed (code ${code ?? "none"}, signal ${signal ?? "none"}, ` +
+        `killed ${killed ?? "unknown"})`,
+      error,
+    };
   }
 }
 
 function assertSuccess(result: {
   readonly code: number;
-  readonly output: string;
+  readonly diagnostics: string;
 }): void {
-  assert.strictEqual(result.code, 0, result.output);
+  assert.strictEqual(result.code, 0, result.diagnostics);
 }
 
 function isExecError(
   error: unknown,
 ): error is {
-  readonly code?: unknown;
+  readonly code?: number | string | null;
+  readonly signal?: string | null;
+  readonly killed?: boolean;
   readonly stdout?: string;
   readonly stderr?: string;
 } {
   return typeof error === "object" && error != null &&
-    ("stdout" in error || "stderr" in error);
+    ("code" in error || "signal" in error || "stdout" in error ||
+      "stderr" in error);
 }
 
 function isNotFoundError(error: unknown): boolean {
