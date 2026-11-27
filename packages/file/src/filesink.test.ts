@@ -43,6 +43,83 @@ function makeNodeRotatingFileDriver(): RotatingFileSinkDriver<number> {
   };
 }
 
+test("permission-aware rotating sink stops after a failed reopen", () => {
+  const { driver, handles, closedFileCalls } = makeRecoverableRotatingDriver();
+  const failure = new Error("Cannot verify file mode");
+  let opened = false;
+  using sink = getBaseRotatingFileSink(
+    "memory.log",
+    {
+      ...driver,
+      maxFiles: 1,
+      maxSize: 1,
+      bufferSize: 0,
+      formatter: () => "AB",
+      statSync() {
+        assert.fail("the verified opener provides the size");
+      },
+    },
+    {
+      openSync(path) {
+        if (opened) throw failure;
+        opened = true;
+        return { file: driver.openSync(path), size: 0 };
+      },
+    },
+  );
+  assert.throws(
+    () => sink(info),
+    (error) => error === failure,
+  );
+  assert.doesNotThrow(() => sink(info));
+  sink[Symbol.dispose]();
+  assert.strictEqual(handles.length, 1);
+  assert.strictEqual(handles[0].closed, true);
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
+test("permission-aware rotating sink finishes both batches on reentrant dispose", () => {
+  const { driver, files, handles, closedFileCalls } =
+    makeRecoverableRotatingDriver();
+  const calls: string[] = [];
+  const textEncoder = new TextEncoder();
+  const encoder: TextEncoder = {
+    encoding: "utf-8",
+    encodeInto: textEncoder.encodeInto.bind(textEncoder),
+    encode(text = "") {
+      calls.push(text);
+      if (text === "first") {
+        sink(warning);
+        sink[Symbol.dispose]();
+        sink(debug);
+      }
+      return textEncoder.encode(text);
+    },
+  };
+  const sink: Sink & Disposable = getBaseRotatingFileSink(
+    "memory.log",
+    {
+      ...driver,
+      bufferSize: 0,
+      flushInterval: 0,
+      formatter: (record) => (record === info ? "first" : "second"),
+      encoder,
+    },
+    {
+      openSync(path) {
+        return { file: driver.openSync(path), size: 0 };
+      },
+    },
+  );
+  sink(info);
+  sink[Symbol.dispose]();
+  assert.deepStrictEqual(calls, ["first", "second"]);
+  assert.strictEqual(files.get("memory.log")?.text, "firstsecond");
+  assert.strictEqual(handles.length, 1);
+  assert.strictEqual(handles[0].closed, true);
+  assert.deepStrictEqual(closedFileCalls, []);
+});
+
 interface MemoryFile {
   readonly chunks: Uint8Array[];
   closed: boolean;

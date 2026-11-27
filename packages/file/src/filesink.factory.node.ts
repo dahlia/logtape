@@ -1,7 +1,9 @@
 import type { Sink } from "@logtape/logtape";
 import fs from "node:fs";
 import { join } from "node:path";
+import process from "node:process";
 import { promisify } from "node:util";
+import { parseFileMode, type RotatingFileOpener } from "./file-mode.ts";
 import type {
   AsyncRotatingFileSinkDriver,
   FileSinkOptions,
@@ -154,10 +156,77 @@ export function createFileSinks({
     path: string,
     options: RotatingFileSinkOptions = {},
   ): Sink & (Disposable | AsyncDisposable) {
-    if (options.nonBlocking) {
-      return getBaseRotatingFileSink(path, { ...options, ...nodeAsyncDriver });
+    const mode = parseFileMode(options.fileMode, options.fileModePolicy);
+    let opener: RotatingFileOpener<number> | undefined;
+    if (mode != null) {
+      if (process.platform === "win32") {
+        throw new Error("Rotating file permission policies require POSIX.");
+      }
+      if (mode.policy === "create") {
+        opener = {
+          openSync: (path) => ({ file: fs.openSync(path, "a", mode.mode) }),
+        };
+      } else {
+        const constants = fs.constants;
+        const nodeOrBun =
+          !("Deno" in globalThis) &&
+          (("Bun" in globalThis && process.versions.bun != null) ||
+            (process.release.name === "node" && process.versions.node != null));
+        if (
+          !nodeOrBun ||
+          (process.platform !== "darwin" && process.platform !== "linux") ||
+          !constants.O_NOFOLLOW ||
+          !constants.O_NONBLOCK ||
+          typeof fs.fchmodSync !== "function" ||
+          typeof fs.fstatSync !== "function"
+        ) {
+          throw new Error(
+            'The "enforce" file mode policy requires Node.js or Bun on macOS or Linux.',
+          );
+        }
+        const flags =
+          constants.O_WRONLY |
+          constants.O_APPEND |
+          constants.O_CREAT |
+          constants.O_NOFOLLOW |
+          constants.O_NONBLOCK;
+        opener = {
+          openSync(path) {
+            const file = fs.openSync(path, flags, mode.mode);
+            try {
+              let stat = fs.fstatSync(file);
+              if (!stat.isFile())
+                throw new Error("The log must be a regular file.");
+              if ((stat.mode & 0o7777) !== mode.mode) {
+                fs.fchmodSync(file, mode.mode);
+                stat = fs.fstatSync(file);
+                if ((stat.mode & 0o7777) !== mode.mode) {
+                  throw new Error(
+                    "Could not verify the requested log file mode.",
+                  );
+                }
+              }
+              return { file, size: stat.size };
+            } catch (error) {
+              try {
+                fs.closeSync(file);
+              } catch {
+                // Keep the original file validation error.
+              }
+              throw error;
+            }
+          },
+        };
+      }
     }
-    return getBaseRotatingFileSink(path, { ...options, ...nodeDriver });
+    if (options.nonBlocking) {
+      return getBaseRotatingFileSink(
+        path,
+        { ...options, ...nodeAsyncDriver },
+        opener,
+      );
+    }
+    return getBaseRotatingFileSink(path, { ...options, ...nodeDriver }, opener);
   }
 
   /**

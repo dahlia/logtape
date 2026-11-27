@@ -64,6 +64,10 @@ run = "pnpm run -r test"
 description = "Run the test suite using Bun"
 run = "pnpm run -r test:bun"
 
+[tasks."test:file-packages"]
+description = "Smoke-test local file sink package entry points for one runtime"
+run = "node scripts/test-file-packages.mjs"
+
 [tasks.test]
 description = "Run quality checks and the Node.js test suite"
 depends = ["check"]
