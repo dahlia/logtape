@@ -83,7 +83,7 @@ jobs:
       with: *mise_options
     - run: mise exec deno@2 -- deno task test --coverage=.cov/deno --junit-path=.test-report.xml
     - run: mise run build
-    - run: mise exec deno@2 -- mise run test:file-packages deno
+    - run: mise exec deno@2 -- node scripts/test-file-packages.mjs deno
     - uses: EnricoMi/publish-unit-test-result-action@v2
       if: runner.os == 'Linux' && always()
       with:
