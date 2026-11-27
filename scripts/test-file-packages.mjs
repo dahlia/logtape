@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const runtime = process.argv[2];
 assert.ok(runtime === "node" || runtime === "bun" || runtime === "deno");
 const root = fileURLToPath(new URL("..", import.meta.url));
-const work = fs.realpathSync(
+const work = fs.realpathSync.native(
   fs.mkdtempSync(join(tmpdir(), "logtape-file-packages-")),
 );
 const windows = process.platform === "win32";
@@ -54,7 +54,7 @@ function smoke(cwd, program, preamble) {
         ? [
             "run",
             "--no-prompt",
-            `--allow-read=${logs}`,
+            `--allow-read=${cwd},${logs}`,
             `--allow-write=${logs}`,
             path,
             logs,
