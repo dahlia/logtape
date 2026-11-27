@@ -230,6 +230,47 @@ active file on rotation without keeping backups.
 > On Deno, you need to have the `--allow-write` flag and the `--unstable-fs`
 > flag to use the rotating file sink.
 
+### File permissions
+
+*These options are available since LogTape 2.5.0.*
+
+Use `~RotatingFileSinkOptions.fileMode` to set the POSIX creation mode for new
+active log files, including files created after rotation. The process umask
+still applies, and existing files keep their permissions.
+
+~~~~ typescript
+import { getRotatingFileSink } from "@logtape/file";
+
+const sink = getRotatingFileSink("app.log", { fileMode: 0o600 });
+~~~~
+
+To also set the permissions of an existing active log, opt in to
+`~RotatingFileSinkOptions.fileModePolicy` with `"enforce"`:
+
+~~~~ typescript
+const sink = getRotatingFileSink("app.log", {
+  fileMode: 0o600,
+  fileModePolicy: "enforce",
+});
+~~~~
+
+The sink sets and verifies the exact mode on the opened file before writing.
+This can restore bits removed by the umask and clears any existing special
+permission bits. Use a trusted directory: the sink requires a regular file and
+rejects symbolic links in the final path component, but does not protect
+against changes to parent directories, hard links, or access control lists.
+It does not change the permissions of past backups.
+
+The `"enforce"` policy requires Node.js or Bun on macOS or Linux. Deno only
+supports `"create"`. Windows rejects either policy when specified. Omitting
+both options preserves the existing behavior on all platforms.
+
+The sink does not write to a file if it cannot verify its requested mode.
+A failed check can leave an empty file behind. If a rotation failure leaves
+the sink without an active file, create a new sink after correcting the
+problem. The `nonBlocking` option does not make opening a file or checking
+permissions asynchronous.
+
 ### Custom rotated file paths
 
 *This option is available since LogTape 2.4.0.*

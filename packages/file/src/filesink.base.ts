@@ -6,6 +6,7 @@ import {
   type StreamSinkOptions,
 } from "@logtape/logtape";
 import { asyncDisposeSymbol, disposeSymbol } from "./disposable.ts";
+import type { RotatingFileOpener } from "./file-mode.ts";
 import { markSinkAsImmediate } from "./snapshot.ts";
 
 function isMetaLoggerRecord(record: LogRecord): boolean {
@@ -668,6 +669,32 @@ export function getBaseFileSink<TFile>(
  */
 export interface RotatingFileSinkOptions extends Omit<FileSinkOptions, "lazy"> {
   /**
+   * A POSIX permission mode, an integer from `0o000` to `0o777`.
+   * With the default `"create"` policy, it applies only to newly created
+   * files and is subject to the process umask. Omit both permission options
+   * to retain the default file-opening behavior.
+   *
+   * @since 2.5.0
+   */
+  fileMode?: number;
+
+  /**
+   * How to apply {@link fileMode}. `"create"` only sets the creation mode;
+   * `"enforce"` sets and verifies the exact mode whenever the active file
+   * is opened, including after rotation. It can restore bits removed by
+   * the umask. `"enforce"` requires a regular file whose final path
+   * component is not a symbolic link.
+   *
+   * `"enforce"` is supported on Node.js and Bun on macOS and Linux.
+   * Deno supports only `"create"`. Neither policy is supported on Windows.
+   * Specifying a policy without a mode or using an unsupported policy throws
+   * when creating the sink.
+   *
+   * @since 2.5.0
+   */
+  fileModePolicy?: "create" | "enforce";
+
+  /**
    * The maximum bytes of the file before it is rotated.  1 MiB by default.
    */
   maxSize?: number;
@@ -776,15 +803,18 @@ export interface AsyncRotatingFileSinkDriver<
 export function getBaseRotatingFileSink<TFile>(
   path: string,
   options: RotatingFileSinkOptions & RotatingFileSinkDriver<TFile>,
+  opener?: RotatingFileOpener<TFile>,
 ): Sink & Disposable;
 export function getBaseRotatingFileSink<TFile>(
   path: string,
   options: RotatingFileSinkOptions & AsyncRotatingFileSinkDriver<TFile>,
+  opener?: RotatingFileOpener<TFile>,
 ): Sink & AsyncDisposable;
 export function getBaseRotatingFileSink<TFile>(
   path: string,
   options: RotatingFileSinkOptions &
     (RotatingFileSinkDriver<TFile> | AsyncRotatingFileSinkDriver<TFile>),
+  opener?: RotatingFileOpener<TFile>,
 ): Sink & (Disposable | AsyncDisposable) {
   const formatter = options.formatter ?? defaultTextFormatter;
   const encoder = options.encoder ?? new TextEncoder();
@@ -824,15 +854,30 @@ export function getBaseRotatingFileSink<TFile>(
   const noFile = Symbol();
   let offset = 0;
   let needsSize = false;
-  try {
-    offset = options.statSync(path).size;
-  } catch {
-    // Preserve the initial fallback for a file that may not exist yet.
+
+  function openFile(initial: boolean): TFile {
+    const opened = opener?.openSync(path);
+    if (opened?.size !== undefined) {
+      offset = opened.size;
+      needsSize = false;
+      return opened.file;
+    }
+    if (initial) {
+      try {
+        offset = options.statSync(path).size;
+      } catch {
+        // Preserve the initial fallback for a file that may not exist yet.
+      }
+    } else {
+      needsSize = true;
+    }
+    return opened === undefined ? options.openSync(path) : opened.file;
   }
-  let fd: TFile | typeof noFile = options.openSync(path);
+  let fd: TFile | typeof noFile = openFile(true);
   let nextBackup = 0;
   let lastFlushTimestamp: number = Date.now();
   let buffer: string = "";
+  let stopped = false;
 
   function detachFile(): TFile | typeof noFile {
     const file = fd;
@@ -841,8 +886,7 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   function reopenFile(): TFile {
-    needsSize = true;
-    return (fd = options.openSync(path));
+    return (fd = openFile(false));
   }
 
   function refreshSize(): void {
@@ -873,7 +917,20 @@ export function getBaseRotatingFileSink<TFile>(
         // The no-backup mode requires unlink support at initialization.
         unlink!.call(options, path);
       } catch (error) {
-        if (!isMissingFile(error)) throw error;
+        if (!isMissingFile(error)) {
+          if (opener != null) {
+            try {
+              reopenFile();
+              if (needsSize) refreshSize();
+            } catch (reopenError) {
+              throw new AggregateError(
+                [error, reopenError],
+                "Could not delete or reopen the active log file.",
+              );
+            }
+          }
+          throw error;
+        }
       }
       return reopenFile();
     }
@@ -897,25 +954,36 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   function fileForWrite(bytes: Uint8Array): TFile {
-    let file = fd === noFile ? reopenFile() : fd;
-    const recovering = needsSize;
-    if (needsSize) refreshSize();
-    // Do not immediately rotate an empty file opened during error recovery.
-    if ((!recovering || offset !== 0) && offset + bytes.length > maxSize) {
-      file = performRollover(file);
-      refreshSize();
+    try {
+      const recovering = fd === noFile || needsSize;
+      let file = fd === noFile ? reopenFile() : fd;
+      if (needsSize) refreshSize();
+      // Do not immediately rotate an empty file opened during error recovery.
+      if ((!recovering || offset !== 0) && offset + bytes.length > maxSize) {
+        file = performRollover(file);
+        if (needsSize) refreshSize();
+      }
+      return file;
+    } catch (error) {
+      if (opener != null && fd === noFile) {
+        stopped = true;
+        buffer = "";
+      }
+      throw error;
     }
-    return file;
   }
 
   let disposed = false;
   if (!options.nonBlocking) {
+    let flushing = false;
     // Blocking mode implementation
     /* oxlint-disable-next-line eslint/no-inner-declarations */ // deno-lint-ignore no-inner-declarations
-    function flushBuffer(): void {
+    function writeBuffer(): void {
       if (buffer.length > 0) {
-        const bytes = encoder.encode(buffer);
-        buffer = "";
+        const data = buffer;
+        if (opener != null) buffer = "";
+        const bytes = encoder.encode(data);
+        if (opener == null) buffer = "";
         const file = fileForWrite(bytes);
         options.writeSync(file, bytes);
         options.flushSync(file);
@@ -924,10 +992,31 @@ export function getBaseRotatingFileSink<TFile>(
       }
     }
 
+    /* oxlint-disable-next-line eslint/no-inner-declarations */ // deno-lint-ignore no-inner-declarations
+    function flushBuffer(): void {
+      if (opener == null) {
+        writeBuffer();
+        return;
+      }
+      if (flushing || stopped) return;
+      flushing = true;
+      let failure: { error: unknown } | undefined;
+      try {
+        writeBuffer();
+        if (disposed && !stopped) writeBuffer();
+      } catch (error) {
+        failure = { error };
+      } finally {
+        flushing = false;
+      }
+      if (disposed) finish(failure);
+      else if (failure != null) throw failure.error;
+    }
+
     const sink: Sink & Disposable = (record: LogRecord) => {
-      if (disposed) return;
+      if (disposed || stopped) return;
       const formatted = formatter(record);
-      if (disposed) return;
+      if (disposed || stopped) return;
       buffer += formatted;
 
       const shouldFlushBySize = buffer.length >= bufferSize;
@@ -942,12 +1031,21 @@ export function getBaseRotatingFileSink<TFile>(
     sink[disposeSymbol] = () => {
       if (disposed) return;
       disposed = true;
+      if (opener != null && !stopped) {
+        if (!flushing) flushBuffer();
+        return;
+      }
       let failure: { error: unknown } | undefined;
       try {
         flushBuffer();
       } catch (error) {
         failure = { error };
       }
+      finish(failure);
+    };
+    /* oxlint-disable-next-line eslint/no-inner-declarations */ // deno-lint-ignore no-inner-declarations
+    function finish(failure?: { error: unknown }): void {
+      buffer = "";
       const file = detachFile();
       if (file !== noFile) {
         try {
@@ -958,13 +1056,14 @@ export function getBaseRotatingFileSink<TFile>(
         }
       }
       if (failure != null) throw failure.error;
-    };
+    }
     return markSinkAsImmediate(sink);
   }
 
   // Non-blocking mode implementation
   const asyncOptions = options as AsyncRotatingFileSinkDriver<TFile>;
   let activeFlush: Promise<void> | null = null;
+  let startingFlush = false;
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let bufferedNonMetaRecord = false;
 
@@ -994,6 +1093,11 @@ export function getBaseRotatingFileSink<TFile>(
       offset += bytes.length;
       lastFlushTimestamp = Date.now();
     } catch (error) {
+      if (stopped) {
+        bufferedNonMetaRecord = false;
+        if (flushTimer !== null) clearInterval(flushTimer);
+        flushTimer = null;
+      }
       if (!suppressErrorReport) {
         // Publish activeFlush before a warning can start a nested flush.
         await Promise.resolve();
@@ -1003,16 +1107,19 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   function scheduleFlush(): void {
-    if (activeFlush || disposed) return;
+    if (activeFlush || startingFlush || disposed || stopped) return;
 
+    // An encoder may re-enter synchronously before flushBuffer() yields.
+    startingFlush = opener != null;
     activeFlush = flushBuffer().finally(() => {
       activeFlush = null;
       if (!disposed && buffer.length > 0) scheduleFlush();
     });
+    startingFlush = false;
   }
 
   function startFlushTimer(): void {
-    if (flushTimer !== null || disposed) return;
+    if (flushTimer !== null || disposed || stopped) return;
 
     flushTimer = setInterval(() => {
       scheduleFlush();
@@ -1020,8 +1127,10 @@ export function getBaseRotatingFileSink<TFile>(
   }
 
   const nonBlockingSink: Sink & AsyncDisposable = (record: LogRecord) => {
-    if (disposed) return;
-    buffer += formatter(record);
+    if (disposed || stopped) return;
+    const formatted = formatter(record);
+    if (opener != null && (disposed || stopped)) return;
+    buffer += formatted;
     bufferedNonMetaRecord ||= !isMetaLoggerRecord(record);
 
     const shouldFlushBySize = buffer.length >= bufferSize;
@@ -1049,7 +1158,7 @@ export function getBaseRotatingFileSink<TFile>(
 
   async function disposeFile(): Promise<void> {
     if (activeFlush !== null) await activeFlush;
-    await flushBuffer();
+    if (!stopped) await flushBuffer();
     const file = detachFile();
     if (file === noFile) return;
     try {

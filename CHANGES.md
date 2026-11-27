@@ -18,6 +18,15 @@ To be released.
 [#267]: https://github.com/dahlia/logtape/issues/267
 [#273]: https://github.com/dahlia/logtape/pull/273
 
+### @logtape/file
+
+ -  Added `fileMode` and `fileModePolicy` to `getRotatingFileSink()`.  Set a
+    POSIX creation mode for new logs, or opt in to enforcing an exact mode on
+    existing and newly opened logs.  [[#277], [#280]]
+
+[#277]: https://github.com/dahlia/logtape/issues/277
+[#280]: https://github.com/dahlia/logtape/pull/280
+
 ### @logtape/lint
 
  -  Added the opt-in `no-quoted-placeholder` lint rule to flag quotes around

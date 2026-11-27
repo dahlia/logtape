@@ -1,4 +1,5 @@
 import type { Sink } from "@logtape/logtape";
+import { parseFileMode, type RotatingFileOpener } from "./file-mode.ts";
 import type {
   AsyncRotatingFileSinkDriver,
   FileSinkOptions,
@@ -166,10 +167,35 @@ export function createFileSinks({
     path: string,
     options: RotatingFileSinkOptions = {},
   ): Sink & (Disposable | AsyncDisposable) {
-    if (options.nonBlocking) {
-      return getBaseRotatingFileSink(path, { ...options, ...denoAsyncDriver });
+    const mode = parseFileMode(options.fileMode, options.fileModePolicy);
+    let opener: RotatingFileOpener<Deno.FsFile> | undefined;
+    if (mode != null) {
+      if (Deno.build.os === "windows") {
+        throw new Error("Rotating file permission policies require POSIX.");
+      }
+      if (mode.policy === "enforce") {
+        throw new Error(
+          'Deno does not support the "enforce" file mode policy.',
+        );
+      }
+      opener = {
+        openSync: (path) => ({
+          file: Deno.openSync(path, {
+            create: true,
+            append: true,
+            mode: mode.mode,
+          }),
+        }),
+      };
     }
-    return getBaseRotatingFileSink(path, { ...options, ...denoDriver });
+    if (options.nonBlocking) {
+      return getBaseRotatingFileSink(
+        path,
+        { ...options, ...denoAsyncDriver },
+        opener,
+      );
+    }
+    return getBaseRotatingFileSink(path, { ...options, ...denoDriver }, opener);
   }
 
   /**
