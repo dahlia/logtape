@@ -23,6 +23,7 @@ packages:
 - packages/testing-node
 - packages/testing-vitest
 - packages/cloudwatch-logs
+- packages/cloudflare-workers
 - packages/config
 - packages/windows-eventlog
 - docs
