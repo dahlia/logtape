@@ -28,6 +28,12 @@ const cases: readonly TemplateCase[] = [
   { name: "escaped braces", template: "{{a}}", keys: ["a"], unused: ["a"] },
   { name: "unterminated brace", template: "{a", keys: ["a"], unused: ["a"] },
   {
+    name: "unterminated braces after a complete slot",
+    template: "{a} {b {c",
+    keys: ["c", "a", "b"],
+    unused: ["c", "b"],
+  },
+  {
     name: "opening brace in key",
     template: "{a{b}",
     keys: ["a{b", "b"],
