@@ -1,5 +1,6 @@
 /**
- * Deno Lint plugin providing all LogTape lint rules, including opt-in rules.
+ * Deno Lint plugin enabling the recommended rules, `no-dynamic-message`,
+ * and `no-unrendered-properties`.
  *
  * Use this entry point instead of `@logtape/lint/deno` when enabling
  * `logtape/no-dynamic-message` or `logtape/no-unrendered-properties`.

@@ -2,7 +2,13 @@
 // configured.  They only run under Deno.
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  quotedPlaceholderLines,
+  quotedPlaceholderSource,
+} from "../quoted-placeholder.fixture.ts";
 import defaultPlugin, { strictPlugin } from "./plugin.ts";
+import quotedPlugin from "./quoted-placeholder-plugin.ts";
+import strictQuotedPlugin from "./strict-quoted-placeholder-plugin.ts";
 
 const isDenoRuntime = typeof Deno !== "undefined";
 
@@ -10,6 +16,7 @@ interface Diagnostic {
   code: string;
   message: string;
   filename: string;
+  range: { start: { line: number; col: number } };
 }
 
 interface LintOutput {
@@ -22,7 +29,7 @@ async function lintWithPlugin(
   sourceCode: string,
   includeRules?: string[],
   options: {
-    readonly entryPoint?: "default" | "strict";
+    readonly entryPoint?: "default" | "strict" | "quoted" | "strictQuoted";
     readonly exclude?: readonly string[];
   } = {},
 ): Promise<Diagnostic[]> {
@@ -41,23 +48,29 @@ async function lintWithPlugin(
               rule === "logtape/no-dynamic-message" ||
               rule === "logtape/no-unrendered-properties",
           );
-    const pluginFile = strict ? "./strict-plugin.ts" : "./plugin.ts";
+    const [pluginFile, plugin] =
+      options.entryPoint === "quoted"
+        ? (["./quoted-placeholder-plugin.ts", quotedPlugin] as const)
+        : options.entryPoint === "strictQuoted"
+          ? ([
+              "./strict-quoted-placeholder-plugin.ts",
+              strictQuotedPlugin,
+            ] as const)
+          : strict
+            ? (["./strict-plugin.ts", strictPlugin] as const)
+            : (["./plugin.ts", defaultPlugin] as const);
     // Deno can silently ignore unknown include names.  Prove the selected
     // entry point actually exposes every requested LogTape rule first.
     for (const rule of includeRules ?? []) {
       if (rule.startsWith("logtape/")) {
         assert.ok(
-          Object.hasOwn(
-            (strict ? strictPlugin : defaultPlugin).rules,
-            rule.slice("logtape/".length),
-          ),
+          Object.hasOwn(plugin.rules, rule.slice("logtape/".length)),
           `Unknown LogTape rule for ${pluginFile}: ${rule}`,
         );
       }
     }
     const pluginUrl = new URL(pluginFile, import.meta.url).href;
     const denoJson = {
-      unstable: ["lint"],
       lint: {
         plugins: [pluginUrl],
         rules: { include: includeRules, exclude: options.exclude },
@@ -96,6 +109,49 @@ async function lintWithPlugin(
   }
 }
 
+test("Deno quoted-placeholder entry points only add the new rule", () => {
+  for (const [base, variant] of [
+    [defaultPlugin, quotedPlugin],
+    [strictPlugin, strictQuotedPlugin],
+  ]) {
+    assert.strictEqual(variant.name, base.name);
+    assert.ok(!Object.hasOwn(base.rules, "no-quoted-placeholder"));
+    assert.deepStrictEqual(Object.keys(variant.rules), [
+      ...Object.keys(base.rules),
+      "no-quoted-placeholder",
+    ]);
+    for (const [rule, value] of Object.entries(base.rules)) {
+      assert.strictEqual(variant.rules[rule], value);
+    }
+  }
+});
+
+test("Deno Lint: quoted placeholders", { skip: !isDenoRuntime }, async () => {
+  if (!isDenoRuntime) return;
+  const rule = "logtape/no-quoted-placeholder";
+  const diagnostics = await lintWithPlugin(quotedPlaceholderSource, [rule], {
+    entryPoint: "quoted",
+  });
+  assert.deepStrictEqual(
+    diagnostics.filter((d) => d.code === rule).map((d) => d.range.start.line),
+    quotedPlaceholderLines,
+  );
+  const ignored = await lintWithPlugin(
+    "import { getLogger } from '@logtape/logtape';\n" +
+      "const logger = getLogger('app');\n" +
+      "// deno-lint-ignore logtape/no-quoted-placeholder\n" +
+      "logger.info`User '${name}'`;",
+    [rule],
+    { entryPoint: "quoted" },
+  );
+  assert.ok(!ignored.some((d) => d.code === rule));
+  const disabled = await lintWithPlugin(quotedPlaceholderSource, undefined, {
+    entryPoint: "strictQuoted",
+    exclude: [rule],
+  });
+  assert.ok(!disabled.some((d) => d.code === rule));
+});
+
 // Run `deno lint --fix` with the plugin and return the fixed file contents, so
 // autofix output (not just diagnostics) can be asserted.
 async function lintAndFix(
@@ -111,7 +167,6 @@ async function lintAndFix(
     // does not accept; a file:// URL resolves correctly on every platform.
     const pluginUrl = new URL("./plugin.ts", import.meta.url).href;
     const denoJson = {
-      unstable: ["lint"],
       lint: {
         plugins: [pluginUrl],
         rules: { include: includeRules },

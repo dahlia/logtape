@@ -1,6 +1,6 @@
 /**
  * Shared, host-agnostic AST analysis used by both the ESLint rules
- * (`../rules/`) and the Deno Lint plugin (`../deno/plugin.ts`).
+ * (`../rules/`) and the Deno Lint plugin (`../deno/plugin-impl.ts`).
  *
  * Every function here works on plain ESTree-shaped AST nodes and depends only
  * on `node.type` / `node.parent` style traversal, so the same logic runs under
@@ -20,7 +20,11 @@
 /* oxlint-disable typescript/no-explicit-any */
 // deno-lint-ignore-file no-explicit-any
 
-import { getUnreferencedKeys } from "./message-template.ts";
+import {
+  getUnreferencedKeys,
+  hasQuotedInterpolation,
+  hasQuotedMessageSlot,
+} from "./message-template.ts";
 
 /**
  * Log method names that the LogTape lint rules check.
@@ -186,10 +190,39 @@ function staticMessageText(node: any): string | null {
     node.expressions?.length === 0 &&
     node.quasis?.length === 1
   ) {
-    const cooked = node.quasis[0]?.value?.cooked ?? node.quasis[0]?.cooked;
-    return typeof cooked === "string" ? cooked : null;
+    return cookedText(node.quasis[0]);
   }
   return null;
+}
+
+function cookedText(element: any): string | null {
+  const cooked = element?.value?.cooked ?? element?.cooked;
+  return typeof cooked === "string" ? cooked : null;
+}
+
+/** Diagnostic text shared by the ESLint-compatible and Deno rules. */
+export const quotedPlaceholderMessage =
+  "Avoid quoting a LogTape placeholder; some formatters already quote string values.";
+
+/** Find the message node to report for a recognized LogTape call or tag. */
+export function findQuotedMessage(node: any): any {
+  if (node?.type === "CallExpression") {
+    const message = unwrapTypeAssertion(node.arguments?.[0]);
+    const text = staticMessageText(message);
+    return text !== null && hasQuotedMessageSlot(text) ? message : null;
+  }
+  const message = node?.quasi;
+  if (
+    node?.type !== "TaggedTemplateExpression" ||
+    message?.type !== "TemplateLiteral" ||
+    !Array.isArray(message.expressions) ||
+    !Array.isArray(message.quasis) ||
+    message.quasis.length !== message.expressions.length + 1
+  )
+    return null;
+  return hasQuotedInterpolation(message.quasis.map(cookedText))
+    ? message
+    : null;
 }
 
 /**

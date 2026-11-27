@@ -18,6 +18,15 @@ To be released.
 [#267]: https://github.com/dahlia/logtape/issues/267
 [#273]: https://github.com/dahlia/logtape/pull/273
 
+### @logtape/lint
+
+ -  Added the opt-in `no-quoted-placeholder` lint rule to flag quotes around
+    LogTape placeholders when the formatter may already quote string values.
+    [[#278], [#282]]
+
+[#278]: https://github.com/dahlia/logtape/issues/278
+[#282]: https://github.com/dahlia/logtape/pull/282
+
 ### @logtape/sentry
 
  -  Added the `events` option to `getSentrySink()` in *@logtape/sentry*.  Set

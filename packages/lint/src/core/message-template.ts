@@ -1,5 +1,5 @@
 /**
- * Host-independent analysis of the property names a message may reference.
+ * Host-independent analysis of LogTape message templates.
  * Keep the scan and first-segment parsing aligned with parseMessageTemplate()
  * and parseNextSegment() in the core logger.  Values are never evaluated here.
  * @module
@@ -16,32 +16,65 @@ export function getUnreferencedKeys(
 ): readonly string[] {
   const remaining = new Set(keys);
   const supplied = new Set(keys);
+  for (const [open, close] of messageSlots(template)) {
+    const key = template.slice(open + 1, close);
+    const trimmed = key.trim();
+    if (trimmed === "*") {
+      if (supplied.has(key)) remaining.delete(key);
+      else if (supplied.has("*")) remaining.delete("*");
+      else return [];
+    } else {
+      remaining.delete(key);
+      remaining.delete(trimmed);
+      const root = nestedRoot(trimmed);
+      if (root !== null) remaining.delete(root);
+    }
+  }
+  return [...remaining];
+}
+
+function* messageSlots(
+  template: string,
+): Generator<readonly [open: number, close: number]> {
   for (let i = 0; i < template.length; i++) {
     if (template[i] === "{") {
       if (template[i + 1] === "{") {
         i++;
         continue;
       }
-      const closeIndex = template.indexOf("}", i + 1);
-      if (closeIndex === -1) continue;
-      const key = template.slice(i + 1, closeIndex);
-      const trimmed = key.trim();
-      if (trimmed === "*") {
-        if (supplied.has(key)) remaining.delete(key);
-        else if (supplied.has("*")) remaining.delete("*");
-        else return [];
-      } else {
-        remaining.delete(key);
-        remaining.delete(trimmed);
-        const root = nestedRoot(trimmed);
-        if (root !== null) remaining.delete(root);
-      }
-      i = closeIndex;
+      const close = template.indexOf("}", i + 1);
+      if (close === -1) return;
+      yield [i, close];
+      i = close;
     } else if (template[i] === "}" && template[i + 1] === "}") {
       i++;
     }
   }
-  return [...remaining];
+}
+
+/** Whether one static message slot is immediately enclosed in matching quotes. */
+export function hasQuotedMessageSlot(template: string): boolean {
+  for (const [open, close] of messageSlots(template)) {
+    if (matchingQuotes(template[open - 1], template[close + 1])) return true;
+  }
+  return false;
+}
+
+/** Whether one interpolation has matching quotes in its adjacent text chunks. */
+export function hasQuotedInterpolation(
+  chunks: readonly (string | null)[],
+): boolean {
+  for (let i = 1; i < chunks.length; i++) {
+    if (matchingQuotes(chunks[i - 1]?.at(-1), chunks[i]?.[0])) return true;
+  }
+  return false;
+}
+
+function matchingQuotes(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  return (left === "'" || left === '"') && right === left;
 }
 
 function nestedRoot(path: string): string | null {
